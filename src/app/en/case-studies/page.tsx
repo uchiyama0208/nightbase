@@ -1,5 +1,5 @@
 import { CaseStudyCard } from "@/components/CaseStudyCard";
-import { caseStudies } from "@/lib/content";
+import { caseStudiesEn } from "@/lib/content-en";
 
 export const metadata = {
   title: "Case Studies | NightBase",
@@ -19,8 +19,14 @@ export default function CaseStudiesPageEn() {
       </section>
       <section className="container">
         <div className="grid gap-6 md:grid-cols-3">
-          {caseStudies.map((study) => (
-            <CaseStudyCard key={study.slug} href={`/en/case-studies/${study.slug}`} title={study.title} industry={study.industry} summary={study.summary} />
+          {caseStudiesEn.map((study) => (
+            <CaseStudyCard
+              key={study.slug}
+              href={`/en/case-studies/${study.slug}`}
+              title={study.title}
+              industry={study.industry}
+              summary={study.summary}
+            />
           ))}
         </div>
       </section>

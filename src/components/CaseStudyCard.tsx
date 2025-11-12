@@ -6,9 +6,10 @@ interface CaseStudyCardProps {
   title: string;
   industry: string;
   summary: string;
+  ctaLabel?: string;
 }
 
-export function CaseStudyCard({ href, title, industry, summary }: CaseStudyCardProps) {
+export function CaseStudyCard({ href, title, industry, summary, ctaLabel = "Read more →" }: CaseStudyCardProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -23,7 +24,7 @@ export function CaseStudyCard({ href, title, industry, summary }: CaseStudyCardP
         <p className="mt-4 text-sm text-white/60">{summary}</p>
       </div>
       <Link href={href} className="mt-6 inline-flex items-center text-sm font-semibold text-accent hover:text-accent/80">
-        Read more →
+        {ctaLabel}
       </Link>
     </motion.div>
   );

@@ -1,18 +1,40 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { caseStudies } from "@/lib/content";
+import { caseStudiesEn } from "@/lib/content-en";
+import type { CaseStudy } from "@/lib/content";
 
 interface CaseStudyPageProps {
-  params: { slug: string };
+  params: { slug: CaseStudy["slug"] };
 }
 
 export function generateStaticParams() {
-  return caseStudies.map((study) => ({ slug: study.slug }));
+  return caseStudiesEn.map((study) => ({ slug: study.slug }));
+}
+
+export function generateMetadata({ params }: CaseStudyPageProps): Metadata {
+  const study = caseStudiesEn.find((item) => item.slug === params.slug);
+
+  if (!study) {
+    return {
+      title: "Case Studies | NightBase",
+      description: "See how leading venues transform their operations with NightBase."
+    };
+  }
+
+  return {
+    title: `${study.title} | NightBase Case Study`,
+    description: study.summary,
+    openGraph: {
+      title: `${study.title} | NightBase`,
+      description: study.summary
+    }
+  };
 }
 
 export const dynamicParams = false;
 
 export default function CaseStudyPageEn({ params }: CaseStudyPageProps) {
-  const study = caseStudies.find((item) => item.slug === params.slug);
+  const study = caseStudiesEn.find((item) => item.slug === params.slug);
 
   if (!study) {
     notFound();

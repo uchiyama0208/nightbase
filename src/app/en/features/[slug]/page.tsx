@@ -1,18 +1,40 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { featureDetails } from "@/lib/content";
+import { featureDetailsEn } from "@/lib/content-en";
+import type { FeatureSlug } from "@/lib/content";
 
 interface FeatureDetailPageProps {
-  params: { slug: keyof typeof featureDetails };
+  params: { slug: FeatureSlug };
 }
 
 export function generateStaticParams() {
-  return Object.keys(featureDetails).map((slug) => ({ slug }));
+  return (Object.keys(featureDetailsEn) as FeatureSlug[]).map((slug) => ({ slug }));
+}
+
+export function generateMetadata({ params }: FeatureDetailPageProps): Metadata {
+  const feature = featureDetailsEn[params.slug];
+
+  if (!feature) {
+    return {
+      title: "Feature detail | NightBase",
+      description: "Explore how NightBase powers every part of your venue."
+    };
+  }
+
+  return {
+    title: `${feature.title} | NightBase`,
+    description: feature.description,
+    openGraph: {
+      title: `${feature.title} | NightBase`,
+      description: feature.description
+    }
+  };
 }
 
 export const dynamicParams = false;
 
 export default function FeatureDetailPageEn({ params }: FeatureDetailPageProps) {
-  const feature = featureDetails[params.slug];
+  const feature = featureDetailsEn[params.slug];
 
   if (!feature) {
     notFound();

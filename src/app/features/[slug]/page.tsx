@@ -1,19 +1,36 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { featureDetails } from "@/lib/content";
+import { featureDetails, type FeatureSlug } from "@/lib/content";
 
 interface FeatureDetailPageProps {
-  params: { slug: keyof typeof featureDetails };
+  params: { slug: FeatureSlug };
 }
 
 export function generateStaticParams() {
-  return Object.keys(featureDetails).map((slug) => ({ slug }));
+  return (Object.keys(featureDetails) as FeatureSlug[]).map((slug) => ({ slug }));
+}
+
+export function generateMetadata({ params }: FeatureDetailPageProps): Metadata {
+  const feature = featureDetails[params.slug];
+
+  if (!feature) {
+    return {
+      title: "機能詳細 | NightBase",
+      description: "NightBaseの主要機能をご紹介します。"
+    };
+  }
+
+  return {
+    title: `${feature.title} | NightBase`,
+    description: feature.description,
+    openGraph: {
+      title: `${feature.title} | NightBase`,
+      description: feature.description
+    }
+  };
 }
 
 export const dynamicParams = false;
-
-export const metadata = {
-  title: "機能詳細 | NightBase"
-};
 
 export default function FeatureDetailPage({ params }: FeatureDetailPageProps) {
   const feature = featureDetails[params.slug];

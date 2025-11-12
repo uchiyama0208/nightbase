@@ -1,12 +1,34 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { caseStudies } from "@/lib/content";
+import type { CaseStudy } from "@/lib/content";
 
 interface CaseStudyPageProps {
-  params: { slug: string };
+  params: { slug: CaseStudy["slug"] };
 }
 
 export function generateStaticParams() {
   return caseStudies.map((study) => ({ slug: study.slug }));
+}
+
+export function generateMetadata({ params }: CaseStudyPageProps): Metadata {
+  const study = caseStudies.find((item) => item.slug === params.slug);
+
+  if (!study) {
+    return {
+      title: "導入事例 | NightBase",
+      description: "NightBaseの導入事例をご覧ください。"
+    };
+  }
+
+  return {
+    title: `${study.title} | NightBase 導入事例`,
+    description: study.summary,
+    openGraph: {
+      title: `${study.title} | NightBase`,
+      description: study.summary
+    }
+  };
 }
 
 export const dynamicParams = false;

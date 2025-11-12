@@ -21,7 +21,7 @@ export default function FeaturesPage() {
       <FeaturesSection
         title="データと現場をつなぐプロダクト群"
         subtitle="NightBaseはナイトワークに特化したSaaSとして、最適なUXと業務フローを提供します。"
-        features={featureList as unknown as { title: string; description: string; icon: string }[]}
+        features={featureList}
       />
       <section className="container">
         <div className="glass-card p-8">

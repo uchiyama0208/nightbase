@@ -1,15 +1,10 @@
 import { motion } from "framer-motion";
-
-interface FeatureItem {
-  title: string;
-  description: string;
-  icon: string;
-}
+import type { Feature } from "@/lib/content";
 
 interface FeaturesSectionProps {
   title: string;
   subtitle: string;
-  features: FeatureItem[];
+  features: Feature[];
 }
 
 export function FeaturesSection({ title, subtitle, features }: FeaturesSectionProps) {

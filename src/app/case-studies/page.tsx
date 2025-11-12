@@ -20,7 +20,14 @@ export default function CaseStudiesPage() {
       <section className="container">
         <div className="grid gap-6 md:grid-cols-3">
           {caseStudies.map((study) => (
-            <CaseStudyCard key={study.slug} href={`/case-studies/${study.slug}`} title={study.title} industry={study.industry} summary={study.summary} />
+            <CaseStudyCard
+              key={study.slug}
+              href={`/case-studies/${study.slug}`}
+              title={study.title}
+              industry={study.industry}
+              summary={study.summary}
+              ctaLabel="詳細を見る →"
+            />
           ))}
         </div>
       </section>

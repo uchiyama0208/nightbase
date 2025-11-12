@@ -1,12 +1,34 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { blogPosts } from "@/lib/content";
+import type { BlogPost } from "@/lib/content";
 
 interface BlogPostPageProps {
-  params: { slug: string };
+  params: { slug: BlogPost["slug"] };
 }
 
 export function generateStaticParams() {
   return blogPosts.map((post) => ({ slug: post.slug }));
+}
+
+export function generateMetadata({ params }: BlogPostPageProps): Metadata {
+  const post = blogPosts.find((item) => item.slug === params.slug);
+
+  if (!post) {
+    return {
+      title: "NightBaseブログ",
+      description: "ナイトワークDXに関する最新情報をお届けします。"
+    };
+  }
+
+  return {
+    title: `${post.title} | NightBaseブログ`,
+    description: post.excerpt,
+    openGraph: {
+      title: `${post.title} | NightBase`,
+      description: post.excerpt
+    }
+  };
 }
 
 export const dynamicParams = false;

@@ -1,18 +1,40 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { blogPosts } from "@/lib/content";
+import { blogPostsEn } from "@/lib/content-en";
+import type { BlogPost } from "@/lib/content";
 
 interface BlogPostPageProps {
-  params: { slug: string };
+  params: { slug: BlogPost["slug"] };
 }
 
 export function generateStaticParams() {
-  return blogPosts.map((post) => ({ slug: post.slug }));
+  return blogPostsEn.map((post) => ({ slug: post.slug }));
+}
+
+export function generateMetadata({ params }: BlogPostPageProps): Metadata {
+  const post = blogPostsEn.find((item) => item.slug === params.slug);
+
+  if (!post) {
+    return {
+      title: "NightBase Journal",
+      description: "Insights on nightlife operations and digital transformation."
+    };
+  }
+
+  return {
+    title: `${post.title} | NightBase`,
+    description: post.excerpt,
+    openGraph: {
+      title: `${post.title} | NightBase`,
+      description: post.excerpt
+    }
+  };
 }
 
 export const dynamicParams = false;
 
 export default function BlogPostPageEn({ params }: BlogPostPageProps) {
-  const post = blogPosts.find((item) => item.slug === params.slug);
+  const post = blogPostsEn.find((item) => item.slug === params.slug);
 
   if (!post) {
     notFound();

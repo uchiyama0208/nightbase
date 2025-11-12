@@ -1,20 +1,13 @@
+import Link from "next/link";
 import { motion } from "framer-motion";
-
-interface PricingFeature {
-  name: string;
-  price: string;
-  description: string;
-  highlight: string;
-  features: string[];
-  featured?: boolean;
-}
+import type { PricingPlan } from "@/lib/content";
 
 interface PricingTableProps {
   title: string;
   subtitle: string;
   ctaLabel: string;
   ctaHref: string;
-  plans: PricingFeature[];
+  plans: PricingPlan[];
 }
 
 export function PricingTable({ title, subtitle, ctaHref, ctaLabel, plans }: PricingTableProps) {
@@ -56,7 +49,7 @@ export function PricingTable({ title, subtitle, ctaHref, ctaLabel, plans }: Pric
                 </li>
               ))}
             </ul>
-            <a
+            <Link
               href={ctaHref}
               className={`mt-10 inline-flex items-center justify-center rounded-full border px-6 py-3 text-sm font-semibold transition ${
                 plan.featured
@@ -65,7 +58,7 @@ export function PricingTable({ title, subtitle, ctaHref, ctaLabel, plans }: Pric
               }`}
             >
               {ctaLabel}
-            </a>
+            </Link>
           </motion.div>
         ))}
       </div>

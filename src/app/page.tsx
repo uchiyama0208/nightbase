@@ -41,7 +41,7 @@ export default function HomePage() {
       <FeaturesSection
         title="NightBaseで叶えるオペレーションの未来"
         subtitle="テクノロジーがナイトワークの常識をアップデート。各機能がシームレスに連携し、店舗の価値を最大化します。"
-        features={featureList as unknown as { title: string; description: string; icon: string }[]}
+        features={featureList}
       />
 
       <section className="container">
@@ -126,7 +126,14 @@ export default function HomePage() {
         </div>
         <div className="mt-12 grid gap-6 md:grid-cols-3">
           {caseStudies.map((study) => (
-            <CaseStudyCard key={study.slug} href={`/case-studies/${study.slug}`} title={study.title} industry={study.industry} summary={study.summary} />
+            <CaseStudyCard
+              key={study.slug}
+              href={`/case-studies/${study.slug}`}
+              title={study.title}
+              industry={study.industry}
+              summary={study.summary}
+              ctaLabel="詳細を見る →"
+            />
           ))}
         </div>
       </section>
@@ -134,7 +141,7 @@ export default function HomePage() {
       <PricingTable
         title="料金プラン"
         subtitle="店舗規模やオペレーションに合わせて柔軟に選択。全プランでセキュアなクラウド基盤と専任サポートを提供します。"
-        plans={pricingPlans as unknown as any[]}
+        plans={pricingPlans}
         ctaLabel="無料トライアルを開始"
         ctaHref="/contact"
       />

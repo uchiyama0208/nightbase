@@ -1,4 +1,48 @@
-export const featureList = [
+export type FeatureSlug = "attendance" | "order" | "crm" | "payroll" | "dashboard";
+
+export type Feature = {
+  title: string;
+  description: string;
+  icon: string;
+};
+
+export type FeatureDetail = {
+  title: string;
+  description: string;
+  highlights: string[];
+  metrics: { label: string; value: string }[];
+};
+
+export type CaseStudy = {
+  slug: string;
+  title: string;
+  industry: string;
+  summary: string;
+  body: string;
+};
+
+export type PricingPlan = {
+  name: string;
+  price: string;
+  description: string;
+  highlight: string;
+  features: string[];
+  featured?: boolean;
+};
+
+export type BlogPost = {
+  slug: string;
+  title: string;
+  excerpt: string;
+  date: string;
+};
+
+export type SecurityHighlight = {
+  title: string;
+  description: string;
+};
+
+export const featureList: Feature[] = [
   {
     title: "店舗管理ダッシュボード",
     description: "売上・稼働・在庫を一元管理し、ナイトワーク経営をデータドリブンに。",
@@ -24,16 +68,9 @@ export const featureList = [
     description: "VIP顧客の来店管理から営業リストまで一元化。",
     icon: "🎯"
   }
-] as const;
+];
 
-export type FeatureSlug = "attendance" | "order" | "crm" | "payroll" | "dashboard";
-
-export const featureDetails: Record<FeatureSlug, {
-  title: string;
-  description: string;
-  highlights: string[];
-  metrics: { label: string; value: string }[];
-}> = {
+export const featureDetails: Record<FeatureSlug, FeatureDetail> = {
   dashboard: {
     title: "店舗管理ダッシュボード",
     description:
@@ -111,7 +148,7 @@ export const featureDetails: Record<FeatureSlug, {
   }
 };
 
-export const caseStudies = [
+export const caseStudies: CaseStudy[] = [
   {
     slug: "luxe-lounge",
     title: "Luxe Lounge",
@@ -136,9 +173,9 @@ export const caseStudies = [
     body:
       "CRMとダッシュボードの導入で来店分析とキャンペーン施策が高速化。スタッフの営業効率が向上し、顧客獲得コストも削減されました。"
   }
-] as const;
+];
 
-export const pricingPlans = [
+export const pricingPlans: PricingPlan[] = [
   {
     name: "Starter",
     price: "¥39,800",
@@ -176,9 +213,9 @@ export const pricingPlans = [
       "現地導入支援"
     ]
   }
-] as const;
+];
 
-export const blogPosts = [
+export const blogPosts: BlogPost[] = [
   {
     slug: "nightwork-dx-strategy",
     title: "ナイトワークDX戦略入門",
@@ -197,9 +234,9 @@ export const blogPosts = [
     excerpt: "顧客体験とオペレーションのハイブリッド化が加速。",
     date: "2024-03-30"
   }
-] as const;
+];
 
-export const securityHighlights = [
+export const securityHighlights: SecurityHighlight[] = [
   {
     title: "Supabase + Vercel + Stripe",
     description: "クラウドネイティブな信頼基盤と高速デリバリーを実現。"
@@ -211,5 +248,5 @@ export const securityHighlights = [
   {
     title: "エンドツーエンド暗号化",
     description: "キャストや顧客のセンシティブデータをAES-256で保護。"
-  } 
-] as const;
+  }
+];

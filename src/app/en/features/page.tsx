@@ -21,7 +21,7 @@ export default function FeaturesPageEn() {
       <FeaturesSection
         title="Run your venue end-to-end"
         subtitle="Purpose-built modules for nightlife operators."
-        features={featureListEn as unknown as { title: string; description: string; icon: string }[]}
+        features={featureListEn}
       />
       <section className="container">
         <div className="glass-card p-8">

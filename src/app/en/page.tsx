@@ -2,8 +2,7 @@ import { Hero } from "@/components/Hero";
 import { FeaturesSection } from "@/components/FeaturesSection";
 import { PricingTable } from "@/components/PricingTable";
 import { CaseStudyCard } from "@/components/CaseStudyCard";
-import { featureListEn, pricingPlansEn } from "@/lib/content-en";
-import { caseStudies, blogPosts, securityHighlights } from "@/lib/content";
+import { blogPostsEn, caseStudiesEn, featureListEn, pricingPlansEn, securityHighlightsEn } from "@/lib/content-en";
 import Link from "next/link";
 
 export default function HomePageEn() {
@@ -20,7 +19,7 @@ export default function HomePageEn() {
       <FeaturesSection
         title="Everything your venue needs"
         subtitle="Each capability connects seamlessly so owners, managers, and teams can operate in sync."
-        features={featureListEn as unknown as { title: string; description: string; icon: string }[]}
+        features={featureListEn}
       />
       <section className="container">
         <div className="mx-auto max-w-3xl text-center">
@@ -30,15 +29,21 @@ export default function HomePageEn() {
           </p>
         </div>
         <div className="mt-12 grid gap-6 md:grid-cols-3">
-          {caseStudies.map((study) => (
-            <CaseStudyCard key={study.slug} href={`/en/case-studies/${study.slug}`} title={study.title} industry={study.industry} summary={study.summary} />
+          {caseStudiesEn.map((study) => (
+            <CaseStudyCard
+              key={study.slug}
+              href={`/en/case-studies/${study.slug}`}
+              title={study.title}
+              industry={study.industry}
+              summary={study.summary}
+            />
           ))}
         </div>
       </section>
       <PricingTable
         title="Pricing"
         subtitle="Every plan includes enterprise security, backups, and concierge onboarding."
-        plans={pricingPlansEn as unknown as any[]}
+        plans={pricingPlansEn}
         ctaLabel="Start free trial"
         ctaHref="/en/contact"
       />
@@ -49,7 +54,7 @@ export default function HomePageEn() {
             Built on Supabase, Vercel, and Stripe with SOC2 and ISO27001 alignment to protect sensitive data.
           </p>
           <div className="mt-8 grid gap-6 md:grid-cols-3">
-            {securityHighlights.map((item) => (
+            {securityHighlightsEn.map((item) => (
               <div key={item.title} className="rounded-3xl border border-white/10 bg-white/5 p-6">
                 <h3 className="text-lg font-semibold text-white">{item.title}</h3>
                 <p className="mt-2 text-sm text-white/60">{item.description}</p>
@@ -62,7 +67,7 @@ export default function HomePageEn() {
         <div className="glass-card p-10 text-center">
           <h2 className="section-heading">Insights</h2>
           <div className="mt-8 grid gap-6 md:grid-cols-3">
-            {blogPosts.map((post) => (
+            {blogPostsEn.map((post) => (
               <div key={post.slug} className="rounded-3xl border border-white/10 bg-white/5 p-6 text-left">
                 <p className="text-xs uppercase tracking-[0.3em] text-white/40">{post.date}</p>
                 <h3 className="mt-3 text-lg font-semibold text-white">{post.title}</h3>
