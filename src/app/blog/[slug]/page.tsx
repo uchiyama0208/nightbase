@@ -13,9 +13,7 @@ const fetchPostBySlug = cache(async (slug: string): Promise<BlogPost | null> => 
 
   const { data, error } = await supabase
     .from("blog_posts")
-    .select(
-      "id, slug, title, content, excerpt, cover_image_url, published_at, created_at, updated_at, status"
-    )
+    .select("id, slug, title, content, excerpt, cover_image_url, published_at, updated_at, status")
     .eq("slug", slug)
     .eq("status", "published")
     .maybeSingle();

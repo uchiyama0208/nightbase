@@ -12,9 +12,7 @@ const fetchPublishedPosts = cache(async (): Promise<BlogPost[]> => {
 
   const { data, error } = await supabase
     .from("blog_posts")
-    .select(
-      "id, slug, title, content, excerpt, cover_image_url, published_at, created_at, updated_at, status"
-    )
+    .select("id, slug, title, content, excerpt, cover_image_url, published_at, updated_at, status")
     .eq("status", "published")
     .order("published_at", { ascending: false });
 
