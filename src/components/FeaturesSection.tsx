@@ -1,3 +1,5 @@
+"use client";
+
 import { motion } from "framer-motion";
 import type { Feature } from "@/lib/content";
 
