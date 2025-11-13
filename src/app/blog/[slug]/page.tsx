@@ -2,10 +2,12 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { getAllPublishedSlugs, getPublishedBlogPostBySlug } from "@/lib/blog";
+import { getPublishedBlogPostBySlug } from "@/lib/blog";
 import { formatDate } from "@/lib/utils";
 
 export const revalidate = 60;
+export const dynamic = "force-dynamic";
+export const dynamicParams = true;
 
 type BlogPostPageParams = {
   params: { slug: string };
@@ -96,12 +98,8 @@ export default async function BlogPostPage({ params }: BlogPostPageParams) {
   }
 }
 
-export async function generateStaticParams() {
-  try {
-    const slugs = await getAllPublishedSlugs();
-    return slugs.map((slug) => ({ slug }));
-  } catch (error) {
-    console.error("ブログ記事の静的パラメータ生成に失敗しました", error);
-    return [];
-  }
-}
+// `dynamicParams` + `force-dynamic` ensure newly published posts are routable
+// without requiring a full rebuild. Static params generation is intentionally
+// omitted so that Supabase remains the single source of truth for available
+// slugs at runtime.
+
