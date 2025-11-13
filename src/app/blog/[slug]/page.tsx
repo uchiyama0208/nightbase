@@ -2,53 +2,47 @@ export const dynamic = "force-dynamic";
 
 import { notFound } from "next/navigation";
 
-interface BlogPost {
-  id: string;
-  slug: string;
-  title: string;
-  content: string | null;
-  excerpt?: string | null;
-  published_at?: string | null;
-}
-
-interface BlogPageProps {
+interface BlogPostPageProps {
   params: {
     slug: string;
   };
 }
 
-async function fetchBlogPost(slug: string): Promise<BlogPost | null> {
+export default async function BlogPostPage({ params }: BlogPostPageProps) {
   const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!baseUrl || !anonKey) {
-    console.warn("Supabase environment variables are not configured.");
-    return null;
+    throw new Error("Supabase environment variables are not configured");
   }
 
-  const endpoint = new URL("/rest/v1/blog_posts", baseUrl);
-  endpoint.searchParams.set("slug", `eq.${slug}`);
-  endpoint.searchParams.set("select", "*");
-
-  const response = await fetch(endpoint.toString(), {
-    headers: {
-      apikey: anonKey,
-      Authorization: `Bearer ${anonKey}`,
-    },
-    cache: "no-store",
-  });
+  const response = await fetch(
+    `${baseUrl}/rest/v1/blog_posts?slug=eq.${encodeURIComponent(
+      params.slug
+    )}&select=*`,
+    {
+      headers: {
+        apikey: anonKey,
+        Authorization: `Bearer ${anonKey}`,
+      },
+      cache: "no-store",
+    }
+  );
 
   if (!response.ok) {
-    console.error("Failed to fetch blog post", response.status, response.statusText);
-    return null;
+    notFound();
   }
 
-  const data = (await response.json()) as BlogPost[];
-  return data.length > 0 ? data[0] : null;
-}
+  const posts = (await response.json()) as Array<{
+    id: string;
+    slug: string;
+    title: string;
+    content: string | null;
+    excerpt: string | null;
+    published_at: string | null;
+  }>;
 
-export default async function BlogPostPage({ params }: BlogPageProps) {
-  const post = await fetchBlogPost(params.slug);
+  const post = posts[0];
 
   if (!post) {
     notFound();
