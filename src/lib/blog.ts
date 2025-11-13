@@ -53,12 +53,15 @@ export async function getAllPublishedSlugs(): Promise<string[]> {
   const { data, error } = await supabase
     .from("blog_posts")
     .select("slug")
-    .eq("status", "published");
+    .eq("status", "published")
+    .returns<{ slug: string | null }[]>();
 
   if (error) {
     console.error("ブログ記事のスラッグ取得に失敗しました", error);
     throw new Error("ブログ記事のスラッグ取得に失敗しました");
   }
 
-  return (data ?? []).map((post) => post.slug);
+  return (data ?? [])
+    .map((post) => post.slug)
+    .filter((slug): slug is string => Boolean(slug?.trim()));
 }
