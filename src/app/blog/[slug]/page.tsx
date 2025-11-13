@@ -11,10 +11,6 @@ export const revalidate = 60;
 const fetchPostBySlug = cache(async (slug: string): Promise<BlogPost | null> => {
   const supabase = createClient();
 
-  if (!supabase) {
-    return null;
-  }
-
   const { data, error } = await supabase
     .from("blog_posts")
     .select(

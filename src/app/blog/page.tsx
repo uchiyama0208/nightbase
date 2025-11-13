@@ -10,10 +10,6 @@ export const revalidate = 60;
 const fetchPublishedPosts = cache(async (): Promise<BlogPost[]> => {
   const supabase = createClient();
 
-  if (!supabase) {
-    return [];
-  }
-
   const { data, error } = await supabase
     .from("blog_posts")
     .select(
