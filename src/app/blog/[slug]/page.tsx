@@ -1,6 +1,6 @@
-import { cache } from "react";
 import Link from "next/link";
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 
 import { createClient } from "@/lib/supabaseClient";
 import { formatDate } from "@/lib/utils";
@@ -8,7 +8,8 @@ import type { BlogPost } from "@/types/blog";
 
 export const revalidate = 60;
 
-const fetchPostBySlug = cache(async (slug: string): Promise<BlogPost | null> => {
+async function fetchPostBySlug(slug: string): Promise<BlogPost | null> {
+  const decodedSlug = decodeURIComponent(slug);
   const supabase = createClient();
 
   const { data, error } = await supabase
@@ -16,7 +17,7 @@ const fetchPostBySlug = cache(async (slug: string): Promise<BlogPost | null> => 
     .select(
       "id, slug, title, content, excerpt, cover_image_url, category, published_at, updated_at, status"
     )
-    .eq("slug", slug)
+    .eq("slug", decodedSlug)
     .eq("status", "published")
     .maybeSingle();
 
@@ -26,7 +27,7 @@ const fetchPostBySlug = cache(async (slug: string): Promise<BlogPost | null> => 
   }
 
   return data ?? null;
-});
+}
 
 type BlogPostPageParams = {
   params: { slug: string };
@@ -52,27 +53,7 @@ export default async function BlogPostPage({ params }: BlogPostPageParams) {
   const post = await fetchPostBySlug(params.slug);
 
   if (!post) {
-    return (
-      <div className="bg-white py-24">
-        <div className="container mx-auto max-w-2xl space-y-6 text-center">
-          <span className="inline-flex items-center justify-center rounded-full border border-secondary/40 bg-secondary/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-secondary">
-            404
-          </span>
-          <h1 className="text-3xl font-semibold text-[#111111]">記事が見つかりません</h1>
-          <p className="text-neutral-600">
-            お探しの記事は非公開になっているか、URLが変更された可能性があります。
-          </p>
-          <div className="flex justify-center">
-            <Link
-              href="/blog"
-              className="inline-flex items-center rounded-full bg-primary px-6 py-3 text-sm font-semibold text-white shadow-soft transition hover:bg-primary/90"
-            >
-              ブログ一覧へ戻る
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
+    notFound();
   }
 
   return (
