@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  background-color: #ffffff;
+}
+
+* {
+  scrollbar-width: thin;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: #ffffff;
+  color: #111111;
+  font-feature-settings: "liga" 1, "kern" 1;
+  scroll-behavior: smooth;
+}
+
+section {
+  scroll-margin-top: 5rem;
+}
+
+.shadow-glow {
+  box-shadow: 0 40px 100px -40px rgba(15, 23, 42, 0.35);
+}
+
+@layer base {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    color: #111111;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  p {
+    color: #333333;
+  }
+}
+
+@layer components {
+  .badge {
+    @apply inline-flex items-center rounded-full bg-secondary/10 px-3 py-1 text-sm font-medium text-secondary;
+  }
+
+  .glass-panel {
+    @apply rounded-3xl border border-white/40 bg-white/60 shadow-soft backdrop-blur-lg;
+  }
+}
