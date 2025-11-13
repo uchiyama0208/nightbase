@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
@@ -26,16 +27,22 @@ export function Navbar({ navigation }: NavbarProps) {
   };
 
   return (
-    <header className="sticky top-0 z-50 border-b border-white/40 bg-white/80 backdrop-blur-xl">
-      <div className="container flex h-16 items-center justify-between">
-        <Link href="/" className="flex items-center gap-3 text-sm" onClick={() => setOpen(false)}>
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-white shadow-soft">
-            NB
-          </div>
-          <div className="flex flex-col">
-            <span className="text-base font-semibold tracking-tight">NightBase</span>
-            <span className="text-xs text-neutral-500">{navigation.brandTagline}</span>
-          </div>
+    <header className="sticky top-0 z-50 border-b border-white/60 bg-white/80 backdrop-blur-xl">
+      <div className="container flex h-16 items-center justify-between gap-6">
+        <Link
+          href="/"
+          onClick={() => setOpen(false)}
+          className="group flex items-center gap-3 rounded-full px-2 py-1 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary/40"
+        >
+          <Image
+            src="/Nightbase_textlogo_trim.png"
+            alt="NightBase ロゴ"
+            width={156}
+            height={40}
+            priority
+            className="h-9 w-auto transition-transform duration-300 group-hover:scale-[1.02]"
+          />
+          <span className="hidden text-xs font-medium text-neutral-500 lg:inline">{navigation.brandTagline}</span>
         </Link>
         <nav className="hidden items-center gap-10 md:flex">
           {navigation.links.map((link) => (
@@ -58,7 +65,7 @@ export function Navbar({ navigation }: NavbarProps) {
         </div>
         <button
           onClick={() => setOpen((prev) => !prev)}
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 md:hidden"
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 shadow-soft transition hover:border-neutral-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary/40 md:hidden"
           aria-expanded={open}
           aria-label="メニューを開閉"
         >

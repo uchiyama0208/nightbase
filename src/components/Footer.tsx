@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 import type { FooterContent } from "@/content/types";
@@ -11,14 +12,15 @@ export function Footer({ footer }: FooterProps) {
     <footer className="border-t border-neutral-200 bg-white">
       <div className="container grid gap-12 py-16 md:grid-cols-[1.5fr_1fr_1fr_1fr]">
         <div className="space-y-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-white shadow-soft">
-              NB
-            </div>
-            <div>
-              <p className="text-lg font-semibold">NightBase</p>
-              <p className="text-sm text-neutral-500">{footer.description}</p>
-            </div>
+          <div className="space-y-4">
+            <Image
+              src="/Nightbase_textlogo_trim.png"
+              alt="NightBase ロゴ"
+              width={152}
+              height={40}
+              className="h-9 w-auto"
+            />
+            <p className="text-sm text-neutral-500">{footer.description}</p>
           </div>
           <div className="space-y-3 rounded-3xl border border-neutral-100 bg-white p-6 shadow-soft">
             <p className="text-sm font-semibold text-[#111111]">{footer.cta.title}</p>
