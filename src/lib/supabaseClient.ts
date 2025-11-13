@@ -3,20 +3,22 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/types/database";
 
-let hasWarnedMissingEnv = false;
-
-export function createClient(): SupabaseClient<Database> | null {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    if (!hasWarnedMissingEnv) {
-      console.warn("Supabaseの環境変数が設定されていません。");
-      hasWarnedMissingEnv = true;
-    }
-
-    return null;
+function ensureEnv(name: string, value: string | undefined): string {
+  if (!value) {
+    throw new Error(
+      `Supabaseの環境変数 \"${name}\" が設定されていません。NEXT_PUBLIC_SUPABASE_URL と NEXT_PUBLIC_SUPABASE_ANON_KEY を確認してください。`
+    );
   }
+
+  return value;
+}
+
+export function createClient(): SupabaseClient<Database> {
+  const supabaseUrl = ensureEnv("NEXT_PUBLIC_SUPABASE_URL", process.env.NEXT_PUBLIC_SUPABASE_URL);
+  const supabaseAnonKey = ensureEnv(
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
 
   return createSupabaseClient<Database>(supabaseUrl, supabaseAnonKey, {
     auth: {

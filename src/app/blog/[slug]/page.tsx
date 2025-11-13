@@ -11,11 +11,6 @@ export const revalidate = 60;
 const fetchPostBySlug = cache(async (slug: string): Promise<BlogPost | null> => {
   const supabase = createClient();
 
-  if (!supabase) {
-    console.warn("Supabaseクライアントが初期化されていないため、ブログ記事を取得できません。");
-    return null;
-  }
-
   const { data, error } = await supabase
     .from("blog_posts")
     .select(
@@ -28,6 +23,7 @@ const fetchPostBySlug = cache(async (slug: string): Promise<BlogPost | null> => 
   if (error) {
     if (error.code !== "PGRST116") {
       console.error("ブログ記事の取得に失敗しました", error);
+      throw new Error("ブログ記事の取得に失敗しました");
     }
     return null;
   }

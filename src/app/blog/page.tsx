@@ -10,11 +10,6 @@ export const revalidate = 60;
 const fetchPublishedPosts = cache(async (): Promise<BlogPost[]> => {
   const supabase = createClient();
 
-  if (!supabase) {
-    console.warn("Supabaseクライアントが初期化されていないため、ブログ一覧は空になります。");
-    return [];
-  }
-
   const { data, error } = await supabase
     .from("blog_posts")
     .select(
@@ -25,7 +20,7 @@ const fetchPublishedPosts = cache(async (): Promise<BlogPost[]> => {
 
   if (error) {
     console.error("ブログ記事の取得に失敗しました", error);
-    return [];
+    throw new Error("ブログ記事の取得に失敗しました");
   }
 
   return data ?? [];
