@@ -41,7 +41,7 @@ export async function getPublishedBlogPostBySlug(slug: string): Promise<BlogPost
 
   if (error) {
     console.error("ブログ記事の取得に失敗しました", error);
-    throw new Error("ブログ記事の取得に失敗しました");
+    return null;
   }
 
   return data ?? null;

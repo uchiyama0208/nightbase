@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { getPublishedBlogPostBySlug, getPublishedBlogPosts } from "@/lib/blog";
+import { getPublishedBlogPostBySlug } from "@/lib/blog";
 import { formatDate } from "@/lib/utils";
 
 export const revalidate = 60;
@@ -17,12 +17,7 @@ export async function generateMetadata({ params }: BlogPostPageParams): Promise<
   try {
     const targetSlug = decodeURIComponent(params.slug).trim();
 
-    let post = await getPublishedBlogPostBySlug(targetSlug);
-
-    if (!post) {
-      const fallbackPosts = await getPublishedBlogPosts();
-      post = fallbackPosts.find((item) => item.slug === targetSlug) ?? null;
-    }
+    const post = await getPublishedBlogPostBySlug(targetSlug);
 
     if (!post) {
       return {
@@ -48,12 +43,7 @@ export default async function BlogPostPage({ params }: BlogPostPageParams) {
   try {
     const targetSlug = decodeURIComponent(params.slug).trim();
 
-    let post = await getPublishedBlogPostBySlug(targetSlug);
-
-    if (!post) {
-      const fallbackPosts = await getPublishedBlogPosts();
-      post = fallbackPosts.find((item) => item.slug === targetSlug) ?? null;
-    }
+    const post = await getPublishedBlogPostBySlug(targetSlug);
 
     if (!post) {
       notFound();
