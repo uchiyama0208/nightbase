@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Inter, Noto_Sans_JP } from "next/font/google";
+
+import { Footer } from "@/components/Footer";
+import { Navbar } from "@/components/Navbar";
+import { siteContent } from "@/content/site";
 import { cn } from "@/lib/utils";
 
 const inter = Inter({
@@ -17,9 +21,8 @@ const notoSansJp = Noto_Sans_JP({
 });
 
 export const metadata: Metadata = {
-  title: "NightBase | 夜の接客業のための統合型SaaS",
-  description:
-    "NightBaseは、キャスト・スタッフ・顧客管理から勤怠・給与・QRオーダーまで一元管理できるナイトワーク業界向けクラウドプラットフォームです。",
+  title: siteContent.metadata.title,
+  description: siteContent.metadata.description,
   icons: {
     icon: "/favicon.svg"
   }
@@ -39,7 +42,11 @@ export default function RootLayout({
           notoSansJp.variable
         )}
       >
-        {children}
+        <div className="flex min-h-screen flex-col bg-white">
+          <Navbar navigation={siteContent.navigation} />
+          <main className="flex-1">{children}</main>
+          <Footer footer={siteContent.footer} />
+        </div>
       </body>
     </html>
   );

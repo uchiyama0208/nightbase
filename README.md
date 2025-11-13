@@ -41,7 +41,8 @@ src/
       terms-of-service/
       company/
   components/              # Reusable UI building blocks
-  lib/                     # Utilities and locale dictionaries
+  content/                 # 日本語のコンテンツデータ
+  lib/                     # ユーティリティ関数
 public/
   favicon.svg              # Vector favicon
 ```
@@ -53,9 +54,9 @@ public/
 - **Framer Motion** powers subtle hero animations.
 - Global fonts use Inter and Noto Sans JP via `next/font`.
 
-## Internationalisation
+## 言語対応
 
-The site is statically generated for Japanese and English locales. Locale-specific content lives in `src/lib/i18n/dictionaries`, and routes are generated using the App Router `generateStaticParams` APIs.
+公式サイトは日本語のみで提供しています。コンテンツは `src/content/site.ts` に構造化データとして定義され、各ページから直接参照されます。
 
 ## Forms
 

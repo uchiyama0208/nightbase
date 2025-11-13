@@ -1,6 +1,6 @@
-import { LucideIcon, CalendarRange, Coins, QrCode, Users } from "lucide-react";
+import { CalendarRange, Coins, LucideIcon, QrCode, Users } from "lucide-react";
 
-import type { FeatureSummary } from "@/lib/i18n/types";
+import type { FeatureSummary } from "@/content/types";
 
 const iconMap: Record<string, LucideIcon> = {
   Users,
@@ -20,9 +20,7 @@ export function FeaturesSection({ title, description, items }: FeaturesSectionPr
     <section className="bg-white py-20">
       <div className="container space-y-12">
         <div className="mx-auto max-w-3xl text-center">
-          <h2 className="text-3xl font-semibold tracking-tight text-[#111111] sm:text-4xl">
-            {title}
-          </h2>
+          <h2 className="text-3xl font-semibold tracking-tight text-[#111111] sm:text-4xl">{title}</h2>
           <p className="mt-4 text-lg text-neutral-600">{description}</p>
         </div>
         <div className="grid gap-8 md:grid-cols-2">

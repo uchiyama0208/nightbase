@@ -1,16 +1,12 @@
 import Link from "next/link";
 
-import type { CaseStudy } from "@/lib/i18n/types";
+import type { CaseStudy } from "@/content/types";
 
 interface CaseStudyCardProps {
-  locale: string;
   caseStudy: CaseStudy;
 }
 
-export function CaseStudyCard({ caseStudy, locale }: CaseStudyCardProps) {
-  const buildHref = (slug: string) => `/${locale}/case-studies/${slug}`;
-  const readLabel = locale === "ja" ? "事例を読む →" : "Read story →";
-
+export function CaseStudyCard({ caseStudy }: CaseStudyCardProps) {
   return (
     <article className="glass-panel flex h-full flex-col gap-6 p-8">
       <div className="badge w-fit">{caseStudy.industry}</div>
@@ -30,11 +26,8 @@ export function CaseStudyCard({ caseStudy, locale }: CaseStudyCardProps) {
           </div>
         ))}
       </div>
-      <Link
-        href={buildHref(caseStudy.slug)}
-        className="mt-auto text-sm font-semibold text-primary hover:text-primary/80"
-      >
-        {readLabel}
+      <Link href={`/case-studies/${caseStudy.slug}`} className="mt-auto text-sm font-semibold text-primary hover:text-primary/80">
+        事例を読む →
       </Link>
     </article>
   );

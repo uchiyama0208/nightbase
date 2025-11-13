@@ -6,52 +6,42 @@ import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import type { NavigationDictionary } from "@/lib/i18n/types";
-import type { Locale } from "@/lib/i18n/config";
+import type { NavigationContent } from "@/content/types";
 import { cn } from "@/lib/utils";
 
 interface NavbarProps {
-  dictionary: NavigationDictionary;
-  locale: Locale;
+  navigation: NavigationContent;
 }
 
-export function Navbar({ dictionary, locale }: NavbarProps) {
+export function Navbar({ navigation }: NavbarProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
-  const buildHref = (href: string) => {
-    if (href === "/") {
-      return `/${locale}`;
-    }
-    return `/${locale}${href}`;
-  };
-
   const isActive = (href: string) => {
-    const target = buildHref(href);
     if (!pathname) return false;
-    if (target === `/${locale}`) {
-      return pathname === target;
+    if (href === "/") {
+      return pathname === "/";
     }
-    return pathname.startsWith(target);
+    return pathname.startsWith(href);
   };
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/40 bg-white/80 backdrop-blur-xl">
       <div className="container flex h-16 items-center justify-between">
-        <Link href={`/${locale}`} className="flex items-center gap-3 text-sm">
+        <Link href="/" className="flex items-center gap-3 text-sm" onClick={() => setOpen(false)}>
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-white shadow-soft">
             NB
           </div>
           <div className="flex flex-col">
             <span className="text-base font-semibold tracking-tight">NightBase</span>
-            <span className="text-xs text-neutral-500">{dictionary.brandTagline}</span>
+            <span className="text-xs text-neutral-500">{navigation.brandTagline}</span>
           </div>
         </Link>
         <nav className="hidden items-center gap-10 md:flex">
-          {dictionary.links.map((link) => (
+          {navigation.links.map((link) => (
             <Link
               key={link.href}
-              href={buildHref(link.href)}
+              href={link.href}
               className={cn(
                 "text-sm font-medium text-neutral-500 transition-colors hover:text-[#111111]",
                 isActive(link.href) && "text-[#111111]"
@@ -62,32 +52,15 @@ export function Navbar({ dictionary, locale }: NavbarProps) {
           ))}
         </nav>
         <div className="hidden items-center gap-4 md:flex">
-          <div className="flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-xs font-medium text-neutral-500">
-            <span>{dictionary.localeSwitcherLabel}</span>
-            <div className="flex items-center gap-2">
-              {Object.entries(dictionary.localeNames).map(([key, label]) => (
-                <Link
-                  key={key}
-                  href={key === "ja" ? "/ja" : "/en"}
-                  className={cn(
-                    "rounded-full px-2 py-1 transition-colors",
-                    key === locale ? "bg-primary text-white" : "text-neutral-500 hover:bg-neutral-100"
-                  )}
-                >
-                  {label}
-                </Link>
-              ))}
-            </div>
-          </div>
           <Button asChild>
-            <Link href={buildHref("/contact")}>{dictionary.cta}</Link>
+            <Link href="/contact">{navigation.cta}</Link>
           </Button>
         </div>
         <button
           onClick={() => setOpen((prev) => !prev)}
           className="flex h-10 w-10 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 md:hidden"
           aria-expanded={open}
-          aria-label="Toggle navigation"
+          aria-label="メニューを開閉"
         >
           {open ? <X size={18} /> : <Menu size={18} />}
         </button>
@@ -99,10 +72,10 @@ export function Navbar({ dictionary, locale }: NavbarProps) {
         )}
       >
         <nav className="flex flex-col gap-4">
-          {dictionary.links.map((link) => (
+          {navigation.links.map((link) => (
             <Link
               key={link.href}
-              href={buildHref(link.href)}
+              href={link.href}
               onClick={() => setOpen(false)}
               className={cn(
                 "text-base font-medium text-neutral-600",
@@ -113,24 +86,9 @@ export function Navbar({ dictionary, locale }: NavbarProps) {
             </Link>
           ))}
         </nav>
-        <div className="mt-6 flex flex-wrap items-center gap-2">
-          {Object.entries(dictionary.localeNames).map(([key, label]) => (
-            <Link
-              key={key}
-              href={key === "ja" ? "/ja" : "/en"}
-              onClick={() => setOpen(false)}
-              className={cn(
-                "rounded-full border px-3 py-1 text-sm",
-                key === locale ? "border-primary bg-primary text-white" : "border-neutral-200 text-neutral-500"
-              )}
-            >
-              {label}
-            </Link>
-          ))}
-        </div>
         <Button asChild className="mt-6 w-full">
-          <Link href={buildHref("/contact")} onClick={() => setOpen(false)}>
-            {dictionary.cta}
+          <Link href="/contact" onClick={() => setOpen(false)}>
+            {navigation.cta}
           </Link>
         </Button>
       </div>

@@ -3,22 +3,22 @@
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import type { Dictionary } from "@/lib/i18n/types";
+import type { ContactContent } from "@/content/types";
 
 interface ContactFormProps {
-  dictionary: Dictionary["contact"];
+  content: ContactContent;
 }
 
-export function ContactForm({ dictionary }: ContactFormProps) {
+export function ContactForm({ content }: ContactFormProps) {
   const [submitted, setSubmitted] = useState(false);
 
   return (
     <div className="glass-panel space-y-6 p-8">
-      <h2 className="text-2xl font-semibold text-[#111111]">{dictionary.title}</h2>
-      <p className="text-sm text-neutral-500">{dictionary.description}</p>
+      <h2 className="text-2xl font-semibold text-[#111111]">{content.title}</h2>
+      <p className="text-sm text-neutral-500">{content.description}</p>
       {submitted ? (
         <div className="rounded-2xl border border-primary/30 bg-primary/5 p-6 text-sm text-primary">
-          {dictionary.successMessage}
+          {content.successMessage}
         </div>
       ) : (
         <form
@@ -28,7 +28,7 @@ export function ContactForm({ dictionary }: ContactFormProps) {
             setSubmitted(true);
           }}
         >
-          {dictionary.fields.map((field) => (
+          {content.fields.map((field) => (
             <div key={field.name} className="space-y-2">
               <label htmlFor={field.name} className="text-sm font-medium text-neutral-600">
                 {field.label}
@@ -53,9 +53,9 @@ export function ContactForm({ dictionary }: ContactFormProps) {
               )}
             </div>
           ))}
-          <p className="text-xs text-neutral-400">{dictionary.privacy}</p>
+          <p className="text-xs text-neutral-400">{content.privacy}</p>
           <Button type="submit" className="w-full">
-            {dictionary.submitLabel}
+            {content.submitLabel}
           </Button>
         </form>
       )}

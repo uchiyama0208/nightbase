@@ -4,19 +4,13 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
-import type { HeroDictionary } from "@/lib/i18n/types";
+import type { HeroContent } from "@/content/types";
 
 interface HeroProps {
-  dictionary: HeroDictionary;
-  locale: string;
+  hero: HeroContent;
 }
 
-export function Hero({ dictionary, locale }: HeroProps) {
-  const buildHref = (href: string) => {
-    if (href === "/") return `/${locale}`;
-    return `/${locale}${href}`;
-  };
-
+export function Hero({ hero }: HeroProps) {
   return (
     <section className="relative overflow-hidden bg-white pb-16 pt-24">
       <div className="container grid gap-16 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
@@ -27,7 +21,7 @@ export function Hero({ dictionary, locale }: HeroProps) {
             transition={{ delay: 0.1, duration: 0.6, ease: "easeOut" }}
             className="badge w-fit"
           >
-            {dictionary.eyebrow}
+            {hero.eyebrow}
           </motion.span>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -36,10 +30,10 @@ export function Hero({ dictionary, locale }: HeroProps) {
             className="space-y-6"
           >
             <h1 className="text-4xl font-semibold tracking-tight text-[#111111] sm:text-5xl lg:text-6xl">
-              {dictionary.title}
+              {hero.title}
             </h1>
             <p className="max-w-xl text-lg text-neutral-600 lg:text-xl">
-              {dictionary.description}
+              {hero.description}
             </p>
           </motion.div>
           <motion.div
@@ -49,10 +43,10 @@ export function Hero({ dictionary, locale }: HeroProps) {
             className="flex flex-wrap items-center gap-4"
           >
             <Button asChild size="lg">
-              <Link href={buildHref(dictionary.primaryCta.href)}>{dictionary.primaryCta.label}</Link>
+              <Link href={hero.primaryCta.href}>{hero.primaryCta.label}</Link>
             </Button>
             <Button asChild variant="outline" size="lg">
-              <Link href={buildHref(dictionary.secondaryCta.href)}>{dictionary.secondaryCta.label}</Link>
+              <Link href={hero.secondaryCta.href}>{hero.secondaryCta.label}</Link>
             </Button>
           </motion.div>
           <motion.dl
@@ -61,7 +55,7 @@ export function Hero({ dictionary, locale }: HeroProps) {
             transition={{ delay: 0.35, duration: 0.7, ease: "easeOut" }}
             className="grid gap-6 sm:grid-cols-3"
           >
-            {dictionary.stats.map((stat) => (
+            {hero.stats.map((stat) => (
               <div key={stat.label} className="rounded-3xl border border-neutral-100 bg-white p-6 shadow-soft">
                 <dt className="text-sm text-neutral-500">{stat.label}</dt>
                 <dd className="mt-2 text-3xl font-semibold text-[#111111]">{stat.value}</dd>
@@ -84,20 +78,20 @@ export function Hero({ dictionary, locale }: HeroProps) {
               </p>
               <div className="grid gap-4">
                 <div className="rounded-2xl border border-white/60 bg-white/80 p-5 shadow-soft">
-                  <p className="text-xs font-semibold text-neutral-500">Real-time Revenue</p>
+                  <p className="text-xs font-semibold text-neutral-500">リアルタイム売上</p>
                   <p className="mt-3 text-3xl font-semibold text-[#111111]">¥2,480,000</p>
-                  <p className="text-xs text-primary">+18% vs last week</p>
+                  <p className="text-xs text-primary">前週比 +18%</p>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="rounded-2xl border border-white/60 bg-white/80 p-5 shadow-soft">
-                    <p className="text-xs font-semibold text-neutral-500">AI Shift Suggestion</p>
-                    <p className="mt-3 text-lg font-semibold text-[#111111]">Optimal coverage</p>
-                    <p className="text-xs text-neutral-500">Cast lineup ready in 2 min</p>
+                    <p className="text-xs font-semibold text-neutral-500">AIシフト提案</p>
+                    <p className="mt-3 text-lg font-semibold text-[#111111]">最適な配置を提案</p>
+                    <p className="text-xs text-neutral-500">キャストアサインを2分で完了</p>
                   </div>
                   <div className="rounded-2xl border border-white/60 bg-white/80 p-5 shadow-soft">
-                    <p className="text-xs font-semibold text-neutral-500">VIP Focus</p>
-                    <p className="mt-3 text-lg font-semibold text-[#111111]">Top 5 guests</p>
-                    <p className="text-xs text-neutral-500">Retention playbook generated</p>
+                    <p className="text-xs font-semibold text-neutral-500">VIPフォーカス</p>
+                    <p className="mt-3 text-lg font-semibold text-[#111111]">注力すべき顧客</p>
+                    <p className="text-xs text-neutral-500">リテンション施策を自動生成</p>
                   </div>
                 </div>
               </div>

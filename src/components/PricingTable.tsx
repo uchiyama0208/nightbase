@@ -1,21 +1,15 @@
 import Link from "next/link";
 import { Check } from "lucide-react";
 
-import type { PricingPlan } from "@/lib/i18n/types";
+import type { PricingPlan } from "@/content/types";
 
 interface PricingTableProps {
   title: string;
   description: string;
   plans: PricingPlan[];
-  locale: string;
 }
 
-export function PricingTable({ title, description, plans, locale }: PricingTableProps) {
-  const buildHref = (href: string) => {
-    if (href === "/") return `/${locale}`;
-    return `/${locale}${href}`;
-  };
-
+export function PricingTable({ title, description, plans }: PricingTableProps) {
   return (
     <section className="bg-white py-20">
       <div className="container space-y-12">
@@ -47,7 +41,7 @@ export function PricingTable({ title, description, plans, locale }: PricingTable
                 </ul>
               </div>
               <Link
-                href={buildHref("/contact")}
+                href="/contact"
                 className="mt-8 inline-flex w-full items-center justify-center rounded-full border border-primary bg-primary px-6 py-3 text-sm font-semibold text-white shadow-soft transition hover:bg-primary/90"
               >
                 {plan.ctaLabel}
