@@ -5,7 +5,11 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatDate(dateString: string) {
+export function formatDate(dateString: string | null | undefined) {
+  if (!dateString) {
+    return "公開準備中";
+  }
+
   const date = new Date(dateString);
 
   if (Number.isNaN(date.getTime())) {

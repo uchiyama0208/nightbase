@@ -1,33 +1,11 @@
-import { cache } from "react";
-
 import { BlogPostList } from "@/components/blog/BlogPostList";
 import { siteContent } from "@/content/site";
-import { createClient } from "@/lib/supabaseClient";
-import type { BlogPost } from "@/types/blog";
+import { getPublishedBlogPosts } from "@/lib/blog";
 
 export const revalidate = 60;
 
-const fetchPublishedPosts = cache(async (): Promise<BlogPost[]> => {
-  const supabase = createClient();
-
-  const { data, error } = await supabase
-    .from("blog_posts")
-    .select(
-      "id, slug, title, content, excerpt, cover_image_url, category, published_at, updated_at, status"
-    )
-    .eq("status", "published")
-    .order("published_at", { ascending: false });
-
-  if (error) {
-    console.error("ブログ記事の取得に失敗しました", error);
-    throw new Error("ブログ記事の取得に失敗しました");
-  }
-
-  return data ?? [];
-});
-
 export default async function BlogPage() {
-  const posts = await fetchPublishedPosts();
+  const posts = await getPublishedBlogPosts();
   const { title, description } = siteContent.blog;
 
   return (
