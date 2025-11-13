@@ -2,48 +2,36 @@ export const dynamic = "force-dynamic";
 export const dynamicParams = true;
 export const revalidate = 60;
 
+import Link from "next/link";
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 
-import { createClient } from "@/lib/supabaseClient";
-import type { BlogPost } from "@/types/blog";
+import { getPublishedBlogPostBySlug } from "@/lib/blog";
+import { formatDate } from "@/lib/utils";
 
 type BlogPostPageParams = {
   params: { slug: string };
 };
 
-async function getBlogPostBySlug(slug: string): Promise<BlogPost | null> {
-  const supabase = createClient();
+async function resolvePost(slug: string) {
+  const normalized = decodeURIComponent(slug ?? "").trim();
 
-  const { data, error } = await supabase
-    .from("blog_posts")
-    .select(
-      "id, slug, title, content, excerpt, cover_image_url, category, published_at, created_at, updated_at, status"
-    )
-    .eq("slug", slug)
-    .eq("status", "published")
-    .maybeSingle();
-
-  console.log("DEBUG blog detail slug:", slug);
-  console.log("DEBUG blog detail data:", data);
-  console.log("DEBUG blog detail error:", error);
-
-  if (error) {
+  if (!normalized) {
     return null;
   }
 
-  return data ?? null;
+  return getPublishedBlogPostBySlug(normalized);
 }
 
 export async function generateMetadata(
   { params }: BlogPostPageParams
 ): Promise<Metadata> {
-  const targetSlug = decodeURIComponent(params.slug).trim();
-  const post = await getBlogPostBySlug(targetSlug);
+  const post = await resolvePost(params.slug);
 
   if (!post) {
     return {
-      title: "記事が見つかりません | NightBaseブログ（デバッグ中）",
-      description: "お探しのブログ記事は現在取得できていません。",
+      title: "記事が見つかりません | NightBaseブログ",
+      description: "お探しのブログ記事は現在公開されていません。",
     };
   }
 
@@ -54,47 +42,63 @@ export async function generateMetadata(
 }
 
 export default async function BlogPostPage({ params }: BlogPostPageParams) {
-  const targetSlug = decodeURIComponent(params.slug).trim();
-  const post = await getBlogPostBySlug(targetSlug);
+  const post = await resolvePost(params.slug);
 
-  // ★ ここがポイント：notFound() は一旦使わず、デバッグ表示にする
   if (!post) {
-    return (
-      <main className="container mx-auto max-w-3xl py-10">
-        <h1 className="mb-4 text-2xl font-semibold text-red-600">
-          デバッグ：記事データが取得できていません
-        </h1>
-        <pre className="rounded bg-neutral-900 p-4 text-xs text-neutral-100">
-          {JSON.stringify(
-            {
-              paramsSlug: params.slug,
-              targetSlug,
-              post,
-            },
-            null,
-            2
-          )}
-        </pre>
-        <p className="mt-4 text-sm text-neutral-600">
-          Supabase 側のデータや RLS、slug/status が一致していない可能性があります。
-        </p>
-      </main>
-    );
+    notFound();
   }
 
   return (
-    <main className="container mx-auto max-w-3xl py-10">
-      <article className="prose dark:prose-invert">
-        <header>
-          <h1>{post.title}</h1>
-          {post.excerpt ? <p>{post.excerpt}</p> : null}
-        </header>
-        {post.content ? (
-          <section className="whitespace-pre-wrap">
-            {post.content}
-          </section>
-        ) : null}
+    <div className="bg-white py-24">
+      <article className="container mx-auto max-w-3xl space-y-10">
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-3">
+            {post.category && (
+              <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+                {post.category}
+              </span>
+            )}
+            <p className="text-xs font-medium uppercase tracking-widest text-neutral-400">
+              {formatDate(post.published_at)}
+            </p>
+          </div>
+          <h1 className="text-4xl font-semibold text-[#111111] sm:text-5xl">
+            {post.title}
+          </h1>
+          {post.excerpt && (
+            <p className="text-lg text-neutral-600">{post.excerpt}</p>
+          )}
+        </div>
+
+        <div className="space-y-6 whitespace-pre-wrap text-base leading-8 text-neutral-700">
+          {post.content}
+        </div>
+
+        <div className="pt-8">
+          <Link
+            href="/blog"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-primary transition hover:text-primary/80"
+          >
+            <svg
+              aria-hidden
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="m6.5 4.5-3 3 3 3m-3-3h9"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            ブログ一覧へ戻る
+          </Link>
+        </div>
       </article>
-    </main>
+    </div>
   );
 }
