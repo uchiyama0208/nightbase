@@ -20,17 +20,15 @@ const config: Config = {
     },
     extend: {
       colors: {
-        night: {
-          DEFAULT: "#0D1117",
-          light: "#1a1f2b"
-        },
-        accent: "#F2C94C"
+        primary: "#0088FF",
+        secondary: "#FFCC00",
+        background: "#FFFFFF"
       },
       backgroundImage: {
         "hero-gradient":
-          "radial-gradient(circle at top left, rgba(242, 201, 76, 0.15), rgba(13, 17, 23, 0.9))",
+          "radial-gradient(circle at top left, rgba(0, 136, 255, 0.12), rgba(255, 255, 255, 1))",
         "deep-glow":
-          "linear-gradient(135deg, rgba(33, 45, 93, 0.8), rgba(102, 38, 122, 0.6))"
+          "linear-gradient(135deg, rgba(0, 136, 255, 0.16), rgba(255, 204, 0, 0.12))"
       },
       fontFamily: {
         sans: ["var(--font-inter)", ...fontFamily.sans],
@@ -40,8 +38,8 @@ const config: Config = {
         glass: "24px"
       },
       boxShadow: {
-        glass: "0 10px 40px rgba(0,0,0,0.35)",
-        "glow-accent": "0 0 30px rgba(242, 201, 76, 0.35)"
+        glass: "0 24px 60px rgba(15, 23, 42, 0.08)",
+        "glow-primary": "0 18px 40px rgba(0, 136, 255, 0.3)"
       },
       animation: {
         "fade-in": "fadeIn 0.8s ease forwards"

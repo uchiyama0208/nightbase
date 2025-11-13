@@ -6,7 +6,7 @@ export default function PrivacyPolicyPage() {
   return (
     <div className="pb-24">
       <section className="container pt-20">
-        <div className="glass-card space-y-6 p-10 text-sm text-white/70">
+        <div className="glass-card space-y-6 p-10 text-sm text-slate-600">
           <h1 className="section-heading">プライバシーポリシー</h1>
           <p>NightBase（以下「当社」）は、お客様の個人情報を適切に管理し、以下の方針に基づき取り扱います。</p>
           <ol className="list-decimal space-y-2 pl-6">

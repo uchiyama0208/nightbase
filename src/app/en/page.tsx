@@ -55,9 +55,9 @@ export default function HomePageEn() {
           </p>
           <div className="mt-8 grid gap-6 md:grid-cols-3">
             {securityHighlightsEn.map((item) => (
-              <div key={item.title} className="rounded-3xl border border-white/10 bg-white/5 p-6">
-                <h3 className="text-lg font-semibold text-white">{item.title}</h3>
-                <p className="mt-2 text-sm text-white/60">{item.description}</p>
+              <div key={item.title} className="rounded-3xl border border-slate-200 bg-white p-6">
+                <h3 className="text-lg font-semibold text-slate-900">{item.title}</h3>
+                <p className="mt-2 text-sm text-slate-500">{item.description}</p>
               </div>
             ))}
           </div>
@@ -68,11 +68,11 @@ export default function HomePageEn() {
           <h2 className="section-heading">Insights</h2>
           <div className="mt-8 grid gap-6 md:grid-cols-3">
             {blogPostsEn.map((post) => (
-              <div key={post.slug} className="rounded-3xl border border-white/10 bg-white/5 p-6 text-left">
-                <p className="text-xs uppercase tracking-[0.3em] text-white/40">{post.date}</p>
-                <h3 className="mt-3 text-lg font-semibold text-white">{post.title}</h3>
-                <p className="mt-3 text-sm text-white/60">{post.excerpt}</p>
-                <Link href={`/en/blog/${post.slug}`} className="mt-4 inline-flex text-sm font-semibold text-accent">
+              <div key={post.slug} className="rounded-3xl border border-slate-200 bg-white p-6 text-left">
+                <p className="text-xs uppercase tracking-[0.3em] text-slate-400">{post.date}</p>
+                <h3 className="mt-3 text-lg font-semibold text-slate-900">{post.title}</h3>
+                <p className="mt-3 text-sm text-slate-500">{post.excerpt}</p>
+                <Link href={`/en/blog/${post.slug}`} className="mt-4 inline-flex text-sm font-semibold text-primary">
                   Read more →
                 </Link>
               </div>
@@ -89,13 +89,13 @@ export default function HomePageEn() {
           <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
             <Link
               href="/en/contact"
-              className="inline-flex items-center rounded-full bg-accent px-6 py-3 text-sm font-semibold text-night shadow-glow-accent transition hover:bg-accent/90"
+              className="inline-flex items-center rounded-full bg-primary px-6 py-3 text-sm font-semibold text-white shadow-[0_18px_40px_rgba(0,136,255,0.3)] transition hover:bg-primary/90"
             >
               Talk to us
             </Link>
             <Link
               href="/en/features"
-              className="inline-flex items-center rounded-full border border-white/20 bg-white/5 px-6 py-3 text-sm font-semibold text-white transition hover:border-accent/60 hover:text-accent"
+              className="inline-flex items-center rounded-full border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-900 transition hover:border-primary hover:text-primary"
             >
               Explore features
             </Link>

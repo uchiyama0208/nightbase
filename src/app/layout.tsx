@@ -27,7 +27,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ja" className={`${inter.variable} ${noto.variable}`} suppressHydrationWarning>
-      <body className="min-h-screen bg-night text-white">
+      <body className="min-h-screen bg-background text-[#1A1A1A]">
         <Navbar
           items={mainNav}
           ctaHref="/contact"

@@ -18,15 +18,15 @@ export default function SecurityPage() {
           </div>
           <div className="grid gap-6 md:grid-cols-3">
             {securityHighlights.map((item) => (
-              <div key={item.title} className="rounded-3xl border border-white/10 bg-white/5 p-6">
-                <h2 className="text-lg font-semibold text-white">{item.title}</h2>
-                <p className="mt-2 text-sm text-white/60">{item.description}</p>
+              <div key={item.title} className="rounded-3xl border border-slate-200 bg-white p-6">
+                <h2 className="text-lg font-semibold text-slate-900">{item.title}</h2>
+                <p className="mt-2 text-sm text-slate-500">{item.description}</p>
               </div>
             ))}
           </div>
           <div>
-            <h2 className="text-2xl font-semibold text-white">データ保護</h2>
-            <p className="mt-3 text-sm text-white/70">
+            <h2 className="text-2xl font-semibold text-slate-900">データ保護</h2>
+            <p className="mt-3 text-sm text-slate-600">
               役割ベースのアクセス制御、多要素認証、IP制限により重要データへのアクセスを厳格に管理。通信と保存データの両方でAES-256暗号化を採用しています。
             </p>
           </div>

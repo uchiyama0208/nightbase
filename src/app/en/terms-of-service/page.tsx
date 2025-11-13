@@ -6,7 +6,7 @@ export default function TermsPageEn() {
   return (
     <div className="pb-24">
       <section className="container pt-20">
-        <div className="glass-card space-y-6 p-10 text-sm text-white/70">
+        <div className="glass-card space-y-6 p-10 text-sm text-slate-600">
           <h1 className="section-heading">Terms of Service</h1>
           <p>These terms govern your use of the NightBase services.</p>
           <ol className="list-decimal space-y-2 pl-6">

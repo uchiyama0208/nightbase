@@ -15,14 +15,14 @@ export default function AboutPage() {
             </p>
           </div>
           <div>
-            <h2 className="text-2xl font-semibold text-white">ビジョン</h2>
-            <p className="mt-3 text-sm text-white/70">
+            <h2 className="text-2xl font-semibold text-slate-900">ビジョン</h2>
+            <p className="mt-3 text-sm text-slate-600">
               NightBaseは「Nightlife Operating Cloud」として、現場の肌感覚とデータの力を融合させます。経営・現場・キャストが同じ指標で会話できる未来をつくります。
             </p>
           </div>
           <div>
-            <h2 className="text-2xl font-semibold text-white">チーム</h2>
-            <p className="mt-3 text-sm text-white/70">
+            <h2 className="text-2xl font-semibold text-slate-900">チーム</h2>
+            <p className="mt-3 text-sm text-slate-600">
               ナイト業界出身のプロフェッショナルと、SaaS・デザイン・セキュリティのエキスパートで構成。現場インタビューを重ねながらプロダクトを磨いています。
             </p>
           </div>

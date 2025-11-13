@@ -21,11 +21,11 @@ export function CaseStudyCard({ href, title, industry, summary, ctaLabel = "Read
       className="glass-card flex h-full flex-col justify-between p-6"
     >
       <div>
-        <p className="text-xs uppercase tracking-[0.3em] text-white/40">{industry}</p>
-        <h3 className="mt-3 text-xl font-semibold text-white">{title}</h3>
-        <p className="mt-4 text-sm text-white/60">{summary}</p>
+        <p className="text-xs uppercase tracking-[0.3em] text-slate-400">{industry}</p>
+        <h3 className="mt-3 text-xl font-semibold text-slate-900">{title}</h3>
+        <p className="mt-4 text-sm text-slate-600">{summary}</p>
       </div>
-      <Link href={href} className="mt-6 inline-flex items-center text-sm font-semibold text-accent hover:text-accent/80">
+      <Link href={href} className="mt-6 inline-flex items-center text-sm font-semibold text-primary hover:text-primary/80">
         {ctaLabel}
       </Link>
     </motion.div>

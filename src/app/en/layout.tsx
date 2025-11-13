@@ -23,7 +23,7 @@ export const metadata: Metadata = {
 export default function EnLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={inter.variable} suppressHydrationWarning>
-      <body className="min-h-screen bg-night text-white">
+      <body className="min-h-screen bg-background text-[#1A1A1A]">
         <Navbar
           items={mainNavEn}
           ctaHref="/en/contact"

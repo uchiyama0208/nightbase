@@ -20,10 +20,10 @@ export default function BlogPageEn() {
       <section className="container mt-12 grid gap-6 md:grid-cols-3">
         {blogPostsEn.map((post) => (
           <div key={post.slug} className="glass-card p-6 text-left">
-            <p className="text-xs uppercase tracking-[0.3em] text-white/40">{post.date}</p>
-            <h2 className="mt-3 text-xl font-semibold text-white">{post.title}</h2>
-            <p className="mt-3 text-sm text-white/60">{post.excerpt}</p>
-            <Link href={`/en/blog/${post.slug}`} className="mt-4 inline-flex text-sm font-semibold text-accent">
+            <p className="text-xs uppercase tracking-[0.3em] text-slate-400">{post.date}</p>
+            <h2 className="mt-3 text-xl font-semibold text-slate-900">{post.title}</h2>
+            <p className="mt-3 text-sm text-slate-500">{post.excerpt}</p>
+            <Link href={`/en/blog/${post.slug}`} className="mt-4 inline-flex text-sm font-semibold text-primary">
               Read article →
             </Link>
           </div>

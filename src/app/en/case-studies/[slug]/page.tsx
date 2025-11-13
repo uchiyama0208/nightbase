@@ -44,10 +44,10 @@ export default function CaseStudyPageEn({ params }: CaseStudyPageProps) {
     <div className="pb-24">
       <section className="container pt-20">
         <div className="glass-card p-10">
-          <p className="text-xs uppercase tracking-[0.3em] text-white/40">Case Study</p>
-          <h1 className="mt-4 text-3xl font-semibold text-white">{study.title}</h1>
-          <p className="mt-2 text-sm text-white/60">Industry: {study.industry}</p>
-          <p className="mt-6 text-sm text-white/70 leading-relaxed">{study.body}</p>
+          <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Case Study</p>
+          <h1 className="mt-4 text-3xl font-semibold text-slate-900">{study.title}</h1>
+          <p className="mt-2 text-sm text-slate-500">Industry: {study.industry}</p>
+          <p className="mt-6 text-sm text-slate-600 leading-relaxed">{study.body}</p>
         </div>
       </section>
     </div>

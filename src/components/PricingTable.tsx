@@ -27,26 +27,26 @@ export function PricingTable({ title, subtitle, ctaHref, ctaLabel, plans }: Pric
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.3 }}
             transition={{ delay: index * 0.05 }}
-            className={`relative flex h-full flex-col justify-between rounded-[28px] border border-white/10 bg-white/5 p-8 shadow-glass backdrop-blur-xl ${
-              plan.featured ? "ring-1 ring-accent/40" : ""
+            className={`relative flex h-full flex-col justify-between rounded-[28px] border border-slate-200 bg-white p-8 shadow-[0_24px_60px_rgba(15,23,42,0.08)] ${
+              plan.featured ? "ring-1 ring-primary/30" : ""
             }`}
           >
             {plan.featured ? (
-              <span className="absolute right-6 top-6 rounded-full bg-accent/20 px-3 py-1 text-xs font-semibold text-accent">
+              <span className="absolute right-6 top-6 rounded-full bg-secondary/30 px-3 py-1 text-xs font-semibold text-secondary">
                 {plan.highlight}
               </span>
             ) : (
-              <span className="text-xs uppercase tracking-[0.4em] text-white/40">{plan.highlight}</span>
+              <span className="text-xs uppercase tracking-[0.4em] text-slate-400">{plan.highlight}</span>
             )}
             <div className="mt-6 space-y-3">
-              <h3 className="text-2xl font-semibold text-white">{plan.name}</h3>
-              <p className="text-3xl font-bold text-accent">{plan.price}</p>
-              <p className="text-sm text-white/60">{plan.description}</p>
+              <h3 className="text-2xl font-semibold text-slate-900">{plan.name}</h3>
+              <p className="text-3xl font-bold text-primary">{plan.price}</p>
+              <p className="text-sm text-slate-600">{plan.description}</p>
             </div>
-            <ul className="mt-6 space-y-3 text-sm text-white/70">
+            <ul className="mt-6 space-y-3 text-sm text-slate-600">
               {plan.features.map((feature) => (
                 <li key={feature} className="flex items-start gap-3">
-                  <span className="mt-1 h-2 w-2 rounded-full bg-accent" />
+                  <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
                   <span>{feature}</span>
                 </li>
               ))}
@@ -55,8 +55,8 @@ export function PricingTable({ title, subtitle, ctaHref, ctaLabel, plans }: Pric
               href={ctaHref}
               className={`mt-10 inline-flex items-center justify-center rounded-full border px-6 py-3 text-sm font-semibold transition ${
                 plan.featured
-                  ? "border-transparent bg-accent text-night shadow-glow-accent hover:bg-accent/90"
-                  : "border-white/20 bg-white/5 text-white hover:border-accent/40 hover:text-accent"
+                  ? "border-transparent bg-primary text-white shadow-[0_18px_40px_rgba(0,136,255,0.25)] hover:bg-primary/90"
+                  : "border-slate-300 bg-white text-slate-900 hover:border-primary hover:text-primary"
               }`}
             >
               {ctaLabel}

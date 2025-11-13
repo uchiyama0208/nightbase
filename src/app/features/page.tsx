@@ -37,7 +37,7 @@ export default function FeaturesPage() {
               <Link
                 key={item.href}
                 href={item.href}
-                className="rounded-3xl border border-white/10 bg-white/5 px-6 py-4 text-sm font-semibold text-white transition hover:border-accent/60 hover:text-accent"
+                className="rounded-3xl border border-slate-200 bg-white px-6 py-4 text-sm font-semibold text-slate-900 transition hover:border-primary hover:text-primary"
               >
                 {item.label}
               </Link>

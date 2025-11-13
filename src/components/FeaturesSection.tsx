@@ -28,11 +28,11 @@ export function FeaturesSection({ title, subtitle, features }: FeaturesSectionPr
           >
             <div>
               <span className="text-3xl">{feature.icon}</span>
-              <h3 className="mt-4 text-xl font-semibold text-white">{feature.title}</h3>
-              <p className="mt-2 text-sm text-white/60">{feature.description}</p>
+              <h3 className="mt-4 text-xl font-semibold text-slate-900">{feature.title}</h3>
+              <p className="mt-2 text-sm text-slate-600">{feature.description}</p>
             </div>
-            <div className="mt-6 h-px w-full bg-gradient-to-r from-white/10 via-white/40 to-white/10" />
-            <p className="mt-4 text-xs uppercase tracking-[0.3em] text-white/40">NightBase Platform</p>
+            <div className="mt-6 h-px w-full bg-gradient-to-r from-primary/10 via-primary/30 to-secondary/20" />
+            <p className="mt-4 text-xs uppercase tracking-[0.3em] text-slate-400">NightBase Platform</p>
           </motion.div>
         ))}
       </div>

@@ -6,7 +6,7 @@ export default function TermsPage() {
   return (
     <div className="pb-24">
       <section className="container pt-20">
-        <div className="glass-card space-y-6 p-10 text-sm text-white/70">
+        <div className="glass-card space-y-6 p-10 text-sm text-slate-600">
           <h1 className="section-heading">利用規約</h1>
           <p>本規約は、NightBaseが提供するサービス（以下「本サービス」）の利用条件を定めるものです。</p>
           <ol className="list-decimal space-y-2 pl-6">

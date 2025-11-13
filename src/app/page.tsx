@@ -21,15 +21,15 @@ export default function HomePage() {
         <div className="glass-card grid gap-8 p-10 md:grid-cols-2">
           <div>
             <h2 className="section-heading">Before NightBase</h2>
-            <ul className="mt-6 space-y-4 text-sm text-white/60">
+            <ul className="mt-6 space-y-4 text-sm text-slate-600">
               <li>・複雑な歩合計算で締め日に徹夜</li>
               <li>・キャストの稼働状況が把握できない</li>
               <li>・VIP顧客の管理がスプレッドシートに散在</li>
             </ul>
           </div>
           <div>
-            <h2 className="section-heading text-accent">After NightBase</h2>
-            <ul className="mt-6 space-y-4 text-sm text-white/80">
+            <h2 className="section-heading text-primary">After NightBase</h2>
+            <ul className="mt-6 space-y-4 text-sm text-slate-700">
               <li>・勤怠から給与まで自動化、ミスゼロ運用</li>
               <li>・モバイルダッシュボードで現場が見える化</li>
               <li>・CRMとランキングで顧客体験を個別最適化</li>
@@ -53,35 +53,35 @@ export default function HomePage() {
                 店舗ダッシュボード、キャストアプリ、QRオーダーの体験をAppleライクな洗練UIで提供。リアルタイム同期と操作性で現場に愛されるプロダクトです。
               </p>
               <div className="mt-8 grid gap-4 md:grid-cols-2">
-                <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-                  <p className="text-xs uppercase tracking-[0.3em] text-white/40">Operations</p>
-                  <p className="mt-3 text-lg font-semibold">全店舗売上</p>
-                  <p className="text-3xl font-bold text-accent">¥128,400,000</p>
-                  <p className="mt-2 text-xs text-emerald-400">+18% MoM</p>
+                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Operations</p>
+                  <p className="mt-3 text-lg font-semibold text-slate-900">全店舗売上</p>
+                  <p className="text-3xl font-bold text-primary">¥128,400,000</p>
+                  <p className="mt-2 text-xs text-emerald-500">+18% MoM</p>
                 </div>
-                <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-                  <p className="text-xs uppercase tracking-[0.3em] text-white/40">Talent</p>
-                  <p className="mt-3 text-lg font-semibold">トップキャスト指名数</p>
-                  <p className="text-3xl font-bold text-white">214</p>
-                  <p className="mt-2 text-xs text-white/60">アプリで成果が可視化</p>
+                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Talent</p>
+                  <p className="mt-3 text-lg font-semibold text-slate-900">トップキャスト指名数</p>
+                  <p className="text-3xl font-bold text-secondary">214</p>
+                  <p className="mt-2 text-xs text-slate-500">アプリで成果が可視化</p>
                 </div>
               </div>
             </div>
-            <div className="relative aspect-[3/4] rounded-[32px] border border-white/10 bg-deep-glow p-6 shadow-glass">
-              <div className="absolute inset-x-8 inset-y-10 rounded-[26px] bg-night/80 p-6">
-                <p className="text-sm text-white/60">キャスト個別の売上トラッキング、顧客メモ、自動アクションで日次の営業が驚くほどスムーズに。</p>
+            <div className="relative aspect-[3/4] rounded-[32px] border border-slate-200 bg-gradient-to-br from-primary/10 via-white to-secondary/10 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.08)]">
+              <div className="absolute inset-x-8 inset-y-10 rounded-[26px] bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
+                <p className="text-sm text-slate-600">キャスト個別の売上トラッキング、顧客メモ、自動アクションで日次の営業が驚くほどスムーズに。</p>
                 <div className="mt-6 space-y-4">
-                  <div className="rounded-2xl bg-white/5 p-4">
-                    <p className="text-xs text-white/40">Today</p>
-                    <p className="text-lg font-semibold text-white">来店予定VIP 6名</p>
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <p className="text-xs text-slate-400">Today</p>
+                    <p className="text-lg font-semibold text-slate-900">来店予定VIP 6名</p>
                   </div>
-                  <div className="rounded-2xl bg-white/5 p-4">
-                    <p className="text-xs text-white/40">Action</p>
-                    <p className="text-lg font-semibold text-accent">リマインド送信完了</p>
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <p className="text-xs text-slate-400">Action</p>
+                    <p className="text-lg font-semibold text-primary">リマインド送信完了</p>
                   </div>
-                  <div className="rounded-2xl bg-white/5 p-4">
-                    <p className="text-xs text-white/40">Score</p>
-                    <p className="text-lg font-semibold text-white">キャスト平均評価 4.8</p>
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <p className="text-xs text-slate-400">Score</p>
+                    <p className="text-lg font-semibold text-slate-900">キャスト平均評価 4.8</p>
                   </div>
                 </div>
               </div>
@@ -108,9 +108,9 @@ export default function HomePage() {
                 description: "アプリで成果が見えるから、モチベーションと報酬がリンク。"
               }
             ].map((item) => (
-              <div key={item.title} className="rounded-3xl border border-white/10 bg-white/5 p-6">
-                <p className="text-sm uppercase tracking-[0.3em] text-white/40">{item.title}</p>
-                <p className="mt-3 text-sm text-white/70">{item.description}</p>
+              <div key={item.title} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <p className="text-sm uppercase tracking-[0.3em] text-slate-400">{item.title}</p>
+                <p className="mt-3 text-sm text-slate-600">{item.description}</p>
               </div>
             ))}
           </div>
@@ -154,9 +154,9 @@ export default function HomePage() {
           </p>
           <div className="mt-8 grid gap-6 md:grid-cols-3">
             {securityHighlights.map((item) => (
-              <div key={item.title} className="rounded-3xl border border-white/10 bg-white/5 p-6">
-                <h3 className="text-lg font-semibold text-white">{item.title}</h3>
-                <p className="mt-2 text-sm text-white/60">{item.description}</p>
+              <div key={item.title} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h3 className="text-lg font-semibold text-slate-900">{item.title}</h3>
+                <p className="mt-2 text-sm text-slate-600">{item.description}</p>
               </div>
             ))}
           </div>
@@ -171,7 +171,7 @@ export default function HomePage() {
           </p>
           <Link
             href="/about"
-            className="mt-8 inline-flex items-center justify-center rounded-full border border-white/20 bg-white/5 px-6 py-3 text-sm font-semibold text-white transition hover:border-accent/60 hover:text-accent"
+            className="mt-8 inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-900 transition hover:border-primary hover:text-primary"
           >
             ミッションを見る
           </Link>
@@ -186,11 +186,11 @@ export default function HomePage() {
           </p>
           <div className="mt-8 grid gap-6 md:grid-cols-3">
             {blogPosts.map((post) => (
-              <div key={post.slug} className="rounded-3xl border border-white/10 bg-white/5 p-6 text-left">
-                <p className="text-xs uppercase tracking-[0.3em] text-white/40">{post.date}</p>
-                <h3 className="mt-3 text-lg font-semibold text-white">{post.title}</h3>
-                <p className="mt-3 text-sm text-white/60">{post.excerpt}</p>
-                <Link href={`/blog/${post.slug}`} className="mt-4 inline-flex text-sm font-semibold text-accent">
+              <div key={post.slug} className="rounded-3xl border border-slate-200 bg-white p-6 text-left shadow-sm">
+                <p className="text-xs uppercase tracking-[0.3em] text-slate-400">{post.date}</p>
+                <h3 className="mt-3 text-lg font-semibold text-slate-900">{post.title}</h3>
+                <p className="mt-3 text-sm text-slate-600">{post.excerpt}</p>
+                <Link href={`/blog/${post.slug}`} className="mt-4 inline-flex text-sm font-semibold text-primary">
                   記事を読む →
                 </Link>
               </div>
@@ -208,13 +208,13 @@ export default function HomePage() {
           <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
             <Link
               href="/contact"
-              className="inline-flex items-center rounded-full bg-accent px-6 py-3 text-sm font-semibold text-night shadow-glow-accent transition hover:bg-accent/90"
+              className="inline-flex items-center rounded-full bg-primary px-6 py-3 text-sm font-semibold text-white shadow-[0_18px_40px_rgba(0,136,255,0.3)] transition hover:bg-primary/90"
             >
               導入相談はこちら
             </Link>
             <Link
               href="/pricing"
-              className="inline-flex items-center rounded-full border border-white/20 bg-white/5 px-6 py-3 text-sm font-semibold text-white transition hover:border-accent/60 hover:text-accent"
+              className="inline-flex items-center rounded-full border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-900 transition hover:border-primary hover:text-primary"
             >
               料金を見る
             </Link>
