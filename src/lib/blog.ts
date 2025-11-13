@@ -3,7 +3,7 @@ import type { BlogPost } from "@/types/blog";
 import { createClient } from "./supabaseClient";
 
 const BLOG_POST_FIELDS =
-  "id, slug, title, content, excerpt, cover_image_url, category, published_at, created_at, updated_at, status";
+  "id, slug, title, content, excerpt, cover_image_url, category, published_at, updated_at, status";
 
 export async function getPublishedBlogPosts(): Promise<BlogPost[]> {
   const supabase = createClient();
@@ -13,7 +13,7 @@ export async function getPublishedBlogPosts(): Promise<BlogPost[]> {
     .select(BLOG_POST_FIELDS)
     .eq("status", "published")
     .order("published_at", { ascending: false, nullsFirst: false })
-    .order("created_at", { ascending: false });
+    .order("updated_at", { ascending: false });
 
   if (error) {
     console.error("ブログ記事一覧の取得に失敗しました", error);
