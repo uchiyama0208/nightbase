@@ -11,9 +11,10 @@ import { getDictionary } from "@/lib/i18n";
 export default async function HomePage({
   params
 }: {
-  params: { locale: string };
+  params: Promise<{ locale: string }>;
 }) {
-  const locale = params.locale as Locale;
+  const { locale: localeParam } = await params;
+  const locale = localeParam as Locale;
   if (!locales.includes(locale)) {
     notFound();
   }

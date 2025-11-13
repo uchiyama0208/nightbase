@@ -17,10 +17,10 @@ export async function generateStaticParams() {
 export default async function BlogPostPage({
   params
 }: {
-  params: { locale: string; slug: string };
+  params: Promise<{ locale: string; slug: string }>;
 }) {
-  const locale = params.locale as Locale;
-  const slug = params.slug;
+  const { locale: localeParam, slug } = await params;
+  const locale = localeParam as Locale;
 
   if (!locales.includes(locale)) {
     notFound();
