@@ -13,10 +13,12 @@ const fetchPostBySlug = cache(async (slug: string): Promise<BlogPost | null> => 
 
   const { data, error } = await supabase
     .from("blog_posts")
-    .select("id, slug, title, content, excerpt, cover_image_url, published_at, updated_at, status")
+    .select(
+      "id, slug, title, content, excerpt, cover_image_url, category, published_at, updated_at, status"
+    )
     .eq("slug", slug)
     .eq("status", "published")
-    .maybeSingle();
+    .single();
 
   if (error) {
     if (error.code !== "PGRST116") {
@@ -80,9 +82,16 @@ export default async function BlogPostPage({ params }: BlogPostPageParams) {
     <div className="bg-white py-24">
       <article className="container mx-auto max-w-3xl space-y-10">
         <div className="space-y-4">
-          <p className="text-xs font-medium uppercase tracking-widest text-neutral-400">
-            {formatDate(post.published_at)}
-          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            {post.category && (
+              <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+                {post.category}
+              </span>
+            )}
+            <p className="text-xs font-medium uppercase tracking-widest text-neutral-400">
+              {formatDate(post.published_at)}
+            </p>
+          </div>
           <h1 className="text-4xl font-semibold text-[#111111] sm:text-5xl">{post.title}</h1>
           {post.excerpt && <p className="text-lg text-neutral-600">{post.excerpt}</p>}
         </div>

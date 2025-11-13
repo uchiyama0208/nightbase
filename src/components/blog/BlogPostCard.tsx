@@ -19,9 +19,16 @@ export function BlogPostCard({ post, className }: BlogPostCardProps) {
     >
       <article className="flex h-full flex-col justify-between rounded-3xl border border-neutral-100 bg-white p-8 shadow-soft transition-transform duration-300 group-hover:-translate-y-1 group-hover:shadow-lg">
         <div className="space-y-4">
-          <p className="text-xs font-medium uppercase tracking-widest text-neutral-400">
-            {formatDate(post.published_at)}
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            {post.category && (
+              <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-primary">
+                {post.category}
+              </span>
+            )}
+            <p className="text-xs font-medium uppercase tracking-widest text-neutral-400">
+              {formatDate(post.published_at)}
+            </p>
+          </div>
           <h2 className="text-2xl font-semibold leading-snug text-[#111111] transition-colors group-hover:text-primary">
             {post.title}
           </h2>
