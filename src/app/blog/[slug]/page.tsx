@@ -8,7 +8,16 @@ interface BlogPostPageProps {
   };
 }
 
-export default async function BlogPostPage({ params }: BlogPostPageProps) {
+interface BlogPost {
+  id: string;
+  slug: string;
+  title: string;
+  content: string | null;
+  excerpt: string | null;
+  published_at: string | null;
+}
+
+async function getBlogPost(slug: string): Promise<BlogPost | null> {
   const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -18,7 +27,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
 
   const response = await fetch(
     `${baseUrl}/rest/v1/blog_posts?slug=eq.${encodeURIComponent(
-      params.slug
+      slug
     )}&select=*`,
     {
       headers: {
@@ -26,23 +35,21 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
         Authorization: `Bearer ${anonKey}`,
       },
       cache: "no-store",
+      next: { revalidate: 0 },
     }
   );
 
   if (!response.ok) {
-    notFound();
+    return null;
   }
 
-  const posts = (await response.json()) as Array<{
-    id: string;
-    slug: string;
-    title: string;
-    content: string | null;
-    excerpt: string | null;
-    published_at: string | null;
-  }>;
+  const posts = (await response.json()) as BlogPost[];
 
-  const post = posts[0];
+  return posts[0] ?? null;
+}
+
+export default async function BlogPostPage({ params }: BlogPostPageProps) {
+  const post = await getBlogPost(params.slug);
 
   if (!post) {
     notFound();
