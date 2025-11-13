@@ -18,13 +18,10 @@ const fetchPostBySlug = cache(async (slug: string): Promise<BlogPost | null> => 
     )
     .eq("slug", slug)
     .eq("status", "published")
-    .single();
+    .maybeSingle();
 
   if (error) {
-    if (error.code !== "PGRST116") {
-      console.error("ブログ記事の取得に失敗しました", error);
-      throw new Error("ブログ記事の取得に失敗しました");
-    }
+    console.error("ブログ記事の取得に失敗しました", error);
     return null;
   }
 
