@@ -68,13 +68,6 @@ export type CaseStudy = {
   result: string;
 };
 
-export type BlogPost = {
-  slug: string;
-  title: string;
-  description: string;
-  date: string;
-};
-
 export type ContactField = {
   name: string;
   label: string;
@@ -213,7 +206,6 @@ export type SiteContent = {
   blog: {
     title: string;
     description: string;
-    posts: BlogPost[];
   };
   contact: ContactContent;
   contactThanks: {

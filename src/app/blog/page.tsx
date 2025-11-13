@@ -1,27 +1,45 @@
-import { siteContent } from "@/content/site";
+import { cache } from "react";
 
-export default function BlogPage() {
-  const { blog } = siteContent;
+import { BlogPostList } from "@/components/blog/BlogPostList";
+import { siteContent } from "@/content/site";
+import { createClient } from "@/lib/supabaseClient";
+import type { BlogPost } from "@/types/blog";
+
+export const revalidate = 60;
+
+const fetchPublishedPosts = cache(async (): Promise<BlogPost[]> => {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("blog_posts")
+    .select(
+      "id, slug, title, content, excerpt, cover_image_url, published_at, created_at, updated_at, status"
+    )
+    .eq("status", "published")
+    .order("published_at", { ascending: false });
+
+  if (error) {
+    console.error("ブログ記事の取得に失敗しました", error);
+    return [];
+  }
+
+  return data ?? [];
+});
+
+export default async function BlogPage() {
+  const posts = await fetchPublishedPosts();
+  const { title, description } = siteContent.blog;
 
   return (
-    <div className="bg-white py-20">
-      <div className="container space-y-12">
+    <div className="bg-white py-24">
+      <div className="container space-y-14">
         <header className="mx-auto max-w-3xl space-y-4 text-center">
-          <h1 className="text-4xl font-semibold text-[#111111] sm:text-5xl">{blog.title}</h1>
-          <p className="text-lg text-neutral-600">{blog.description}</p>
+          <span className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-primary">
+            Blog
+          </span>
+          <h1 className="text-4xl font-semibold text-[#111111] sm:text-5xl">{title}</h1>
+          <p className="text-lg text-neutral-600">{description}</p>
         </header>
-        <div className="grid gap-8 md:grid-cols-2">
-          {blog.posts.map((post) => (
-            <article key={post.slug} className="glass-panel space-y-4 p-8">
-              <p className="text-xs uppercase tracking-wide text-neutral-400">{post.date}</p>
-              <h2 className="text-2xl font-semibold text-[#111111]">{post.title}</h2>
-              <p className="text-sm text-neutral-500">{post.description}</p>
-              <a href={`/blog/${post.slug}`} className="text-sm font-semibold text-primary hover:text-primary/80">
-                続きを読む
-              </a>
-            </article>
-          ))}
-        </div>
+        <BlogPostList posts={posts} />
       </div>
     </div>
   );

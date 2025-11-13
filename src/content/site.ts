@@ -14,7 +14,7 @@ export const siteContent: SiteContent = {
       { href: "/features", label: "機能" },
       { href: "/pricing", label: "料金" },
       { href: "/case-studies", label: "導入事例" },
-      { href: "/blog", label: "ブログ" },
+      { href: "/blog", label: "Blog" },
       { href: "/contact", label: "お問い合わせ" }
     ],
   },
@@ -422,21 +422,7 @@ export const siteContent: SiteContent = {
   },
   blog: {
     title: "NightBaseブログ",
-    description: "ナイトワークDXや業界ニュース、アップデート情報をお届けします。",
-    posts: [
-      {
-        slug: "nightbase-product-update-2025",
-        title: "2025年春アップデートまとめ",
-        description: "AIシフト機能やUI改善など、最新アップデートをご紹介。",
-        date: "2025-03-18"
-      },
-      {
-        slug: "nightlife-dx-playbook",
-        title: "ナイトワークDXプレイブック",
-        description: "現場で使えるデジタル化の進め方と成功事例。",
-        date: "2025-02-05"
-      }
-    ]
+    description: "ナイトワークDXや業界ニュース、アップデート情報をお届けします。"
   },
   contact: {
     title: "お問い合わせ・デモ依頼",
