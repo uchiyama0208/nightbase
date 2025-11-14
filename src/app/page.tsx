@@ -1,8 +1,11 @@
+import Link from "next/link";
+
 import { CaseStudyCard } from "@/components/CaseStudyCard";
 import { ContactForm } from "@/components/ContactForm";
 import { FeaturesSection } from "@/components/FeaturesSection";
 import { Hero } from "@/components/Hero";
 import { PricingTable } from "@/components/PricingTable";
+import { INDUSTRIES } from "@/content/industries";
 import { siteContent } from "@/content/site";
 
 export default function HomePage() {
@@ -11,6 +14,31 @@ export default function HomePage() {
   return (
     <div>
       <Hero hero={home.hero} />
+
+      <section className="bg-white py-20">
+        <div className="container space-y-10">
+          <div className="mx-auto max-w-3xl text-center space-y-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary">INDUSTRIES</p>
+            <h2 className="text-3xl font-semibold text-[#111111] sm:text-4xl">
+              夜の業種別に NightBase を見る
+            </h2>
+            <p className="text-neutral-600">
+              キャバクラ、ラウンジ、クラブ、ガルバ、コンカフェ、ホスト、バー…。お店のスタイルに合わせて、NightBase の活用ポイントをご提案します。
+            </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            {INDUSTRIES.map((industry) => (
+              <Link
+                key={industry.slug}
+                href={`/industries/${industry.slug}`}
+                className="inline-flex items-center justify-center rounded-full border border-neutral-200 bg-white px-6 py-3 text-sm font-semibold text-[#111111] transition hover:border-primary hover:bg-primary hover:text-white"
+              >
+                {industry.shortLabel}
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
 
       <section className="bg-white py-20">
         <div className="container grid gap-10 lg:grid-cols-2">

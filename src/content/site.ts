@@ -13,6 +13,7 @@ export const siteContent: SiteContent = {
       { href: "/", label: "トップ" },
       { href: "/features", label: "機能" },
       { href: "/pricing", label: "料金" },
+      { href: "/industries", label: "夜職別" },
       { href: "/case-studies", label: "導入事例" },
       { href: "/blog", label: "Blog" },
       { href: "/contact", label: "お問い合わせ" }
