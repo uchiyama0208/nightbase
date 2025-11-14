@@ -13,20 +13,19 @@ type BlogPostPageParams = {
   params: { slug: string };
 };
 
-async function resolvePost(slug: string) {
-  const normalized = decodeURIComponent(slug ?? "").trim();
-
-  if (!normalized) {
-    return null;
-  }
-
-  return getPublishedBlogPostBySlug(normalized);
-}
-
 export async function generateMetadata(
   { params }: BlogPostPageParams
 ): Promise<Metadata> {
-  const post = await resolvePost(params.slug);
+  const normalizedSlug = decodeURIComponent(params.slug ?? "").trim();
+
+  if (!normalizedSlug) {
+    return {
+      title: "記事が見つかりません | NightBaseブログ",
+      description: "お探しのブログ記事は現在公開されていません。",
+    };
+  }
+
+  const post = await getPublishedBlogPostBySlug(normalizedSlug);
 
   if (!post) {
     return {
@@ -42,7 +41,13 @@ export async function generateMetadata(
 }
 
 export default async function BlogPostPage({ params }: BlogPostPageParams) {
-  const post = await resolvePost(params.slug);
+  const normalizedSlug = decodeURIComponent(params.slug ?? "").trim();
+
+  if (!normalizedSlug) {
+    notFound();
+  }
+
+  const post = await getPublishedBlogPostBySlug(normalizedSlug);
 
   if (!post) {
     notFound();
