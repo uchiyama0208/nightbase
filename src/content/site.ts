@@ -324,43 +324,7 @@ export const siteContent: SiteContent = {
   },
   caseStudies: {
     title: "導入事例",
-    description: "ナイトワーク業界の先進店舗がNightBaseを選ぶ理由をご紹介します。",
-    items: [
-      {
-        slug: "luminous",
-        industry: "ラウンジ",
-        title: "データドリブンな経営で売上20%アップ",
-        summary:
-          "NightBase導入後、VIP分析とAIシフト最適化により、売上20%アップと人件費15%削減を同時に達成。",
-        quote: {
-          text: "売上と勤怠がリアルタイムで連動し、意思決定が驚くほど早くなりました。",
-          author: "BAR LUMINOUS",
-          role: "オーナー"
-        },
-        metrics: [
-          { label: "売上", value: "+20%" },
-          { label: "人件費", value: "-15%" }
-        ],
-        result: "シフト自動化で残業がほぼゼロに。VIPフォローも漏れなく実施できるようになりました。"
-      },
-      {
-        slug: "aurora",
-        industry: "キャバクラ",
-        title: "VIPフォロー率を25%向上",
-        summary:
-          "VIPカルテとアクション提案を活用し、リピート率と客単価を向上。現場のオペレーションもシンプルに。",
-        quote: {
-          text: "アプリのUIが洗練されていて、キャストも嫌がらず入力してくれます。",
-          author: "CLUB AURORA",
-          role: "マネージャー"
-        },
-        metrics: [
-          { label: "VIP来店頻度", value: "+25%" },
-          { label: "客単価", value: "+18%" }
-        ],
-        result: "顧客フォローの自動提案で、重要顧客へのアプローチを逃さなくなりました。"
-      }
-    ]
+    description: "ナイトワーク業界の先進店舗がNightBaseを選ぶ理由をご紹介します。"
   },
   about: {
     title: "NightBaseについて",

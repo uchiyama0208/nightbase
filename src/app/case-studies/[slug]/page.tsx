@@ -1,46 +1,179 @@
+export const dynamic = "force-dynamic";
+export const dynamicParams = true;
+export const revalidate = 60;
+
+import Link from "next/link";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { siteContent } from "@/content/site";
+import { formatCaseStudyIndustry, getPublishedCaseStudyBySlug } from "@/lib/caseStudies";
+import { formatDate } from "@/lib/utils";
 
-export function generateStaticParams() {
-  return siteContent.caseStudies.items.map((caseStudy) => ({ slug: caseStudy.slug }));
+type CaseStudyDetailPageParams = {
+  params: { slug: string };
+};
+
+function parseMultiline(value: string | null | undefined): string[] {
+  if (!value) {
+    return [];
+  }
+
+  return value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
 }
 
-export default function CaseStudyDetailPage({
-  params
-}: {
-  params: { slug: string };
-}) {
-  const caseStudy = siteContent.caseStudies.items.find((item) => item.slug === params.slug);
+export async function generateMetadata({ params }: CaseStudyDetailPageParams): Promise<Metadata> {
+  const targetSlug = decodeURIComponent(params.slug).trim();
+  const caseStudy = await getPublishedCaseStudyBySlug(targetSlug);
+
+  if (!caseStudy) {
+    return {
+      title: "導入事例が見つかりません | NightBase",
+      description: "お探しの導入事例は現在公開されていません。",
+    };
+  }
+
+  const fallback = [caseStudy.company_name, formatCaseStudyIndustry(caseStudy.industry)]
+    .filter((value): value is string => Boolean(value))
+    .join(" | ");
+  const description = caseStudy.summary ?? (fallback.length > 0 ? fallback : undefined) ?? "NightBase 導入事例";
+
+  return {
+    title: `${caseStudy.title} | NightBase導入事例`,
+    description,
+  };
+}
+
+export default async function CaseStudyDetailPage({ params }: CaseStudyDetailPageParams) {
+  const targetSlug = decodeURIComponent(params.slug).trim();
+  const caseStudy = await getPublishedCaseStudyBySlug(targetSlug);
 
   if (!caseStudy) {
     notFound();
   }
 
+  const industryLabel = formatCaseStudyIndustry(caseStudy.industry);
+  const problems = parseMultiline(caseStudy.problems);
+  const solutions = parseMultiline(caseStudy.solutions);
+  const results = parseMultiline(caseStudy.results);
+  const publishedLabel = caseStudy.published_at ? formatDate(caseStudy.published_at) : null;
+
   return (
     <div className="bg-white py-20">
-      <div className="container space-y-10">
-        <div className="space-y-3">
-          <span className="badge">{caseStudy.industry}</span>
-          <h1 className="text-4xl font-semibold text-[#111111] sm:text-5xl">{caseStudy.title}</h1>
-          <p className="text-lg text-neutral-600">{caseStudy.result}</p>
-        </div>
-        <div className="glass-panel space-y-6 p-8">
-          <blockquote className="rounded-2xl border border-neutral-100 bg-white/80 p-6 text-lg text-neutral-700">
-            “{caseStudy.quote.text}”
-            <footer className="mt-4 text-sm text-neutral-500">
-              {caseStudy.quote.author}・{caseStudy.quote.role}
-            </footer>
-          </blockquote>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {caseStudy.metrics.map((metric) => (
-              <div key={metric.label} className="rounded-2xl border border-neutral-100 bg-white/90 p-6 text-sm">
-                <p className="text-neutral-500">{metric.label}</p>
-                <p className="mt-2 text-2xl font-semibold text-[#111111]">{metric.value}</p>
-              </div>
-            ))}
+      <div className="container mx-auto max-w-4xl space-y-16">
+        <header className="space-y-6">
+          <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-400">
+            <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-4 py-1 text-[10px] font-semibold uppercase tracking-[0.3em] text-primary">
+              {industryLabel}
+            </span>
+            {publishedLabel && <span>{publishedLabel}</span>}
           </div>
-        </div>
+          <div className="space-y-3">
+            <p className="text-sm font-semibold text-neutral-500">{caseStudy.company_name}</p>
+            <h1 className="text-4xl font-semibold text-[#111111] sm:text-5xl">{caseStudy.title}</h1>
+            {caseStudy.summary && <p className="text-lg text-neutral-600">{caseStudy.summary}</p>}
+          </div>
+        </header>
+
+        <section className="space-y-12">
+          <div className="grid gap-8 lg:grid-cols-3">
+            <div className="space-y-4 lg:col-span-1">
+              <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-primary">
+                導入前の課題
+              </h2>
+              <p className="text-sm text-neutral-600">
+                現場で直面していた課題を整理し、NightBase で解決すべきポイントを明確にしました。
+              </p>
+            </div>
+            <div className="lg:col-span-2">
+              <ul className="space-y-3 text-sm text-neutral-700">
+                {problems.length > 0 ? (
+                  problems.map((item) => (
+                    <li key={item} className="flex gap-3">
+                      <span className="mt-1 inline-flex h-2 w-2 rounded-full bg-primary" aria-hidden />
+                      <span>{item}</span>
+                    </li>
+                  ))
+                ) : (
+                  <li className="text-sm text-neutral-500">詳細は現在準備中です。</li>
+                )}
+              </ul>
+            </div>
+          </div>
+
+          <div className="grid gap-8 lg:grid-cols-3">
+            <div className="space-y-4 lg:col-span-1">
+              <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-primary">
+                NightBase の活用
+              </h2>
+              <p className="text-sm text-neutral-600">
+                NightBase を活用した具体的な取り組みと、その運用体制をご紹介します。
+              </p>
+            </div>
+            <div className="lg:col-span-2">
+              <ul className="space-y-3 text-sm text-neutral-700">
+                {solutions.length > 0 ? (
+                  solutions.map((item) => (
+                    <li key={item} className="flex gap-3">
+                      <span className="mt-1 inline-flex h-2 w-2 rounded-full bg-secondary" aria-hidden />
+                      <span>{item}</span>
+                    </li>
+                  ))
+                ) : (
+                  <li className="text-sm text-neutral-500">詳細は現在準備中です。</li>
+                )}
+              </ul>
+            </div>
+          </div>
+
+          <div className="grid gap-8 lg:grid-cols-3">
+            <div className="space-y-4 lg:col-span-1">
+              <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-primary">
+                導入後の変化
+              </h2>
+              <p className="text-sm text-neutral-600">
+                導入後に得られた成果やお客様の声をピックアップしています。
+              </p>
+            </div>
+            <div className="lg:col-span-2">
+              <ul className="space-y-3 text-sm text-neutral-700">
+                {results.length > 0 ? (
+                  results.map((item) => (
+                    <li key={item} className="flex gap-3">
+                      <span className="mt-1 inline-flex h-2 w-2 rounded-full bg-primary" aria-hidden />
+                      <span>{item}</span>
+                    </li>
+                  ))
+                ) : (
+                  <li className="text-sm text-neutral-500">詳細は現在準備中です。</li>
+                )}
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section className="glass-panel space-y-6 p-8 text-center">
+          <h2 className="text-2xl font-semibold text-[#111111]">NightBase の導入についてご相談ください</h2>
+          <p className="text-sm text-neutral-600">
+            夜職の業種や店舗規模に合わせて、最適な活用方法をご提案します。お気軽にお問い合わせください。
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-4">
+            <Link
+              href="/contact"
+              className="inline-flex items-center rounded-full bg-primary px-6 py-3 text-sm font-semibold text-white transition hover:bg-primary/90"
+            >
+              導入の相談をする
+            </Link>
+            <Link
+              href="/industries"
+              className="inline-flex items-center rounded-full border border-primary px-6 py-3 text-sm font-semibold text-primary transition hover:bg-primary/10"
+            >
+              夜職別の活用を見る
+            </Link>
+          </div>
+        </section>
       </div>
     </div>
   );

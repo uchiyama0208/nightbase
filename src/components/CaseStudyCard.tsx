@@ -1,33 +1,36 @@
 import Link from "next/link";
 
-import type { CaseStudy } from "@/content/types";
+import { formatCaseStudyIndustry } from "@/lib/caseStudies";
+import { formatDate } from "@/lib/utils";
+import type { CaseStudy } from "@/types/case-studies";
 
 interface CaseStudyCardProps {
   caseStudy: CaseStudy;
 }
 
 export function CaseStudyCard({ caseStudy }: CaseStudyCardProps) {
+  const industryLabel = formatCaseStudyIndustry(caseStudy.industry);
+  const publishedLabel = caseStudy.published_at ? formatDate(caseStudy.published_at) : null;
+
   return (
     <article className="glass-panel flex h-full flex-col gap-6 p-8">
-      <div className="badge w-fit">{caseStudy.industry}</div>
-      <h3 className="text-2xl font-semibold text-[#111111]">{caseStudy.title}</h3>
-      <p className="text-sm text-neutral-500">{caseStudy.summary}</p>
-      <blockquote className="rounded-2xl border border-neutral-100 bg-white/80 p-5 text-sm text-neutral-600">
-        “{caseStudy.quote.text}”
-        <footer className="mt-3 text-xs text-neutral-500">
-          {caseStudy.quote.author}・{caseStudy.quote.role}
-        </footer>
-      </blockquote>
-      <div className="grid grid-cols-2 gap-4">
-        {caseStudy.metrics.map((metric) => (
-          <div key={metric.label} className="rounded-2xl border border-neutral-100 bg-white/70 p-4 text-sm">
-            <p className="text-neutral-500">{metric.label}</p>
-            <p className="mt-1 text-xl font-semibold text-[#111111]">{metric.value}</p>
-          </div>
-        ))}
+      <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-400">
+        <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-4 py-1 text-[10px] font-semibold uppercase tracking-[0.3em] text-primary">
+          {industryLabel}
+        </span>
+        {publishedLabel && <span>{publishedLabel}</span>}
       </div>
-      <Link href={`/case-studies/${caseStudy.slug}`} className="mt-auto text-sm font-semibold text-primary hover:text-primary/80">
-        事例を読む →
+      <div className="space-y-2">
+        <p className="text-sm font-semibold text-neutral-500">{caseStudy.company_name}</p>
+        <h3 className="text-2xl font-semibold text-[#111111]">{caseStudy.title}</h3>
+      </div>
+      {caseStudy.summary && <p className="text-sm text-neutral-500">{caseStudy.summary}</p>}
+      <Link
+        href={`/case-studies/${caseStudy.slug}`}
+        className="mt-auto inline-flex items-center gap-2 text-sm font-semibold text-primary transition hover:text-primary/80"
+      >
+        事例を読む
+        <span aria-hidden>→</span>
       </Link>
     </article>
   );

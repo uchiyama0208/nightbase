@@ -1,6 +1,8 @@
 import type { BlogPost } from "./blog";
+import type { CaseStudy } from "./case-studies";
 
 type BlogPostRow = BlogPost;
+type CaseStudyRow = CaseStudy;
 
 export type Database = {
   public: {
@@ -9,6 +11,12 @@ export type Database = {
         Row: BlogPostRow;
         Insert: Partial<BlogPostRow>;
         Update: Partial<BlogPostRow>;
+        Relationships: [];
+      };
+      case_studies: {
+        Row: CaseStudyRow;
+        Insert: Partial<CaseStudyRow>;
+        Update: Partial<CaseStudyRow>;
         Relationships: [];
       };
     };

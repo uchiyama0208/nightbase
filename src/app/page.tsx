@@ -7,9 +7,11 @@ import { Hero } from "@/components/Hero";
 import { PricingTable } from "@/components/PricingTable";
 import { INDUSTRIES } from "@/content/industries";
 import { siteContent } from "@/content/site";
+import { getPublishedCaseStudies } from "@/lib/caseStudies";
 
-export default function HomePage() {
+export default async function HomePage() {
   const { home, caseStudies, contact } = siteContent;
+  const caseStudyEntries = await getPublishedCaseStudies(4);
 
   return (
     <div>
@@ -181,9 +183,15 @@ export default function HomePage() {
             <p className="mt-4 text-neutral-600">{caseStudies.description}</p>
           </div>
           <div className="grid gap-8 lg:grid-cols-2">
-            {caseStudies.items.map((caseStudy) => (
-              <CaseStudyCard key={caseStudy.slug} caseStudy={caseStudy} />
-            ))}
+            {caseStudyEntries.length === 0 ? (
+              <div className="col-span-full rounded-3xl border border-neutral-200 bg-white p-10 text-center text-sm text-neutral-500">
+                公開中の導入事例は現在準備中です。最新情報はブログやニュースでお知らせします。
+              </div>
+            ) : (
+              caseStudyEntries.map((caseStudy) => (
+                <CaseStudyCard key={caseStudy.id} caseStudy={caseStudy} />
+              ))
+            )}
           </div>
         </div>
       </section>

@@ -54,20 +54,6 @@ export type PricingPlan = {
   badge?: string;
 };
 
-export type CaseStudy = {
-  slug: string;
-  industry: string;
-  title: string;
-  summary: string;
-  quote: {
-    text: string;
-    author: string;
-    role: string;
-  };
-  metrics: { label: string; value: string }[];
-  result: string;
-};
-
 export type ContactField = {
   name: string;
   label: string;
@@ -169,7 +155,6 @@ export type SiteContent = {
   caseStudies: {
     title: string;
     description: string;
-    items: CaseStudy[];
   };
   about: {
     title: string;
