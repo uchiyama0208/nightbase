@@ -170,7 +170,7 @@ export function CaseStudyTable({ items, industries }: CaseStudyTableProps) {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="w-full justify-between bg-slate-900/60 text-slate-200 sm:w-56">
-                <span>{industry === "すべて" ? "すべて" : industryDisplayName(industry)}</span>
+                <span>{industry === "すべて" ? "すべて" : formatCaseStudyIndustry(industry)}</span>
                 <Briefcase className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
