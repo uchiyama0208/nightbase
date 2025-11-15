@@ -2,27 +2,25 @@ import { notFound } from "next/navigation";
 
 import { BlogEditor, type BlogEditorValues } from "@/components/admin/cms/BlogEditor";
 import { createAdminServerClient } from "@/lib/auth";
-import type { Database } from "@/types/supabase";
-
-type BlogPostRow = Database["public"]["Tables"]["blog_posts"]["Row"];
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 type BlogEditorPageProps = {
-  params: { id: BlogPostRow["id"] };
+  params: { id: string };
 };
 
 export default async function AdminBlogEditorPage({ params }: BlogEditorPageProps) {
   const { supabase } = await createAdminServerClient();
+  const client = supabase as any;
 
-  const { data, error } = await supabase
+  const { data, error } = await client
     .from("blog_posts")
     .select(
       "id, title, slug, content, excerpt, category, cover_image_url, status, published_at"
     )
     .eq("id", params.id)
-    .maybeSingle<BlogPostRow>();
+    .maybeSingle();
 
   if (error) {
     console.error("ブログ記事の取得に失敗しました", error);

@@ -2,27 +2,25 @@ import { notFound } from "next/navigation";
 
 import { ManualEditor, type ManualEditorValues } from "@/components/admin/cms/ManualEditor";
 import { createAdminServerClient } from "@/lib/auth";
-import type { Database } from "@/types/supabase";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 type ManualStatus = "draft" | "published";
 
-type ManualRow = Database["public"]["Tables"]["manuals"]["Row"];
-
 type ManualEditorPageProps = {
-  params: { id: ManualRow["id"] };
+  params: { id: string };
 };
 
 export default async function AdminManualEditorPage({ params }: ManualEditorPageProps) {
   const { supabase } = await createAdminServerClient();
+  const client = supabase as any;
 
-  const { data, error } = await supabase
+  const { data, error } = await client
     .from("manuals")
     .select("id, title, slug, section, body_markdown, order, status, published_at")
     .eq("id", params.id)
-    .maybeSingle<ManualRow>();
+    .maybeSingle();
 
   if (error) {
     console.error("マニュアルの取得に失敗しました", error);
