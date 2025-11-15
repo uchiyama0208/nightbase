@@ -9,7 +9,7 @@ type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 
 const CMS_ROLES = new Set(["admin", "editor"]);
 
-async function getProfileForUser(supabase: ReturnType<typeof createServerClient>, userId: string) {
+async function getProfileForUser(supabase: any, userId: string) {
   const client = supabase as any;
 
   const { data, error } = await client
