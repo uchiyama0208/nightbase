@@ -2,6 +2,22 @@ import type { BlogPost } from "@/types/blog";
 
 import { createClient } from "./supabaseClient";
 
+function mapRowToBlogPost(row: any): BlogPost {
+  return {
+    id: row.id,
+    slug: row.slug ?? "",
+    title: row.title ?? "",
+    content: row.content ?? "",
+    excerpt: row.excerpt ?? null,
+    cover_image_url: row.cover_image_url ?? null,
+    category: row.category ?? null,
+    published_at: row.published_at ?? null,
+    created_at: row.created_at ?? null,
+    updated_at: row.updated_at ?? null,
+    status: row.status === "published" ? "published" : "draft",
+  };
+}
+
 const BLOG_POST_FIELDS =
   "id, slug, title, content, excerpt, cover_image_url, category, published_at, updated_at, status";
 
@@ -20,7 +36,7 @@ export async function getPublishedBlogPosts(): Promise<BlogPost[]> {
     throw new Error("ブログ記事一覧の取得に失敗しました");
   }
 
-  return data ?? [];
+  return (data ?? []).map(mapRowToBlogPost);
 }
 
 export async function getPublishedBlogPostBySlug(slug: string): Promise<BlogPost | null> {
@@ -44,5 +60,5 @@ export async function getPublishedBlogPostBySlug(slug: string): Promise<BlogPost
     return null;
   }
 
-  return data ?? null;
+  return data ? mapRowToBlogPost(data) : null;
 }
