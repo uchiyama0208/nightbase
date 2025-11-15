@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { CaseStudyEditor, type CaseStudyEditorValues } from "@/components/admin/cms/CaseStudyEditor";
 import { createAdminServerClient } from "@/lib/auth";
+import type { Database } from "@/types/supabase";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -12,6 +13,8 @@ type CaseStudyEditorPageProps = {
 
 type CaseStudyStatus = "draft" | "published";
 
+type CaseStudyRow = Database["public"]["Tables"]["case_studies"]["Row"];
+
 export default async function AdminCaseStudyEditorPage({ params }: CaseStudyEditorPageProps) {
   const { supabase } = await createAdminServerClient();
 
@@ -20,7 +23,7 @@ export default async function AdminCaseStudyEditorPage({ params }: CaseStudyEdit
     .select(
       "id, title, slug, industry, description, results, cover_image_url, status, published_at"
     )
-    .eq("id", params.id)
+    .eq("id" as keyof CaseStudyRow, params.id as CaseStudyRow["id"])
     .maybeSingle();
 
   if (error) {

@@ -18,11 +18,11 @@ export default async function AdminBlogEditorPage({ params }: BlogEditorPageProp
   const { supabase } = await createAdminServerClient();
 
   const { data, error } = await supabase
-    .from<BlogPostRow>("blog_posts")
+    .from("blog_posts")
     .select(
       "id, title, slug, content, excerpt, category, cover_image_url, status, published_at"
     )
-    .eq("id", params.id as BlogPostRow["id"])
+    .eq("id" as keyof BlogPostRow, params.id as BlogPostRow["id"])
     .maybeSingle();
 
   if (error) {

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { ManualEditor, type ManualEditorValues } from "@/components/admin/cms/ManualEditor";
 import { createAdminServerClient } from "@/lib/auth";
+import type { Database } from "@/types/supabase";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -12,13 +13,15 @@ type ManualEditorPageProps = {
 
 type ManualStatus = "draft" | "published";
 
+type ManualRow = Database["public"]["Tables"]["manuals"]["Row"];
+
 export default async function AdminManualEditorPage({ params }: ManualEditorPageProps) {
   const { supabase } = await createAdminServerClient();
 
   const { data, error } = await supabase
     .from("manuals")
     .select("id, title, slug, section, body_markdown, order, status, published_at")
-    .eq("id", params.id)
+    .eq("id" as keyof ManualRow, params.id as ManualRow["id"])
     .maybeSingle();
 
   if (error) {
