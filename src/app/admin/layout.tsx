@@ -1,32 +1,23 @@
 import type { ReactNode } from "react";
-import Link from "next/link";
 
+import { AdminHeader } from "@/components/admin/AdminHeader";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { requireAdminUser } from "@/lib/auth";
 
-export default async function AdminLayout({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export default async function AdminLayout({ children }: { children: ReactNode }) {
   const user = await requireAdminUser();
 
   return (
-    <div className="min-h-screen bg-neutral-100">
-      <header className="border-b border-neutral-200 bg-white">
-        <div className="container flex flex-wrap items-center justify-between gap-4 py-6">
-          <Link href="/admin" className="text-lg font-semibold text-[#111111]">
-            NightBase Admin
-          </Link>
-          <div className="text-sm text-neutral-500">
-            サインイン中: {user.email ?? "管理者"}
-          </div>
-        </div>
-      </header>
-      <main className="container space-y-8 py-10">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#1e293b,_#020617)] text-slate-100">
+      <div className="flex min-h-screen">
         <AdminNav />
-        <div className="rounded-2xl bg-white p-8 shadow-sm">{children}</div>
-      </main>
+        <div className="flex min-h-screen flex-1 flex-col">
+          <AdminHeader userEmail={user.email ?? null} />
+          <main className="flex-1 overflow-y-auto px-4 py-10 sm:px-8">
+            <div className="mx-auto w-full max-w-6xl space-y-8">{children}</div>
+          </main>
+        </div>
+      </div>
     </div>
   );
 }

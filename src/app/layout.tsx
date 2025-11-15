@@ -4,6 +4,7 @@ import { Inter, Noto_Sans_JP } from "next/font/google";
 
 import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
+import { Toaster } from "@/components/ui/toast";
 import { siteContent } from "@/content/site";
 import { cn } from "@/lib/utils";
 
@@ -47,6 +48,7 @@ export default function RootLayout({
           <main className="flex-1">{children}</main>
           <Footer footer={siteContent.footer} />
         </div>
+        <Toaster />
       </body>
     </html>
   );

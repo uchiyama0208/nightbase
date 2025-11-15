@@ -23,6 +23,29 @@ export function formatDate(dateString: string | null | undefined) {
   }).format(date);
 }
 
+export function formatDateTime(
+  dateString: string | null | undefined,
+  options: Intl.DateTimeFormatOptions = {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  }
+) {
+  if (!dateString) {
+    return "-";
+  }
+
+  const date = new Date(dateString);
+
+  if (Number.isNaN(date.getTime())) {
+    return dateString;
+  }
+
+  return new Intl.DateTimeFormat("ja-JP", options).format(date);
+}
+
 export function toDateTimeLocalInputValue(dateString: string | null | undefined) {
   if (!dateString) {
     return "";

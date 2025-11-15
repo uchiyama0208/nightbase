@@ -2,13 +2,25 @@ import { redirect } from "next/navigation";
 
 import { createServerClient } from "@/lib/supabaseClient";
 
-function isAdmin(user: { user_metadata?: Record<string, any>; app_metadata?: Record<string, any> } | null) {
+const ADMIN_EMAIL_ALLOWLIST = new Set<string>([
+  "uchiyama0208@gmail.com",
+  "admin@nightbase.jp"
+]);
+
+function isAdmin(user: {
+  email?: string | null;
+  user_metadata?: Record<string, any>;
+  app_metadata?: Record<string, any>;
+} | null) {
   if (!user) {
     return false;
   }
 
   const role = user.user_metadata?.role ?? user.app_metadata?.role;
-  return role === "admin";
+  const email = user.email ?? user.user_metadata?.email ?? null;
+  const isAllowlisted = email ? ADMIN_EMAIL_ALLOWLIST.has(email) : false;
+
+  return role === "admin" && isAllowlisted;
 }
 
 export async function requireAdminUser() {

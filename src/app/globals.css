@@ -54,3 +54,37 @@ section {
     @apply rounded-3xl border border-white/40 bg-white/60 shadow-soft backdrop-blur-lg;
   }
 }
+
+@layer utilities {
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateX(120%);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes toast-out {
+    from {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    to {
+      opacity: 0;
+      transform: translateX(120%);
+    }
+  }
+
+  .animate-toastIn {
+    animation: toast-in 0.25s ease-out;
+  }
+
+  .animate-toastOut {
+    animation: toast-out 0.3s ease-in forwards;
+  }
+}
