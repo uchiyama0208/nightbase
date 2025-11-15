@@ -8,8 +8,7 @@ export function createServerClient() {
   const { supabaseUrl, supabaseAnonKey } = getSupabaseConfig();
   const cookieStore = cookies();
 
-  return createSupabaseServerClient<Database>(supabaseUrl, supabaseAnonKey, {
-    cookies: {
+  const cookieMethods = {
       get(name: string) {
         return cookieStore.get(name)?.value;
       },
@@ -50,9 +49,16 @@ export function createServerClient() {
           // Ignore cookie removal failures in read-only contexts.
         }
       },
-    },
-    global: {
-      fetch,
-    },
-  });
+    } as any;
+
+  return createSupabaseServerClient<Database>(
+    supabaseUrl,
+    supabaseAnonKey,
+    {
+      cookies: cookieMethods,
+      global: {
+        fetch,
+      },
+    } as any
+  );
 }
