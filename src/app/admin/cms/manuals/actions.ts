@@ -35,6 +35,7 @@ function normalizeDate(value: string | null | undefined) {
 export async function upsertManualPage(input: ManualPayload) {
   const values = manualSchema.parse(input);
   const { supabase } = await createAdminServerClient();
+  const client = supabase as any;
 
   const payload = {
     title: values.title,
@@ -50,9 +51,9 @@ export async function upsertManualPage(input: ManualPayload) {
   let newSlug = values.slug;
 
   if (values.id) {
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from("manuals")
-      .update(payload)
+      .update(payload as any)
       .eq("id", values.id)
       .select("id, slug")
       .maybeSingle();
@@ -65,9 +66,9 @@ export async function upsertManualPage(input: ManualPayload) {
     id = data?.id ?? values.id;
     newSlug = data?.slug ?? values.slug;
   } else {
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from("manuals")
-      .insert(payload)
+      .insert(payload as any)
       .select("id, slug")
       .maybeSingle();
 
@@ -93,8 +94,9 @@ export async function upsertManualPage(input: ManualPayload) {
 
 export async function deleteManualPage(id: string, slug?: string) {
   const { supabase } = await createAdminServerClient();
+  const client = supabase as any;
 
-  const { error } = await supabase.from("manuals").delete().eq("id", id);
+  const { error } = await client.from("manuals").delete().eq("id", id);
 
   if (error) {
     console.error("マニュアルの削除に失敗しました", error);

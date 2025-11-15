@@ -37,6 +37,7 @@ function normalizeDate(value: string | null | undefined) {
 export async function upsertBlogPost(input: BlogPayload) {
   const values = blogSchema.parse(input);
   const { supabase } = await createAdminServerClient();
+  const client = supabase as any;
 
   const payload: BlogPostInput = {
     title: values.title,
@@ -53,9 +54,9 @@ export async function upsertBlogPost(input: BlogPayload) {
   let newSlug = values.slug;
 
   if (values.id) {
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from("blog_posts")
-      .update(payload)
+      .update(payload as any)
       .eq("id", values.id)
       .select("id, slug")
       .maybeSingle();
@@ -68,9 +69,9 @@ export async function upsertBlogPost(input: BlogPayload) {
     id = data?.id ?? values.id;
     newSlug = data?.slug ?? values.slug;
   } else {
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from("blog_posts")
-      .insert(payload)
+      .insert(payload as any)
       .select("id, slug")
       .maybeSingle();
 
@@ -96,8 +97,9 @@ export async function upsertBlogPost(input: BlogPayload) {
 
 export async function deleteBlogPost(id: string, slug?: string) {
   const { supabase } = await createAdminServerClient();
+  const client = supabase as any;
 
-  const { error } = await supabase.from("blog_posts").delete().eq("id", id);
+  const { error } = await client.from("blog_posts").delete().eq("id", id);
 
   if (error) {
     console.error("ブログ記事の削除に失敗しました", error);

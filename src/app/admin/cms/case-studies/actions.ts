@@ -36,6 +36,7 @@ function normalizeDate(value: string | null | undefined) {
 export async function upsertCaseStudy(input: CaseStudyPayload) {
   const values = caseStudySchema.parse(input);
   const { supabase } = await createAdminServerClient();
+  const client = supabase as any;
 
   const payload = {
     title: values.title,
@@ -52,9 +53,9 @@ export async function upsertCaseStudy(input: CaseStudyPayload) {
   let newSlug = values.slug;
 
   if (values.id) {
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from("case_studies")
-      .update(payload)
+      .update(payload as any)
       .eq("id", values.id)
       .select("id, slug")
       .maybeSingle();
@@ -67,9 +68,9 @@ export async function upsertCaseStudy(input: CaseStudyPayload) {
     id = data?.id ?? values.id;
     newSlug = data?.slug ?? values.slug;
   } else {
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from("case_studies")
-      .insert(payload)
+      .insert(payload as any)
       .select("id, slug")
       .maybeSingle();
 
@@ -95,8 +96,9 @@ export async function upsertCaseStudy(input: CaseStudyPayload) {
 
 export async function deleteCaseStudy(id: string, slug?: string) {
   const { supabase } = await createAdminServerClient();
+  const client = supabase as any;
 
-  const { error } = await supabase.from("case_studies").delete().eq("id", id);
+  const { error } = await client.from("case_studies").delete().eq("id", id);
 
   if (error) {
     console.error("導入事例の削除に失敗しました", error);
