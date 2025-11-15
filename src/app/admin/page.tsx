@@ -1,14 +1,11 @@
 import Link from "next/link";
 import { ArrowUpRight, FileText, NotebookPen, ScrollText } from "lucide-react";
-import type { SupabaseClient } from "@supabase/supabase-js";
-
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { createAdminServerClient } from "@/lib/auth";
 import { formatDateTime, cn } from "@/lib/utils";
-import type { Database } from "@/types/supabase";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -28,10 +25,7 @@ type RecentContentRow = {
   statusLabel: string;
 };
 
-async function fetchStatusCounts(
-  supabase: SupabaseClient<Database>,
-  table: string
-): Promise<StatusCounts> {
+async function fetchStatusCounts(supabase: any, table: string): Promise<StatusCounts> {
   const [{ count: publishedCount, error: publishedError }, { count: draftCount, error: draftError }] =
     await Promise.all([
       supabase.from(table).select("id", { count: "exact", head: true }).eq("status", "published"),
@@ -51,7 +45,7 @@ async function fetchStatusCounts(
   };
 }
 
-async function fetchRecentContent(supabase: SupabaseClient<Database>): Promise<RecentContentRow[]> {
+async function fetchRecentContent(supabase: any): Promise<RecentContentRow[]> {
   const [blogRes, caseRes, manualRes] = await Promise.all([
     supabase
       .from("blog_posts")
@@ -140,12 +134,13 @@ function summaryCardIcon(type: "blog" | "case" | "manual") {
 
 export default async function AdminDashboardPage() {
   const { supabase } = await createAdminServerClient();
+  const adminSupabase = supabase as any;
 
   const [blogCounts, caseCounts, manualCounts, recent] = await Promise.all([
-    fetchStatusCounts(supabase, "blog_posts"),
-    fetchStatusCounts(supabase, "case_studies"),
-    fetchStatusCounts(supabase, "manuals"),
-    fetchRecentContent(supabase)
+    fetchStatusCounts(adminSupabase, "blog_posts"),
+    fetchStatusCounts(adminSupabase, "case_studies"),
+    fetchStatusCounts(adminSupabase, "manuals"),
+    fetchRecentContent(adminSupabase)
   ]);
 
   const summaryCards = [
