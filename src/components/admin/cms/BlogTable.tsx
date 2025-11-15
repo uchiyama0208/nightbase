@@ -1,0 +1,248 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import { Filter, PlusCircle } from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { formatDateTime, cn } from "@/lib/utils";
+
+export type BlogTableItem = {
+  id: string;
+  title: string;
+  slug: string;
+  status: string;
+  category: string | null;
+  published_at: string | null;
+  updated_at: string | null;
+};
+
+type BlogTableProps = {
+  items: BlogTableItem[];
+  categories: string[];
+};
+
+const STATUS_TABS = [
+  { value: "all", label: "すべて" },
+  { value: "published", label: "公開" },
+  { value: "draft", label: "下書き" }
+] as const;
+
+type StatusFilter = (typeof STATUS_TABS)[number]["value"];
+
+export function BlogTable({ items, categories }: BlogTableProps) {
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState<StatusFilter>("all");
+  const [category, setCategory] = useState<string>("すべて");
+
+  const categoryOptions = useMemo(() => ["すべて", ...categories], [categories]);
+
+  const filteredItems = useMemo(() => {
+    return items.filter((item) => {
+      const matchesSearch = search
+        ? `${item.title} ${item.slug}`.toLowerCase().includes(search.toLowerCase())
+        : true;
+      const matchesStatus =
+        status === "all" ? true : status === "published" ? item.status === "published" : item.status !== "published";
+      const matchesCategory =
+        category === "すべて" ? true : (item.category ?? "未分類").toLowerCase() === category.toLowerCase();
+
+      return matchesSearch && matchesStatus && matchesCategory;
+    });
+  }, [category, items, search, status]);
+
+  const filters = (
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+      <div className="flex flex-1 items-center gap-2">
+        <Input
+          placeholder="タイトルやスラッグで検索"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          className="bg-slate-900/60"
+        />
+      </div>
+      <Tabs value={status} onValueChange={(value) => setStatus(value as StatusFilter)} className="sm:flex-1">
+        <TabsList className="w-full justify-start sm:justify-center">
+          {STATUS_TABS.map((tab) => (
+            <TabsTrigger key={tab.value} value={tab.value} className="text-xs sm:text-sm">
+              {tab.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        {STATUS_TABS.map((tab) => (
+          <TabsContent key={`content-${tab.value}`} value={tab.value} />
+        ))}
+      </Tabs>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" className="w-full justify-between bg-slate-900/60 text-slate-200 sm:w-48">
+            <span>{category}</span>
+            <Filter className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuLabel>カテゴリで絞り込み</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {categoryOptions.map((option) => (
+            <DropdownMenuItem key={option} onSelect={() => setCategory(option)}>
+              {option}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-2">
+          <h2 className="text-2xl font-semibold text-white">ブログ記事</h2>
+          <p className="text-sm text-slate-400">Supabase の blog_posts テーブルと同期した記事リストです。</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="hidden lg:block">{filters}</div>
+          <Button asChild className="gap-2 bg-primary text-white">
+            <Link href="/admin/cms/blog/new">
+              <PlusCircle className="h-4 w-4" /> 新規作成
+            </Link>
+          </Button>
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline" className="lg:hidden">
+                <Filter className="h-4 w-4" /> フィルター
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-full max-w-sm bg-slate-950/95 text-slate-100">
+              <SheetHeader>
+                <SheetTitle>フィルター</SheetTitle>
+              </SheetHeader>
+              <div className="mt-6 space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="search-mobile" className="text-slate-400">
+                    検索
+                  </Label>
+                  <Input
+                    id="search-mobile"
+                    placeholder="タイトルやスラッグで検索"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    className="bg-slate-900/60"
+                  />
+                </div>
+                <div className="space-y-3">
+                  <Label className="text-slate-400">ステータス</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {STATUS_TABS.map((tab) => (
+                      <Button
+                        key={`mobile-${tab.value}`}
+                        variant={status === tab.value ? "default" : "outline"}
+                        className={cn(
+                          "rounded-full px-4",
+                          status === tab.value ? "bg-primary text-white" : "border-slate-700/60 text-slate-200"
+                        )}
+                        onClick={() => setStatus(tab.value)}
+                      >
+                        {tab.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <Label className="text-slate-400">カテゴリ</Label>
+                  <div className="space-y-2">
+                    {categoryOptions.map((option) => (
+                      <Button
+                        key={`mobile-category-${option}`}
+                        variant={category === option ? "default" : "outline"}
+                        className={cn(
+                          "w-full justify-start",
+                          category === option ? "bg-primary text-white" : "border-slate-700/60 text-slate-200"
+                        )}
+                        onClick={() => setCategory(option)}
+                      >
+                        {option}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                <SheetClose asChild>
+                  <Button variant="ghost" className="w-full text-primary">
+                    閉じる
+                  </Button>
+                </SheetClose>
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
+      </div>
+
+      <div className="hidden lg:block">{filters}</div>
+
+      <div className="overflow-hidden rounded-2xl border border-white/10">
+        <Table className="min-w-full">
+          <TableHeader>
+            <TableRow className="border-white/10 bg-slate-900/70 text-xs uppercase tracking-[0.25em] text-slate-400">
+              <TableHead className="px-6">タイトル</TableHead>
+              <TableHead>スラッグ</TableHead>
+              <TableHead>カテゴリ</TableHead>
+              <TableHead>ステータス</TableHead>
+              <TableHead>公開日</TableHead>
+              <TableHead className="text-right">最終更新</TableHead>
+              <TableHead className="text-right">操作</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredItems.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} className="py-10 text-center text-sm text-slate-400">
+                  条件に一致する記事がありません。
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredItems.map((item) => (
+                <TableRow key={item.id} className="border-white/5">
+                  <TableCell className="px-6 text-sm text-white">{item.title}</TableCell>
+                  <TableCell className="text-xs text-slate-400">{item.slug}</TableCell>
+                  <TableCell className="text-sm text-slate-300">{item.category ?? "未分類"}</TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={item.status === "published" ? "success" : "neutral"}
+                      className={cn(
+                        "px-3 py-1 text-xs",
+                        item.status === "published" ? "bg-emerald-500/20 text-emerald-300" : "bg-slate-800 text-slate-300"
+                      )}
+                    >
+                      {item.status === "published" ? "公開" : "下書き"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-sm text-slate-300">{formatDateTime(item.published_at)}</TableCell>
+                  <TableCell className="text-right text-sm text-slate-300">{formatDateTime(item.updated_at)}</TableCell>
+                  <TableCell className="text-right">
+                    <Button asChild size="sm" variant="outline" className="border-white/20 text-slate-100">
+                      <Link href={`/admin/cms/blog/${item.id}`}>編集</Link>
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
