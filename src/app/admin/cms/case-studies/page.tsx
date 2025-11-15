@@ -8,8 +8,9 @@ export const revalidate = 0;
 
 export default async function AdminCaseStudyListPage() {
   const { supabase } = await createAdminServerClient();
+  const client = supabase as any;
 
-  const { data, error } = await supabase
+  const { data, error } = await client
     .from("case_studies")
     .select("id, title, industry, description, status, published_at, updated_at")
     .order("updated_at", { ascending: false });
@@ -19,7 +20,9 @@ export default async function AdminCaseStudyListPage() {
     return notFound();
   }
 
-  const items: CaseStudyTableItem[] = (data ?? []).map((item) => ({
+  const rows = (data ?? []) as any[];
+
+  const items: CaseStudyTableItem[] = rows.map((item) => ({
     id: item.id,
     title: item.title,
     industry: item.industry,
@@ -29,8 +32,13 @@ export default async function AdminCaseStudyListPage() {
     updated_at: item.updated_at
   }));
 
-  const industries = Array.from(new Set(items.map((item) => item.industry).filter(Boolean))) as string[];
-  industries.sort();
+  const industries = Array.from(
+    new Set(
+      items
+        .map((item) => item.industry)
+        .filter((industry): industry is string => typeof industry === "string" && industry.length > 0)
+    )
+  ).sort();
 
   return <CaseStudyTable items={items} industries={industries} />;
 }

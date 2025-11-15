@@ -8,8 +8,9 @@ export const revalidate = 0;
 
 export default async function AdminManualListPage() {
   const { supabase } = await createAdminServerClient();
+  const client = supabase as any;
 
-  const { data, error } = await supabase
+  const { data, error } = await client
     .from("manuals")
     .select("id, title, section, body_markdown, order, status, updated_at, published_at")
     .order("updated_at", { ascending: false });
@@ -19,7 +20,9 @@ export default async function AdminManualListPage() {
     return notFound();
   }
 
-  const items: ManualTableItem[] = (data ?? []).map((item) => ({
+  const rows = (data ?? []) as any[];
+
+  const items: ManualTableItem[] = rows.map((item) => ({
     id: item.id,
     title: item.title,
     section: item.section,
@@ -30,7 +33,13 @@ export default async function AdminManualListPage() {
     published_at: item.published_at
   }));
 
-  const sections = Array.from(new Set(items.map((item) => item.section))).sort();
+  const sections = Array.from(
+    new Set(
+      items
+        .map((item) => item.section)
+        .filter((section): section is string => typeof section === "string" && section.length > 0)
+    )
+  ).sort();
 
   return <ManualTable items={items} sections={sections} />;
 }
