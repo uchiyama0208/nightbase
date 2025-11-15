@@ -76,7 +76,7 @@ async function fetchRecentContent(supabase: any): Promise<RecentContentRow[]> {
     console.error("マニュアルの取得に失敗しました", manualRes.error);
   }
 
-  blogRes.data?.forEach((post) => {
+  blogRes.data?.forEach((post: any) => {
     recent.push({
       id: post.id,
       title: post.title,
@@ -88,7 +88,7 @@ async function fetchRecentContent(supabase: any): Promise<RecentContentRow[]> {
     });
   });
 
-  caseRes.data?.forEach((entry) => {
+  caseRes.data?.forEach((entry: any) => {
     recent.push({
       id: entry.id,
       title: entry.title,
@@ -100,7 +100,7 @@ async function fetchRecentContent(supabase: any): Promise<RecentContentRow[]> {
     });
   });
 
-  manualRes.data?.forEach((manual) => {
+  manualRes.data?.forEach((manual: any) => {
     recent.push({
       id: manual.id,
       title: manual.title,
