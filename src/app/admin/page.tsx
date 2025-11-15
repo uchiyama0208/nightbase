@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { createAdminServerClient } from "@/lib/auth";
 import { formatDateTime, cn } from "@/lib/utils";
-import type { Database } from "@/types/database";
+import type { Database } from "@/types/supabase";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;

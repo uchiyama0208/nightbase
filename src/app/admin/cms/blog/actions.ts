@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { createAdminServerClient } from "@/lib/auth";
+import type { BlogPostInput } from "@/types/blog";
 
 const blogSchema = z.object({
   id: z.string().optional(),
@@ -37,7 +38,7 @@ export async function upsertBlogPost(input: BlogPayload) {
   const values = blogSchema.parse(input);
   const { supabase } = await createAdminServerClient();
 
-  const payload = {
+  const payload: BlogPostInput = {
     title: values.title,
     slug: values.slug,
     content: values.content,

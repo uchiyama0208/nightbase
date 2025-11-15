@@ -1,7 +1,7 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import type { Database } from "@/types/database";
+import type { Database } from "@/types/supabase";
 
 export function ensureEnv(name: string, value: string | undefined): string {
   if (!value) {
