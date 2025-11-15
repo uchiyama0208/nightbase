@@ -10,6 +10,8 @@ type CaseStudyEditorPageProps = {
   params: { id: string };
 };
 
+type CaseStudyStatus = "draft" | "published";
+
 export default async function AdminCaseStudyEditorPage({ params }: CaseStudyEditorPageProps) {
   const { supabase } = await createAdminServerClient();
 
@@ -30,6 +32,8 @@ export default async function AdminCaseStudyEditorPage({ params }: CaseStudyEdit
     return notFound();
   }
 
+  const status: CaseStudyStatus = data.status === "published" ? "published" : "draft";
+
   const initialData: CaseStudyEditorValues = {
     id: data.id,
     previousSlug: data.slug,
@@ -42,7 +46,7 @@ export default async function AdminCaseStudyEditorPage({ params }: CaseStudyEdit
     solutions: data.solutions ?? "",
     results: data.results ?? "",
     cover_image_url: data.cover_image_url ?? "",
-    status: data.status ?? "draft",
+    status,
     published_at: data.published_at ?? ""
   };
 
