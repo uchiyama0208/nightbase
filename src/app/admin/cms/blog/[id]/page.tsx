@@ -20,7 +20,7 @@ export default async function AdminBlogEditorPage({ params }: BlogEditorPageProp
       "id, title, slug, content, excerpt, category, cover_image_url, status, published_at"
     )
     .eq("id", params.id)
-    .maybeSingle();
+    .maybeSingle<BlogPost>();
 
   if (error) {
     console.error("ブログ記事の取得に失敗しました", error);
