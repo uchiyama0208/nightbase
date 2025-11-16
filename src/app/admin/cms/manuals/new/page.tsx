@@ -1,5 +1,10 @@
+import { AdminProtected } from "@/components/admin/AdminProtected";
 import { ManualEditor } from "@/components/admin/cms/ManualEditor";
 
 export default function AdminManualCreatePage() {
-  return <ManualEditor />;
+  return (
+    <AdminProtected>
+      {() => <ManualEditor />}
+    </AdminProtected>
+  );
 }

@@ -1,5 +1,10 @@
+import { AdminProtected } from "@/components/admin/AdminProtected";
 import { BlogEditor } from "@/components/admin/cms/BlogEditor";
 
 export default function AdminBlogCreatePage() {
-  return <BlogEditor />;
+  return (
+    <AdminProtected>
+      {() => <BlogEditor />}
+    </AdminProtected>
+  );
 }
