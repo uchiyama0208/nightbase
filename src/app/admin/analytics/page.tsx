@@ -1,7 +1,11 @@
+"use client";
+
+import { AdminProtected } from "@/components/admin/AdminProtected";
+
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export default function AdminAnalyticsPage() {
+function AnalyticsContent() {
   return (
     <div className="space-y-4 rounded-3xl border border-white/10 bg-white/5 p-8 text-slate-200">
       <h1 className="text-2xl font-semibold text-white">分析ダッシュボード</h1>
@@ -10,4 +14,8 @@ export default function AdminAnalyticsPage() {
       </p>
     </div>
   );
+}
+
+export default function AdminAnalyticsPage() {
+  return <AdminProtected>{() => <AnalyticsContent />}</AdminProtected>;
 }

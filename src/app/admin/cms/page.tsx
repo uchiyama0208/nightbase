@@ -1,6 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowRight, FileText, NotebookPen, ScrollText } from "lucide-react";
 
+import { AdminProtected } from "@/components/admin/AdminProtected";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -9,34 +12,33 @@ const cmsSections = [
     title: "ブログ記事",
     description: "NightBase ブログのコンテンツを作成・公開します。",
     href: "/admin/cms/blog",
-    icon: FileText
+    icon: FileText,
   },
   {
     title: "導入事例",
     description: "導入事例のストーリーや成果を管理します。",
     href: "/admin/cms/case-studies",
-    icon: ScrollText
+    icon: ScrollText,
   },
   {
     title: "マニュアル",
     description: "NightBase 利用マニュアルを Markdown で編集します。",
     href: "/admin/cms/manuals",
-    icon: NotebookPen
-  }
+    icon: NotebookPen,
+  },
 ];
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export default function AdminCmsIndexPage() {
+function CmsIndexContent() {
   return (
     <div className="space-y-8">
       <header className="space-y-3">
         <p className="text-xs uppercase tracking-[0.3em] text-slate-400">CMS</p>
         <h1 className="text-3xl font-semibold text-white">コンテンツ管理センター</h1>
         <p className="max-w-2xl text-sm text-slate-400">
-          Supabase 上の blog_posts / case_studies / manuals テーブルと連携し、NightBase 公式サイトの
-          コンテンツをリアルタイムで更新できます。
+          Supabase 上の blog_posts / case_studies / manuals テーブルと連携し、NightBase 公式サイトのコンテンツをリアルタイムで更新できます。
         </p>
       </header>
       <section className="grid gap-6 lg:grid-cols-3">
@@ -65,5 +67,11 @@ export default function AdminCmsIndexPage() {
         })}
       </section>
     </div>
+  );
+}
+
+export default function AdminCmsIndexPage() {
+  return (
+    <AdminProtected>{() => <CmsIndexContent />}</AdminProtected>
   );
 }
