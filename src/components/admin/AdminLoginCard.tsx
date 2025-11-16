@@ -13,6 +13,7 @@ export function AdminLoginCard() {
   const supabase = useMemo(() => createBrowserClient(), []);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,32 +43,45 @@ export function AdminLoginCard() {
       <p className="mb-6 text-sm text-slate-600">
         NightBase の管理者アカウントでサインインしてください。
       </p>
-      <form className="space-y-5" onSubmit={handleSubmit}>
+      <form className="space-y-5" onSubmit={handleSubmit} autoComplete="on">
         <div className="space-y-2">
           <Label htmlFor="admin-email">メールアドレス</Label>
           <Input
             id="admin-email"
             type="email"
+            name="email"
             autoComplete="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             required
             disabled={loading}
-            className="bg-white/80"
+            className="border-slate-200 bg-white/90 text-slate-900 placeholder:text-slate-400"
           />
         </div>
         <div className="space-y-2">
           <Label htmlFor="admin-password">パスワード</Label>
           <Input
             id="admin-password"
-            type="password"
+            type={showPassword ? "text" : "password"}
+            name="password"
             autoComplete="current-password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             required
             disabled={loading}
-            className="bg-white/80"
+            className="border-slate-200 bg-white/90 text-slate-900 placeholder:text-slate-400"
           />
+          <label className="flex items-center gap-2 text-sm text-slate-600" htmlFor="admin-show-password">
+            <input
+              id="admin-show-password"
+              type="checkbox"
+              checked={showPassword}
+              onChange={(event) => setShowPassword(event.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/40"
+              disabled={loading}
+            />
+            パスワードを表示
+          </label>
         </div>
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
         <Button

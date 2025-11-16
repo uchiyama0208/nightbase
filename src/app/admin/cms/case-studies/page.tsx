@@ -1,10 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Briefcase } from "lucide-react";
 
 import { AdminProtected } from "@/components/admin/AdminProtected";
+import { CmsListLayout, type StatusTab } from "@/components/admin/cms/CmsListLayout";
 import { CaseStudyTable, type CaseStudyTableItem } from "@/components/admin/cms/CaseStudyTable";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { formatCaseStudyIndustry } from "@/lib/caseStudies";
 
 type CaseStudyListState = {
   loading: boolean;
@@ -13,6 +24,14 @@ type CaseStudyListState = {
   industries: string[];
 };
 
+const STATUS_TABS: StatusTab[] = [
+  { value: "all", label: "すべて" },
+  { value: "published", label: "公開" },
+  { value: "draft", label: "下書き" },
+];
+
+type StatusFilter = (typeof STATUS_TABS)[number]["value"];
+
 function CaseStudyListContent({ supabase }: { supabase: any }) {
   const [state, setState] = useState<CaseStudyListState>({
     loading: true,
@@ -20,6 +39,9 @@ function CaseStudyListContent({ supabase }: { supabase: any }) {
     items: [],
     industries: [],
   });
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState<StatusFilter>("all");
+  const [industry, setIndustry] = useState<string>("すべて");
 
   const loadCaseStudies = useCallback(async () => {
     setState((prev) => ({ ...prev, loading: true, error: null }));
@@ -61,6 +83,22 @@ function CaseStudyListContent({ supabase }: { supabase: any }) {
     loadCaseStudies();
   }, [loadCaseStudies]);
 
+  const industryOptions = useMemo(() => ["すべて", ...state.industries], [state.industries]);
+
+  const filteredItems = useMemo(() => {
+    return state.items.filter((item) => {
+      const matchesSearch = search
+        ? `${item.title} ${item.description ?? ""}`.toLowerCase().includes(search.toLowerCase())
+        : true;
+      const matchesStatus =
+        status === "all" ? true : status === "published" ? item.status === "published" : item.status !== "published";
+      const matchesIndustry =
+        industry === "すべて" ? true : (item.industry ?? "").toLowerCase() === industry.toLowerCase();
+
+      return matchesSearch && matchesStatus && matchesIndustry;
+    });
+  }, [industry, search, state.items, status]);
+
   if (state.loading) {
     return (
       <div className="rounded-2xl border border-white/10 bg-white/5 p-8 text-center text-slate-300">
@@ -80,7 +118,46 @@ function CaseStudyListContent({ supabase }: { supabase: any }) {
     );
   }
 
-  return <CaseStudyTable items={state.items} industries={state.industries} />;
+  const industryFilter = (
+    <div className="flex flex-wrap items-center gap-3">
+      <span className="text-xs uppercase tracking-[0.3em] text-slate-400">業種</span>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" className="w-full justify-between bg-slate-900/60 text-slate-200 md:w-64">
+            <span>{industry === "すべて" ? "すべて" : formatCaseStudyIndustry(industry)}</span>
+            <Briefcase className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-64">
+          <DropdownMenuLabel>業種で絞り込み</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {industryOptions.map((option) => (
+            <DropdownMenuItem key={option} onSelect={() => setIndustry(option)}>
+              {option === "すべて" ? option : formatCaseStudyIndustry(option)}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+
+  return (
+    <CmsListLayout
+      title="導入事例"
+      description="case_studies テーブルから公開・下書きの導入ストーリーを管理します。"
+      searchPlaceholder="事例名や概要で検索"
+      searchValue={search}
+      onSearchChange={setSearch}
+      statusTabs={STATUS_TABS}
+      statusValue={status}
+      onStatusChange={(value) => setStatus(value as StatusFilter)}
+      createHref="/admin/cms/case-studies/new"
+      createLabel="新規作成"
+      secondaryFilters={industryFilter}
+    >
+      <CaseStudyTable items={filteredItems} />
+    </CmsListLayout>
+  );
 }
 
 export default function AdminCaseStudyListPage() {
