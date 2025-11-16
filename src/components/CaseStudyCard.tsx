@@ -11,7 +11,7 @@ interface CaseStudyCardProps {
 export function CaseStudyCard({ caseStudy }: CaseStudyCardProps) {
   const industryLabel = formatCaseStudyIndustry(caseStudy.industry);
   const publishedLabel = caseStudy.published_at ? formatDate(caseStudy.published_at) : null;
-  const summary = caseStudy.description?.split(/\r?\n/)[0] ?? caseStudy.description ?? "";
+  const summary = caseStudy.summary?.split(/\r?\n/)[0] ?? caseStudy.summary ?? "";
 
   return (
     <article className="glass-panel flex h-full flex-col gap-6 p-8">
@@ -23,6 +23,7 @@ export function CaseStudyCard({ caseStudy }: CaseStudyCardProps) {
       </div>
       <div className="space-y-2">
         <h3 className="text-2xl font-semibold text-[#111111]">{caseStudy.title}</h3>
+        {caseStudy.company_name && <p className="text-sm text-neutral-500">{caseStudy.company_name}</p>}
       </div>
       {summary && <p className="text-sm text-neutral-500">{summary}</p>}
       <Link

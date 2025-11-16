@@ -61,8 +61,9 @@ function CaseStudyListContent({ supabase }: { supabase: any }) {
     const items: CaseStudyTableItem[] = rows.map((item) => ({
       id: item.id,
       title: item.title,
+      company_name: item.company_name ?? null,
       industry: item.industry,
-      description: item.description ?? item.summary ?? item.results ?? null,
+      summary: item.summary ?? item.results ?? null,
       status: item.status ?? "draft",
       published_at: item.published_at ?? null,
       updated_at: item.updated_at ?? null,
@@ -88,7 +89,9 @@ function CaseStudyListContent({ supabase }: { supabase: any }) {
   const filteredItems = useMemo(() => {
     return state.items.filter((item) => {
       const matchesSearch = search
-        ? `${item.title} ${item.description ?? ""}`.toLowerCase().includes(search.toLowerCase())
+        ? `${item.title} ${item.company_name ?? ""} ${item.summary ?? ""}`
+            .toLowerCase()
+            .includes(search.toLowerCase())
         : true;
       const matchesStatus =
         status === "all" ? true : status === "published" ? item.status === "published" : item.status !== "published";

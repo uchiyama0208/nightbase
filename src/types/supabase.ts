@@ -56,8 +56,11 @@ export type Database = {
           id: string;
           slug: string;
           title: string;
+          company_name: string | null;
           industry: string | null;
-          description: string | null;
+          summary: string | null;
+          problems: string | null;
+          solutions: string | null;
           results: string | null;
           cover_image_url: string | null;
           status: "draft" | "published";
@@ -69,8 +72,11 @@ export type Database = {
           id?: string;
           slug: string;
           title: string;
+          company_name?: string | null;
           industry?: string | null;
-          description?: string | null;
+          summary?: string | null;
+          problems?: string | null;
+          solutions?: string | null;
           results?: string | null;
           cover_image_url?: string | null;
           status?: "draft" | "published";
@@ -82,8 +88,11 @@ export type Database = {
           id?: string;
           slug?: string;
           title?: string;
+          company_name?: string | null;
           industry?: string | null;
-          description?: string | null;
+          summary?: string | null;
+          problems?: string | null;
+          solutions?: string | null;
           results?: string | null;
           cover_image_url?: string | null;
           status?: "draft" | "published";

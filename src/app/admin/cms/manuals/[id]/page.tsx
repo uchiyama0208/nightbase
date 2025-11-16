@@ -1,20 +1,29 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import { Loader2, RefreshCw } from "lucide-react";
 
 import { AdminProtected } from "@/components/admin/AdminProtected";
 import { ManualEditor, type ManualEditorValues } from "@/components/admin/cms/ManualEditor";
 import { Button } from "@/components/ui/button";
 
-interface PageProps {
-  params: { id: string };
-}
+export default function AdminManualEditorPage() {
+  const params = useParams<{ id?: string | string[] }>();
+  const idParam = params?.id;
+  const id = Array.isArray(idParam) ? idParam[0] : idParam;
 
-export default function AdminManualEditorPage({ params }: PageProps) {
   return (
     <AdminProtected>
-      {({ supabase }) => <ManualLoader supabase={supabase} id={params.id} />}
+      {({ supabase }) => (
+        id ? (
+          <ManualLoader supabase={supabase} id={id} />
+        ) : (
+          <div className="rounded-3xl border border-red-400/40 bg-red-500/10 p-8 text-center text-sm text-red-100">
+            編集対象のマニュアル ID が見つかりませんでした。
+          </div>
+        )
+      )}
     </AdminProtected>
   );
 }

@@ -1,20 +1,29 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import { Loader2, RefreshCw } from "lucide-react";
 
 import { AdminProtected } from "@/components/admin/AdminProtected";
 import { CaseStudyEditor, type CaseStudyEditorValues } from "@/components/admin/cms/CaseStudyEditor";
 import { Button } from "@/components/ui/button";
 
-interface PageProps {
-  params: { id: string };
-}
+export default function AdminCaseStudyEditorPage() {
+  const params = useParams<{ id?: string | string[] }>();
+  const idParam = params?.id;
+  const id = Array.isArray(idParam) ? idParam[0] : idParam;
 
-export default function AdminCaseStudyEditorPage({ params }: PageProps) {
   return (
     <AdminProtected>
-      {({ supabase }) => <CaseStudyLoader supabase={supabase} id={params.id} />}
+      {({ supabase }) => (
+        id ? (
+          <CaseStudyLoader supabase={supabase} id={id} />
+        ) : (
+          <div className="rounded-3xl border border-red-400/40 bg-red-500/10 p-8 text-center text-sm text-red-100">
+            編集対象の導入事例 ID が見つかりませんでした。
+          </div>
+        )
+      )}
     </AdminProtected>
   );
 }
@@ -30,7 +39,9 @@ function CaseStudyLoader({ supabase, id }: { supabase: any; id: string }) {
     setState((prev) => ({ ...prev, loading: true, error: null }));
     const { data, error } = await supabase
       .from("case_studies")
-      .select("id, title, slug, industry, description, results, cover_image_url, status, published_at")
+      .select(
+        "id, title, slug, company_name, industry, summary, problems, solutions, results, cover_image_url, status, published_at"
+      )
       .eq("id", id)
       .maybeSingle();
 
@@ -50,9 +61,12 @@ function CaseStudyLoader({ supabase, id }: { supabase: any; id: string }) {
       id: data.id,
       previousSlug: data.slug,
       title: data.title,
+      company_name: data.company_name ?? "",
       slug: data.slug,
       industry: data.industry ?? "cabaret",
-      description: data.description ?? "",
+      summary: data.summary ?? "",
+      problems: data.problems ?? "",
+      solutions: data.solutions ?? "",
       results: data.results ?? "",
       cover_image_url: data.cover_image_url ?? "",
       status: (data.status as CaseStudyEditorValues["status"]) ?? "draft",

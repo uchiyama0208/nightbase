@@ -36,7 +36,7 @@ export async function generateMetadata({ params }: CaseStudyDetailPageParams): P
   }
 
   const fallback = formatCaseStudyIndustry(caseStudy.industry);
-  const descriptionPreview = caseStudy.description?.split(/\r?\n/)[0];
+  const descriptionPreview = caseStudy.summary?.split(/\r?\n/)[0];
   const descriptionText =
     descriptionPreview?.slice(0, 120) ||
     caseStudy.results?.slice(0, 120) ||
@@ -57,9 +57,10 @@ export default async function CaseStudyDetailPage({ params }: CaseStudyDetailPag
   }
 
   const industryLabel = formatCaseStudyIndustry(caseStudy.industry);
-  const descriptionItems = parseMultiline(caseStudy.description);
-  const [primaryDescription, ...additionalDescription] = descriptionItems;
-  const problemItems = additionalDescription.length > 0 ? additionalDescription : descriptionItems;
+  const summaryItems = parseMultiline(caseStudy.summary);
+  const summaryLead = summaryItems[0];
+  const problemItems = parseMultiline(caseStudy.problems);
+  const solutionItems = parseMultiline(caseStudy.solutions);
   const results = parseMultiline(caseStudy.results);
   const publishedSource = caseStudy.published_at ?? caseStudy.updated_at ?? caseStudy.created_at;
   const publishedLabel = publishedSource ? formatDate(publishedSource) : null;
@@ -76,8 +77,9 @@ export default async function CaseStudyDetailPage({ params }: CaseStudyDetailPag
           </div>
           <div className="space-y-3">
             <h1 className="text-4xl font-semibold text-[#111111] sm:text-5xl">{caseStudy.title}</h1>
-            {(primaryDescription || caseStudy.description) && (
-              <p className="text-lg text-neutral-600">{primaryDescription ?? caseStudy.description}</p>
+            {caseStudy.company_name && <p className="text-sm text-neutral-500">{caseStudy.company_name}</p>}
+            {(summaryLead || caseStudy.summary) && (
+              <p className="text-lg text-neutral-600">{summaryLead ?? caseStudy.summary}</p>
             )}
           </div>
         </header>
@@ -98,6 +100,27 @@ export default async function CaseStudyDetailPage({ params }: CaseStudyDetailPag
                   problemItems.map((item) => (
                     <li key={item} className="flex gap-3">
                       <span className="mt-1 inline-flex h-2 w-2 rounded-full bg-primary" aria-hidden />
+                      <span>{item}</span>
+                    </li>
+                  ))
+                ) : (
+                  <li className="text-sm text-neutral-500">詳細は現在準備中です。</li>
+                )}
+              </ul>
+            </div>
+          </div>
+
+          <div className="grid gap-8 lg:grid-cols-3">
+            <div className="space-y-4 lg:col-span-1">
+              <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-primary">NightBase の活用</h2>
+              <p className="text-sm text-neutral-600">NightBase をどのように活用し、オペレーションを改善したのかをまとめています。</p>
+            </div>
+            <div className="lg:col-span-2">
+              <ul className="space-y-3 text-sm text-neutral-700">
+                {solutionItems.length > 0 ? (
+                  solutionItems.map((item) => (
+                    <li key={item} className="flex gap-3">
+                      <span className="mt-1 inline-flex h-2 w-2 rounded-full bg-secondary" aria-hidden />
                       <span>{item}</span>
                     </li>
                   ))

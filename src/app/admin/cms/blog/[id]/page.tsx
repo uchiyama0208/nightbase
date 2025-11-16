@@ -1,20 +1,29 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import { Loader2, RefreshCw } from "lucide-react";
 
 import { AdminProtected } from "@/components/admin/AdminProtected";
 import { BlogEditor, type BlogEditorValues } from "@/components/admin/cms/BlogEditor";
 import { Button } from "@/components/ui/button";
 
-interface PageProps {
-  params: { id: string };
-}
+export default function AdminBlogEditorPage() {
+  const params = useParams<{ id?: string | string[] }>();
+  const idParam = params?.id;
+  const id = Array.isArray(idParam) ? idParam[0] : idParam;
 
-export default function AdminBlogEditorPage({ params }: PageProps) {
   return (
     <AdminProtected>
-      {({ supabase }) => <BlogEditorLoader supabase={supabase} id={params.id} />}
+      {({ supabase }) => (
+        id ? (
+          <BlogEditorLoader supabase={supabase} id={id} />
+        ) : (
+          <div className="rounded-3xl border border-red-400/40 bg-red-500/10 p-8 text-center text-sm text-red-100">
+            編集対象の記事 ID が見つかりませんでした。
+          </div>
+        )
+      )}
     </AdminProtected>
   );
 }

@@ -11,8 +11,9 @@ import { cn, formatDateTime } from "@/lib/utils";
 export type CaseStudyTableItem = {
   id: string;
   title: string;
+  company_name: string | null;
   industry: string | null;
-  description: string | null;
+  summary: string | null;
   status: string;
   published_at: string | null;
   updated_at: string | null;
@@ -28,8 +29,9 @@ export function CaseStudyTable({ items }: CaseStudyTableProps) {
       <TableHeader>
         <TableRow className="border-white/10 bg-slate-900/70 text-xs uppercase tracking-[0.25em] text-slate-400">
           <TableHead className="px-6">事例タイトル</TableHead>
-          <TableHead>概要</TableHead>
+          <TableHead>店舗 / 企業名</TableHead>
           <TableHead>業種</TableHead>
+          <TableHead>サマリー</TableHead>
           <TableHead>ステータス</TableHead>
           <TableHead>公開日</TableHead>
           <TableHead className="text-right">最終更新</TableHead>
@@ -39,7 +41,7 @@ export function CaseStudyTable({ items }: CaseStudyTableProps) {
       <TableBody>
         {items.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={7} className="py-10 text-center text-sm text-slate-400">
+            <TableCell colSpan={8} className="py-10 text-center text-sm text-slate-400">
               条件に一致する導入事例がありません。
             </TableCell>
           </TableRow>
@@ -47,8 +49,9 @@ export function CaseStudyTable({ items }: CaseStudyTableProps) {
           items.map((item) => (
             <TableRow key={item.id} className="border-white/5">
               <TableCell className="px-6 text-sm text-white">{item.title}</TableCell>
-              <TableCell className="text-sm text-slate-300">{item.description?.split(/\r?\n/)[0] ?? "-"}</TableCell>
+              <TableCell className="text-sm text-slate-300">{item.company_name ?? "-"}</TableCell>
               <TableCell className="text-sm text-slate-300">{formatCaseStudyIndustry(item.industry ?? null)}</TableCell>
+              <TableCell className="text-sm text-slate-300">{item.summary?.split(/\r?\n/)[0] ?? "-"}</TableCell>
               <TableCell>
                 <Badge
                   variant={item.status === "published" ? "success" : "neutral"}

@@ -22,9 +22,12 @@ const editorSchema = z.object({
   id: z.string().optional(),
   previousSlug: z.string().optional(),
   title: z.string().min(1, "タイトルは必須です"),
+  company_name: z.string().min(1, "店舗 / 企業名は必須です"),
   slug: z.string().min(1, "スラッグは必須です"),
   industry: z.string().min(1, "業種は必須です"),
-  description: z.string().optional().nullable(),
+  summary: z.string().optional().nullable(),
+  problems: z.string().optional().nullable(),
+  solutions: z.string().optional().nullable(),
   results: z.string().optional().nullable(),
   cover_image_url: z.string().optional().nullable(),
   status: z.enum(["draft", "published"]).default("draft"),
@@ -52,9 +55,12 @@ export function CaseStudyEditor({ initialData, supabaseClient }: CaseStudyEditor
       id: initialData?.id,
       previousSlug: initialData?.slug,
       title: initialData?.title ?? "",
+      company_name: initialData?.company_name ?? "",
       slug: initialData?.slug ?? "",
       industry: initialData?.industry ?? "cabaret",
-      description: initialData?.description ?? "",
+      summary: initialData?.summary ?? "",
+      problems: initialData?.problems ?? "",
+      solutions: initialData?.solutions ?? "",
       results: initialData?.results ?? "",
       cover_image_url: initialData?.cover_image_url ?? "",
       status: initialData?.status ?? "draft",
@@ -78,9 +84,12 @@ export function CaseStudyEditor({ initialData, supabaseClient }: CaseStudyEditor
     try {
       const payload = {
         title: values.title,
+        company_name: values.company_name,
         slug: values.slug,
         industry: values.industry,
-        description: values.description || null,
+        summary: values.summary || null,
+        problems: values.problems || null,
+        solutions: values.solutions || null,
         results: values.results || null,
         cover_image_url: values.cover_image_url || null,
         status: values.status,
@@ -230,14 +239,42 @@ export function CaseStudyEditor({ initialData, supabaseClient }: CaseStudyEditor
             <Input id="title" placeholder="例: ホストクラブA様の事例" {...form.register("title")} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="description" className="text-slate-300">
+            <Label htmlFor="company" className="text-slate-300">
+              店舗 / 企業名
+            </Label>
+            <Input id="company" placeholder="NightBase グループ" {...form.register("company_name")} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="summary" className="text-slate-300">
+              サマリー / リード文
+            </Label>
+            <Textarea
+              id="summary"
+              rows={4}
+              placeholder="事例の概要や読み出しとなるリード文を入力してください。"
+              {...form.register("summary")}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="problems" className="text-slate-300">
               導入前の課題（箇条書き可）
             </Label>
             <Textarea
-              id="description"
-              rows={6}
+              id="problems"
+              rows={5}
               placeholder="課題や背景を入力してください。改行すると箇条書きとして表示されます。"
-              {...form.register("description")}
+              {...form.register("problems")}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="solutions" className="text-slate-300">
+              NightBase の活用ポイント
+            </Label>
+            <Textarea
+              id="solutions"
+              rows={5}
+              placeholder="NightBase の活用方法や運用のポイントを入力してください。"
+              {...form.register("solutions")}
             />
           </div>
           <div className="space-y-2">
