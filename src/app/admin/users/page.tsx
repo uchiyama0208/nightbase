@@ -76,7 +76,7 @@ function UsersContent({ supabase }: { supabase: any }) {
     const { error } = await supabase.from("profiles").update({ role: nextRole }).eq("id", userId);
     if (error) {
       console.error("[AdminUsers] ロール変更エラー", error);
-      toast({ title: "ロールの更新に失敗しました", description: error.message, variant: "destructive" });
+      toast({ title: "ロールの更新に失敗しました", description: error.message });
       setUpdatingId(null);
       return;
     }
