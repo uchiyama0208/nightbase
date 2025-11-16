@@ -4,7 +4,7 @@ export interface CaseStudy {
   id: string;
   slug: string;
   title: string;
-  store_name: string | null;
+  company_name: string | null;
   industry: string | null;
   summary: string | null;
   problems: string | null;

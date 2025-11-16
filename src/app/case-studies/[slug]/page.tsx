@@ -77,7 +77,7 @@ export default async function CaseStudyDetailPage({ params }: CaseStudyDetailPag
           </div>
           <div className="space-y-3">
             <h1 className="text-4xl font-semibold text-[#111111] sm:text-5xl">{caseStudy.title}</h1>
-            {caseStudy.store_name && <p className="text-sm text-neutral-500">{caseStudy.store_name}</p>}
+            {caseStudy.company_name && <p className="text-sm text-neutral-500">{caseStudy.company_name}</p>}
             {(summaryLead || caseStudy.summary) && (
               <p className="text-lg text-neutral-600">{summaryLead ?? caseStudy.summary}</p>
             )}

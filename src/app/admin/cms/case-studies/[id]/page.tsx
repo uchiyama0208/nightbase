@@ -40,7 +40,7 @@ function CaseStudyLoader({ supabase, id }: { supabase: any; id: string }) {
     const { data, error } = await supabase
       .from("case_studies")
       .select(
-        "id, title, slug, store_name, industry, summary, problems, solutions, results, cover_image_url, status, published_at"
+        "id, title, slug, company_name, industry, summary, problems, solutions, results, cover_image_url, status, published_at"
       )
       .eq("id", id)
       .maybeSingle();
@@ -61,7 +61,7 @@ function CaseStudyLoader({ supabase, id }: { supabase: any; id: string }) {
       id: data.id,
       previousSlug: data.slug,
       title: data.title,
-      store_name: data.store_name ?? "",
+      company_name: data.company_name ?? "",
       slug: data.slug,
       industry: data.industry ?? "cabaret",
       summary: data.summary ?? "",

@@ -22,7 +22,7 @@ const editorSchema = z.object({
   id: z.string().optional(),
   previousSlug: z.string().optional(),
   title: z.string().min(1, "タイトルは必須です"),
-  store_name: z.string().min(1, "店舗 / 企業名は必須です"),
+  company_name: z.string().min(1, "店舗 / 企業名は必須です"),
   slug: z.string().min(1, "スラッグは必須です"),
   industry: z.string().min(1, "業種は必須です"),
   summary: z.string().optional().nullable(),
@@ -43,7 +43,7 @@ type CaseStudyEditorProps = {
 
 type CaseStudyPayload = {
   title: string;
-  store_name: string;
+  company_name: string;
   slug: string;
   industry: string;
   summary: string | null;
@@ -69,7 +69,7 @@ export function CaseStudyEditor({ initialData, supabaseClient }: CaseStudyEditor
       id: initialData?.id,
       previousSlug: initialData?.slug,
       title: initialData?.title ?? "",
-      store_name: initialData?.store_name ?? "",
+      company_name: initialData?.company_name ?? "",
       slug: initialData?.slug ?? "",
       industry: initialData?.industry ?? "cabaret",
       summary: initialData?.summary ?? "",
@@ -98,7 +98,7 @@ export function CaseStudyEditor({ initialData, supabaseClient }: CaseStudyEditor
     try {
       const payload: CaseStudyPayload = {
         title: values.title.trim(),
-        store_name: values.store_name.trim(),
+        company_name: values.company_name.trim(),
         slug: values.slug.trim(),
         industry: values.industry,
         summary: values.summary?.trim() || null,
@@ -253,7 +253,7 @@ export function CaseStudyEditor({ initialData, supabaseClient }: CaseStudyEditor
             <Label htmlFor="company" className="text-slate-300">
               店舗 / 企業名
             </Label>
-            <Input id="company" placeholder="NightBase グループ" {...form.register("store_name")} />
+            <Input id="company" placeholder="NightBase グループ" {...form.register("company_name")} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="summary" className="text-slate-300">
