@@ -34,6 +34,26 @@ function assertCmsAccess(user: User | null, profile: ProfileRow | null) {
   return CMS_ROLES.has(profile.role);
 }
 
+export async function getCurrentUserProfile() {
+  const supabase = createServerClient();
+  const { data, error } = await supabase.auth.getUser();
+
+  if (error) {
+    console.error("現在のユーザー情報の取得に失敗しました", error);
+    return { user: null, profile: null };
+  }
+
+  const user = data.user;
+
+  if (!user) {
+    return { user: null, profile: null };
+  }
+
+  const profile = await getProfileForUser(supabase, user.id);
+
+  return { user, profile: profile ?? null };
+}
+
 export async function requireAdminUser() {
   const supabase = createServerClient();
   const { data, error } = await supabase.auth.getUser();

@@ -23,6 +23,8 @@ export function getSupabaseConfig() {
   return { supabaseUrl, supabaseAnonKey };
 }
 
+let browserClient: SupabaseClient<Database> | null = null;
+
 export function createClient(): SupabaseClient<Database> {
   const { supabaseUrl, supabaseAnonKey } = getSupabaseConfig();
 
@@ -35,4 +37,22 @@ export function createClient(): SupabaseClient<Database> {
       fetch,
     },
   });
+}
+
+export function createBrowserClient(): SupabaseClient<Database> {
+  if (browserClient) {
+    return browserClient;
+  }
+
+  const { supabaseUrl, supabaseAnonKey } = getSupabaseConfig();
+
+  browserClient = createSupabaseClient<Database>(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+  });
+
+  return browserClient;
 }
