@@ -1,10 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Filter } from "lucide-react";
 
 import { AdminProtected } from "@/components/admin/AdminProtected";
+import { CmsListLayout } from "@/components/admin/cms/CmsListLayout";
 import { BlogTable, type BlogTableItem } from "@/components/admin/cms/BlogTable";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 type BlogListState = {
   loading: boolean;
@@ -13,6 +23,14 @@ type BlogListState = {
   categories: string[];
 };
 
+const STATUS_TABS = [
+  { value: "all", label: "すべて" },
+  { value: "published", label: "公開" },
+  { value: "draft", label: "下書き" },
+] as const;
+
+type StatusFilter = (typeof STATUS_TABS)[number]["value"];
+
 function BlogListContent({ supabase }: { supabase: any }) {
   const [state, setState] = useState<BlogListState>({
     loading: true,
@@ -20,6 +38,9 @@ function BlogListContent({ supabase }: { supabase: any }) {
     items: [],
     categories: [],
   });
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState<StatusFilter>("all");
+  const [category, setCategory] = useState<string>("すべて");
 
   const loadPosts = useCallback(async () => {
     setState((prev) => ({ ...prev, loading: true, error: null }));
@@ -61,6 +82,22 @@ function BlogListContent({ supabase }: { supabase: any }) {
     loadPosts();
   }, [loadPosts]);
 
+  const categoryOptions = useMemo(() => ["すべて", ...state.categories], [state.categories]);
+
+  const filteredItems = useMemo(() => {
+    return state.items.filter((item) => {
+      const matchesSearch = search
+        ? `${item.title} ${item.slug}`.toLowerCase().includes(search.toLowerCase())
+        : true;
+      const matchesStatus =
+        status === "all" ? true : status === "published" ? item.status === "published" : item.status !== "published";
+      const matchesCategory =
+        category === "すべて" ? true : (item.category ?? "未分類").toLowerCase() === category.toLowerCase();
+
+      return matchesSearch && matchesStatus && matchesCategory;
+    });
+  }, [category, search, state.items, status]);
+
   if (state.loading) {
     return (
       <div className="rounded-2xl border border-white/10 bg-white/5 p-8 text-center text-slate-300">
@@ -80,7 +117,46 @@ function BlogListContent({ supabase }: { supabase: any }) {
     );
   }
 
-  return <BlogTable items={state.items} categories={state.categories} />;
+  const categoryFilter = (
+    <div className="flex flex-wrap items-center gap-3">
+      <span className="text-xs uppercase tracking-[0.3em] text-slate-400">カテゴリ</span>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" className="w-full justify-between bg-slate-900/60 text-slate-200 md:w-64">
+            <span>{category}</span>
+            <Filter className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-64">
+          <DropdownMenuLabel>カテゴリで絞り込み</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {categoryOptions.map((option) => (
+            <DropdownMenuItem key={option} onSelect={() => setCategory(option)}>
+              {option}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+
+  return (
+    <CmsListLayout
+      title="ブログ記事"
+      description="Supabase の blog_posts テーブルと同期した記事リストです。"
+      searchPlaceholder="タイトルやスラッグで検索"
+      searchValue={search}
+      onSearchChange={setSearch}
+      statusTabs={STATUS_TABS}
+      statusValue={status}
+      onStatusChange={(value) => setStatus(value as StatusFilter)}
+      createHref="/admin/cms/blog/new"
+      createLabel="新規作成"
+      secondaryFilters={categoryFilter}
+    >
+      <BlogTable items={filteredItems} />
+    </CmsListLayout>
+  );
 }
 
 export default function AdminBlogListPage() {
