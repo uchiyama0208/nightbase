@@ -15,7 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { CASE_STUDY_FIELDS, formatCaseStudyIndustry } from "@/lib/caseStudies";
+import { formatCaseStudyIndustry } from "@/lib/caseStudies";
 
 type CaseStudyListState = {
   loading: boolean;
@@ -48,11 +48,13 @@ function CaseStudyListContent({ supabase }: { supabase: any }) {
 
     const { data, error } = await supabase
       .from("case_studies")
-      .select(CASE_STUDY_FIELDS)
+      .select("*")
       .order("updated_at", { ascending: false });
 
+    console.log("[AdminCaseStudies] list result", { data, error });
+
     if (error) {
-      console.error("導入事例の取得に失敗しました", error);
+      console.error("[AdminCaseStudies] 導入事例の取得に失敗しました", error);
       setState((prev) => ({ ...prev, loading: false, error: "導入事例の取得に失敗しました" }));
       return;
     }
@@ -61,7 +63,7 @@ function CaseStudyListContent({ supabase }: { supabase: any }) {
     const items: CaseStudyTableItem[] = rows.map((item) => ({
       id: item.id,
       title: item.title,
-      company_name: item.company_name ?? null,
+      company_name: item.company_name ?? item.store_name ?? null,
       industry: item.industry,
       summary: item.summary ?? item.results ?? null,
       status: item.status ?? "draft",
