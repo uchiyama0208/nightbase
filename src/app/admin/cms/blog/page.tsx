@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Filter } from "lucide-react";
 
 import { AdminProtected } from "@/components/admin/AdminProtected";
-import { CmsListLayout } from "@/components/admin/cms/CmsListLayout";
+import { CmsListLayout, type StatusTab } from "@/components/admin/cms/CmsListLayout";
 import { BlogTable, type BlogTableItem } from "@/components/admin/cms/BlogTable";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,11 +23,11 @@ type BlogListState = {
   categories: string[];
 };
 
-const STATUS_TABS = [
+const STATUS_TABS: StatusTab[] = [
   { value: "all", label: "すべて" },
   { value: "published", label: "公開" },
   { value: "draft", label: "下書き" },
-] as const;
+];
 
 type StatusFilter = (typeof STATUS_TABS)[number]["value"];
 
