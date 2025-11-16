@@ -2,10 +2,6 @@ import { notFound } from "next/navigation";
 
 import { ManualEditor, type ManualEditorValues } from "@/components/admin/cms/ManualEditor";
 import { createAdminServerClient } from "@/lib/auth";
-
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
 type ManualStatus = "draft" | "published";
 
 type ManualEditorPageProps = {

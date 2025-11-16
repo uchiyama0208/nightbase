@@ -6,9 +6,6 @@ import { AdminProtected } from "@/components/admin/AdminProtected";
 import { CaseStudyTable, type CaseStudyTableItem } from "@/components/admin/cms/CaseStudyTable";
 import { Button } from "@/components/ui/button";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
 type CaseStudyListState = {
   loading: boolean;
   error: string | null;

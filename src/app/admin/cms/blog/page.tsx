@@ -6,9 +6,6 @@ import { AdminProtected } from "@/components/admin/AdminProtected";
 import { BlogTable, type BlogTableItem } from "@/components/admin/cms/BlogTable";
 import { Button } from "@/components/ui/button";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
 type BlogListState = {
   loading: boolean;
   error: string | null;

@@ -2,9 +2,6 @@
 
 import { AdminProtected } from "@/components/admin/AdminProtected";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
 function AnalyticsContent() {
   return (
     <div className="space-y-4 rounded-3xl border border-white/10 bg-white/5 p-8 text-slate-200">

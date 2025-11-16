@@ -2,10 +2,6 @@ import { notFound } from "next/navigation";
 
 import { BlogEditor, type BlogEditorValues } from "@/components/admin/cms/BlogEditor";
 import { createAdminServerClient } from "@/lib/auth";
-
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
 type BlogEditorPageProps = {
   params: { id: string };
 };
