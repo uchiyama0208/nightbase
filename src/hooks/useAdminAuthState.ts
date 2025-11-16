@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 
 import { createBrowserClient } from "@/lib/supabaseClient";
 
@@ -14,6 +15,24 @@ export function useAdminAuthState() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const isActiveRef = useRef(true);
 
+  const syncServerSession = useCallback(
+    async (event: AuthChangeEvent | "INITIAL_SESSION", session: Session | null) => {
+      try {
+        await fetch("/auth/session", {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ event, session }),
+        });
+      } catch (error) {
+        console.error("サーバーセッションの同期に失敗しました", error);
+      }
+    },
+    []
+  );
+
   const syncAuth = useCallback(async () => {
     const { data, error } = await supabase.auth.getSession();
 
@@ -22,12 +41,14 @@ export function useAdminAuthState() {
     }
 
     if (error || !data.session) {
+      await syncServerSession("SIGNED_OUT", null);
       setAuthState("unauthenticated");
       setUserEmail(null);
       return;
     }
 
     const session = data.session;
+    await syncServerSession("INITIAL_SESSION", session);
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("role, email, display_name")
@@ -54,14 +75,15 @@ export function useAdminAuthState() {
       setAuthState("unauthorized");
       setUserEmail(session.user.email ?? null);
     }
-  }, [supabase]);
+  }, [supabase, syncServerSession]);
 
   useEffect(() => {
     isActiveRef.current = true;
 
     syncAuth();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(() => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
+      syncServerSession(event, session);
       syncAuth();
     });
 
@@ -69,7 +91,7 @@ export function useAdminAuthState() {
       isActiveRef.current = false;
       authListener?.subscription.unsubscribe?.();
     };
-  }, [supabase, syncAuth]);
+  }, [supabase, syncAuth, syncServerSession]);
 
   return { supabase, authState, userEmail, refreshAuth: syncAuth };
 }
