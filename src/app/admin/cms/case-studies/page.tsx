@@ -63,7 +63,7 @@ function CaseStudyListContent({ supabase }: { supabase: any }) {
     const items: CaseStudyTableItem[] = rows.map((item) => ({
       id: item.id,
       title: item.title,
-      company_name: item.company_name ?? item.store_name ?? null,
+      store_name: item.store_name ?? null,
       industry: item.industry,
       summary: item.summary ?? item.results ?? null,
       status: item.status ?? "draft",
@@ -91,7 +91,7 @@ function CaseStudyListContent({ supabase }: { supabase: any }) {
   const filteredItems = useMemo(() => {
     return state.items.filter((item) => {
       const matchesSearch = search
-        ? `${item.title} ${item.company_name ?? ""} ${item.summary ?? ""}`
+        ? `${item.title} ${item.store_name ?? ""} ${item.summary ?? ""}`
             .toLowerCase()
             .includes(search.toLowerCase())
         : true;

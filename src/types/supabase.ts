@@ -56,7 +56,7 @@ export type Database = {
           id: string;
           slug: string;
           title: string;
-          company_name: string | null;
+          store_name: string | null;
           industry: string | null;
           summary: string | null;
           problems: string | null;
@@ -72,7 +72,7 @@ export type Database = {
           id?: string;
           slug: string;
           title: string;
-          company_name?: string | null;
+          store_name?: string | null;
           industry?: string | null;
           summary?: string | null;
           problems?: string | null;
@@ -88,7 +88,7 @@ export type Database = {
           id?: string;
           slug?: string;
           title?: string;
-          company_name?: string | null;
+          store_name?: string | null;
           industry?: string | null;
           summary?: string | null;
           problems?: string | null;

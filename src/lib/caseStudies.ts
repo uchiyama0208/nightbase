@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabaseClient";
 import type { CaseStudy, CaseStudyStatus } from "@/types/case-studies";
 
 export const CASE_STUDY_FIELDS =
-  "id, slug, title, company_name, industry, summary, problems, solutions, results, cover_image_url, status, published_at, created_at, updated_at";
+  "id, slug, title, store_name, industry, summary, problems, solutions, results, cover_image_url, status, published_at, created_at, updated_at";
 
 const INDUSTRY_LABEL_MAP: Record<string, string> = {
   cabaret: "キャバクラ",
@@ -73,7 +73,7 @@ function normalizeCaseStudy(row: {
   id: string;
   slug: string;
   title: string;
-  company_name: string | null;
+  store_name: string | null;
   industry: string | null;
   summary: string | null;
   problems: string | null;

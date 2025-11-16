@@ -23,7 +23,7 @@ export function CaseStudyCard({ caseStudy }: CaseStudyCardProps) {
       </div>
       <div className="space-y-2">
         <h3 className="text-2xl font-semibold text-[#111111]">{caseStudy.title}</h3>
-        {caseStudy.company_name && <p className="text-sm text-neutral-500">{caseStudy.company_name}</p>}
+        {caseStudy.store_name && <p className="text-sm text-neutral-500">{caseStudy.store_name}</p>}
       </div>
       {summary && <p className="text-sm text-neutral-500">{summary}</p>}
       <Link
