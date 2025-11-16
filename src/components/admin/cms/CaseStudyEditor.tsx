@@ -87,10 +87,10 @@ export function CaseStudyEditor({ initialData, supabaseClient }: CaseStudyEditor
     try {
       const payload: CaseStudyInsert = {
         title: values.title.trim(),
-        store_name: values.store_name.trim(),
         slug: values.slug.trim(),
         industry: values.industry,
         summary: encodeCaseStudyContent({
+          store_name: values.store_name?.trim() || null,
           summary: values.summary ?? null,
           problems: values.problems ?? null,
           solutions: values.solutions ?? null,

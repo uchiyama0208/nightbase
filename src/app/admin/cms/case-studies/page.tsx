@@ -66,7 +66,7 @@ function CaseStudyListContent({ supabase }: { supabase: any }) {
       return {
         id: row.id,
         title: row.title,
-        store_name: row.store_name ?? null,
+        store_name: content.store_name ?? null,
         industry: row.industry,
         summary: content.summary ?? null,
         status: row.status ?? "draft",

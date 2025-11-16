@@ -2,12 +2,13 @@ import { createClient } from "@/lib/supabaseClient";
 import type { CaseStudy, CaseStudyStatus } from "@/types/case-studies";
 
 export const CASE_STUDY_FIELDS =
-  "id, slug, title, store_name, industry, summary, cover_image_url, status, published_at, created_at, updated_at";
+  "id, slug, title, industry, summary, cover_image_url, status, published_at, created_at, updated_at";
 
 const CASE_STUDY_CONTENT_FLAG = "__nightbaseCaseStudy";
 const CASE_STUDY_CONTENT_VERSION = 1;
 
 export type CaseStudyContentFields = {
+  store_name: string | null;
   summary: string | null;
   problems: string | null;
   solutions: string | null;
@@ -20,6 +21,7 @@ type CaseStudyContentPayload = CaseStudyContentFields & {
 };
 
 const EMPTY_CONTENT: CaseStudyContentFields = {
+  store_name: null,
   summary: null,
   problems: null,
   solutions: null,
@@ -35,6 +37,7 @@ export function decodeCaseStudyContent(raw: string | null): CaseStudyContentFiel
     const parsed = JSON.parse(raw) as Partial<CaseStudyContentPayload>;
     if (parsed && parsed[CASE_STUDY_CONTENT_FLAG] && typeof parsed.version === "number") {
       return {
+        store_name: typeof parsed.store_name === "string" ? parsed.store_name : null,
         summary: typeof parsed.summary === "string" ? parsed.summary : null,
         problems: typeof parsed.problems === "string" ? parsed.problems : null,
         solutions: typeof parsed.solutions === "string" ? parsed.solutions : null,
@@ -46,6 +49,7 @@ export function decodeCaseStudyContent(raw: string | null): CaseStudyContentFiel
   }
 
   return {
+    store_name: null,
     summary: raw,
     problems: null,
     solutions: null,
@@ -55,13 +59,16 @@ export function decodeCaseStudyContent(raw: string | null): CaseStudyContentFiel
 
 export function encodeCaseStudyContent(content: CaseStudyContentFields): string | null {
   const normalized: CaseStudyContentFields = {
+    store_name: content.store_name?.trim() || null,
     summary: content.summary?.trim() || null,
     problems: content.problems?.trim() || null,
     solutions: content.solutions?.trim() || null,
     results: content.results?.trim() || null,
   };
 
-  const hasSections = Boolean(normalized.problems || normalized.solutions || normalized.results);
+  const hasSections = Boolean(
+    normalized.store_name || normalized.problems || normalized.solutions || normalized.results
+  );
 
   if (!hasSections) {
     return normalized.summary;
@@ -145,7 +152,6 @@ function normalizeCaseStudy(row: {
   id: string;
   slug: string;
   title: string;
-  store_name: string | null;
   industry: string | null;
   summary: string | null;
   cover_image_url: string | null;
@@ -158,6 +164,7 @@ function normalizeCaseStudy(row: {
 
   return {
     ...row,
+    store_name: parsedSummary.store_name,
     summary: parsedSummary.summary,
     problems: parsedSummary.problems,
     solutions: parsedSummary.solutions,

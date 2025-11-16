@@ -56,7 +56,6 @@ export type Database = {
           id: string;
           slug: string;
           title: string;
-          store_name: string | null;
           industry: string | null;
           summary: string | null;
           cover_image_url: string | null;
@@ -69,7 +68,6 @@ export type Database = {
           id?: string;
           slug: string;
           title: string;
-          store_name?: string | null;
           industry?: string | null;
           summary?: string | null;
           cover_image_url?: string | null;
@@ -82,7 +80,6 @@ export type Database = {
           id?: string;
           slug?: string;
           title?: string;
-          store_name?: string | null;
           industry?: string | null;
           summary?: string | null;
           cover_image_url?: string | null;
