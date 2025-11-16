@@ -29,7 +29,7 @@ function ManualListContent({ supabase }: { supabase: any }) {
 
     const { data, error } = await supabase
       .from("manuals")
-      .select("id, title, slug, section, status, order, updated_at, published_at")
+      .select("id, title, slug, section, status, order, updated_at, published_at, body_markdown")
       .order("section", { ascending: true })
       .order("order", { ascending: true });
 
@@ -45,6 +45,7 @@ function ManualListContent({ supabase }: { supabase: any }) {
       title: item.title,
       slug: item.slug,
       section: item.section,
+      body_markdown: item.body_markdown ?? null,
       status: item.status ?? "draft",
       order: item.order ?? 0,
       updated_at: item.updated_at,
