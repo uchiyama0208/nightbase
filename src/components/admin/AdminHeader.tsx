@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname, useSelectedLayoutSegments } from "next/navigation";
 import { CircleUser, LogOut, Menu, Settings, User } from "lucide-react";
 
-import { signOut } from "@/app/admin/actions";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -21,6 +20,8 @@ import { cn } from "@/lib/utils";
 
 type AdminHeaderProps = {
   userEmail: string | null;
+  supabaseClient: any;
+  onRefreshAuth: () => Promise<void>;
 };
 
 function resolveSection(segments: string[]): { title: string; subtitle: string } {
@@ -61,7 +62,7 @@ function resolveSection(segments: string[]): { title: string; subtitle: string }
   return { title: "管理画面", subtitle: "NightBase" };
 }
 
-export function AdminHeader({ userEmail }: AdminHeaderProps) {
+export function AdminHeader({ userEmail, supabaseClient, onRefreshAuth }: AdminHeaderProps) {
   const pathname = usePathname();
   const segments = useSelectedLayoutSegments();
   const [, startTransition] = useTransition();
@@ -159,7 +160,8 @@ export function AdminHeader({ userEmail }: AdminHeaderProps) {
               onSelect={(event) => {
                 event.preventDefault();
                 startTransition(async () => {
-                  await signOut();
+                  await supabaseClient.auth.signOut();
+                  await onRefreshAuth();
                 });
               }}
             >

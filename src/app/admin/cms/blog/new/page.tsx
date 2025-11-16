@@ -6,7 +6,7 @@ import { BlogEditor } from "@/components/admin/cms/BlogEditor";
 export default function AdminBlogCreatePage() {
   return (
     <AdminProtected>
-      {() => <BlogEditor />}
+      {({ supabase }) => <BlogEditor supabaseClient={supabase} />}
     </AdminProtected>
   );
 }

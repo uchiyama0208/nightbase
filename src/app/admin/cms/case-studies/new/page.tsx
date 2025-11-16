@@ -6,7 +6,7 @@ import { CaseStudyEditor } from "@/components/admin/cms/CaseStudyEditor";
 export default function AdminCaseStudyCreatePage() {
   return (
     <AdminProtected>
-      {() => <CaseStudyEditor />}
+      {({ supabase }) => <CaseStudyEditor supabaseClient={supabase} />}
     </AdminProtected>
   );
 }

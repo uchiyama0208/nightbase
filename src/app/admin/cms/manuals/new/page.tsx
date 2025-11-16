@@ -6,7 +6,7 @@ import { ManualEditor } from "@/components/admin/cms/ManualEditor";
 export default function AdminManualCreatePage() {
   return (
     <AdminProtected>
-      {() => <ManualEditor />}
+      {({ supabase }) => <ManualEditor supabaseClient={supabase} />}
     </AdminProtected>
   );
 }

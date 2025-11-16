@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -9,7 +9,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-import { deleteManualPage, upsertManualPage } from "@/app/admin/cms/manuals/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -37,13 +36,15 @@ export type ManualEditorValues = z.infer<typeof editorSchema>;
 
 type ManualEditorProps = {
   initialData?: ManualEditorValues;
+  supabaseClient: any;
 };
 
-export function ManualEditor({ initialData }: ManualEditorProps) {
+export function ManualEditor({ initialData, supabaseClient }: ManualEditorProps) {
   const { toast } = useToast();
   const router = useRouter();
   const [tab, setTab] = useState<"edit" | "preview">("edit");
-  const [isPending, startTransition] = useTransition();
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const form = useForm<ManualEditorValues>({
     resolver: zodResolver(editorSchema),
@@ -70,41 +71,99 @@ export function ManualEditor({ initialData }: ManualEditorProps) {
     }
   }, [form, initialData?.slug, isNew]);
 
-  const handleSubmit = (values: ManualEditorValues) => {
+  const handleSubmit = async (values: ManualEditorValues) => {
     console.log("[ManualEditor] 保存処理開始", values);
-    startTransition(async () => {
-      try {
-        console.log("[ManualEditor] Supabase upsert 送信前", values);
-        const result = await upsertManualPage(values);
-        console.log("[ManualEditor] Supabase upsert 結果", result);
-        toast({ title: "保存しました", description: "マニュアルを更新しました。" });
-        if (result.id && isNew) {
-          router.replace(`/admin/cms/manuals/${result.id}`);
-          return;
+    setIsSaving(true);
+
+    try {
+      const payload = {
+        title: values.title,
+        slug: values.slug,
+        section: values.section,
+        body_markdown: values.body_markdown,
+        order: values.order ?? 0,
+        status: values.status,
+        published_at: values.published_at ? new Date(values.published_at).toISOString() : null
+      };
+
+      console.log("[ManualEditor] Supabase upsert 送信前", payload);
+
+      let nextId = values.id;
+      let nextSlug = values.slug;
+
+      if (values.id) {
+        const { data, error } = await supabaseClient
+          .from("manuals")
+          .update(payload)
+          .eq("id", values.id)
+          .select("id, slug")
+          .single();
+
+        console.log("[ManualEditor] update result", { data, error });
+
+        if (error) {
+          throw new Error(error.message ?? "マニュアルの更新に失敗しました");
         }
 
-        router.refresh();
-      } catch (error) {
-        console.error("[ManualEditor] 保存処理でエラー", error);
-        toast({
-          title: "保存に失敗しました",
-          description: error instanceof Error ? error.message : "入力内容を確認してください。"
-        });
+        nextId = data?.id ?? values.id;
+        nextSlug = data?.slug ?? values.slug;
+      } else {
+        const { data, error } = await supabaseClient
+          .from("manuals")
+          .insert(payload)
+          .select("id, slug")
+          .single();
+
+        console.log("[ManualEditor] insert result", { data, error });
+
+        if (error) {
+          throw new Error(error.message ?? "マニュアルの作成に失敗しました");
+        }
+
+        nextId = data?.id ?? nextId;
+        nextSlug = data?.slug ?? nextSlug;
       }
-    });
+
+      toast({ title: "保存しました", description: "マニュアルを更新しました。" });
+
+      if (!values.id && nextId) {
+        router.replace(`/admin/cms/manuals/${nextId}`);
+        return;
+      }
+
+      router.refresh();
+    } catch (error) {
+      console.error("[ManualEditor] 保存処理でエラー", error);
+      toast({
+        title: "保存に失敗しました",
+        description: error instanceof Error ? error.message : "入力内容を確認してください。"
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!initialData?.id) return;
-    startTransition(async () => {
-      try {
-        await deleteManualPage(initialData.id!, initialData.slug);
-        toast({ title: "削除しました", description: "マニュアルを削除しました。" });
-      } catch (error) {
-        console.error(error);
-        toast({ title: "削除に失敗しました", description: "もう一度お試しください。" });
+
+    setIsDeleting(true);
+    try {
+      console.log("[ManualEditor] 削除処理開始", initialData.id);
+      const { error } = await supabaseClient.from("manuals").delete().eq("id", initialData.id);
+      console.log("[ManualEditor] 削除結果", { error });
+
+      if (error) {
+        throw new Error(error.message ?? "マニュアルの削除に失敗しました");
       }
-    });
+
+      toast({ title: "削除しました", description: "マニュアルを削除しました。" });
+      router.push("/admin/cms/manuals");
+    } catch (error) {
+      console.error(error);
+      toast({ title: "削除に失敗しました", description: error instanceof Error ? error.message : "もう一度お試しください。" });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -114,9 +173,7 @@ export function ManualEditor({ initialData }: ManualEditorProps) {
           <p className="text-xs uppercase tracking-[0.3em] text-slate-400">マニュアル</p>
           <h1 className="text-3xl font-semibold text-white">{isNew ? "新規マニュアルを作成" : "マニュアルを編集"}</h1>
           <div className="flex items-center gap-2">
-            <Badge variant={status === "published" ? "success" : "neutral"}>
-              {status === "published" ? "公開中" : "下書き"}
-            </Badge>
+            <Badge variant={status === "published" ? "success" : "neutral"}>{status === "published" ? "公開中" : "下書き"}</Badge>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -147,17 +204,17 @@ export function ManualEditor({ initialData }: ManualEditorProps) {
                     type="button"
                     variant="destructive"
                     onClick={handleDelete}
-                    disabled={isPending}
+                    disabled={isDeleting}
                     className="bg-red-600 hover:bg-red-500"
                   >
-                    {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />} 削除する
+                    {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />} 削除する
                   </Button>
                 </div>
               </DialogContent>
             </Dialog>
           )}
-          <Button type="submit" className="bg-primary text-white" disabled={isPending}>
-            {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          <Button type="submit" className="bg-primary text-white" disabled={isSaving}>
+            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             保存する
           </Button>
         </div>
@@ -209,12 +266,7 @@ export function ManualEditor({ initialData }: ManualEditorProps) {
             <Label htmlFor="order" className="text-slate-300">
               並び順
             </Label>
-            <Input
-              id="order"
-              type="number"
-              step={1}
-              {...form.register("order", { valueAsNumber: true })}
-            />
+            <Input id="order" type="number" step={1} {...form.register("order", { valueAsNumber: true })} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="published_at" className="text-slate-300">

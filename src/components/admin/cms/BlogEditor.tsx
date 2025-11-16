@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -9,7 +9,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-import { deleteBlogPost, upsertBlogPost } from "@/app/admin/cms/blog/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -19,7 +18,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
-import { cn, toDateTimeLocalInputValue } from "@/lib/utils";
+import { toDateTimeLocalInputValue } from "@/lib/utils";
 
 const editorSchema = z.object({
   id: z.string().optional(),
@@ -38,13 +37,15 @@ export type BlogEditorValues = z.infer<typeof editorSchema>;
 
 type BlogEditorProps = {
   initialData?: BlogEditorValues;
+  supabaseClient: any;
 };
 
-export function BlogEditor({ initialData }: BlogEditorProps) {
+export function BlogEditor({ initialData, supabaseClient }: BlogEditorProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [tab, setTab] = useState<"edit" | "preview">("edit");
-  const [isPending, startTransition] = useTransition();
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const form = useForm<BlogEditorValues>({
     resolver: zodResolver(editorSchema),
@@ -64,7 +65,6 @@ export function BlogEditor({ initialData }: BlogEditorProps) {
 
   const status = form.watch("status");
   const content = form.watch("content");
-
   const isNew = !initialData?.id;
 
   useEffect(() => {
@@ -73,51 +73,110 @@ export function BlogEditor({ initialData }: BlogEditorProps) {
     }
   }, [form, initialData?.slug, isNew]);
 
-  const handleSubmit = (values: BlogEditorValues) => {
+  const handleSubmit = async (values: BlogEditorValues) => {
     console.log("[BlogEditor] 保存処理開始", values);
-    startTransition(async () => {
-      try {
-        console.log("[BlogEditor] Supabase upsert 送信前", values);
-        const result = await upsertBlogPost(values);
-        console.log("[BlogEditor] Supabase upsert 結果", result);
-        toast({ title: "保存しました", description: "ブログ記事の変更が反映されました。" });
+    setIsSaving(true);
 
-        if (result.id && isNew) {
-          router.replace(`/admin/cms/blog/${result.id}`);
-          return;
+    try {
+      const payload = {
+        title: values.title,
+        slug: values.slug,
+        content: values.content,
+        excerpt: values.excerpt || null,
+        category: values.category || null,
+        cover_image_url: values.cover_image_url || null,
+        status: values.status,
+        published_at: values.published_at ? new Date(values.published_at).toISOString() : null
+      };
+
+      console.log("[BlogEditor] Supabase upsert 送信前", payload);
+
+      let nextId = values.id;
+      let nextSlug = values.slug;
+
+      if (values.id) {
+        const { data, error } = await supabaseClient
+          .from("blog_posts")
+          .update(payload)
+          .eq("id", values.id)
+          .select("id, slug")
+          .single();
+
+        console.log("[BlogEditor] update result", { data, error });
+
+        if (error) {
+          throw new Error(error.message ?? "ブログ記事の更新に失敗しました");
         }
 
-        router.refresh();
-      } catch (error) {
-        console.error("[BlogEditor] 保存処理でエラー", error);
-        toast({
-          title: "保存に失敗しました",
-          description: error instanceof Error ? error.message : "入力内容を確認し、もう一度お試しください。"
-        });
+        nextId = data?.id ?? values.id;
+        nextSlug = data?.slug ?? values.slug;
+      } else {
+        const { data, error } = await supabaseClient
+          .from("blog_posts")
+          .insert(payload)
+          .select("id, slug")
+          .single();
+
+        console.log("[BlogEditor] insert result", { data, error });
+
+        if (error) {
+          throw new Error(error.message ?? "ブログ記事の作成に失敗しました");
+        }
+
+        nextId = data?.id ?? nextId;
+        nextSlug = data?.slug ?? nextSlug;
       }
-    });
+
+      toast({ title: "保存しました", description: "ブログ記事の変更が反映されました。" });
+
+      if (!values.id && nextId) {
+        router.replace(`/admin/cms/blog/${nextId}`);
+        return;
+      }
+
+      if (nextSlug && nextSlug !== values.previousSlug) {
+        console.log("[BlogEditor] slug updated", { nextSlug });
+      }
+
+      router.refresh();
+    } catch (error) {
+      console.error("[BlogEditor] 保存処理でエラー", error);
+      toast({
+        title: "保存に失敗しました",
+        description: error instanceof Error ? error.message : "入力内容を確認し、もう一度お試しください。"
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!initialData?.id) return;
-    startTransition(async () => {
-      try {
-        await deleteBlogPost(initialData.id!, initialData.slug);
-        toast({ title: "削除しました", description: "ブログ記事を削除しました。" });
-      } catch (error) {
-        console.error(error);
-        toast({ title: "削除に失敗しました", description: "もう一度お試しください。" });
+
+    setIsDeleting(true);
+    try {
+      console.log("[BlogEditor] 削除処理開始", initialData.id);
+      const { error } = await supabaseClient.from("blog_posts").delete().eq("id", initialData.id);
+      console.log("[BlogEditor] 削除結果", { error });
+
+      if (error) {
+        throw new Error(error.message ?? "ブログ記事の削除に失敗しました");
       }
-    });
+
+      toast({ title: "削除しました", description: "ブログ記事を削除しました。" });
+      router.push("/admin/cms/blog");
+    } catch (error) {
+      console.error(error);
+      toast({ title: "削除に失敗しました", description: error instanceof Error ? error.message : "もう一度お試しください。" });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const publishedLabel = useMemo(() => (status === "published" ? "公開中" : "下書き"), [status]);
 
   return (
-    <form
-      className="space-y-8"
-      onSubmit={form.handleSubmit((values) => handleSubmit(values))}
-    >
+    <form className="space-y-8" onSubmit={form.handleSubmit((values) => handleSubmit(values))}>
       <div className="flex flex-col gap-4 rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_20px_60px_-20px_rgba(15,23,42,0.45)] md:flex-row md:items-center md:justify-between">
         <div className="space-y-2">
           <p className="text-xs uppercase tracking-[0.3em] text-slate-400">ブログ記事</p>
@@ -155,17 +214,17 @@ export function BlogEditor({ initialData }: BlogEditorProps) {
                     type="button"
                     variant="destructive"
                     onClick={handleDelete}
-                    disabled={isPending}
+                    disabled={isDeleting}
                     className="bg-red-600 hover:bg-red-500"
                   >
-                    {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />} 削除する
+                    {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />} 削除する
                   </Button>
                 </div>
               </DialogContent>
             </Dialog>
           )}
-          <Button type="submit" className="bg-primary text-white" disabled={isPending}>
-            {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          <Button type="submit" className="bg-primary text-white" disabled={isSaving}>
+            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             保存する
           </Button>
         </div>

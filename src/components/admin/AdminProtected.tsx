@@ -67,7 +67,7 @@ export function AdminProtected({ children }: AdminProtectedProps) {
       <div className="flex min-h-screen">
         <AdminNav />
         <div className="flex min-h-screen flex-1 flex-col">
-          <AdminHeader userEmail={userEmail} />
+          <AdminHeader userEmail={userEmail} supabaseClient={supabase} onRefreshAuth={refreshAuth} />
           <main className="flex-1 overflow-y-auto px-4 py-10 sm:px-8">
             <div className="mx-auto w-full max-w-6xl space-y-8">{children({ supabase })}</div>
           </main>

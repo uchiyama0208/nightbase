@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useTransition } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Trash2 } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-import { deleteCaseStudy, upsertCaseStudy } from "@/app/admin/cms/case-studies/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -36,22 +35,16 @@ export type CaseStudyEditorValues = z.infer<typeof editorSchema>;
 
 type CaseStudyEditorProps = {
   initialData?: CaseStudyEditorValues;
+  supabaseClient: any;
 };
 
-const INDUSTRY_OPTIONS = [
-  "cabaret",
-  "lounge",
-  "club",
-  "girls-bar",
-  "concept-cafe",
-  "host",
-  "bar"
-];
+const INDUSTRY_OPTIONS = ["cabaret", "lounge", "club", "girls-bar", "concept-cafe", "host", "bar"];
 
-export function CaseStudyEditor({ initialData }: CaseStudyEditorProps) {
+export function CaseStudyEditor({ initialData, supabaseClient }: CaseStudyEditorProps) {
   const { toast } = useToast();
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const form = useForm<CaseStudyEditorValues>({
     resolver: zodResolver(editorSchema),
@@ -78,42 +71,100 @@ export function CaseStudyEditor({ initialData }: CaseStudyEditorProps) {
     }
   }, [form, initialData?.slug, isNew]);
 
-  const handleSubmit = (values: CaseStudyEditorValues) => {
+  const handleSubmit = async (values: CaseStudyEditorValues) => {
     console.log("[CaseStudyEditor] 保存処理開始", values);
-    startTransition(async () => {
-      try {
-        console.log("[CaseStudyEditor] Supabase upsert 送信前", values);
-        const result = await upsertCaseStudy(values);
-        console.log("[CaseStudyEditor] Supabase upsert 結果", result);
-        toast({ title: "保存しました", description: "導入事例を更新しました。" });
+    setIsSaving(true);
 
-        if (result.id && isNew) {
-          router.replace(`/admin/cms/case-studies/${result.id}`);
-          return;
+    try {
+      const payload = {
+        title: values.title,
+        slug: values.slug,
+        industry: values.industry,
+        description: values.description || null,
+        results: values.results || null,
+        cover_image_url: values.cover_image_url || null,
+        status: values.status,
+        published_at: values.published_at ? new Date(values.published_at).toISOString() : null
+      };
+
+      console.log("[CaseStudyEditor] Supabase upsert 送信前", payload);
+
+      let nextId = values.id;
+      let nextSlug = values.slug;
+
+      if (values.id) {
+        const { data, error } = await supabaseClient
+          .from("case_studies")
+          .update(payload)
+          .eq("id", values.id)
+          .select("id, slug")
+          .single();
+
+        console.log("[CaseStudyEditor] update result", { data, error });
+
+        if (error) {
+          throw new Error(error.message ?? "導入事例の更新に失敗しました");
         }
 
-        router.refresh();
-      } catch (error) {
-        console.error("[CaseStudyEditor] 保存処理でエラー", error);
-        toast({
-          title: "保存に失敗しました",
-          description: error instanceof Error ? error.message : "入力内容を確認してください。"
-        });
+        nextId = data?.id ?? values.id;
+        nextSlug = data?.slug ?? values.slug;
+      } else {
+        const { data, error } = await supabaseClient
+          .from("case_studies")
+          .insert(payload)
+          .select("id, slug")
+          .single();
+
+        console.log("[CaseStudyEditor] insert result", { data, error });
+
+        if (error) {
+          throw new Error(error.message ?? "導入事例の作成に失敗しました");
+        }
+
+        nextId = data?.id ?? nextId;
+        nextSlug = data?.slug ?? nextSlug;
       }
-    });
+
+      toast({ title: "保存しました", description: "導入事例を更新しました。" });
+
+      if (!values.id && nextId) {
+        router.replace(`/admin/cms/case-studies/${nextId}`);
+        return;
+      }
+
+      router.refresh();
+    } catch (error) {
+      console.error("[CaseStudyEditor] 保存処理でエラー", error);
+      toast({
+        title: "保存に失敗しました",
+        description: error instanceof Error ? error.message : "入力内容を確認してください。"
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!initialData?.id) return;
-    startTransition(async () => {
-      try {
-        await deleteCaseStudy(initialData.id!, initialData.slug);
-        toast({ title: "削除しました", description: "導入事例を削除しました。" });
-      } catch (error) {
-        console.error(error);
-        toast({ title: "削除に失敗しました", description: "もう一度お試しください。" });
+
+    setIsDeleting(true);
+    try {
+      console.log("[CaseStudyEditor] 削除処理開始", initialData.id);
+      const { error } = await supabaseClient.from("case_studies").delete().eq("id", initialData.id);
+      console.log("[CaseStudyEditor] 削除結果", { error });
+
+      if (error) {
+        throw new Error(error.message ?? "導入事例の削除に失敗しました");
       }
-    });
+
+      toast({ title: "削除しました", description: "導入事例を削除しました。" });
+      router.push("/admin/cms/case-studies");
+    } catch (error) {
+      console.error(error);
+      toast({ title: "削除に失敗しました", description: error instanceof Error ? error.message : "もう一度お試しください。" });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -123,9 +174,7 @@ export function CaseStudyEditor({ initialData }: CaseStudyEditorProps) {
           <p className="text-xs uppercase tracking-[0.3em] text-slate-400">導入事例</p>
           <h1 className="text-3xl font-semibold text-white">{isNew ? "新規事例を登録" : "事例を編集"}</h1>
           <div className="flex items-center gap-2">
-            <Badge variant={status === "published" ? "success" : "neutral"}>
-              {status === "published" ? "公開中" : "下書き"}
-            </Badge>
+            <Badge variant={status === "published" ? "success" : "neutral"}>{status === "published" ? "公開中" : "下書き"}</Badge>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -156,17 +205,17 @@ export function CaseStudyEditor({ initialData }: CaseStudyEditorProps) {
                     type="button"
                     variant="destructive"
                     onClick={handleDelete}
-                    disabled={isPending}
+                    disabled={isDeleting}
                     className="bg-red-600 hover:bg-red-500"
                   >
-                    {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />} 削除する
+                    {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />} 削除する
                   </Button>
                 </div>
               </DialogContent>
             </Dialog>
           )}
-          <Button type="submit" className="bg-primary text-white" disabled={isPending}>
-            {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          <Button type="submit" className="bg-primary text-white" disabled={isSaving}>
+            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             保存する
           </Button>
         </div>
