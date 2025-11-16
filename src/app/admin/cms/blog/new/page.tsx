@@ -1,3 +1,5 @@
+"use client";
+
 import { AdminProtected } from "@/components/admin/AdminProtected";
 import { BlogEditor } from "@/components/admin/cms/BlogEditor";
 

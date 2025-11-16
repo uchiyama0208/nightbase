@@ -1,3 +1,5 @@
+"use client";
+
 import { AdminProtected } from "@/components/admin/AdminProtected";
 import { CaseStudyEditor } from "@/components/admin/cms/CaseStudyEditor";
 
