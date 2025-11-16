@@ -48,7 +48,7 @@ function CaseStudyListContent({ supabase }: { supabase: any }) {
 
     const { data, error } = await supabase
       .from("case_studies")
-      .select("*")
+      .select("id, title, store_name, industry, summary, results, status, published_at, updated_at")
       .order("updated_at", { ascending: false });
 
     if (error) {

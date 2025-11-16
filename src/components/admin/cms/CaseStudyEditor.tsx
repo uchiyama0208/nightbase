@@ -41,6 +41,20 @@ type CaseStudyEditorProps = {
   supabaseClient: any;
 };
 
+type CaseStudyPayload = {
+  title: string;
+  store_name: string;
+  slug: string;
+  industry: string;
+  summary: string | null;
+  problems: string | null;
+  solutions: string | null;
+  results: string | null;
+  cover_image_url: string | null;
+  status: "draft" | "published";
+  published_at: string | null;
+};
+
 const INDUSTRY_OPTIONS = ["cabaret", "lounge", "club", "girls-bar", "concept-cafe", "host", "bar"];
 
 export function CaseStudyEditor({ initialData, supabaseClient }: CaseStudyEditorProps) {
@@ -82,16 +96,16 @@ export function CaseStudyEditor({ initialData, supabaseClient }: CaseStudyEditor
     setIsSaving(true);
 
     try {
-      const payload = {
-        title: values.title,
-        store_name: values.store_name,
-        slug: values.slug,
+      const payload: CaseStudyPayload = {
+        title: values.title.trim(),
+        store_name: values.store_name.trim(),
+        slug: values.slug.trim(),
         industry: values.industry,
-        summary: values.summary || null,
-        problems: values.problems || null,
-        solutions: values.solutions || null,
-        results: values.results || null,
-        cover_image_url: values.cover_image_url || null,
+        summary: values.summary?.trim() || null,
+        problems: values.problems?.trim() || null,
+        solutions: values.solutions?.trim() || null,
+        results: values.results?.trim() || null,
+        cover_image_url: values.cover_image_url?.trim() || null,
         status: values.status,
         published_at: values.published_at ? new Date(values.published_at).toISOString() : null
       };
