@@ -47,15 +47,17 @@ export function CmsListLayout({
       </div>
 
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <Input
-          value={searchValue}
-          onChange={(event) => onSearchChange(event.target.value)}
-          placeholder={searchPlaceholder}
-          className="bg-slate-900/60 text-slate-100 placeholder:text-slate-500"
-        />
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-          <Tabs value={statusValue} onValueChange={onStatusChange} className="sm:w-auto">
-            <TabsList className="w-full justify-start rounded-full bg-slate-900/70 sm:w-auto">
+        <div className="w-full md:max-w-md">
+          <Input
+            value={searchValue}
+            onChange={(event) => onSearchChange(event.target.value)}
+            placeholder={searchPlaceholder}
+            className="w-full bg-slate-900/60 text-slate-100 placeholder:text-slate-500"
+          />
+        </div>
+        <div className="flex w-full flex-col gap-3 md:w-auto md:flex-row md:items-center md:justify-end">
+          <Tabs value={statusValue} onValueChange={onStatusChange} className="w-full md:w-auto">
+            <TabsList className="w-full justify-start rounded-full bg-slate-900/70 md:w-auto">
               {statusTabs.map((tab) => (
                 <TabsTrigger key={tab.value} value={tab.value} className="px-4 text-xs uppercase tracking-[0.2em]">
                   {tab.label}
@@ -63,7 +65,10 @@ export function CmsListLayout({
               ))}
             </TabsList>
           </Tabs>
-          <Button asChild className="w-full justify-center gap-2 bg-primary text-white sm:w-auto">
+          <Button
+            asChild
+            className="w-full justify-center gap-2 bg-primary text-white md:w-auto md:self-stretch"
+          >
             <Link href={createHref}>{createLabel}</Link>
           </Button>
         </div>
