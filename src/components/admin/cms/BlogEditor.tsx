@@ -74,19 +74,25 @@ export function BlogEditor({ initialData }: BlogEditorProps) {
   }, [form, initialData?.slug, isNew]);
 
   const handleSubmit = (values: BlogEditorValues) => {
+    console.log("[BlogEditor] 保存処理開始", values);
     startTransition(async () => {
       try {
+        console.log("[BlogEditor] Supabase upsert 送信前", values);
         const result = await upsertBlogPost(values);
+        console.log("[BlogEditor] Supabase upsert 結果", result);
         toast({ title: "保存しました", description: "ブログ記事の変更が反映されました。" });
 
         if (result.id && isNew) {
           router.replace(`/admin/cms/blog/${result.id}`);
+          return;
         }
+
+        router.refresh();
       } catch (error) {
-        console.error(error);
+        console.error("[BlogEditor] 保存処理でエラー", error);
         toast({
           title: "保存に失敗しました",
-          description: "入力内容を確認し、もう一度お試しください。"
+          description: error instanceof Error ? error.message : "入力内容を確認し、もう一度お試しください。"
         });
       }
     });

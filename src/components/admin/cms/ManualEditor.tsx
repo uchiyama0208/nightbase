@@ -71,16 +71,25 @@ export function ManualEditor({ initialData }: ManualEditorProps) {
   }, [form, initialData?.slug, isNew]);
 
   const handleSubmit = (values: ManualEditorValues) => {
+    console.log("[ManualEditor] 保存処理開始", values);
     startTransition(async () => {
       try {
+        console.log("[ManualEditor] Supabase upsert 送信前", values);
         const result = await upsertManualPage(values);
+        console.log("[ManualEditor] Supabase upsert 結果", result);
         toast({ title: "保存しました", description: "マニュアルを更新しました。" });
         if (result.id && isNew) {
           router.replace(`/admin/cms/manuals/${result.id}`);
+          return;
         }
+
+        router.refresh();
       } catch (error) {
-        console.error(error);
-        toast({ title: "保存に失敗しました", description: "入力内容を確認してください。" });
+        console.error("[ManualEditor] 保存処理でエラー", error);
+        toast({
+          title: "保存に失敗しました",
+          description: error instanceof Error ? error.message : "入力内容を確認してください。"
+        });
       }
     });
   };

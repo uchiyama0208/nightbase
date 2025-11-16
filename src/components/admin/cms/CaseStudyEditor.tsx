@@ -79,17 +79,26 @@ export function CaseStudyEditor({ initialData }: CaseStudyEditorProps) {
   }, [form, initialData?.slug, isNew]);
 
   const handleSubmit = (values: CaseStudyEditorValues) => {
+    console.log("[CaseStudyEditor] 保存処理開始", values);
     startTransition(async () => {
       try {
+        console.log("[CaseStudyEditor] Supabase upsert 送信前", values);
         const result = await upsertCaseStudy(values);
+        console.log("[CaseStudyEditor] Supabase upsert 結果", result);
         toast({ title: "保存しました", description: "導入事例を更新しました。" });
 
         if (result.id && isNew) {
           router.replace(`/admin/cms/case-studies/${result.id}`);
+          return;
         }
+
+        router.refresh();
       } catch (error) {
-        console.error(error);
-        toast({ title: "保存に失敗しました", description: "入力内容を確認してください。" });
+        console.error("[CaseStudyEditor] 保存処理でエラー", error);
+        toast({
+          title: "保存に失敗しました",
+          description: error instanceof Error ? error.message : "入力内容を確認してください。"
+        });
       }
     });
   };

@@ -38,6 +38,7 @@ export async function upsertBlogPost(input: BlogPayload) {
   const values = blogSchema.parse(input);
   const { supabase } = await createAdminServerClient();
   const client = supabase as any;
+  console.log("[BlogActions] upsertBlogPost called", values);
 
   const payload: BlogPostInput = {
     title: values.title,
@@ -59,7 +60,9 @@ export async function upsertBlogPost(input: BlogPayload) {
       .update(payload as any)
       .eq("id", values.id)
       .select("id, slug")
-      .maybeSingle();
+      .single();
+
+    console.log("[BlogActions] blog_posts update response", { data, error });
 
     if (error) {
       console.error("ブログ記事の更新に失敗しました", error);
@@ -73,7 +76,9 @@ export async function upsertBlogPost(input: BlogPayload) {
       .from("blog_posts")
       .insert(payload as any)
       .select("id, slug")
-      .maybeSingle();
+      .single();
+
+    console.log("[BlogActions] blog_posts insert response", { data, error });
 
     if (error) {
       console.error("ブログ記事の作成に失敗しました", error);

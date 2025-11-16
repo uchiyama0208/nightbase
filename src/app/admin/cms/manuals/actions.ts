@@ -36,6 +36,7 @@ export async function upsertManualPage(input: ManualPayload) {
   const values = manualSchema.parse(input);
   const { supabase } = await createAdminServerClient();
   const client = supabase as any;
+  console.log("[ManualActions] upsertManualPage called", values);
 
   const payload = {
     title: values.title,
@@ -56,7 +57,9 @@ export async function upsertManualPage(input: ManualPayload) {
       .update(payload as any)
       .eq("id", values.id)
       .select("id, slug")
-      .maybeSingle();
+      .single();
+
+    console.log("[ManualActions] manuals update response", { data, error });
 
     if (error) {
       console.error("マニュアルの更新に失敗しました", error);
@@ -70,7 +73,9 @@ export async function upsertManualPage(input: ManualPayload) {
       .from("manuals")
       .insert(payload as any)
       .select("id, slug")
-      .maybeSingle();
+      .single();
+
+    console.log("[ManualActions] manuals insert response", { data, error });
 
     if (error) {
       console.error("マニュアルの作成に失敗しました", error);

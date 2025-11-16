@@ -37,6 +37,7 @@ export async function upsertCaseStudy(input: CaseStudyPayload) {
   const values = caseStudySchema.parse(input);
   const { supabase } = await createAdminServerClient();
   const client = supabase as any;
+  console.log("[CaseStudyActions] upsertCaseStudy called", values);
 
   const payload = {
     title: values.title,
@@ -58,7 +59,9 @@ export async function upsertCaseStudy(input: CaseStudyPayload) {
       .update(payload as any)
       .eq("id", values.id)
       .select("id, slug")
-      .maybeSingle();
+      .single();
+
+    console.log("[CaseStudyActions] case_studies update response", { data, error });
 
     if (error) {
       console.error("導入事例の更新に失敗しました", error);
@@ -72,7 +75,9 @@ export async function upsertCaseStudy(input: CaseStudyPayload) {
       .from("case_studies")
       .insert(payload as any)
       .select("id, slug")
-      .maybeSingle();
+      .single();
+
+    console.log("[CaseStudyActions] case_studies insert response", { data, error });
 
     if (error) {
       console.error("導入事例の作成に失敗しました", error);
