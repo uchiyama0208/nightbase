@@ -36,20 +36,10 @@ export function BlogPostList({ posts }: BlogPostListProps) {
     return posts.filter((post) => post.category === selectedCategory);
   }, [posts, selectedCategory]);
 
-  if (posts.length === 0) {
-    return (
-      <div className="rounded-3xl border border-dashed border-neutral-200 bg-white p-12 text-center shadow-soft">
-        <p className="text-base font-medium text-neutral-500">
-          公開準備中のコンテンツです。最新の記事はまもなく公開予定です。
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-10">
-      <div className="-mx-6 overflow-x-auto pb-2 md:mx-0 md:pb-0">
-        <div className="flex w-max items-center gap-3 px-6 md:w-full md:flex-wrap md:justify-center md:px-0">
+      <div className="rounded-3xl border border-neutral-100 bg-white/80 p-6 shadow-soft">
+        <div className="flex flex-wrap justify-center gap-3">
           {categories.map((category) => {
             const isActive = selectedCategory === category;
 
@@ -73,7 +63,13 @@ export function BlogPostList({ posts }: BlogPostListProps) {
         </div>
       </div>
 
-      {filteredPosts.length === 0 ? (
+      {posts.length === 0 ? (
+        <div className="rounded-3xl border border-dashed border-neutral-200 bg-white p-12 text-center shadow-soft">
+          <p className="text-base font-medium text-neutral-500">
+            公開準備中のコンテンツです。最新の記事はまもなく公開予定です。
+          </p>
+        </div>
+      ) : filteredPosts.length === 0 ? (
         <div className="rounded-3xl border border-dashed border-neutral-200 bg-white p-12 text-center shadow-soft">
           <p className="text-base font-medium text-neutral-500">
             選択したカテゴリに該当する記事はまだありません。

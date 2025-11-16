@@ -82,45 +82,48 @@ export function ManualList({ pages }: ManualListProps) {
   }, [filteredPages]);
 
   const sectionsToRender = selectedSection === ALL_SECTION
-    ? orderedSections
+    ? orderedSections.filter((section) => (groupedBySection[section] ?? []).length > 0)
     : orderedSections.filter((section) => section === selectedSection);
 
   return (
-    <div className="grid gap-10 lg:grid-cols-[260px_minmax(0,1fr)]">
-      <aside className="space-y-6 rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm">
-        <div>
-          <label htmlFor="manual-search" className="text-xs font-semibold uppercase tracking-[0.25em] text-neutral-400">
-            Search
-          </label>
-          <input
-            id="manual-search"
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="キーワードで探す"
-            className="mt-2 w-full rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-          />
-        </div>
-        <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-neutral-400">
-            セクション
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {[ALL_SECTION, ...orderedSections].map((section) => (
-              <button
-                key={section}
-                type="button"
-                onClick={() => setSelectedSection(section)}
-                className={cn(
-                  "rounded-full border px-4 py-2 text-sm font-medium transition",
-                  selectedSection === section
-                    ? "border-primary bg-primary text-white shadow-sm"
-                    : "border-neutral-200 bg-white text-neutral-600 hover:border-primary/40 hover:text-primary"
-                )}
-              >
-                {section === ALL_SECTION ? section : humanizeSection(section)}
-              </button>
-            ))}
+    <div className="grid gap-10 lg:grid-cols-[280px_minmax(0,1fr)]">
+      <aside className="rounded-3xl border border-neutral-100 bg-white/80 p-6 shadow-soft lg:sticky lg:top-28">
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="manual-search" className="text-xs font-semibold uppercase tracking-[0.25em] text-neutral-400">
+              Search
+            </label>
+            <input
+              id="manual-search"
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="キーワードで探す"
+              className="mt-2 w-full rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-neutral-400">セクション</p>
+            <div className="flex flex-wrap gap-2">
+              {[ALL_SECTION, ...orderedSections].map((section) => (
+                <button
+                  key={section}
+                  type="button"
+                  onClick={() => setSelectedSection(section)}
+                  className={cn(
+                    "rounded-full border px-4 py-2 text-sm font-medium transition",
+                    selectedSection === section
+                      ? "border-primary bg-primary text-white shadow-sm"
+                      : "border-neutral-200 bg-white text-neutral-600 hover:border-primary/40 hover:text-primary"
+                  )}
+                >
+                  {section === ALL_SECTION ? section : humanizeSection(section)}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-neutral-100 bg-neutral-50/70 p-4 text-xs text-neutral-500">
+            <p>検索キーワードとセクションを組み合わせて、必要なマニュアルをすぐに探せます。</p>
           </div>
         </div>
       </aside>
@@ -134,26 +137,29 @@ export function ManualList({ pages }: ManualListProps) {
 
           return (
             <section key={section} className="space-y-6">
-              <header className="space-y-2">
+              <header className="flex flex-col gap-1">
                 <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary">
                   {section === ALL_SECTION ? section : humanizeSection(section)}
                 </p>
                 <h2 className="text-2xl font-semibold text-[#111111]">
-                  {section} のマニュアル
+                  {section === ALL_SECTION ? "全カテゴリのマニュアル" : `${humanizeSection(section)} のマニュアル`}
                 </h2>
               </header>
               <div className="grid gap-6 md:grid-cols-2">
                 {pagesInSection.map((page) => (
                   <article
                     key={page.id}
-                    className="flex h-full flex-col justify-between rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
+                    className="flex h-full flex-col justify-between rounded-3xl border border-neutral-200 bg-white/90 p-6 shadow-soft transition hover:-translate-y-1 hover:shadow-xl"
                   >
                     <div className="space-y-3">
-                      <h3 className="text-xl font-semibold text-[#111111]">
-                        {page.title}
-                      </h3>
+                      <p className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-400">
+                        {humanizeSection(page.section)}
+                      </p>
+                      <h3 className="text-xl font-semibold text-[#111111]">{page.title}</h3>
                       <p className="text-sm text-neutral-600">
-                        {page.body_markdown ? `${page.body_markdown.slice(0, 100)}${page.body_markdown.length > 100 ? "…" : ""}` : "詳細はページでご確認ください。"}
+                        {page.body_markdown
+                          ? `${page.body_markdown.slice(0, 120)}${page.body_markdown.length > 120 ? "…" : ""}`
+                          : "詳細はページでご確認ください。"}
                       </p>
                     </div>
                     <div className="pt-6">
