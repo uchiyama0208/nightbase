@@ -12,6 +12,7 @@ export const metadata: Metadata = {
 
 export default async function ManualIndexPage() {
   const manualPages = await getPublishedManualPages();
+  const uniqueSectionCount = new Set(manualPages.map((page) => page.section)).size;
 
   return (
     <div className="relative overflow-hidden bg-white py-24">
@@ -62,7 +63,7 @@ export default async function ManualIndexPage() {
               <div className="rounded-2xl border border-neutral-100 bg-neutral-50/80 p-4 text-center">
                 <dt className="text-xs uppercase tracking-[0.3em] text-neutral-500">セクション数</dt>
                 <dd className="text-3xl font-semibold text-[#111111]">
-                  {[...new Set(manualPages.map((page) => page.section))].length}
+                  {uniqueSectionCount}
                 </dd>
               </div>
             </dl>
