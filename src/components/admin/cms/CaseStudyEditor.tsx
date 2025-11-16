@@ -22,7 +22,7 @@ const editorSchema = z.object({
   id: z.string().optional(),
   previousSlug: z.string().optional(),
   title: z.string().min(1, "タイトルは必須です"),
-  company_name: z.string().min(1, "店舗 / 企業名は必須です"),
+  store_name: z.string().min(1, "店舗 / 企業名は必須です"),
   slug: z.string().min(1, "スラッグは必須です"),
   industry: z.string().min(1, "業種は必須です"),
   summary: z.string().optional().nullable(),
@@ -55,7 +55,7 @@ export function CaseStudyEditor({ initialData, supabaseClient }: CaseStudyEditor
       id: initialData?.id,
       previousSlug: initialData?.slug,
       title: initialData?.title ?? "",
-      company_name: initialData?.company_name ?? "",
+      store_name: initialData?.store_name ?? "",
       slug: initialData?.slug ?? "",
       industry: initialData?.industry ?? "cabaret",
       summary: initialData?.summary ?? "",
@@ -84,7 +84,7 @@ export function CaseStudyEditor({ initialData, supabaseClient }: CaseStudyEditor
     try {
       const payload = {
         title: values.title,
-        company_name: values.company_name,
+        store_name: values.store_name,
         slug: values.slug,
         industry: values.industry,
         summary: values.summary || null,
@@ -98,7 +98,6 @@ export function CaseStudyEditor({ initialData, supabaseClient }: CaseStudyEditor
 
       console.log("[CaseStudyEditor] Supabase upsert 送信前", payload);
 
-      let nextId = values.id;
       let nextSlug = values.slug;
 
       if (values.id) {
@@ -115,7 +114,6 @@ export function CaseStudyEditor({ initialData, supabaseClient }: CaseStudyEditor
           throw new Error(error.message ?? "導入事例の更新に失敗しました");
         }
 
-        nextId = data?.id ?? values.id;
         nextSlug = data?.slug ?? values.slug;
       } else {
         const { data, error } = await supabaseClient
@@ -130,14 +128,13 @@ export function CaseStudyEditor({ initialData, supabaseClient }: CaseStudyEditor
           throw new Error(error.message ?? "導入事例の作成に失敗しました");
         }
 
-        nextId = data?.id ?? nextId;
         nextSlug = data?.slug ?? nextSlug;
       }
 
       toast({ title: "保存しました", description: "導入事例を更新しました。" });
 
-      if (!values.id && nextId) {
-        router.replace(`/admin/cms/case-studies/${nextId}`);
+      if (!values.id) {
+        router.push("/admin/cms/case-studies");
         return;
       }
 
@@ -242,7 +239,7 @@ export function CaseStudyEditor({ initialData, supabaseClient }: CaseStudyEditor
             <Label htmlFor="company" className="text-slate-300">
               店舗 / 企業名
             </Label>
-            <Input id="company" placeholder="NightBase グループ" {...form.register("company_name")} />
+            <Input id="company" placeholder="NightBase グループ" {...form.register("store_name")} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="summary" className="text-slate-300">

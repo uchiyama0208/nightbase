@@ -88,7 +88,6 @@ export function ManualEditor({ initialData, supabaseClient }: ManualEditorProps)
 
       console.log("[ManualEditor] Supabase upsert 送信前", payload);
 
-      let nextId = values.id;
       let nextSlug = values.slug;
 
       if (values.id) {
@@ -105,7 +104,6 @@ export function ManualEditor({ initialData, supabaseClient }: ManualEditorProps)
           throw new Error(error.message ?? "マニュアルの更新に失敗しました");
         }
 
-        nextId = data?.id ?? values.id;
         nextSlug = data?.slug ?? values.slug;
       } else {
         const { data, error } = await supabaseClient
@@ -120,14 +118,13 @@ export function ManualEditor({ initialData, supabaseClient }: ManualEditorProps)
           throw new Error(error.message ?? "マニュアルの作成に失敗しました");
         }
 
-        nextId = data?.id ?? nextId;
         nextSlug = data?.slug ?? nextSlug;
       }
 
       toast({ title: "保存しました", description: "マニュアルを更新しました。" });
 
-      if (!values.id && nextId) {
-        router.replace(`/admin/cms/manuals/${nextId}`);
+      if (!values.id) {
+        router.push("/admin/cms/manuals");
         return;
       }
 

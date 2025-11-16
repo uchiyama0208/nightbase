@@ -11,7 +11,7 @@ import { cn, formatDateTime } from "@/lib/utils";
 export type CaseStudyTableItem = {
   id: string;
   title: string;
-  company_name: string | null;
+  store_name: string | null;
   industry: string | null;
   summary: string | null;
   status: string;
@@ -49,7 +49,7 @@ export function CaseStudyTable({ items }: CaseStudyTableProps) {
           items.map((item) => (
             <TableRow key={item.id} className="border-white/5">
               <TableCell className="px-6 text-sm text-white">{item.title}</TableCell>
-              <TableCell className="text-sm text-slate-300">{item.company_name ?? "-"}</TableCell>
+              <TableCell className="text-sm text-slate-300">{item.store_name ?? "-"}</TableCell>
               <TableCell className="text-sm text-slate-300">{formatCaseStudyIndustry(item.industry ?? null)}</TableCell>
               <TableCell className="text-sm text-slate-300">{item.summary?.split(/\r?\n/)[0] ?? "-"}</TableCell>
               <TableCell>

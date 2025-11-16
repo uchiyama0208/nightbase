@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { LibraryBig } from "lucide-react";
+import { Filter } from "lucide-react";
 
 import { AdminProtected } from "@/components/admin/AdminProtected";
 import { CmsListLayout, type StatusTab } from "@/components/admin/cms/CmsListLayout";
@@ -126,7 +126,7 @@ function ManualListContent({ supabase }: { supabase: any }) {
         <DropdownMenuTrigger asChild>
           <Button variant="outline" className="w-full justify-between bg-slate-900/60 text-slate-200 md:w-64">
             <span>{sectionFilter}</span>
-            <LibraryBig className="h-4 w-4" />
+            <Filter className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-64">
@@ -146,7 +146,7 @@ function ManualListContent({ supabase }: { supabase: any }) {
     <CmsListLayout
       title="マニュアル"
       description="manuals テーブルの公開・下書きマニュアルを管理します。"
-      searchPlaceholder="マニュアルタイトルで検索"
+      searchPlaceholder="タイトルやスラッグで検索"
       searchValue={search}
       onSearchChange={setSearch}
       statusTabs={STATUS_TABS}

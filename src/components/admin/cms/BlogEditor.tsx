@@ -91,7 +91,6 @@ export function BlogEditor({ initialData, supabaseClient }: BlogEditorProps) {
 
       console.log("[BlogEditor] Supabase upsert 送信前", payload);
 
-      let nextId = values.id;
       let nextSlug = values.slug;
 
       if (values.id) {
@@ -108,7 +107,6 @@ export function BlogEditor({ initialData, supabaseClient }: BlogEditorProps) {
           throw new Error(error.message ?? "ブログ記事の更新に失敗しました");
         }
 
-        nextId = data?.id ?? values.id;
         nextSlug = data?.slug ?? values.slug;
       } else {
         const { data, error } = await supabaseClient
@@ -123,14 +121,13 @@ export function BlogEditor({ initialData, supabaseClient }: BlogEditorProps) {
           throw new Error(error.message ?? "ブログ記事の作成に失敗しました");
         }
 
-        nextId = data?.id ?? nextId;
         nextSlug = data?.slug ?? nextSlug;
       }
 
       toast({ title: "保存しました", description: "ブログ記事の変更が反映されました。" });
 
-      if (!values.id && nextId) {
-        router.replace(`/admin/cms/blog/${nextId}`);
+      if (!values.id) {
+        router.push("/admin/cms/blog");
         return;
       }
 
