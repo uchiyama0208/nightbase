@@ -3,17 +3,9 @@
 import { useMemo, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useSelectedLayoutSegments } from "next/navigation";
-import { CircleUser, LogOut, Menu, Settings, User } from "lucide-react";
+import { CircleUser, LogOut, Menu } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { adminNavigationSections } from "@/components/admin/AdminNav";
 import { cn } from "@/lib/utils";
@@ -129,46 +121,30 @@ export function AdminHeader({ userEmail, supabaseClient, onRefreshAuth }: AdminH
           <span className="font-semibold text-slate-200">{userEmail ?? "Admin"}</span>
           <span className="text-slate-500">NightBase Team</span>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-11 w-11 rounded-full bg-slate-900/80 text-slate-100 hover:bg-slate-800"
-              aria-label="アカウントメニュー"
-            >
-              <CircleUser className="h-6 w-6" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent sideOffset={12} align="end" className="w-64">
-            <DropdownMenuLabel>
-              <div className="flex flex-col gap-1 text-slate-200">
-                <span className="text-sm font-semibold">{userEmail ?? "管理者"}</span>
-                <span className="text-xs text-slate-500">Supabase ログイン済み</span>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="gap-2 text-slate-200">
-              <User className="h-4 w-4" /> プロフィール
-            </DropdownMenuItem>
-            <DropdownMenuItem className="gap-2 text-slate-200">
-              <Settings className="h-4 w-4" /> 管理設定
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="gap-2 text-red-400 focus:bg-red-500/20 focus:text-red-200"
-              onSelect={(event) => {
-                event.preventDefault();
-                startTransition(async () => {
-                  await supabaseClient.auth.signOut();
-                  await onRefreshAuth();
-                });
-              }}
-            >
-              <LogOut className="h-4 w-4" /> ログアウト
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <Button
+          asChild
+          variant="ghost"
+          size="icon"
+          className="h-11 w-11 rounded-full bg-slate-900/80 text-slate-100 hover:bg-slate-800"
+          aria-label="アカウント設定"
+        >
+          <Link href="/admin/settings">
+            <CircleUser className="h-6 w-6" />
+          </Link>
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          className="border-white/20 text-slate-100"
+          onClick={() =>
+            startTransition(async () => {
+              await supabaseClient.auth.signOut();
+              await onRefreshAuth();
+            })
+          }
+        >
+          <LogOut className="mr-2 h-4 w-4" /> ログアウト
+        </Button>
       </div>
     </header>
   );

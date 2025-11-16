@@ -15,7 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { formatCaseStudyIndustry } from "@/lib/caseStudies";
+import { CASE_STUDY_FIELDS, formatCaseStudyIndustry } from "@/lib/caseStudies";
 
 type CaseStudyListState = {
   loading: boolean;
@@ -48,7 +48,7 @@ function CaseStudyListContent({ supabase }: { supabase: any }) {
 
     const { data, error } = await supabase
       .from("case_studies")
-      .select("id, title, store_name, industry, summary, results, status, published_at, updated_at")
+      .select(CASE_STUDY_FIELDS)
       .order("updated_at", { ascending: false });
 
     if (error) {

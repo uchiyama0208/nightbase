@@ -1,224 +1,329 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { Loader2, Mail, ShieldCheck } from "lucide-react";
 
 import { AdminProtected } from "@/components/admin/AdminProtected";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
 
-function SettingsContent() {
+function AccountSettingsContent({ supabase }: { supabase: any }) {
   const { toast } = useToast();
-  const [serviceName, setServiceName] = useState("NightBase");
-  const [companyName, setCompanyName] = useState("NightBase, Inc.");
-  const [siteUrl, setSiteUrl] = useState("https://nightbase.jp");
-  const [adminTitle, setAdminTitle] = useState("NightBase Admin");
-  const [logoUrl, setLogoUrl] = useState("https://nightbase.jp/logo.svg");
-  const [primaryColor, setPrimaryColor] = useState("#0088FF");
-  const [accentColor, setAccentColor] = useState("#FFCC00");
-  const [contactEmail, setContactEmail] = useState("support@nightbase.jp");
-  const [notifyNewContact, setNotifyNewContact] = useState(true);
-  const [notifyNewContent, setNotifyNewContent] = useState(true);
-  const [notifySystemAlert, setNotifySystemAlert] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [emailSaving, setEmailSaving] = useState(false);
+  const [passwordSaving, setPasswordSaving] = useState(false);
 
-  const handleGeneralSave = (event: React.FormEvent<HTMLFormElement>) => {
+  const [userId, setUserId] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState("");
+  const [email, setEmail] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [emailPassword, setEmailPassword] = useState("");
+
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const loadAccount = useCallback(async () => {
+    setProfileLoading(true);
+    try {
+      const [userResult, profileResult] = await Promise.all([
+        supabase.auth.getUser(),
+        supabase.from("profiles").select("id, user_id, display_name, email").maybeSingle()
+      ]);
+
+      if (userResult.error) {
+        console.error("[AdminSettings] auth.getUser error", userResult.error);
+      }
+
+      const user = userResult.data?.user ?? null;
+      if (user) {
+        setUserId(user.id);
+        setEmail(user.email ?? "");
+      }
+
+      if (profileResult.error) {
+        console.error("[AdminSettings] profiles fetch error", profileResult.error);
+      }
+
+      if (profileResult.data) {
+        setDisplayName(profileResult.data.display_name ?? "");
+        if (profileResult.data.email) {
+          setEmail(profileResult.data.email);
+        }
+      }
+    } finally {
+      setProfileLoading(false);
+    }
+  }, [supabase]);
+
+  useEffect(() => {
+    loadAccount();
+  }, [loadAccount]);
+
+  const handleProfileSave = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    console.log("[AdminSettings] 一般設定", { serviceName, companyName, siteUrl });
-    toast({ title: "一般設定を保存しました", description: "変更内容は即座に反映されます。" });
+    if (!userId) {
+      toast({ title: "プロフィールを更新できません", description: "再度ログインしてください。" });
+      return;
+    }
+
+    setProfileSaving(true);
+    try {
+      const trimmedName = displayName.trim();
+      const { error } = await supabase
+        .from("profiles")
+        .update({ display_name: trimmedName || null, email: email || null })
+        .eq("user_id", userId);
+
+      if (error) {
+        console.error("[AdminSettings] プロフィール更新エラー", error);
+        toast({ title: "プロフィール更新に失敗しました", description: error.message ?? "時間をおいて再度お試しください。" });
+        return;
+      }
+
+      toast({ title: "プロフィールを更新しました", description: "表示名を保存しました。" });
+    } finally {
+      setProfileSaving(false);
+    }
   };
 
-  const handleBrandSave = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleEmailChange = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    console.log("[AdminSettings] ブランド設定", { adminTitle, logoUrl, primaryColor, accentColor });
-    toast({ title: "ブランド設定を保存しました", description: "テーマカラーとロゴの設定を更新しました。" });
+    if (!newEmail.trim()) {
+      toast({ title: "メールアドレスを入力してください" });
+      return;
+    }
+    if (newEmail.trim() === email) {
+      toast({ title: "現在と同じメールアドレスです" });
+      return;
+    }
+    if (!emailPassword) {
+      toast({ title: "現在のパスワードを入力してください" });
+      return;
+    }
+
+    setEmailSaving(true);
+    try {
+      const currentEmail = email || (await supabase.auth.getUser()).data?.user?.email;
+      if (!currentEmail) {
+        toast({ title: "メールアドレス情報を取得できませんでした" });
+        return;
+      }
+
+      const { error: reauthError } = await supabase.auth.signInWithPassword({
+        email: currentEmail,
+        password: emailPassword
+      });
+
+      if (reauthError) {
+        console.error("[AdminSettings] メール再認証エラー", reauthError);
+        toast({ title: "パスワードが正しくありません", description: reauthError.message });
+        return;
+      }
+
+      const { error } = await supabase.auth.updateUser({ email: newEmail.trim() });
+      console.log("[AdminSettings] メール更新結果", { error });
+
+      if (error) {
+        toast({ title: "メールアドレスの変更に失敗しました", description: error.message });
+        return;
+      }
+
+      toast({ title: "メールアドレスを変更しました", description: "確認メールを送信しました。" });
+      setEmail(newEmail.trim());
+      setNewEmail("");
+      setEmailPassword("");
+    } finally {
+      setEmailSaving(false);
+    }
   };
 
-  const handleNotificationSave = (event: React.FormEvent<HTMLFormElement>) => {
+  const handlePasswordChange = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    console.log("[AdminSettings] 通知設定", { contactEmail, notifyNewContact, notifyNewContent, notifySystemAlert });
-    toast({ title: "通知設定を保存しました", description: "通知先メールアドレスを更新しました。" });
-  };
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast({ title: "すべてのパスワード欄を入力してください" });
+      return;
+    }
+    if (newPassword.length < 8) {
+      toast({ title: "新しいパスワードは8文字以上にしてください" });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast({ title: "新しいパスワードが一致しません" });
+      return;
+    }
 
-  const roleNotes = useMemo(
-    () => [
-      { label: "admin", description: "すべての設定と CMS へアクセス可能" },
-      { label: "editor", description: "CMS の編集と公開が可能" },
-      { label: "viewer", description: "閲覧のみ" },
-    ],
-    []
-  );
+    setPasswordSaving(true);
+    try {
+      const currentEmail = email || (await supabase.auth.getUser()).data?.user?.email;
+      if (!currentEmail) {
+        toast({ title: "メールアドレス情報を取得できませんでした" });
+        return;
+      }
+
+      const { error: reauthError } = await supabase.auth.signInWithPassword({
+        email: currentEmail,
+        password: currentPassword
+      });
+
+      if (reauthError) {
+        console.error("[AdminSettings] パスワード再認証エラー", reauthError);
+        toast({ title: "現在のパスワードが正しくありません", description: reauthError.message });
+        return;
+      }
+
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      console.log("[AdminSettings] パスワード更新結果", { error });
+
+      if (error) {
+        toast({ title: "パスワードの変更に失敗しました", description: error.message });
+        return;
+      }
+
+      toast({ title: "パスワードを変更しました", description: "次回ログイン時から新しいパスワードが適用されます。" });
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } finally {
+      setPasswordSaving(false);
+    }
+  };
 
   return (
     <div className="space-y-10">
       <div className="space-y-3">
         <p className="text-xs uppercase tracking-[0.3em] text-slate-400">設定</p>
-        <h1 className="text-4xl font-semibold text-white">設定</h1>
-        <p className="text-sm text-slate-400">NightBase 管理画面全体の基本設定や通知設定を管理します。</p>
+        <h1 className="text-4xl font-semibold text-white">アカウント設定</h1>
+        <p className="text-sm text-slate-400">NightBase 管理画面で使用するご自身のアカウント情報を更新します。</p>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr]">
+      <div className="grid gap-8 lg:grid-cols-2">
         <section className="space-y-6 rounded-3xl border border-white/10 bg-white/5 p-6">
-          <form className="space-y-6" onSubmit={handleGeneralSave}>
-            <div>
-              <h2 className="text-xl font-semibold text-white">サービス情報</h2>
-              <p className="text-sm text-slate-400">表示名や会社情報を管理します。</p>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="service-name" className="text-slate-200">サービス名</Label>
-                <Input
-                  id="service-name"
-                  value={serviceName}
-                  onChange={(event) => setServiceName(event.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="company-name" className="text-slate-200">会社名</Label>
-                <Input
-                  id="company-name"
-                  value={companyName}
-                  onChange={(event) => setCompanyName(event.target.value)}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="site-url" className="text-slate-200">サイト URL</Label>
-              <Input
-                id="site-url"
-                type="url"
-                value={siteUrl}
-                onChange={(event) => setSiteUrl(event.target.value)}
-                required
-              />
-            </div>
-            <Button type="submit" className="bg-primary text-white" disabled={!serviceName.trim()}>
-              一般設定を保存
-            </Button>
-          </form>
-
-          <form className="space-y-6" onSubmit={handleBrandSave}>
-            <div>
-              <h2 className="text-xl font-semibold text-white">ブランド / 表示設定</h2>
-              <p className="text-sm text-slate-400">管理画面の見出しやテーマカラーをカスタマイズします。</p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="admin-title" className="text-slate-200">管理画面タイトル</Label>
-              <Input id="admin-title" value={adminTitle} onChange={(event) => setAdminTitle(event.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="logo-url" className="text-slate-200">ロゴ画像 URL</Label>
-              <Input id="logo-url" value={logoUrl} onChange={(event) => setLogoUrl(event.target.value)} />
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="primary-color" className="text-slate-200">プライマリカラー</Label>
-                <Input
-                  id="primary-color"
-                  type="color"
-                  value={primaryColor}
-                  onChange={(event) => setPrimaryColor(event.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="accent-color" className="text-slate-200">アクセントカラー</Label>
-                <Input
-                  id="accent-color"
-                  type="color"
-                  value={accentColor}
-                  onChange={(event) => setAccentColor(event.target.value)}
-                />
-              </div>
-            </div>
-            <Button type="submit" className="bg-primary text-white">
-              表示設定を保存
-            </Button>
-          </form>
-        </section>
-
-        <section className="space-y-6 rounded-3xl border border-white/10 bg-white/5 p-6">
-          <form className="space-y-6" onSubmit={handleNotificationSave}>
-            <div>
-              <h2 className="text-xl font-semibold text-white">通知設定</h2>
-              <p className="text-sm text-slate-400">問い合わせや公開イベントの通知を設定します。</p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="contact-email" className="text-slate-200">通知メールアドレス</Label>
-              <Input
-                id="contact-email"
-                type="email"
-                value={contactEmail}
-                onChange={(event) => setContactEmail(event.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-3">
-              <NotificationToggle
-                label="新しいお問い合わせ"
-                description="問い合わせフォームからの送信を通知"
-                checked={notifyNewContact}
-                onCheckedChange={setNotifyNewContact}
-              />
-              <NotificationToggle
-                label="新しいコンテンツ公開"
-                description="ブログやマニュアルが公開されたとき"
-                checked={notifyNewContent}
-                onCheckedChange={setNotifyNewContent}
-              />
-              <NotificationToggle
-                label="システムアラート"
-                description="エラー通知や障害情報を受け取る"
-                checked={notifySystemAlert}
-                onCheckedChange={setNotifySystemAlert}
-              />
-            </div>
-            <Button type="submit" className="bg-primary text-white">
-              通知設定を保存
-            </Button>
-          </form>
-
-          <div className="space-y-4 rounded-2xl border border-white/10 bg-slate-950/40 p-5">
-            <h3 className="text-lg font-semibold text-white">権限 / ロール説明</h3>
-            <p className="text-sm text-slate-400">ロールに応じたアクセスレベルをチームで共有してください。</p>
-            <ul className="space-y-3 text-sm text-slate-300">
-              {roleNotes.map((note) => (
-                <li key={note.label} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                  <p className="font-semibold text-white">{note.label.toUpperCase()}</p>
-                  <p className="text-slate-400">{note.description}</p>
-                </li>
-              ))}
-            </ul>
+          <div>
+            <h2 className="text-xl font-semibold text-white">プロフィール</h2>
+            <p className="text-sm text-slate-400">表示名と連絡先を管理します。</p>
           </div>
+          <form className="space-y-5" onSubmit={handleProfileSave}>
+            <div className="space-y-2">
+              <Label htmlFor="display-name" className="text-slate-200">
+                表示名
+              </Label>
+              <Input
+                id="display-name"
+                value={displayName}
+                onChange={(event) => setDisplayName(event.target.value)}
+                placeholder="NightBase 管理者"
+                disabled={profileLoading}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="current-email" className="text-slate-200">
+                現在のメールアドレス
+              </Label>
+              <Input id="current-email" value={email} disabled readOnly className="bg-slate-900/50 text-slate-200" />
+            </div>
+            <Button type="submit" className="bg-primary text-white" disabled={profileSaving || profileLoading}>
+              {profileSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              プロフィールを保存
+            </Button>
+          </form>
+        </section>
+
+        <section className="space-y-6 rounded-3xl border border-white/10 bg-white/5 p-6">
+          <div>
+            <h2 className="text-xl font-semibold text-white">メールアドレス</h2>
+            <p className="text-sm text-slate-400">新しいメールアドレスと現在のパスワードを入力してください。</p>
+          </div>
+          <form className="space-y-5" onSubmit={handleEmailChange}>
+            <div className="space-y-2">
+              <Label htmlFor="new-email" className="text-slate-200">
+                新しいメールアドレス
+              </Label>
+              <Input
+                id="new-email"
+                type="email"
+                placeholder="you@example.com"
+                value={newEmail}
+                onChange={(event) => setNewEmail(event.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email-password" className="text-slate-200">
+                現在のパスワード
+              </Label>
+              <Input
+                id="email-password"
+                type="password"
+                placeholder="現在のパスワード"
+                value={emailPassword}
+                onChange={(event) => setEmailPassword(event.target.value)}
+              />
+            </div>
+            <Button type="submit" className="bg-primary text-white" disabled={emailSaving}>
+              {emailSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+              メールアドレスを変更
+            </Button>
+          </form>
         </section>
       </div>
+
+      <section className="space-y-6 rounded-3xl border border-white/10 bg-white/5 p-6">
+        <div>
+          <h2 className="text-xl font-semibold text-white">パスワード</h2>
+          <p className="text-sm text-slate-400">安全なパスワードに更新してください。</p>
+        </div>
+        <form className="grid gap-5 md:grid-cols-2" onSubmit={handlePasswordChange}>
+          <div className="space-y-2 md:col-span-2">
+            <Label htmlFor="current-password" className="text-slate-200">
+              現在のパスワード
+            </Label>
+            <Input
+              id="current-password"
+              type="password"
+              value={currentPassword}
+              onChange={(event) => setCurrentPassword(event.target.value)}
+              placeholder="現在のパスワード"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="new-password" className="text-slate-200">
+              新しいパスワード
+            </Label>
+            <Input
+              id="new-password"
+              type="password"
+              value={newPassword}
+              onChange={(event) => setNewPassword(event.target.value)}
+              placeholder="8文字以上"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="confirm-password" className="text-slate-200">
+              新しいパスワード（確認）
+            </Label>
+            <Input
+              id="confirm-password"
+              type="password"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              placeholder="もう一度入力"
+            />
+          </div>
+          <div className="md:col-span-2">
+            <Button type="submit" className="bg-primary text-white" disabled={passwordSaving}>
+              {passwordSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
+              パスワードを変更
+            </Button>
+          </div>
+        </form>
+      </section>
     </div>
   );
 }
 
-function NotificationToggle({
-  label,
-  description,
-  checked,
-  onCheckedChange,
-}: {
-  label: string;
-  description: string;
-  checked: boolean;
-  onCheckedChange: (value: boolean) => void;
-}) {
-  return (
-    <label className="flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-      <span>
-        <p className="font-medium text-white">{label}</p>
-        <p className="text-sm text-slate-400">{description}</p>
-      </span>
-      <Switch checked={checked} onCheckedChange={onCheckedChange} />
-    </label>
-  );
-}
-
 export default function AdminSettingsPage() {
-  return <AdminProtected>{() => <SettingsContent />}</AdminProtected>;
+  return <AdminProtected>{({ supabase }) => <AccountSettingsContent supabase={supabase} />}</AdminProtected>;
 }

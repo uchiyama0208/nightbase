@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabaseClient";
 import type { CaseStudy, CaseStudyStatus } from "@/types/case-studies";
 
-const CASE_STUDY_FIELDS =
+export const CASE_STUDY_FIELDS =
   "id, slug, title, store_name, industry, summary, problems, solutions, results, cover_image_url, status, published_at, created_at, updated_at";
 
 const INDUSTRY_LABEL_MAP: Record<string, string> = {
