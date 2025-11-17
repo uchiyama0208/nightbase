@@ -8,7 +8,6 @@ import {
   ClipboardCheck,
   FileText,
   LayoutDashboard,
-  Layers3,
   NotebookPen,
   Settings,
   Users
@@ -32,8 +31,7 @@ export const adminNavigationSections: AdminNavSection[] = [
   {
     title: "Overview",
     items: [
-      { href: "/admin", label: "ダッシュボード", icon: LayoutDashboard },
-      { href: "/admin/cms", label: "CMS", icon: Layers3 }
+      { href: "/admin", label: "ダッシュボード", icon: LayoutDashboard }
     ]
   },
   {

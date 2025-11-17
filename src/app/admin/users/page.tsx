@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { FormEvent } from "react";
 
 import { AdminProtected } from "@/components/admin/AdminProtected";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/use-toast";
 import { cn, formatDateTime } from "@/lib/utils";
@@ -121,7 +123,7 @@ function UsersContent({ supabase }: { supabase: any }) {
               {option.label}
             </Button>
           ))}
-          <InviteUserButton />
+          <InviteUserButton onInvited={loadUsers} />
         </div>
       </div>
 
@@ -199,9 +201,54 @@ function UsersContent({ supabase }: { supabase: any }) {
   );
 }
 
-function InviteUserButton() {
+type InviteUserButtonProps = {
+  onInvited: () => Promise<void> | void;
+};
+
+function InviteUserButton({ onInvited }: InviteUserButtonProps) {
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [role, setRole] = useState<"admin" | "editor" | "viewer">("viewer");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleInvite(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!email.trim() || !role) {
+      toast({ title: "入力内容を確認してください", description: "メールアドレスとロールは必須です" });
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const response = await fetch("/api/admin/invite-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, displayName, role }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({ error: "招待に失敗しました" }));
+        throw new Error(payload.error || "招待に失敗しました");
+      }
+
+      toast({ title: "ユーザーを招待しました" });
+      setOpen(false);
+      setEmail("");
+      setDisplayName("");
+      setRole("viewer");
+      await onInvited();
+    } catch (error) {
+      console.error("[AdminUsers] 招待エラー", error);
+      toast({ title: "招待に失敗しました", description: error instanceof Error ? error.message : undefined });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button type="button" variant="outline" className="border-white/20 text-white">
           ユーザー招待
@@ -209,11 +256,58 @@ function InviteUserButton() {
       </DialogTrigger>
       <DialogContent className="bg-slate-900 text-white">
         <DialogHeader>
-          <DialogTitle>ユーザー招待</DialogTitle>
+          <DialogTitle>ユーザーをメールで招待</DialogTitle>
           <DialogDescription className="text-slate-400">
-            メールでの招待フローは近日追加予定です。いまは Supabase の Auth から直接ユーザーを作成してください。
+            入力したメールアドレスに招待メールを送信します。ユーザーは自身でパスワードを設定できます。
           </DialogDescription>
         </DialogHeader>
+        <form onSubmit={handleInvite} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="invite-email" className="text-sm text-slate-200">
+              メールアドレス
+            </Label>
+            <Input
+              id="invite-email"
+              type="email"
+              required
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="example@nightbase.jp"
+              className="bg-slate-950/70 text-white"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="invite-name" className="text-sm text-slate-200">
+              表示名（任意）
+            </Label>
+            <Input
+              id="invite-name"
+              value={displayName}
+              onChange={(event) => setDisplayName(event.target.value)}
+              placeholder="NightBase 担当者"
+              className="bg-slate-950/70 text-white"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="invite-role" className="text-sm text-slate-200">
+              付与するロール
+            </Label>
+            <select
+              id="invite-role"
+              value={role}
+              onChange={(event) => setRole(event.target.value as typeof role)}
+              className="w-full rounded-xl border border-white/20 bg-slate-950/70 px-3 py-2 text-sm text-white"
+              required
+            >
+              <option value="admin">管理者</option>
+              <option value="editor">編集</option>
+              <option value="viewer">閲覧</option>
+            </select>
+          </div>
+          <Button type="submit" className="w-full" disabled={submitting}>
+            {submitting ? "送信中..." : "招待メールを送信"}
+          </Button>
+        </form>
       </DialogContent>
     </Dialog>
   );
