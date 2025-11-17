@@ -14,6 +14,7 @@ export const siteContent: SiteContent = {
       { href: "/features", label: "機能" },
       { href: "/pricing", label: "料金" },
       { href: "/industries", label: "夜職別" },
+      { href: "/services/device-rental", label: "サービス" },
       { href: "/case-studies", label: "導入事例" },
       { href: "/blog", label: "Blog" },
       { href: "/contact", label: "お問い合わせ" }
@@ -127,6 +128,37 @@ export const siteContent: SiteContent = {
         "ドラッグ&ドロップでシフト調整",
         "AIサジェストでVIPフォローを提案",
         "スマホからもPC同様の操作性"
+      ]
+    },
+    relatedServices: {
+      eyebrow: "サービス",
+      title: "NightBaseと一緒に使える関連サービス",
+      description: "店舗運営をまるごとサポートする、NightBase連携サービスをご用意しています。",
+      cards: [
+        {
+          title: "デバイスレンタル",
+          description: "NightBase専用にカスタムしたタブレットを、初期費用を抑えて導入できます。",
+          href: "/services/device-rental",
+          icon: "tablet"
+        },
+        {
+          title: "ホームページ制作",
+          description: "ナイトワーク専門のオリジナルサイト制作。NightBaseと連動して最新情報を表示。",
+          href: "/services/website",
+          icon: "globe"
+        },
+        {
+          title: "デザイン制作",
+          description: "ロゴ・メニュー表・店舗看板・POPまで、NightBaseチームが現場目線でデザイン。",
+          href: "/services/design",
+          icon: "pen"
+        },
+        {
+          title: "カラオケ & ダーツ",
+          description: "業務用カラオケやダーツ機の導入を支援し、契約状況をNightBaseで一元管理。",
+          href: "/services/karaoke-darts",
+          icon: "music"
+        }
       ]
     },
     forWhom: {

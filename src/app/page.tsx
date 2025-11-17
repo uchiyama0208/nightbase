@@ -5,6 +5,7 @@ import { ContactForm } from "@/components/ContactForm";
 import { FeaturesSection } from "@/components/FeaturesSection";
 import { Hero } from "@/components/Hero";
 import { PricingTable } from "@/components/PricingTable";
+import { RelatedServicesSection } from "@/components/RelatedServicesSection";
 import { INDUSTRIES } from "@/content/industries";
 import { siteContent } from "@/content/site";
 import { getPublishedCaseStudies } from "@/lib/caseStudies";
@@ -195,6 +196,8 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      <RelatedServicesSection content={home.relatedServices} />
 
       <PricingTable
         title={home.pricing.title}

@@ -94,6 +94,17 @@ export type SiteContent = {
       description: string;
       highlights: string[];
     };
+    relatedServices: {
+      eyebrow: string;
+      title: string;
+      description: string;
+      cards: {
+        title: string;
+        description: string;
+        href: string;
+        icon: "tablet" | "globe" | "pen" | "music";
+      }[];
+    };
     forWhom: {
       title: string;
       segments: {
