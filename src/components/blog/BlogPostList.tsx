@@ -46,7 +46,7 @@ export function BlogPostList({ posts }: BlogPostListProps) {
   return (
     <section className="space-y-8">
       {showFilterBar && (
-        <div className="flex flex-wrap gap-3 rounded-3xl border border-neutral-100 bg-white/80 p-4 shadow-soft">
+        <div className="flex flex-wrap items-center justify-center gap-3 rounded-2xl border border-neutral-100 bg-white px-4 py-3 shadow-soft sm:justify-start">
           {categories.map((category) => {
             const isActive = selectedCategory === category;
 

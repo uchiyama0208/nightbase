@@ -11,7 +11,7 @@ import { getPublishedCaseStudies } from "@/lib/caseStudies";
 
 export default async function HomePage() {
   const { home, caseStudies, contact } = siteContent;
-  const caseStudyEntries = (await getPublishedCaseStudies(4)).filter((study) => Boolean(study.slug?.trim()));
+  const caseStudyEntries = await getPublishedCaseStudies(4);
 
   return (
     <div>

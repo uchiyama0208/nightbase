@@ -12,6 +12,8 @@ export default async function BlogPage() {
   const publishedPosts = posts.filter((post) => post.status === "published");
   const { title, description } = siteContent.blog;
   const [featuredPost] = publishedPosts;
+  const featuredPostDate =
+    featuredPost?.published_at ?? featuredPost?.updated_at ?? featuredPost?.created_at ?? null;
 
   return (
     <div className="relative overflow-hidden bg-white py-24">
@@ -61,9 +63,11 @@ export default async function BlogPage() {
                 <span className="inline-flex items-center rounded-full border border-secondary/20 bg-secondary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-secondary">
                   最新記事
                 </span>
-                <p className="text-xs font-medium uppercase tracking-[0.3em] text-neutral-400">
-                  {formatDate(featuredPost.published_at)}
-                </p>
+                {featuredPostDate && (
+                  <p className="text-xs font-medium uppercase tracking-[0.3em] text-neutral-400">
+                    {formatDate(featuredPostDate)}
+                  </p>
+                )}
                 <h2 className="text-2xl font-semibold leading-snug text-[#111111] transition group-hover:text-primary">
                   {featuredPost.title}
                 </h2>

@@ -9,6 +9,8 @@ interface BlogPostCardProps {
 }
 
 export function BlogPostCard({ post, className }: BlogPostCardProps) {
+  const dateSource = post.published_at ?? post.updated_at ?? post.created_at;
+
   return (
     <Link
       href={`/blog/${post.slug}`}
@@ -25,9 +27,11 @@ export function BlogPostCard({ post, className }: BlogPostCardProps) {
                 {post.category}
               </span>
             )}
-            <p className="text-xs font-medium uppercase tracking-widest text-neutral-400">
-              {formatDate(post.published_at)}
-            </p>
+            {dateSource && (
+              <p className="text-xs font-medium uppercase tracking-widest text-neutral-400">
+                {formatDate(dateSource)}
+              </p>
+            )}
           </div>
           <h2 className="text-2xl font-semibold leading-snug text-[#111111] transition-colors group-hover:text-primary">
             {post.title}
