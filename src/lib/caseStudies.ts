@@ -132,54 +132,30 @@ export async function getPublishedCaseStudies(limit?: number): Promise<CaseStudy
 export async function getPublishedCaseStudyBySlug(slug: string): Promise<CaseStudy | null> {
   const supabase = createClient();
   const nowIso = new Date().toISOString();
+  const normalizedSlug = (slug ?? "").trim();
 
-  const baseQuery = () =>
-    supabase
-      .from("case_studies")
-      .select(CASE_STUDY_FIELDS)
-      .eq("status", "published")
-      .or(`published_at.is.null,published_at.lte.${nowIso}`);
-
-  const slugCandidates = Array.from(
-    new Set(
-      [slug, slug?.trim()]
-        .filter((value): value is string => Boolean(value && value.length > 0))
-        .map((value) => value)
-    )
-  );
-
-  for (const candidate of slugCandidates) {
-    const slugQuery = await baseQuery().eq("slug", candidate).maybeSingle();
-
-    if (slugQuery.error) {
-      console.error("導入事例の取得に失敗しました", slugQuery.error);
-      return null;
-    }
-
-    if (slugQuery.data) {
-      return normalizeCaseStudy(slugQuery.data);
-    }
-  }
-
-  const uuidPattern = /^[0-9a-fA-F-]{32,36}$/;
-  const fallbackCandidate = slugCandidates[slugCandidates.length - 1] ?? slug;
-
-  if (!fallbackCandidate || !uuidPattern.test(fallbackCandidate)) {
+  if (!normalizedSlug) {
     return null;
   }
 
-  const idQuery = await baseQuery().eq("id", fallbackCandidate).maybeSingle();
+  const { data, error } = await supabase
+    .from("case_studies")
+    .select(CASE_STUDY_FIELDS)
+    .eq("status", "published")
+    .or(`published_at.is.null,published_at.lte.${nowIso}`)
+    .eq("slug", normalizedSlug)
+    .maybeSingle();
 
-  if (idQuery.error) {
-    console.error("導入事例の取得に失敗しました", idQuery.error);
+  if (error) {
+    console.error("導入事例の取得に失敗しました", error);
     return null;
   }
 
-  if (!idQuery.data) {
+  if (!data) {
     return null;
   }
 
-  return normalizeCaseStudy(idQuery.data);
+  return normalizeCaseStudy(data);
 }
 
 function normalizeCaseStudy(row: {

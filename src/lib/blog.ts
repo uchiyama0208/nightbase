@@ -6,9 +6,11 @@ import { createClient } from "./supabaseClient";
 type BlogPostRow = Database["public"]["Tables"]["blog_posts"]["Row"];
 
 function mapRowToBlogPost(row: BlogPostRow): BlogPost {
+  const slug = (row.slug ?? "").trim();
+
   return {
     id: row.id,
-    slug: row.slug ?? "",
+    slug,
     title: row.title ?? "",
     content: row.content ?? "",
     excerpt: row.excerpt ?? null,
@@ -42,7 +44,9 @@ export async function getPublishedBlogPosts(): Promise<BlogPost[]> {
   }
 
   const rows: BlogPostRow[] = data ?? [];
-  return rows.map(mapRowToBlogPost);
+  return rows
+    .map(mapRowToBlogPost)
+    .filter((post) => post.slug.length > 0);
 }
 
 export async function getPublishedBlogPostBySlug(slug: string): Promise<BlogPost | null> {

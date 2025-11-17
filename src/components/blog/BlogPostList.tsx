@@ -17,7 +17,7 @@ export function BlogPostList({ posts }: BlogPostListProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>(ALL_CATEGORY);
 
   const publishedPosts = useMemo(
-    () => posts.filter((post) => post.status === "published"),
+    () => posts.filter((post) => post.status === "published" && post.slug.length > 0),
     [posts]
   );
 
