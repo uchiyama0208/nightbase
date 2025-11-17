@@ -18,7 +18,7 @@ export default async function CaseStudiesPage() {
       <div className="container mt-16 grid gap-8 lg:grid-cols-2">
         {studies.length === 0 ? (
           <div className="col-span-full rounded-3xl border border-neutral-200 bg-white p-12 text-center text-sm text-neutral-500">
-            公開中の導入事例は現在準備中です。最新情報はブログやニュースでお知らせします。
+            現在公開中の導入事例はありません。
           </div>
         ) : (
           studies.map((caseStudy) => <CaseStudyCard key={caseStudy.id} caseStudy={caseStudy} />)

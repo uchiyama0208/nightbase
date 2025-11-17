@@ -26,11 +26,13 @@ const BLOG_POST_FIELDS =
 
 export async function getPublishedBlogPosts(): Promise<BlogPost[]> {
   const supabase = createClient();
+  const nowIso = new Date().toISOString();
 
   const { data, error } = await supabase
     .from("blog_posts")
     .select(BLOG_POST_FIELDS)
     .eq("status", "published")
+    .or(`published_at.is.null,published_at.lte.${nowIso}`)
     .order("published_at", { ascending: false, nullsFirst: false })
     .order("updated_at", { ascending: false });
 
@@ -51,12 +53,14 @@ export async function getPublishedBlogPostBySlug(slug: string): Promise<BlogPost
   }
 
   const supabase = createClient();
+  const nowIso = new Date().toISOString();
 
   const { data, error } = await supabase
     .from("blog_posts")
     .select(BLOG_POST_FIELDS)
     .eq("slug", normalizedSlug)
     .eq("status", "published")
+    .or(`published_at.is.null,published_at.lte.${nowIso}`)
     .maybeSingle();
 
   if (error) {

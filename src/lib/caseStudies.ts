@@ -103,11 +103,13 @@ export function formatCaseStudyIndustry(industry: string | null): string {
 
 export async function getPublishedCaseStudies(limit?: number): Promise<CaseStudy[]> {
   const supabase = createClient();
+  const nowIso = new Date().toISOString();
 
   let query = supabase
     .from("case_studies")
     .select(CASE_STUDY_FIELDS)
     .eq("status", "published")
+    .or(`published_at.is.null,published_at.lte.${nowIso}`)
     .order("published_at", { ascending: false, nullsFirst: false })
     .order("updated_at", { ascending: false, nullsFirst: false });
 
@@ -128,24 +130,43 @@ export async function getPublishedCaseStudies(limit?: number): Promise<CaseStudy
 export async function getPublishedCaseStudyBySlug(slug: string): Promise<CaseStudy | null> {
   const supabase = createClient();
   const sanitizedSlug = slug.trim();
+  const nowIso = new Date().toISOString();
 
-  const { data, error } = await supabase
-    .from("case_studies")
-    .select(CASE_STUDY_FIELDS)
-    .eq("slug", sanitizedSlug)
-    .eq("status", "published")
-    .maybeSingle();
+  const baseQuery = () =>
+    supabase
+      .from("case_studies")
+      .select(CASE_STUDY_FIELDS)
+      .eq("status", "published")
+      .or(`published_at.is.null,published_at.lte.${nowIso}`);
 
-  if (error) {
-    console.error("導入事例の取得に失敗しました", error);
+  const slugQuery = await baseQuery().eq("slug", sanitizedSlug).maybeSingle();
+
+  if (slugQuery.error) {
+    console.error("導入事例の取得に失敗しました", slugQuery.error);
     return null;
   }
 
-  if (!data) {
+  if (slugQuery.data) {
+    return normalizeCaseStudy(slugQuery.data);
+  }
+
+  const uuidPattern = /^[0-9a-fA-F-]{32,36}$/;
+  if (!uuidPattern.test(sanitizedSlug)) {
     return null;
   }
 
-  return normalizeCaseStudy(data);
+  const idQuery = await baseQuery().eq("id", sanitizedSlug).maybeSingle();
+
+  if (idQuery.error) {
+    console.error("導入事例の取得に失敗しました", idQuery.error);
+    return null;
+  }
+
+  if (!idQuery.data) {
+    return null;
+  }
+
+  return normalizeCaseStudy(idQuery.data);
 }
 
 function normalizeCaseStudy(row: {
