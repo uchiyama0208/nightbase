@@ -12,8 +12,8 @@ export function CaseStudyCard({ caseStudy }: CaseStudyCardProps) {
   const industryLabel = formatCaseStudyIndustry(caseStudy.industry);
   const publishedLabel = caseStudy.published_at ? formatDate(caseStudy.published_at) : null;
   const summary = caseStudy.summary?.split(/\r?\n/)[0] ?? caseStudy.summary ?? "";
-  const fallbackTarget = caseStudy.slug?.trim() || caseStudy.id;
-  const href = `/case-studies/${encodeURIComponent(fallbackTarget)}`;
+  const normalizedSlug = caseStudy.slug?.trim();
+  const href = normalizedSlug ? `/case-studies/${encodeURIComponent(normalizedSlug)}` : null;
 
   return (
     <article className="glass-panel flex h-full flex-col gap-6 p-8">
@@ -28,13 +28,19 @@ export function CaseStudyCard({ caseStudy }: CaseStudyCardProps) {
         {caseStudy.store_name && <p className="text-sm text-neutral-500">{caseStudy.store_name}</p>}
       </div>
       {summary && <p className="text-sm text-neutral-500">{summary}</p>}
-      <Link
-        href={href}
-        className="mt-auto inline-flex items-center gap-2 text-sm font-semibold text-primary transition hover:text-primary/80"
-      >
-        事例を読む
-        <span aria-hidden>→</span>
-      </Link>
+      {href ? (
+        <Link
+          href={href}
+          className="mt-auto inline-flex items-center gap-2 text-sm font-semibold text-primary transition hover:text-primary/80"
+        >
+          事例を読む
+          <span aria-hidden>→</span>
+        </Link>
+      ) : (
+        <span className="mt-auto inline-flex items-center gap-2 text-sm font-semibold text-neutral-400">
+          詳細ページ準備中
+        </span>
+      )}
     </article>
   );
 }

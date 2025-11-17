@@ -9,8 +9,9 @@ export const revalidate = 60;
 
 export default async function BlogPage() {
   const posts = await getPublishedBlogPosts();
+  const publishedPosts = posts.filter((post) => post.status === "published");
   const { title, description } = siteContent.blog;
-  const featuredPost = posts[0];
+  const [featuredPost] = publishedPosts;
 
   return (
     <div className="relative overflow-hidden bg-white py-24">
@@ -96,7 +97,7 @@ export default async function BlogPage() {
             </div>
           )}
         </section>
-        <BlogPostList posts={posts} />
+        <BlogPostList posts={publishedPosts} />
       </div>
     </div>
   );

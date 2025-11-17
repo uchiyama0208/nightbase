@@ -7,7 +7,7 @@ export const revalidate = 60;
 
 export default async function CaseStudiesPage() {
   const { caseStudies } = siteContent;
-  const studies = await getPublishedCaseStudies();
+  const studies = (await getPublishedCaseStudies()).filter((study) => Boolean(study.slug?.trim()));
 
   return (
     <div className="bg-white py-20">
