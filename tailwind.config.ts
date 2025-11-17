@@ -16,9 +16,9 @@ const config: Config = {
     },
     extend: {
       colors: {
-        primary: "#0088FF",
-        secondary: "#FFCC00",
-        background: "#FFFFFF"
+        primary: "#5f6fff",
+        secondary: "#c4f1ff",
+        background: "#f5f7ff"
       },
       fontFamily: {
         sans: ["var(--font-inter)", "var(--font-noto)", ...fontFamily.sans]

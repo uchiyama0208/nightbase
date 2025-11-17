@@ -4,7 +4,7 @@
 
 :root {
   color-scheme: light;
-  background-color: #ffffff;
+  background-color: #edf2ff;
 }
 
 * {
@@ -14,8 +14,8 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: #ffffff;
-  color: #111111;
+  background: radial-gradient(circle at top, rgba(255, 255, 255, 0.9), #edf2ff 45%, #e0f2ff);
+  color: #0f172a;
   font-feature-settings: "liga" 1, "kern" 1;
   scroll-behavior: smooth;
 }
@@ -41,7 +41,7 @@ section {
   }
 
   p {
-    color: #333333;
+    color: #334155;
   }
 }
 
@@ -52,6 +52,11 @@ section {
 
   .glass-panel {
     @apply rounded-3xl border border-white/40 bg-white/60 shadow-soft backdrop-blur-lg;
+  }
+
+  .bg-aurora {
+    background: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.95), rgba(206, 230, 255, 0.6) 40%, rgba(187, 222, 251, 0.4)),
+      linear-gradient(135deg, rgba(91, 125, 255, 0.35), rgba(175, 126, 255, 0.35));
   }
 }
 

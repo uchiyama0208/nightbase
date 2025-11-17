@@ -17,29 +17,32 @@ interface RelatedServicesSectionProps {
 
 export function RelatedServicesSection({ content }: RelatedServicesSectionProps) {
   return (
-    <section className="bg-white py-20">
+    <section className="relative py-20">
       <div className="container space-y-12">
         <div className="mx-auto max-w-3xl space-y-4 text-center">
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary">{content.eyebrow}</p>
-          <h2 className="text-3xl font-semibold text-[#111111] sm:text-4xl">{content.title}</h2>
-          <p className="text-neutral-600">{content.description}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#94a3b8]">{content.eyebrow}</p>
+          <h2 className="text-3xl font-semibold text-[#0f172a] sm:text-4xl">{content.title}</h2>
+          <p className="text-[#475569]">{content.description}</p>
         </div>
         <div className="grid gap-6 md:grid-cols-2">
           {content.cards.map((card) => {
             const Icon = iconMap[card.icon] ?? ArrowRight;
             return (
-              <Card key={card.href} className="flex h-full flex-col justify-between border border-neutral-100 shadow-soft">
+              <Card
+                key={card.href}
+                className="flex h-full flex-col justify-between rounded-[32px] border border-white/60 bg-white/70 p-6 shadow-soft backdrop-blur"
+              >
                 <CardHeader className="space-y-4">
-                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#8b5cf6] to-[#6366f1] text-white">
                     <Icon className="h-5 w-5" aria-hidden />
                   </div>
-                  <CardTitle className="text-2xl text-[#111111]">{card.title}</CardTitle>
-                  <CardDescription className="text-sm text-neutral-600">{card.description}</CardDescription>
+                  <CardTitle className="text-2xl text-[#0f172a]">{card.title}</CardTitle>
+                  <CardDescription className="text-sm text-[#475569]">{card.description}</CardDescription>
                 </CardHeader>
                 <CardFooter>
                   <Link
                     href={card.href}
-                    className="inline-flex items-center gap-2 rounded-full border border-primary/30 px-5 py-2 text-sm font-semibold text-primary transition hover:border-primary hover:bg-primary/5"
+                    className="inline-flex items-center gap-2 rounded-full border border-[#0f172a]/20 px-5 py-2 text-sm font-semibold text-[#0f172a] transition hover:border-[#0f172a]/50 hover:bg-white/80"
                   >
                     詳しく見る
                     <ArrowRight className="h-4 w-4" aria-hidden />
