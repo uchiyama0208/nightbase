@@ -21,7 +21,7 @@ export function BlogPostList({ posts }: BlogPostListProps) {
     [posts]
   );
 
-  const categories = useMemo(() => {
+  const { categories, showFilterBar } = useMemo(() => {
     const unique = new Set<string>();
 
     publishedPosts.forEach((post) => {
@@ -30,7 +30,12 @@ export function BlogPostList({ posts }: BlogPostListProps) {
       }
     });
 
-    return [ALL_CATEGORY, ...Array.from(unique)];
+    const shouldShowFilter = unique.size > 1 && publishedPosts.length > 1;
+
+    return {
+      categories: [ALL_CATEGORY, ...Array.from(unique)],
+      showFilterBar: shouldShowFilter,
+    };
   }, [publishedPosts]);
 
   const filteredPosts = useMemo(() => {
@@ -40,8 +45,6 @@ export function BlogPostList({ posts }: BlogPostListProps) {
 
     return publishedPosts.filter((post) => post.category === selectedCategory);
   }, [publishedPosts, selectedCategory]);
-
-  const showFilterBar = categories.length > 1;
 
   return (
     <section className="space-y-8">

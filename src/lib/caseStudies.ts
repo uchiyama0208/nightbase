@@ -124,7 +124,9 @@ export async function getPublishedCaseStudies(limit?: number): Promise<CaseStudy
     return [];
   }
 
-  return (data ?? []).map(normalizeCaseStudy);
+  return (data ?? [])
+    .map(normalizeCaseStudy)
+    .filter((caseStudy) => caseStudy.slug.length > 0);
 }
 
 export async function getPublishedCaseStudyBySlug(slug: string): Promise<CaseStudy | null> {
@@ -196,6 +198,7 @@ function normalizeCaseStudy(row: {
 
   return {
     ...row,
+    slug: (row.slug ?? "").trim(),
     store_name: parsedSummary.store_name,
     summary: parsedSummary.summary,
     problems: parsedSummary.problems,

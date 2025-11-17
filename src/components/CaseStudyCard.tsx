@@ -12,9 +12,11 @@ export function CaseStudyCard({ caseStudy }: CaseStudyCardProps) {
   const industryLabel = formatCaseStudyIndustry(caseStudy.industry);
   const publishedLabel = caseStudy.published_at ? formatDate(caseStudy.published_at) : null;
   const summary = caseStudy.summary?.split(/\r?\n/)[0] ?? caseStudy.summary ?? "";
-  const slugValue = typeof caseStudy.slug === "string" && caseStudy.slug.length > 0 ? caseStudy.slug : null;
-  const hrefSegment = slugValue ?? caseStudy.id;
-  const href = hrefSegment ? `/case-studies/${encodeURIComponent(hrefSegment)}` : null;
+  const slugValue =
+    typeof caseStudy.slug === "string" && caseStudy.slug.trim().length > 0
+      ? caseStudy.slug.trim()
+      : null;
+  const href = slugValue ? `/case-studies/${encodeURIComponent(slugValue)}` : null;
 
   return (
     <article className="glass-panel flex h-full flex-col gap-6 p-8">
