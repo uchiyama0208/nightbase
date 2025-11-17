@@ -127,9 +127,10 @@ function AnalyticsContent({ supabase }: AnalyticsContentProps) {
 
           const rows = (data ?? []) as any[];
           return rows.map((row) => {
+            const isCaseStudyConfig = "isCaseStudy" in config && config.isCaseStudy;
             const slugValue = typeof row?.[config.slugField] === "string" ? row[config.slugField] : "";
             let contentValue: string | null = null;
-            if (config.isCaseStudy) {
+            if (isCaseStudyConfig) {
               const decoded = decodeCaseStudyContent(row?.[config.contentField] ?? null);
               contentValue = [
                 decoded.store_name,
