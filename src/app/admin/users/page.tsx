@@ -228,9 +228,11 @@ function InviteUserButton({ onInvited }: InviteUserButtonProps) {
         body: JSON.stringify({ email, displayName, role }),
       });
 
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({ error: "招待に失敗しました" }));
-        throw new Error(payload.error || "招待に失敗しました");
+      const payload = await response.json().catch(() => ({ success: false, message: "招待に失敗しました" }));
+
+      if (!response.ok || !payload?.success) {
+        console.error("[AdminUsers] 招待APIレスポンスエラー", payload);
+        throw new Error(payload?.message || payload?.error || "招待に失敗しました");
       }
 
       toast({ title: "ユーザーを招待しました" });
