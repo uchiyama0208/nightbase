@@ -773,7 +773,8 @@ function extractInternalLinks(content: string | null): string[] {
 function extractKeywords(content: string | null): KeywordStat[] {
   if (!content) return [];
   const cleaned = content.replace(/https?:\/\/\S+/g, " ");
-  const matches = cleaned.match(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}A-Za-z0-9]{2,}/gu) ?? [];
+  const matches =
+    cleaned.match(/[A-Za-z0-9\u3040-\u30FF\u4E00-\u9FFF]{2,}/g) ?? [];
   const stopWords = new Set(["です", "ます", "こと", "よう", "nightbase", "NightBase", "する"]);
   const freq = new Map<string, number>();
 
