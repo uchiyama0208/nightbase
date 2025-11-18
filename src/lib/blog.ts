@@ -5,6 +5,10 @@ import { createClient } from "./supabaseClient";
 
 type BlogPostRow = Database["public"]["Tables"]["blog_posts"]["Row"];
 
+function escapeLikePattern(value: string) {
+  return value.replace(/[%_]/g, "\\$&");
+}
+
 function mapRowToBlogPost(row: BlogPostRow): BlogPost {
   const slug = (row.slug ?? "").trim();
 
@@ -46,7 +50,7 @@ export async function getPublishedBlogPosts(): Promise<BlogPost[]> {
   const rows: BlogPostRow[] = data ?? [];
   return rows
     .map(mapRowToBlogPost)
-    .filter((post) => post.slug.length > 0);
+    .filter((post) => post.slug.length > 0 && post.status === "published");
 }
 
 export async function getPublishedBlogPostBySlug(slug: string): Promise<BlogPost | null> {
@@ -59,12 +63,14 @@ export async function getPublishedBlogPostBySlug(slug: string): Promise<BlogPost
   const supabase = createClient();
   const nowIso = new Date().toISOString();
 
+  const slugPattern = escapeLikePattern(normalizedSlug);
+
   const { data, error } = await supabase
     .from("blog_posts")
     .select(BLOG_POST_FIELDS)
-    .eq("slug", normalizedSlug)
     .eq("status", "published")
     .or(`published_at.is.null,published_at.lte.${nowIso}`)
+    .ilike("slug", slugPattern)
     .maybeSingle();
 
   if (error) {

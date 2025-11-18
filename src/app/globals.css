@@ -4,7 +4,7 @@
 
 :root {
   color-scheme: light;
-  background-color: #ffffff;
+  background-color: #edf2ff;
 }
 
 * {
@@ -14,8 +14,8 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: #ffffff;
-  color: #111111;
+  background: radial-gradient(circle at top, rgba(255, 255, 255, 0.95), rgba(227, 239, 255, 0.85) 45%, #dbeafe);
+  color: #0f172a;
   font-feature-settings: "liga" 1, "kern" 1;
   scroll-behavior: smooth;
 }
@@ -41,7 +41,7 @@ section {
   }
 
   p {
-    color: #333333;
+    color: #334155;
   }
 }
 
@@ -51,11 +51,50 @@ section {
   }
 
   .glass-panel {
-    @apply rounded-3xl border border-white/40 bg-white/60 shadow-soft backdrop-blur-lg;
+    @apply rounded-3xl border border-white/60 bg-white/70 shadow-[0_25px_60px_-30px_rgba(15,23,42,0.35)] backdrop-blur-2xl;
+  }
+
+  .bg-aurora {
+    background: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.95), rgba(206, 230, 255, 0.6) 40%, rgba(187, 222, 251, 0.4)),
+      linear-gradient(135deg, rgba(91, 125, 255, 0.35), rgba(175, 126, 255, 0.35));
+  }
+
+  .glass-button {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-white/40 bg-white/30 px-6 py-3 text-sm font-semibold text-[#0f172a] shadow-[0_20px_40px_-25px_rgba(15,23,42,0.45)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/40 hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary/40;
+  }
+
+  .hover-lift {
+    @apply transition-transform duration-500 hover:-translate-y-1.5 hover:shadow-[0_35px_120px_-50px_rgba(15,23,42,0.45)];
   }
 }
 
 @layer utilities {
+  @keyframes float {
+    0% {
+      transform: translateY(0px);
+    }
+
+    50% {
+      transform: translateY(-6px);
+    }
+
+    100% {
+      transform: translateY(0px);
+    }
+  }
+
+  @keyframes fade-up {
+    0% {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
   @keyframes toast-in {
     from {
       opacity: 0;
@@ -86,5 +125,13 @@ section {
 
   .animate-toastOut {
     animation: toast-out 0.3s ease-in forwards;
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .animate-fade-up {
+    animation: fade-up 0.9s ease forwards;
   }
 }

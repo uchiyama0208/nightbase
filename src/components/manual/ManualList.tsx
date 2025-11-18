@@ -87,7 +87,7 @@ export function ManualList({ pages }: ManualListProps) {
 
   return (
     <div className="grid gap-10 lg:grid-cols-[280px_minmax(0,1fr)]">
-      <aside className="rounded-3xl border border-neutral-100 bg-white/80 p-6 shadow-soft lg:sticky lg:top-28">
+      <aside className="glass-panel lg:sticky lg:top-28">
         <div className="space-y-4">
           <div>
             <label htmlFor="manual-search" className="text-xs font-semibold uppercase tracking-[0.25em] text-neutral-400">
@@ -111,10 +111,10 @@ export function ManualList({ pages }: ManualListProps) {
                   type="button"
                   onClick={() => setSelectedSection(section)}
                   className={cn(
-                    "rounded-full border px-4 py-2 text-sm font-medium transition",
+                    "rounded-full px-4 py-2 text-sm font-medium transition",
                     selectedSection === section
-                      ? "border-primary bg-primary text-white shadow-sm"
-                      : "border-neutral-200 bg-white text-neutral-600 hover:border-primary/40 hover:text-primary"
+                      ? "bg-primary text-white shadow-lg shadow-primary/30"
+                      : "border border-white/40 bg-white/40 text-neutral-600 hover:border-primary/40 hover:text-primary"
                   )}
                 >
                   {section === ALL_SECTION ? section : humanizeSection(section)}
@@ -122,9 +122,9 @@ export function ManualList({ pages }: ManualListProps) {
               ))}
             </div>
           </div>
-          <div className="rounded-2xl border border-neutral-100 bg-neutral-50/70 p-4 text-xs text-neutral-500">
-            <p>検索キーワードとセクションを組み合わせて、必要なマニュアルをすぐに探せます。</p>
-          </div>
+          <p className="rounded-2xl bg-white/40 p-4 text-xs text-neutral-500">
+            検索キーワードとセクションを組み合わせて、必要なマニュアルをすぐに探せます。
+          </p>
         </div>
       </aside>
       <div className="space-y-12">
@@ -149,7 +149,7 @@ export function ManualList({ pages }: ManualListProps) {
                 {pagesInSection.map((page) => (
                   <article
                     key={page.id}
-                    className="flex h-full flex-col justify-between rounded-3xl border border-neutral-200 bg-white/90 p-6 shadow-soft transition hover:-translate-y-1 hover:shadow-xl"
+                    className="glass-panel hover-lift flex h-full flex-col justify-between p-6"
                   >
                     <div className="space-y-3">
                       <p className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-400">
@@ -163,10 +163,7 @@ export function ManualList({ pages }: ManualListProps) {
                       </p>
                     </div>
                     <div className="pt-6">
-                      <Link
-                        href={`/manual/${page.slug}`}
-                        className="inline-flex items-center gap-2 text-sm font-semibold text-primary transition hover:text-primary/80"
-                      >
+                      <Link href={`/manual/${page.slug}`} className="glass-button">
                         詳しく読む
                         <svg
                           aria-hidden
@@ -193,7 +190,7 @@ export function ManualList({ pages }: ManualListProps) {
           );
         })}
         {filteredPages.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-neutral-200 bg-white p-12 text-center text-sm text-neutral-500">
+          <div className="glass-panel p-12 text-center text-sm text-neutral-500">
             条件に一致するマニュアルが見つかりませんでした。
           </div>
         ) : null}

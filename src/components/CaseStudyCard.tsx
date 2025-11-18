@@ -16,10 +16,10 @@ export function CaseStudyCard({ caseStudy }: CaseStudyCardProps) {
     typeof caseStudy.slug === "string" && caseStudy.slug.trim().length > 0
       ? caseStudy.slug.trim()
       : null;
-  const href = slugValue ? `/case-studies/${encodeURIComponent(slugValue)}` : null;
+  const href = slugValue ? `/case-studies/${slugValue}` : null;
 
   return (
-    <article className="glass-panel flex h-full flex-col gap-6 p-8">
+    <article className="glass-panel hover-lift group flex h-full flex-col gap-6 p-8 transition-all duration-500">
       <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-400">
         <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-4 py-1 text-[10px] font-semibold uppercase tracking-[0.3em] text-primary">
           {industryLabel}
@@ -34,7 +34,7 @@ export function CaseStudyCard({ caseStudy }: CaseStudyCardProps) {
       {href ? (
         <Link
           href={href}
-          className="mt-auto inline-flex items-center gap-2 text-sm font-semibold text-primary transition hover:text-primary/80"
+          className="mt-auto inline-flex items-center gap-2 text-sm font-semibold text-primary transition hover:gap-3"
         >
           事例を読む
           <span aria-hidden>→</span>

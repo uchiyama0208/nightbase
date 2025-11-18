@@ -7,6 +7,10 @@ export const CASE_STUDY_FIELDS =
 const CASE_STUDY_CONTENT_FLAG = "__nightbaseCaseStudy";
 const CASE_STUDY_CONTENT_VERSION = 1;
 
+function escapeLikePattern(value: string) {
+  return value.replace(/[%_]/g, "\\$&");
+}
+
 export type CaseStudyContentFields = {
   store_name: string | null;
   summary: string | null;
@@ -126,7 +130,7 @@ export async function getPublishedCaseStudies(limit?: number): Promise<CaseStudy
 
   return (data ?? [])
     .map(normalizeCaseStudy)
-    .filter((caseStudy) => caseStudy.slug.length > 0);
+    .filter((caseStudy) => caseStudy.slug.length > 0 && caseStudy.status === "published");
 }
 
 export async function getPublishedCaseStudyBySlug(slug: string): Promise<CaseStudy | null> {
@@ -138,12 +142,14 @@ export async function getPublishedCaseStudyBySlug(slug: string): Promise<CaseStu
     return null;
   }
 
+  const slugPattern = escapeLikePattern(normalizedSlug);
+
   const { data, error } = await supabase
     .from("case_studies")
     .select(CASE_STUDY_FIELDS)
     .eq("status", "published")
     .or(`published_at.is.null,published_at.lte.${nowIso}`)
-    .eq("slug", normalizedSlug)
+    .ilike("slug", slugPattern)
     .maybeSingle();
 
   if (error) {
