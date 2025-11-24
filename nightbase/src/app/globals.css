@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  background-color: #edf2ff;
+}
+
+* {
+  scrollbar-width: thin;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: radial-gradient(circle at top, rgba(255, 255, 255, 0.9), #edf2ff 45%, #e0f2ff);
+  color: #0f172a;
+  font-feature-settings: "liga" 1, "kern" 1;
+  scroll-behavior: smooth;
+}
+
+section {
+  scroll-margin-top: 5rem;
+}
+
+.shadow-glow {
+  box-shadow: 0 40px 100px -40px rgba(15, 23, 42, 0.35);
+}
+
+@layer base {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    color: #111111;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  p {
+    color: #334155;
+  }
+}
+
+@layer components {
+  .badge {
+    @apply inline-flex items-center rounded-full bg-secondary/10 px-3 py-1 text-sm font-medium text-secondary;
+  }
+
+  .glass-panel {
+    @apply rounded-3xl border border-white/40 bg-white/60 shadow-soft backdrop-blur-lg;
+  }
+
+  .bg-aurora {
+    background: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.95), rgba(206, 230, 255, 0.6) 40%, rgba(187, 222, 251, 0.4)),
+      linear-gradient(135deg, rgba(91, 125, 255, 0.35), rgba(175, 126, 255, 0.35));
+  }
+}
+
+@layer utilities {
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateX(120%);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes toast-out {
+    from {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    to {
+      opacity: 0;
+      transform: translateX(120%);
+    }
+  }
+
+  .animate-toastIn {
+    animation: toast-in 0.25s ease-out;
+  }
+
+  .animate-toastOut {
+    animation: toast-out 0.3s ease-in forwards;
+  }
+}
