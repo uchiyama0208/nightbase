@@ -16,3 +16,5 @@ export default function AdminCmsIndexPage() {
     </div>
   );
 }
+
+export const dynamic = 'force-dynamic';

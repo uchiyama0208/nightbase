@@ -1,63 +1,22 @@
-"use client";
-
-import { useEffect, useState } from "react";
+import { Suspense } from "react";
 import Link from "next/link";
-import { Building2, UserPlus, ArrowLeft } from "lucide-react";
+import { Building2, UserPlus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { useSearchParams, useRouter } from "next/navigation";
-import { createBrowserClient } from "@/lib/supabaseClient";
+import { OnboardingChoiceAuth } from "./onboarding-choice-auth";
 
 export default function OnboardingChoicePage() {
-    const searchParams = useSearchParams();
-    const router = useRouter();
-    const [isLoading, setIsLoading] = useState(true);
-    const supabase = createBrowserClient();
-
-    useEffect(() => {
-        const handleSession = async () => {
-            const accessToken = searchParams.get("access_token");
-            const refreshToken = searchParams.get("refresh_token");
-
-            if (accessToken && refreshToken) {
-                try {
-                    const { error } = await supabase.auth.setSession({
-                        access_token: accessToken,
-                        refresh_token: refreshToken,
-                    });
-
-                    if (error) {
-                        console.error("Error setting session:", error);
-                    } else {
-                        // Remove tokens from URL for cleaner history
-                        const newUrl = new URL(window.location.href);
-                        newUrl.searchParams.delete("access_token");
-                        newUrl.searchParams.delete("refresh_token");
-                        window.history.replaceState({}, "", newUrl.toString());
-                    }
-                } catch (err) {
-                    console.error("Unexpected error setting session:", err);
-                }
-            }
-            setIsLoading(false);
-        };
-
-        handleSession();
-    }, [searchParams, supabase.auth]);
-
-    if (isLoading) {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                    <p className="text-gray-600 dark:text-gray-400">認証情報を確認中...</p>
-                </div>
-            </div>
-        );
-    }
-
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
             <div className="max-w-4xl w-full space-y-8">
+                <Suspense fallback={
+                    <div className="text-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                        <p className="text-gray-600 dark:text-gray-400">読み込み中...</p>
+                    </div>
+                }>
+                    <OnboardingChoiceAuth />
+                </Suspense>
+
                 <div className="text-center space-y-2">
                     <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
                         Nightbaseへようこそ
@@ -126,3 +85,6 @@ export default function OnboardingChoicePage() {
         </div>
     );
 }
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;

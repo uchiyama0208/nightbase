@@ -771,3 +771,5 @@ export default function AdminAnalyticsPage() {
     </AdminProtected>
   );
 }
+
+export const dynamic = 'force-dynamic';

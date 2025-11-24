@@ -92,10 +92,11 @@ function UsersSkeleton() {
 export default async function UsersPage({
     searchParams,
 }: {
-    searchParams: { role?: string; query?: string };
+    searchParams: Promise<{ role?: string; query?: string }>;
 }) {
-    const roleParam = searchParams.role || "cast";
-    const queryParam = searchParams.query || "";
+    const params = await searchParams;
+    const roleParam = params.role || "cast";
+    const queryParam = params.query || "";
 
     const data = await getUsersData(roleParam, queryParam);
     const { profiles, role } = data;

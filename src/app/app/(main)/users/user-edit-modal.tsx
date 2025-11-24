@@ -412,7 +412,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                     >
                                         勤怠一覧
                                     </button>
-                                    {profile.id !== currentUserProfileId && (
+                                    {profile?.id !== currentUserProfileId && (
                                         <button
                                             type="button"
                                             className="w-full text-left px-3 py-2 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"

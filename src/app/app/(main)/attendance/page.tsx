@@ -100,9 +100,10 @@ function AttendanceSkeleton() {
 export default async function AttendancePage({
 	searchParams,
 }: {
-	searchParams: { role?: string };
+	searchParams: Promise<{ role?: string }>;
 }) {
-	const roleParam = searchParams.role;
+	const params = await searchParams;
+	const roleParam = params.role;
 	const data = await getAttendanceData(roleParam);
 	const { allRecords, allProfiles, roleFilter } = data;
 

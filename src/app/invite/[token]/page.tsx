@@ -4,9 +4,9 @@ import { notFound, redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabaseServerClient";
 
 interface InvitePageProps {
-    params: {
+    params: Promise<{
         token: string;
-    };
+    }>;
 }
 
 export async function generateMetadata({ params }: InvitePageProps) {

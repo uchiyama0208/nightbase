@@ -233,9 +233,8 @@ export default async function CaseStudyDetailPage({ params }: CaseStudyDetailPag
                     <a
                       key={item.id}
                       href={`#${item.id}`}
-                      className={`flex items-start gap-2 rounded-xl px-2 py-1.5 transition hover:bg-primary/8 hover:text-primary ${
-                        item.level === 3 ? "ml-4" : ""
-                      }`}
+                      className={`flex items-start gap-2 rounded-xl px-2 py-1.5 transition hover:bg-primary/8 hover:text-primary ${item.level === 3 ? "ml-4" : ""
+                        }`}
                     >
                       <span
                         className="mt-2 inline-block h-1.5 w-1.5 flex-shrink-0 rotate-45 rounded-[2px] bg-primary/70"

@@ -5,6 +5,15 @@ import type { Database } from "@/types/supabase";
 
 export function ensureEnv(name: string, value: string | undefined): string {
   if (!value) {
+    // Only throw in server context (not during build)
+    if (typeof window === 'undefined' && process.env.NODE_ENV !== 'test') {
+      console.warn(`Supabaseの環境変数 "${name}" が設定されていません`);
+      // Return valid placeholder URLs for build
+      if (name === 'NEXT_PUBLIC_SUPABASE_URL') {
+        return 'https://placeholder.supabase.co';
+      }
+      return 'placeholder-key';
+    }
     throw new Error(
       `Supabaseの環境変数 "${name}" が設定されていません。NEXT_PUBLIC_SUPABASE_URL と NEXT_PUBLIC_SUPABASE_ANON_KEY を確認してください。`
     );
@@ -42,7 +51,20 @@ export function createClient(): SupabaseClient<Database> {
 import { createBrowserClient as createSupabaseBrowserClient } from "@supabase/ssr";
 
 export function createBrowserClient() {
-  const { supabaseUrl, supabaseAnonKey } = getSupabaseConfig();
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  // During build time, return a dummy client
+  if (!supabaseUrl || !supabaseAnonKey) {
+    // Only throw in browser
+    if (typeof window !== 'undefined') {
+      throw new Error(
+        `Supabaseの環境変数が設定されていません。NEXT_PUBLIC_SUPABASE_URL と NEXT_PUBLIC_SUPABASE_ANON_KEY を確認してください。`
+      );
+    }
+    // Return dummy client for build
+    return createSupabaseBrowserClient<Database>('https://placeholder.supabase.co', 'placeholder');
+  }
 
   return createSupabaseBrowserClient<Database>(supabaseUrl, supabaseAnonKey);
 }

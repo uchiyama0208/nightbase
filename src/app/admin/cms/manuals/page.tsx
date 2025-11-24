@@ -180,3 +180,5 @@ export default function AdminManualListPage() {
     </AdminProtected>
   );
 }
+
+export const dynamic = 'force-dynamic';

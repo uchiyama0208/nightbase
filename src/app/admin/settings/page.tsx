@@ -357,3 +357,5 @@ function AccountSettingsContent({ supabase }: { supabase: any }) {
 export default function AdminSettingsPage() {
   return <AdminProtected>{({ supabase }) => <AccountSettingsContent supabase={supabase} />}</AdminProtected>;
 }
+
+export const dynamic = 'force-dynamic';

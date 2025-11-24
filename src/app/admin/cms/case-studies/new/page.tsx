@@ -20,3 +20,5 @@ export default function AdminCaseStudyCreatePage() {
     </AdminProtected>
   );
 }
+
+export const dynamic = 'force-dynamic';

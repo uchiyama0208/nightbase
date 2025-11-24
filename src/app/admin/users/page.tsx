@@ -326,3 +326,5 @@ export default function AdminUsersPage() {
     </AdminProtected>
   );
 }
+
+export const dynamic = 'force-dynamic';

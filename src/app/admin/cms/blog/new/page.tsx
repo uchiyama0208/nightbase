@@ -10,3 +10,5 @@ export default function AdminBlogCreatePage() {
     </AdminProtected>
   );
 }
+
+export const dynamic = 'force-dynamic';

@@ -23,3 +23,6 @@ export default function ContactPage() {
     </AuroraPage>
   );
 }
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;

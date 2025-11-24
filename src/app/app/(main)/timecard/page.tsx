@@ -36,11 +36,15 @@ export default async function TimecardPage({
     const result = await getTimecardData();
 
     // Handle redirect
-    if ('redirect' in result) {
+    if ('redirect' in result && result.redirect) {
         redirect(result.redirect);
     }
 
-    const { timeCards, profile, storeSettings, showBreakColumns, latestTimeCard, pickupHistory } = result.data;
+    if (!result.data) {
+        redirect('/app/me');
+    }
+
+    const { timeCards, profile, storeSettings, showBreakColumns, latestTimeCard, pickupHistory } = result.data!;
     const autoOpenModal = params.openModal === "true";
     const autoClockOut = params.clockOut === "true";
 

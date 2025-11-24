@@ -185,3 +185,5 @@ export default function AdminCaseStudyListPage() {
     </AdminProtected>
   );
 }
+
+export const dynamic = 'force-dynamic';

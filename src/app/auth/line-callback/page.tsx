@@ -75,3 +75,5 @@ export default function LineCallbackPage() {
         </div>
     );
 }
+
+export const dynamic = 'force-dynamic';

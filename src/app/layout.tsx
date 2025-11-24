@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Inter, Noto_Sans_JP } from "next/font/google";
+import { Suspense } from "react";
 
 import { Toaster } from "@/components/ui/toast";
 import { siteContent } from "@/content/site";
@@ -44,7 +45,9 @@ export default function RootLayout({
         )}
       >
         <ConditionalShell>
-          <LineFriendshipChecker />
+          <Suspense fallback={null}>
+            <LineFriendshipChecker />
+          </Suspense>
           {children}
         </ConditionalShell>
         <Toaster />

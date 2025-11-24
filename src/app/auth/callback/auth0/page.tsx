@@ -132,3 +132,5 @@ export default function Auth0CallbackPage() {
         </div>
     );
 }
+
+export const dynamic = 'force-dynamic';

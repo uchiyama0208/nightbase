@@ -13,3 +13,6 @@ export const metadata: Metadata = {
 export default function HostIndustryPage() {
   return <IndustryPage industry={industry} />;
 }
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;

@@ -181,3 +181,5 @@ export default function AdminBlogListPage() {
     </AdminProtected>
   );
 }
+
+export const dynamic = 'force-dynamic';

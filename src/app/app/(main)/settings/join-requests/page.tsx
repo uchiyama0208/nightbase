@@ -63,3 +63,5 @@ export default function JoinRequestsPage() {
         </div>
     );
 }
+
+export const dynamic = 'force-dynamic';

@@ -20,3 +20,5 @@ export default function AdminManualCreatePage() {
     </AdminProtected>
   );
 }
+
+export const dynamic = 'force-dynamic';

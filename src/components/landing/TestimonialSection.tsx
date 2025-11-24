@@ -44,7 +44,7 @@ export function TestimonialSection() {
                                 ))}
                             </div>
                             <p className="text-slate-700 leading-relaxed mb-6 text-sm md:text-base">
-                                "{item.comment}"
+                                &quot;{item.comment}&quot;
                             </p>
                             <div className="flex items-center gap-3 border-t border-slate-200 pt-4">
                                 <div className="w-10 h-10 bg-slate-200 rounded-full flex-shrink-0"></div>

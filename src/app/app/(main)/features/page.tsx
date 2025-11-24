@@ -44,14 +44,21 @@ async function getFeaturesData() {
 
   const initialFlags = store
     ? {
-      break_enabled: store.break_enabled ?? false,
-      show_cast_pickup: store.show_cast_pickup ?? false,
-      auto_clock_out_enabled: store.auto_clock_out_enabled ?? false,
-      time_rounding_enabled: store.time_rounding_enabled ?? false,
-      tablet_timecard_enabled: store.tablet_timecard_enabled ?? false,
       show_dashboard: store.show_dashboard ?? true,
+      show_attendance: store.show_attendance ?? false,
+      show_timecard: store.show_timecard ?? false,
+      show_users: store.show_users ?? false,
+      show_roles: store.show_roles ?? false,
+      show_menus: store.show_menus ?? false,
     }
-    : {};
+    : {
+      show_dashboard: true,
+      show_attendance: false,
+      show_timecard: false,
+      show_users: false,
+      show_roles: false,
+      show_menus: false,
+    };
 
   return { initialFlags };
 }

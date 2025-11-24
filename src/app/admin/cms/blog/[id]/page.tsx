@@ -105,3 +105,5 @@ function BlogEditorLoader({ supabase, id }: { supabase: any; id: string }) {
 
   return <BlogEditor initialData={state.data} supabaseClient={supabase} />;
 }
+
+export const dynamic = 'force-dynamic';

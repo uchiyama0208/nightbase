@@ -10,3 +10,5 @@ export default function AdminPage() {
     </AdminProtected>
   );
 }
+
+export const dynamic = 'force-dynamic';

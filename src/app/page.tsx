@@ -11,10 +11,10 @@ import { CtaSection } from "@/components/landing/CtaSection";
 import { redirect } from "next/navigation";
 
 interface HomeProps {
-  searchParams: {
+  searchParams: Promise<{
     code?: string;
     next?: string;
-  };
+  }>;
 }
 
 export default async function Home({ searchParams }: HomeProps) {

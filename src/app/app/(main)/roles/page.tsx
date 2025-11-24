@@ -48,7 +48,7 @@ async function getRolesData() {
 
     const { data: profiles } = await supabase
         .from("profiles")
-        .select("id, display_name, role_id")
+        .select("id, display_name, real_name, role_id")
         .eq("store_id", currentProfile.store_id);
 
     return {

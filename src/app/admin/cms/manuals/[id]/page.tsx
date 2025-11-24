@@ -112,3 +112,5 @@ function ManualLoader({ supabase, id }: { supabase: any; id: string }) {
     />
   );
 }
+
+export const dynamic = 'force-dynamic';
