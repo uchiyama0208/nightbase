@@ -8,36 +8,22 @@ export const metadata: Metadata = {
     title: "プロフィール情報",
 };
 
+import { getAppData } from "../../data-access";
+
 // Server-side data fetching
 async function getUsersData(roleParam: string, queryParam: string) {
     const supabase = await createServerClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { user, profile } = await getAppData();
 
     if (!user) {
         redirect("/login");
     }
 
-    const { data: appUser } = await supabase
-        .from("users")
-        .select("current_profile_id")
-        .eq("id", user.id)
-        .maybeSingle();
-
-    if (!appUser?.current_profile_id) {
+    if (!profile || !profile.store_id) {
         redirect("/app/me");
     }
 
-    const { data: currentProfile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("id", appUser.current_profile_id)
-        .maybeSingle();
-
-    if (!currentProfile?.store_id) {
-        redirect("/app/me");
-    }
-
-    const storeId = currentProfile.store_id;
+    const storeId = profile.store_id;
 
     // Build query
     let query = supabase

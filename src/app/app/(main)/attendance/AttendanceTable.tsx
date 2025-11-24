@@ -48,7 +48,7 @@ interface AttendanceTableProps {
     roleFilter: string;
 }
 
-export function AttendanceTable({ attendanceRecords, profiles, roleFilter }: AttendanceTableProps) {
+export function AttendanceTable({ attendanceRecords, profiles, roleFilter: initialRoleFilter }: AttendanceTableProps) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalInitialData, setModalInitialData] = useState<{
         profileId?: string;
@@ -62,13 +62,14 @@ export function AttendanceTable({ attendanceRecords, profiles, roleFilter }: Att
     const [nameQuery, setNameQuery] = useState("");
     const [dateQuery, setDateQuery] = useState("");
     const [workingOnly, setWorkingOnly] = useState(false);
+    const [roleFilter, setRoleFilter] = useState(initialRoleFilter);
 
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
     const [profileForEdit, setProfileForEdit] = useState<Profile | null>(null);
 
     const tableProfiles = profiles.filter((p) => {
         if (roleFilter === "cast") return p.role === "cast";
-        return p.role === "staff";
+        return p.role === "staff" || p.role === "admin";
     });
 
     const profileMap: Record<string, Profile> = {};
@@ -101,7 +102,7 @@ export function AttendanceTable({ attendanceRecords, profiles, roleFilter }: Att
 
         // Filter by role for the table view
         if (roleFilter === "cast" && profile.role !== "cast") return false;
-        if (roleFilter === "staff" && profile.role !== "staff") return false;
+        if (roleFilter === "staff" && profile.role !== "staff" && profile.role !== "admin") return false;
 
         if (nameQuery.trim()) {
             const term = nameQuery.trim().toLowerCase();
@@ -213,20 +214,22 @@ export function AttendanceTable({ attendanceRecords, profiles, roleFilter }: Att
                 {/* Row 2: Toggle & Action */}
                 <div className="flex items-center justify-between">
                     <div className="inline-flex h-10 items-center rounded-full bg-gray-100 dark:bg-gray-800 p-1 text-xs">
-                        <Link
-                            href="/app/attendance?role=cast"
+                        <button
+                            type="button"
+                            onClick={() => setRoleFilter("cast")}
                             className={`px-4 h-full flex items-center rounded-full font-medium transition-colors ${roleFilter === "cast" ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
                                 }`}
                         >
                             キャスト
-                        </Link>
-                        <Link
-                            href="/app/attendance?role=staff"
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setRoleFilter("staff")}
                             className={`px-4 h-full flex items-center rounded-full font-medium transition-colors ${roleFilter === "staff" ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
                                 }`}
                         >
                             スタッフ
-                        </Link>
+                        </button>
                     </div>
                     <Button
                         size="icon"
@@ -243,12 +246,13 @@ export function AttendanceTable({ attendanceRecords, profiles, roleFilter }: Att
                     <TableHeader>
                         <TableRow className="border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
                             <TableHead className="px-2 sm:px-4 text-center text-gray-500 dark:text-gray-400 w-1/7 whitespace-nowrap">日付</TableHead>
-                            <TableHead className="px-2 sm:px-4 text-center text-gray-500 dark:text-gray-400 w-1/7 whitespace-nowrap">状態</TableHead>
                             <TableHead className="px-2 sm:px-4 text-center text-gray-500 dark:text-gray-400 w-1/7 whitespace-nowrap">名前</TableHead>
-                            <TableHead className="px-2 sm:px-4 text-center text-gray-500 dark:text-gray-400 w-1/7 whitespace-nowrap">出勤</TableHead>
-                            <TableHead className="px-2 sm:px-4 text-center text-gray-500 dark:text-gray-400 w-1/7 whitespace-nowrap">退勤</TableHead>
-                            <TableHead className="hidden md:table-cell px-2 sm:px-4 text-center text-gray-500 dark:text-gray-400 w-1/7 whitespace-nowrap">開始</TableHead>
-                            <TableHead className="hidden md:table-cell px-2 sm:px-4 text-center text-gray-500 dark:text-gray-400 w-1/7 whitespace-nowrap">終了</TableHead>
+                            <TableHead className="px-2 sm:px-4 text-center text-gray-500 dark:text-gray-400 w-1/7 whitespace-nowrap">開始</TableHead>
+                            <TableHead className="px-2 sm:px-4 text-center text-gray-500 dark:text-gray-400 w-1/7 whitespace-nowrap">終了</TableHead>
+                            <TableHead className="px-2 sm:px-4 text-center text-gray-500 dark:text-gray-400 w-1/7 whitespace-nowrap">送迎先</TableHead>
+                            <TableHead className="hidden md:table-cell px-2 sm:px-4 text-center text-gray-500 dark:text-gray-400 w-1/7 whitespace-nowrap">状態</TableHead>
+                            <TableHead className="hidden md:table-cell px-2 sm:px-4 text-center text-gray-500 dark:text-gray-400 w-1/7 whitespace-nowrap">打刻出勤</TableHead>
+                            <TableHead className="hidden md:table-cell px-2 sm:px-4 text-center text-gray-500 dark:text-gray-400 w-1/7 whitespace-nowrap">打刻退勤</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -280,37 +284,40 @@ export function AttendanceTable({ attendanceRecords, profiles, roleFilter }: Att
                                     <TableCell className="font-medium text-xs md:text-sm px-2 sm:px-4 text-center text-gray-900 dark:text-white whitespace-nowrap">
                                         {formatDate(record.date)}
                                     </TableCell>
-                                    <TableCell className="px-2 sm:px-4 text-center">
-                                        {getStatusBadge(record.status)}
-                                    </TableCell>
                                     <TableCell className="text-xs md:text-sm px-2 sm:px-4 text-center text-gray-900 dark:text-white whitespace-nowrap">
                                         {displayName}
                                     </TableCell>
                                     <TableCell className="text-xs md:text-sm px-2 sm:px-4 text-center text-gray-900 dark:text-white whitespace-nowrap">
-                                        {formatTime(record.clock_in ?? null)}
-                                    </TableCell>
-                                    <TableCell className="text-xs md:text-sm px-2 sm:px-4 text-center text-gray-900 dark:text-white whitespace-nowrap">
-                                        {formatTime(record.clock_out ?? null)}
-                                    </TableCell>
-                                    <TableCell className="hidden md:table-cell text-xs md:text-sm px-2 sm:px-4 text-center text-gray-900 dark:text-white whitespace-nowrap">
                                         {formatTime(record.start_time)}
                                     </TableCell>
-                                    <TableCell className="hidden md:table-cell text-xs md:text-sm px-2 sm:px-4 text-center text-gray-900 dark:text-white whitespace-nowrap">
+                                    <TableCell className="text-xs md:text-sm px-2 sm:px-4 text-center text-gray-900 dark:text-white whitespace-nowrap">
                                         {formatTime(record.end_time)}
+                                    </TableCell>
+                                    <TableCell className="text-xs md:text-sm px-2 sm:px-4 text-center text-gray-900 dark:text-white whitespace-nowrap">
+                                        {(record as any).pickup_destination || "-"}
+                                    </TableCell>
+                                    <TableCell className="hidden md:table-cell px-2 sm:px-4 text-center">
+                                        {getStatusBadge(record.status)}
+                                    </TableCell>
+                                    <TableCell className="hidden md:table-cell text-xs md:text-sm px-2 sm:px-4 text-center text-gray-900 dark:text-white whitespace-nowrap">
+                                        {formatTime(record.clock_in ?? null)}
+                                    </TableCell>
+                                    <TableCell className="hidden md:table-cell text-xs md:text-sm px-2 sm:px-4 text-center text-gray-900 dark:text-white whitespace-nowrap">
+                                        {formatTime(record.clock_out ?? null)}
                                     </TableCell>
                                 </TableRow>
                             )
                         })}
                         {filteredRecords.length === 0 && attendanceRecords.length > 0 && (
                             <TableRow>
-                                <TableCell colSpan={7} className="h-24 text-center text-xs md:text-sm text-gray-500 dark:text-gray-400">
+                                <TableCell colSpan={8} className="h-24 text-center text-xs md:text-sm text-gray-500 dark:text-gray-400">
                                     検索条件に一致する出勤記録がありません
                                 </TableCell>
                             </TableRow>
                         )}
                         {attendanceRecords.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={7} className="h-24 text-center text-xs md:text-sm text-gray-500 dark:text-gray-400">
+                                <TableCell colSpan={8} className="h-24 text-center text-xs md:text-sm text-gray-500 dark:text-gray-400">
                                     出勤記録がありません
                                 </TableCell>
                             </TableRow>

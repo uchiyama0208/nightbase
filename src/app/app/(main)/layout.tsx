@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { AppLayoutClient } from "./layout-client";
-import { createServerClient } from "@/lib/supabaseServerClient";
+import { getAppData } from "../data-access";
 
 export const metadata: Metadata = {
     title: {
@@ -16,40 +16,19 @@ export default async function AppLayout({
 }: {
     children: React.ReactNode;
 }) {
-    const supabase = await createServerClient();
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
+    const { user, profile } = await getAppData();
 
     if (!user) {
         redirect("/login");
     }
 
-    // Resolve current profile via users.current_profile_id (optional)
-    const { data: appUser } = await supabase
-        .from("users")
-        .select("current_profile_id")
-        .eq("id", user.id)
-        .maybeSingle();
+    // Check approval status
+    if (profile) {
+        const approvalStatus = profile.approval_status || "approved";
 
-    let profile: any | null = null;
-
-    if (appUser?.current_profile_id) {
-        const { data } = await supabase
-            .from("profiles")
-            .select("*, stores(*)")
-            .eq("id", appUser.current_profile_id)
-            .maybeSingle();
-        profile = data ?? null;
-
-        // Check approval status
-        if (profile) {
-            const approvalStatus = profile.approval_status || "approved";
-
-            if (approvalStatus === "pending" || approvalStatus === "rejected") {
-                // Redirect to pending approval page
-                redirect("/onboarding/pending-approval");
-            }
+        if (approvalStatus === "pending" || approvalStatus === "rejected") {
+            // Redirect to pending approval page
+            redirect("/onboarding/pending-approval");
         }
     }
 

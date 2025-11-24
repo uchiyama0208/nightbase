@@ -24,30 +24,34 @@ export interface Invitation {
     };
 }
 
-export async function getInvitations(filters?: { status?: string; search?: string; role?: string }) {
+export async function getInvitations(filters?: { status?: string; search?: string; role?: string }, storeId?: string) {
     const supabase = await createServerClient();
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
 
-    if (!user) return [];
+    if (!storeId) {
+        const {
+            data: { user },
+        } = await supabase.auth.getUser();
 
-    // Get current user's store
-    const { data: appUser } = await supabase
-        .from("users")
-        .select("current_profile_id")
-        .eq("id", user.id)
-        .maybeSingle();
+        if (!user) return [];
 
-    if (!appUser?.current_profile_id) return [];
+        // Get current user's store
+        const { data: appUser } = await supabase
+            .from("users")
+            .select("current_profile_id")
+            .eq("id", user.id)
+            .maybeSingle();
 
-    const { data: currentProfile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("id", appUser.current_profile_id)
-        .maybeSingle();
+        if (!appUser?.current_profile_id) return [];
 
-    if (!currentProfile?.store_id) return [];
+        const { data: currentProfile } = await supabase
+            .from("profiles")
+            .select("store_id")
+            .eq("id", appUser.current_profile_id)
+            .maybeSingle();
+
+        if (!currentProfile?.store_id) return [];
+        storeId = currentProfile.store_id;
+    }
 
     // Query profiles table for invitations
     let query = supabase
@@ -63,7 +67,7 @@ export async function getInvitations(filters?: { status?: string; search?: strin
             display_name,
             avatar_url
         `)
-        .eq("store_id", currentProfile.store_id)
+        .eq("store_id", storeId)
         .in("invite_status", ["pending", "accepted", "canceled"]); // Fetch all invitation statuses
 
     // Apply status filter if specified
@@ -295,35 +299,39 @@ export async function getInvitationByToken(token: string) {
     };
 }
 
-export async function getUninvitedProfiles() {
+export async function getUninvitedProfiles(storeId?: string) {
     const supabase = await createServerClient();
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
 
-    if (!user) return [];
+    if (!storeId) {
+        const {
+            data: { user },
+        } = await supabase.auth.getUser();
 
-    const { data: appUser } = await supabase
-        .from("users")
-        .select("current_profile_id")
-        .eq("id", user.id)
-        .maybeSingle();
+        if (!user) return [];
 
-    if (!appUser?.current_profile_id) return [];
+        const { data: appUser } = await supabase
+            .from("users")
+            .select("current_profile_id")
+            .eq("id", user.id)
+            .maybeSingle();
 
-    const { data: currentProfile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("id", appUser.current_profile_id)
-        .maybeSingle();
+        if (!appUser?.current_profile_id) return [];
 
-    if (!currentProfile?.store_id) return [];
+        const { data: currentProfile } = await supabase
+            .from("profiles")
+            .select("store_id")
+            .eq("id", appUser.current_profile_id)
+            .maybeSingle();
+
+        if (!currentProfile?.store_id) return [];
+        storeId = currentProfile.store_id;
+    }
 
     // Get all profiles for the store
     const { data: profiles } = await supabase
         .from("profiles")
         .select("id, display_name, role, avatar_url")
-        .eq("store_id", currentProfile.store_id)
+        .eq("store_id", storeId)
         .is("user_id", null); // Only profiles not yet linked to a user? 
     // Wait, the requirement is "invite profiles". Usually this means profiles that exist but don't have a user account yet?
     // Or just any profile? The prompt says "profilesデータのユーザーを招待できるようにして".
@@ -369,20 +377,23 @@ export async function getInvitationsData() {
         return { redirect: "/app/timecard" };
     }
 
-    const invitations = await getInvitations();
-    const uninvitedProfiles = await getUninvitedProfiles();
-    const roles = await getRoles();
+    const storeId = currentProfile.store_id;
 
-    // Get join requests count and data
-    let joinRequestsCount = 0;
-    const { data: joinRequests } = await supabase
-        .from("profiles")
-        .select("id, display_name, real_name, role, created_at, approval_status")
-        .eq("store_id", currentProfile.store_id)
-        .eq("approval_status", "pending")
-        .order("created_at", { ascending: false });
+    // Parallelize independent fetches
+    const [invitations, uninvitedProfiles, roles, joinRequests] = await Promise.all([
+        getInvitations(undefined, storeId),
+        getUninvitedProfiles(storeId),
+        getRoles(storeId),
+        supabase
+            .from("profiles")
+            .select("id, display_name, real_name, role, created_at, approval_status")
+            .eq("store_id", storeId)
+            .eq("approval_status", "pending")
+            .order("created_at", { ascending: false })
+            .then(res => res.data || [])
+    ]);
 
-    joinRequestsCount = joinRequests?.length || 0;
+    const joinRequestsCount = joinRequests.length;
 
     return {
         data: {
@@ -390,7 +401,7 @@ export async function getInvitationsData() {
             uninvitedProfiles,
             roles,
             joinRequestsCount,
-            joinRequests: joinRequests || [],
+            joinRequests,
         }
     };
 }

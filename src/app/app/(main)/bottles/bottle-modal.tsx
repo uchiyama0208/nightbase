@@ -23,8 +23,8 @@ import {
 } from "@/components/ui/dialog";
 import { ChevronLeft, Plus } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { UserEditModal } from "../users/user-edit-modal";
 import { MenuEditModal } from "../menus/menu-edit-modal";
+import { UserEditModal } from "../users/user-edit-modal";
 
 interface BottleModalProps {
     isOpen: boolean;
@@ -349,6 +349,7 @@ export function BottleModal({
                 }}
                 profile={null}
                 defaultRole="guest"
+                isNested={true}
             />
 
             {/* Menu Edit Modal */}

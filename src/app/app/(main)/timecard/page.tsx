@@ -119,6 +119,7 @@ export default async function TimecardPage({
                                         </>
                                     )}
                                     <TableHead className="min-w-[80px] px-2 sm:px-4 text-center text-gray-500 dark:text-gray-400">勤務時間</TableHead>
+                                    <TableHead className="min-w-[90px] px-2 sm:px-4 text-center text-gray-500 dark:text-gray-400">送迎先</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -138,11 +139,12 @@ export default async function TimecardPage({
                                             </>
                                         )}
                                         <TableCell className="font-medium text-xs md:text-sm px-2 sm:px-4 text-center text-gray-900 dark:text-white">{calculateWorkTime(card)}</TableCell>
+                                        <TableCell className="text-xs md:text-sm px-2 sm:px-4 text-center text-gray-900 dark:text-white">{card.pickup_destination || card.pickup_location || "-"}</TableCell>
                                     </TableRow>
                                 ))}
                                 {(!timeCards || timeCards.length === 0) && (
                                     <TableRow>
-                                        <TableCell colSpan={showBreakColumns ? 6 : 4} className="h-24 text-center text-xs md:text-sm text-gray-500 dark:text-gray-400">
+                                        <TableCell colSpan={showBreakColumns ? 7 : 5} className="h-24 text-center text-xs md:text-sm text-gray-500 dark:text-gray-400">
                                             勤務履歴がありません
                                         </TableCell>
                                     </TableRow>

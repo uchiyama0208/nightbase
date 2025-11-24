@@ -509,6 +509,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                     defaultValue={profile?.display_name || ""}
                                     placeholder="表示名"
                                     className="rounded-md"
+                                    required
                                 />
                             </div>
 
@@ -520,6 +521,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                     defaultValue={profile?.display_name_kana || ""}
                                     placeholder="ひょうじめい"
                                     className="rounded-md"
+                                    required
                                 />
                             </div>
 
@@ -922,17 +924,19 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                 </DialogContent>
             </Dialog>
 
-            {/* Bottle Modal */}
-            <BottleModal
-                isOpen={isBottleModalOpen}
-                onClose={() => {
-                    setIsBottleModalOpen(false);
-                    refreshBottleKeeps();
-                }}
-                menus={menus}
-                profiles={allProfiles}
-                initialProfileIds={profile ? [profile.id] : []}
-            />
+            {/* Bottle Modal - only show if not nested */}
+            {!isNested && profile && profile.role === "guest" && (
+                <BottleModal
+                    isOpen={isBottleModalOpen}
+                    onClose={() => {
+                        setIsBottleModalOpen(false);
+                        refreshBottleKeeps();
+                    }}
+                    menus={menus}
+                    profiles={allProfiles}
+                    initialProfileIds={profile ? [profile.id] : []}
+                />
+            )}
 
             {/* Delete Comment Confirmation Modal */}
             <Dialog open={!!deleteCommentId} onOpenChange={(open) => !open && setDeleteCommentId(null)}>

@@ -67,13 +67,17 @@ export async function createAttendance(formData: FormData) {
         work_date: date,
     };
 
-    // Map status to clock_in/clock_out
+    // Map status to clock_in/clock_out and scheduled times
     if (status === "working" || status === "finished") {
-        payload.clock_in = startTime ? toISOString(startTime) : new Date(`${date}T00:00:00`).toISOString();
+        const clockInTime = startTime ? toISOString(startTime) : new Date(`${date}T00:00:00`).toISOString();
+        payload.clock_in = clockInTime;
+        payload.scheduled_start_time = clockInTime;
     }
 
     if (status === "finished") {
-        payload.clock_out = endTime ? toISOString(endTime) : new Date(`${date}T23:59:59`).toISOString();
+        const clockOutTime = endTime ? toISOString(endTime) : new Date(`${date}T23:59:59`).toISOString();
+        payload.clock_out = clockOutTime;
+        payload.scheduled_end_time = clockOutTime;
     }
 
     const { error } = await supabase.from("time_cards").insert(payload);
@@ -158,17 +162,23 @@ export async function updateAttendance(formData: FormData) {
         work_date: date,
     };
 
-    // Map status to clock_in/clock_out
+    // Map status to clock_in/clock_out and scheduled times
     if (status === "working" || status === "finished") {
-        payload.clock_in = timeToISO(startTime, date) || new Date(`${date}T00:00:00`).toISOString();
+        const clockInTime = timeToISO(startTime, date) || new Date(`${date}T00:00:00`).toISOString();
+        payload.clock_in = clockInTime;
+        payload.scheduled_start_time = clockInTime;
     } else {
         payload.clock_in = null;
+        payload.scheduled_start_time = null;
     }
 
     if (status === "finished") {
-        payload.clock_out = timeToISO(endTime, date) || new Date(`${date}T23:59:59`).toISOString();
+        const clockOutTime = timeToISO(endTime, date) || new Date(`${date}T23:59:59`).toISOString();
+        payload.clock_out = clockOutTime;
+        payload.scheduled_end_time = clockOutTime;
     } else {
         payload.clock_out = null;
+        payload.scheduled_end_time = null;
     }
 
     const { error } = await supabase

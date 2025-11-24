@@ -156,9 +156,12 @@ export async function assignRole(profileId: string, roleId: string | null) {
     return { success: true };
 }
 
-export async function getRoles() {
+export async function getRoles(storeId?: string) {
     const supabase = await createServerClient();
-    const storeId = await getStoreId();
+
+    if (!storeId) {
+        storeId = await getStoreId();
+    }
 
     const { data: roles, error } = await supabase
         .from("store_roles")
@@ -215,23 +218,28 @@ export async function getRolesData() {
         return { redirect: "/app/timecard" };
     }
 
-    // Fetch roles for the store
-    const { data: roles, error: rolesError } = await supabase
-        .from("store_roles")
-        .select("*")
-        .eq("store_id", currentProfile.store_id)
-        .order("created_at", { ascending: true });
+    // Parallelize fetches
+    const [rolesResult, profilesResult] = await Promise.all([
+        supabase
+            .from("store_roles")
+            .select("*")
+            .eq("store_id", currentProfile.store_id)
+            .order("created_at", { ascending: true }),
+        supabase
+            .from("profiles")
+            .select("id, display_name, real_name, role_id, role")
+            .eq("store_id", currentProfile.store_id)
+    ]);
+
+    const roles = rolesResult.data;
+    const rolesError = rolesResult.error;
+    const profiles = profilesResult.data;
+    const profilesError = profilesResult.error;
 
     if (rolesError) {
         console.error("Error fetching roles:", rolesError);
         throw new Error(rolesError.message);
     }
-
-    // Fetch all profiles for assignment
-    const { data: profiles, error: profilesError } = await supabase
-        .from("profiles")
-        .select("id, display_name, real_name, role_id, role")
-        .eq("store_id", currentProfile.store_id);
 
     if (profilesError) {
         console.error("Error fetching profiles:", profilesError);

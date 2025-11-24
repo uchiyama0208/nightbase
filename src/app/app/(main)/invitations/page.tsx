@@ -36,13 +36,11 @@ export default async function InvitationsPage() {
             </div>
 
             <div className="mt-6">
-                <Suspense fallback={<InvitationsSkeleton />}>
-                    <InvitationList
-                        initialInvitations={invitations}
-                        uninvitedProfiles={uninvitedProfiles}
-                        roles={roles}
-                    />
-                </Suspense>
+                <InvitationList
+                    initialInvitations={invitations}
+                    uninvitedProfiles={uninvitedProfiles}
+                    roles={roles}
+                />
             </div>
         </div>
     );

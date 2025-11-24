@@ -1,3 +1,4 @@
+
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { Suspense } from "react";
@@ -8,6 +9,7 @@ import { createServerClient } from "@/lib/supabaseServerClient";
 import { createServiceRoleClient } from "@/lib/supabaseServiceClient";
 import { WorkingTimeCard } from "./working-time-card";
 import { ClockInCard } from "./clock-in-card";
+import { getAppData } from "../../data-access";
 
 export const metadata: Metadata = {
     title: "ダッシュボード",
@@ -15,96 +17,77 @@ export const metadata: Metadata = {
 
 // Server Component - データをサーバー側で取得
 async function getDashboardData() {
-    const supabase = await createServerClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { user, profile } = await getAppData();
 
     if (!user) {
         redirect("/login");
     }
 
-    // Resolve current profile via users.current_profile_id
-    const { data: appUser } = await supabase
-        .from("users")
-        .select("current_profile_id")
-        .eq("id", user.id)
-        .maybeSingle();
-
-    if (!appUser?.current_profile_id) {
+    if (!profile || !profile.store_id) {
         redirect("/app/me");
     }
 
-    // Fetch current profile with store information
-    const { data: currentProfile } = await supabase
-        .from("profiles")
-        .select("*, stores(*)")
-        .eq("id", appUser.current_profile_id)
-        .maybeSingle();
-
-    if (!currentProfile || !currentProfile.store_id) {
-        redirect("/app/me");
-    }
-
-    const store = currentProfile.stores as any;
+    const store = profile.stores as any;
     if (store && store.show_dashboard === false) {
         redirect("/app/timecard");
     }
 
     const storeName = store ? store.name : null;
-    const storeId = currentProfile.store_id;
+    const storeId = profile.store_id;
 
     // 集計には service role クライアントを使用
     const serviceSupabase = createServiceRoleClient();
 
-    // Fetch all profiles for this store to filter timecards
-    const { data: storeProfiles } = await serviceSupabase
-        .from("profiles")
-        .select("id, role")
-        .eq("store_id", storeId)
-        .returns<{ id: string; role: string }[]>();
-
-    const storeProfileIds = storeProfiles?.map(p => p.id) || [];
-    const castProfileIds = storeProfiles?.filter(p => p.role === 'cast').map(p => p.id) || [];
-    const staffProfileIds = storeProfiles?.filter(p => ['staff', 'admin'].includes(p.role)).map(p => p.id) || [];
-
-    // Fetch active timecards for today
+    // Parallelize independent fetches
     const now = new Date();
     const jstDate = new Date(now.getTime() + 9 * 60 * 60 * 1000);
     const today = jstDate.toISOString().split("T")[0];
-    const { data: activeTimeCards } = await serviceSupabase
-        .from("time_cards")
-        .select("user_id")
-        .eq("work_date", today)
-        .is("clock_out", null)
-        .in("user_id", storeProfileIds)
-        .returns<{ user_id: string }[]>();
 
-    const activeCastCount = activeTimeCards?.filter(tc => castProfileIds.includes(tc.user_id)).length || 0;
-    const activeStaffCount = activeTimeCards?.filter(tc => staffProfileIds.includes(tc.user_id)).length || 0;
+    // Parallelize all fetches
+    const [activeTimeCardsResult, currentUserTimeCardResult, lastClockInResult] = await Promise.all([
+        // Fetch active timecards with roles in one go
+        serviceSupabase
+            .from("time_cards")
+            .select("user_id, profiles!inner(role)")
+            .eq("profiles.store_id", storeId)
+            .eq("work_date", today)
+            .is("clock_out", null)
+            .returns<{ user_id: string; profiles: { role: string } }[]>(),
 
-    // Check if current user is clocked in
-    const { data: currentUserTimeCard } = await serviceSupabase
-        .from("time_cards")
-        .select("clock_in")
-        .eq("user_id", appUser.current_profile_id)
-        .eq("work_date", today)
-        .is("clock_out", null)
-        .maybeSingle()
-        .returns<{ clock_in: string } | null>();
+        // Check if current user is clocked in
+        serviceSupabase
+            .from("time_cards")
+            .select("clock_in")
+            .eq("user_id", profile.id)
+            .eq("work_date", today)
+            .is("clock_out", null)
+            .maybeSingle()
+            .returns<{ clock_in: string } | null>(),
 
-    // Get last completed clock-in
-    const { data: lastClockIn } = await serviceSupabase
-        .from("time_cards")
-        .select("work_date, clock_in, clock_out")
-        .eq("user_id", appUser.current_profile_id)
-        .not("clock_out", "is", null)
-        .order("work_date", { ascending: false })
-        .order("clock_in", { ascending: false })
-        .limit(1)
-        .maybeSingle()
-        .returns<{ work_date: string; clock_in: string; clock_out: string } | null>();
+        // Get last completed clock-in
+        serviceSupabase
+            .from("time_cards")
+            .select("work_date, clock_in, clock_out")
+            .eq("user_id", profile.id)
+            .not("clock_out", "is", null)
+            .order("work_date", { ascending: false })
+            .order("clock_in", { ascending: false })
+            .limit(1)
+            .maybeSingle()
+            .returns<{ work_date: string; clock_in: string; clock_out: string } | null>()
+    ]);
+
+    const activeTimeCards = activeTimeCardsResult.data || [];
+
+    // Count based on returned roles
+    const activeCastCount = activeTimeCards.filter(tc => tc.profiles.role === 'cast').length;
+    const activeStaffCount = activeTimeCards.filter(tc => ['staff', 'admin'].includes(tc.profiles.role)).length;
+
+    const currentUserTimeCard = currentUserTimeCardResult.data;
+    const lastClockIn = lastClockInResult.data;
 
     return {
-        currentProfile,
+        currentProfile: profile,
         storeName,
         activeCastCount,
         activeStaffCount,
@@ -112,6 +95,7 @@ async function getDashboardData() {
         lastClockIn,
     };
 }
+
 
 // Skeleton for cards
 function DashboardSkeleton() {

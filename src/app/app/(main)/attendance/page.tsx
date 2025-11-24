@@ -3,57 +3,43 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabaseServerClient";
 import { AttendanceTable } from "./AttendanceTable";
+import { getAppData } from "../../data-access";
 
 export const metadata: Metadata = {
 	title: "勤怠",
 };
 
 async function getAttendanceData(roleParam?: string) {
-	const supabase = await createServerClient();
-	const { data: { user } } = await supabase.auth.getUser();
+	const { user, profile } = await getAppData();
 
 	if (!user) {
 		redirect("/login");
 	}
 
-	const { data: appUser } = await supabase
-		.from("users")
-		.select("current_profile_id")
-		.eq("id", user.id)
-		.maybeSingle();
-
-	if (!appUser?.current_profile_id) {
+	if (!profile || !profile.store_id) {
 		redirect("/app/me");
 	}
 
-	const { data: currentProfile } = await supabase
-		.from("profiles")
-		.select("store_id")
-		.eq("id", appUser.current_profile_id)
-		.maybeSingle();
+	const storeId = profile.store_id;
 
-	if (!currentProfile?.store_id) {
-		redirect("/app/me");
-	}
+	const supabase = await createServerClient();
 
-	const storeId = currentProfile.store_id;
-	// Use JST for today's date
-	const now = new Date();
-	const jstDate = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-	const today = jstDate.toISOString().split("T")[0];
+	const [rawRecordsResult, allProfilesResult] = await Promise.all([
+		supabase
+			.from("time_cards")
+			.select("*, profiles!inner(id, display_name, role)")
+			.eq("profiles.store_id", storeId)
+			.order("work_date", { ascending: false })
+			.order("clock_in", { ascending: false }),
+		supabase
+			.from("profiles")
+			.select("id, display_name, display_name_kana, real_name, role")
+			.eq("store_id", storeId)
+			.order("display_name")
+	]);
 
-	const { data: rawRecords } = await supabase
-		.from("time_cards")
-		.select("*, profiles!inner(id, display_name, role)")
-		.eq("profiles.store_id", storeId)
-		.eq("work_date", today)
-		.order("clock_in", { ascending: false });
-
-	const { data: allProfiles } = await supabase
-		.from("profiles")
-		.select("id, display_name, display_name_kana, real_name, role")
-		.eq("store_id", storeId)
-		.order("display_name");
+	const rawRecords = rawRecordsResult.data;
+	const allProfiles = allProfilesResult.data;
 
 	const roleFilter = roleParam?.toLowerCase() || "cast";
 
@@ -66,17 +52,22 @@ async function getAttendanceData(roleParam?: string) {
 			status = "finished";
 		}
 
+		// Use scheduled times if available, otherwise use clock times
+		const startTime = record.scheduled_start_time || record.clock_in;
+		const endTime = record.scheduled_end_time || record.clock_out;
+
 		return {
 			id: record.id,
 			user_id: record.user_id,
 			date: record.work_date,
 			status: status,
-			start_time: record.scheduled_start_time || null,
-			end_time: record.scheduled_end_time || null,
+			start_time: startTime,
+			end_time: endTime,
 			clock_in: record.clock_in,
 			clock_out: record.clock_out,
 			clock_in_time: record.clock_in,
 			clock_out_time: record.clock_out,
+			pickup_destination: record.pickup_destination,
 			isVirtual: false,
 		};
 	});
@@ -120,9 +111,7 @@ export default async function AttendancePage({
 				</div>
 			</div>
 
-			<Suspense fallback={<AttendanceSkeleton />}>
-				<AttendanceTable attendanceRecords={allRecords} profiles={allProfiles} roleFilter={roleFilter} />
-			</Suspense>
+			<AttendanceTable attendanceRecords={allRecords} profiles={allProfiles} roleFilter={roleFilter} />
 		</div>
 	);
 }

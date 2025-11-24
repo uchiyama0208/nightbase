@@ -100,6 +100,15 @@ export function AttendanceModal({
         if (/^\d{2}:\d{2}(?::\d{2})?$/.test(time)) {
             return time.slice(0, 5);
         }
+        // ISO timestamp -> "HH:MM"
+        try {
+            const date = new Date(time);
+            if (!isNaN(date.getTime())) {
+                return date.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", hour12: false });
+            }
+        } catch (e) {
+            console.error("Error parsing time:", e);
+        }
         return "";
     };
 

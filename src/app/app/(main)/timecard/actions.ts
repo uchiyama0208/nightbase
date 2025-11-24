@@ -54,16 +54,20 @@ export async function clockIn(pickupRequired?: boolean, pickupDestination?: stri
     const jstDate = new Date(now.getTime() + 9 * 60 * 60 * 1000);
     const workDate = jstDate.toISOString().split("T")[0]; // YYYY-MM-DD
 
-    // Calculate scheduled start time if rounding is enabled
+    // Calculate scheduled start time
     const store = profile?.stores as any;
-    let scheduledStartTime = null;
+    let scheduledStartTime: string;
     if (store?.time_rounding_enabled) {
+        // If rounding is enabled, use rounded time
         const rounded = roundTime(
             now,
             store.time_rounding_method || "round",
             store.time_rounding_minutes || 15
         );
         scheduledStartTime = rounded.toISOString();
+    } else {
+        // If rounding is disabled, use actual clock_in time
+        scheduledStartTime = now.toISOString();
     }
 
     const { error } = await supabase.from("time_cards").insert({
@@ -96,19 +100,26 @@ export async function clockOut(timeCardId: string) {
 
     const now = new Date();
 
-    // Calculate scheduled end time if rounding is enabled
-    let scheduledEndTime = null;
+    // Calculate scheduled end time
+    let scheduledEndTime: string;
     if (timeCard) {
         const profile = timeCard.profiles as any;
         const store = profile?.stores as any;
         if (store?.time_rounding_enabled) {
+            // If rounding is enabled, use rounded time
             const rounded = roundTime(
                 now,
                 store.time_rounding_method || "round",
                 store.time_rounding_minutes || 15
             );
             scheduledEndTime = rounded.toISOString();
+        } else {
+            // If rounding is disabled, use actual clock_out time
+            scheduledEndTime = now.toISOString();
         }
+    } else {
+        // Fallback if timeCard is not found
+        scheduledEndTime = now.toISOString();
     }
 
     const { error } = await supabase

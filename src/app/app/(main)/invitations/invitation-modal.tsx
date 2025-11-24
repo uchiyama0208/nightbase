@@ -252,6 +252,7 @@ export function InvitationModal({
                 open={showCreateProfile}
                 onOpenChange={setShowCreateProfile}
                 profile={null}
+                isNested={true}
             />
         </>
     );
