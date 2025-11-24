@@ -28,12 +28,14 @@ export default function RootLayout({
           "min-h-screen bg-background font-sans text-[#111111] antialiased",
         )}
       >
-        <ConditionalShell>
-          <Suspense fallback={null}>
-            <LineFriendshipChecker />
-          </Suspense>
-          {children}
-        </ConditionalShell>
+        <Suspense fallback={null}>
+          <ConditionalShell>
+            <Suspense fallback={null}>
+              <LineFriendshipChecker />
+            </Suspense>
+            {children}
+          </ConditionalShell>
+        </Suspense>
         <Toaster />
       </body>
     </html>
