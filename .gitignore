@@ -18,13 +18,17 @@ node_modules/
 # Next.js build output
 .next/
 out/
+dist/
 
 # Environment files
-.env*
+.env
+.env.*
+.env.local
 
 # Misc
 .DS_Store
 *.swp
 
-nightbase/
+# Local project / tools
 .vercel
+supabase/.temp/
