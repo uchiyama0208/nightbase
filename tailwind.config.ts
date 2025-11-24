@@ -22,7 +22,7 @@ const config: Config = {
         background: "#f5f7ff"
       },
       fontFamily: {
-        sans: ["var(--font-inter)", "var(--font-noto)", ...fontFamily.sans]
+        sans: [...fontFamily.sans]
       },
       boxShadow: {
         soft: "0 20px 45px -20px rgba(15, 23, 42, 0.15)"

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Inter, Noto_Sans_JP } from "next/font/google";
 import { Suspense } from "react";
 
 import { Toaster } from "@/components/ui/toast";
@@ -9,19 +8,6 @@ import { cn } from "@/lib/utils";
 import { SiteShell } from "@/components/SiteShell";
 import ConditionalShell from "@/components/ConditionalShell";
 import { LineFriendshipChecker } from "@/components/line-friendship-checker";
-
-const inter = Inter({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-inter",
-});
-
-const notoSansJp = Noto_Sans_JP({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-  variable: "--font-noto",
-});
 
 export const metadata: Metadata = {
   title: siteContent.metadata.title,
@@ -40,8 +26,6 @@ export default function RootLayout({
       <body
         className={cn(
           "min-h-screen bg-background font-sans text-[#111111] antialiased",
-          inter.variable,
-          notoSansJp.variable
         )}
       >
         <ConditionalShell>

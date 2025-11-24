@@ -2,6 +2,10 @@ import { createClient } from "@/lib/supabaseClient";
 import type { ManualPage } from "@/types/manual";
 import type { Database } from "@/types/supabase";
 
+function hasSupabaseEnv() {
+  return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+}
+
 type CmsEntryRow = Pick<
   Database["public"]["Tables"]["cms_entries"]["Row"],
   "id" | "type" | "slug" | "title" | "body" | "status" | "published_at"
@@ -23,6 +27,11 @@ function mapRowToManualPage(row: CmsEntryRow): ManualPage {
 }
 
 export async function getPublishedManualPages(): Promise<ManualPage[]> {
+  if (!hasSupabaseEnv()) {
+    console.warn("Supabase環境変数が未設定のため、マニュアルページの取得をスキップします。");
+    return [];
+  }
+
   const supabase = createClient();
 
   const { data, error } = await supabase
@@ -43,6 +52,11 @@ export async function getPublishedManualPages(): Promise<ManualPage[]> {
 }
 
 export async function getManualPageBySlug(slug: string): Promise<ManualPage | null> {
+  if (!hasSupabaseEnv()) {
+    console.warn("Supabase環境変数が未設定のため、マニュアルページの取得をスキップします。");
+    return null;
+  }
+
   const supabase = createClient();
 
   const { data, error } = await supabase
