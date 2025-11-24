@@ -6,12 +6,6 @@ import { Button } from "@/components/ui/button";
 export function LineLoginButton() {
     const handleLineLogin = async () => {
         try {
-            const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-            if (!supabaseUrl) {
-                alert("設定エラー: Supabase URLが見つかりません");
-                return;
-            }
-
             // Redirect to the line-auth Edge Function via Next.js API route
             // mode=login indicates this is a normal login attempt
             const apiUrl = `/api/line-link?mode=login`;

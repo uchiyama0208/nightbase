@@ -27,17 +27,8 @@ export default function SignupPage() {
         setLoading(true);
 
         try {
-            const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-
-            if (!supabaseUrl) {
-                console.error("NEXT_PUBLIC_SUPABASE_URL is not defined");
-                alert("設定エラー: Supabase URLが見つかりません");
-                setLoading(false);
-                return;
-            }
-
-            const edgeFunctionUrl = `${supabaseUrl}/functions/v1/line-auth?mode=onboarding`;
-            window.location.href = edgeFunctionUrl;
+            const lineAuthUrl = "/api/line-link?mode=onboarding";
+            window.location.href = lineAuthUrl;
         } catch (error) {
             console.error("LINE login error:", error);
             alert("ログインに失敗しました");

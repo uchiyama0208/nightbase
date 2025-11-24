@@ -17,22 +17,9 @@ export default function CreateStorePage() {
         setLoading(true);
 
         try {
-            // Get Supabase URL from environment
-            const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-
-            console.log("Supabase URL:", supabaseUrl);
-
-            if (!supabaseUrl) {
-                console.error("NEXT_PUBLIC_SUPABASE_URL is not defined");
-                alert("設定エラー: Supabase URLが見つかりません");
-                setLoading(false);
-                return;
-            }
-
-            // Redirect to Edge Function
-            const edgeFunctionUrl = `${supabaseUrl}/functions/v1/line-auth?mode=create-store`;
-            console.log("Redirecting to:", edgeFunctionUrl);
-            window.location.href = edgeFunctionUrl;
+            // Redirect to the Edge Function via Next.js API route to avoid client env requirements
+            const lineAuthUrl = `/api/line-link?mode=create-store`;
+            window.location.href = lineAuthUrl;
         } catch (error) {
             console.error("LINE login error:", error);
             alert("ログインに失敗しました");

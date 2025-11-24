@@ -17,18 +17,9 @@ export default function JoinStorePage() {
         setLoading(true);
 
         try {
-            // Get Supabase URL from environment
-            const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-
-            if (!supabaseUrl) {
-                alert("設定エラー: Supabase URLが見つかりません");
-                setLoading(false);
-                return;
-            }
-
-            // Redirect to Edge Function
-            const edgeFunctionUrl = `${supabaseUrl}/functions/v1/line-auth?mode=join-store`;
-            window.location.href = edgeFunctionUrl;
+            // Redirect to the Edge Function via Next.js API route to avoid client env requirements
+            const lineAuthUrl = `/api/line-link?mode=join-store`;
+            window.location.href = lineAuthUrl;
         } catch (error) {
             console.error("LINE login error:", error);
             alert("ログインに失敗しました");
