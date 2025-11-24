@@ -47,7 +47,7 @@ export function BottleList({ storeId, menus, profiles }: BottleListProps) {
 
     useEffect(() => {
         fetchBottles();
-    }, [statusFilter, searchQuery]);
+    }, [fetchBottles, statusFilter, searchQuery]);
 
     const handleCreateNew = () => {
         setEditingBottle(null);

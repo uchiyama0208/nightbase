@@ -189,7 +189,7 @@ export function InvitationList({
                                             {inv.profile?.avatar_url && (
                                                 <img
                                                     src={inv.profile.avatar_url}
-                                                    alt=""
+                                                    alt={`${inv.profile.display_name}のアバター`}
                                                     className="w-6 h-6 rounded-full object-cover"
                                                 />
                                             )}

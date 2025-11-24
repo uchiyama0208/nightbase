@@ -93,7 +93,7 @@ export function InvitationDetailModal({
                                 {invitation.profile?.avatar_url && (
                                     <img
                                         src={invitation.profile.avatar_url}
-                                        alt=""
+                                        alt={`${invitation.profile.display_name}のアバター`}
                                         className="w-6 h-6 rounded-full object-cover"
                                     />
                                 )}
@@ -140,7 +140,7 @@ export function InvitationDetailModal({
                             <div className="flex justify-center">
                                 <img
                                     src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(inviteUrl)}`}
-                                    alt="QR Code"
+                                    alt="招待QRコード"
                                     className="border rounded-lg p-2"
                                     width={150}
                                     height={150}

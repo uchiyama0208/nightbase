@@ -50,7 +50,7 @@ export function CaseStudyList({ caseStudies }: CaseStudyListProps) {
         selectedTag === ALL_TAG || (study.tags ?? []).includes(selectedTag);
       return tagOk;
     });
-  }, [publishedStudies, selectedCategory, selectedTag]);
+  }, [publishedStudies, selectedTag]);
 
   return (
     <section className="space-y-10">

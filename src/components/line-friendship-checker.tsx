@@ -45,7 +45,7 @@ export function LineFriendshipChecker() {
                     <div className="bg-green-50 p-4 rounded-full">
                         <img
                             src="https://upload.wikimedia.org/wikipedia/commons/4/41/LINE_logo.svg"
-                            alt="LINE"
+                            alt="LINEロゴ"
                             className="w-12 h-12"
                         />
                     </div>

@@ -224,7 +224,7 @@ export function InvitationModal({
                                 {/* Simple QR Code using API */}
                                 <img
                                     src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(inviteUrl)}`}
-                                    alt="QR Code"
+                                    alt="招待QRコード"
                                     className="border rounded-lg p-2"
                                     width={150}
                                     height={150}
