@@ -1,11 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabaseClient";
 import { Loader2 } from "lucide-react";
 
 export default function LineCallbackPage() {
+    return (
+        <Suspense
+            fallback={
+                <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50">
+                    <div className="text-center">
+                        <Loader2 className="h-10 w-10 animate-spin text-blue-600 mx-auto mb-4" />
+                        <p className="text-gray-600">ログイン処理中...</p>
+                    </div>
+                </div>
+            }
+        >
+            <LineCallbackContent />
+        </Suspense>
+    );
+}
+
+function LineCallbackContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const supabase = createBrowserClient();

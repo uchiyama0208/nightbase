@@ -1,31 +1,28 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams, usePathname, useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ExternalLink } from "lucide-react";
 
 export function LineFriendshipChecker() {
-    const searchParams = useSearchParams();
-    const pathname = usePathname();
-    const router = useRouter();
     const [isOpen, setIsOpen] = useState(false);
 
     useEffect(() => {
-        const isFriend = searchParams.get("is_friend");
+        const url = typeof window !== "undefined" ? new URL(window.location.href) : null;
+        const isFriend = url?.searchParams.get("is_friend");
 
         if (isFriend === "false") {
             setIsOpen(true);
         }
-    }, [searchParams]);
+    }, []);
 
     const handleClose = () => {
         setIsOpen(false);
         // Remove the param from the URL
-        const params = new URLSearchParams(searchParams.toString());
-        params.delete("is_friend");
-        router.replace(`${pathname}?${params.toString()}`);
+        const url = new URL(window.location.href);
+        url.searchParams.delete("is_friend");
+        window.history.replaceState({}, "", url.toString());
     };
 
     const handleAddFriend = () => {
