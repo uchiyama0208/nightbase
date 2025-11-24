@@ -29,14 +29,10 @@ export default function RootLayout({
         )}
       >
         <Suspense fallback={null}>
-          <ConditionalShell>
-            <Suspense fallback={null}>
-              <LineFriendshipChecker />
-            </Suspense>
-            {children}
-          </ConditionalShell>
+          <LineFriendshipChecker />
+          <ConditionalShell>{children}</ConditionalShell>
+          <Toaster />
         </Suspense>
-        <Toaster />
       </body>
     </html>
   );
