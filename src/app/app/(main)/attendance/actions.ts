@@ -54,6 +54,7 @@ export async function createAttendance(formData: FormData) {
     const status = formData.get("status") as string;
     const startTime = formData.get("startTime") as string;
     const endTime = formData.get("endTime") as string;
+    const pickupDestination = formData.get("pickup_destination") as string;
 
     // Convert HH:MM or HH:MM:SS to ISO string for the given date, treating input as JST
     const timeToISO = (timeStr: string | null, dateStr: string): string | null => {
@@ -68,6 +69,7 @@ export async function createAttendance(formData: FormData) {
     const payload: any = {
         user_id: targetProfileId,
         work_date: date,
+        pickup_destination: pickupDestination || null,
     };
 
     // Save start time if provided, or default based on status
@@ -131,6 +133,7 @@ export async function updateAttendance(formData: FormData) {
     const status = formData.get("status") as string;
     const startTime = formData.get("startTime") as string;
     const endTime = formData.get("endTime") as string;
+    const pickupDestination = formData.get("pickup_destination") as string;
 
     if (!id) {
         throw new Error("Time card id is required");
@@ -183,6 +186,7 @@ export async function updateAttendance(formData: FormData) {
     const payload: any = {
         user_id: profileId || appUser.current_profile_id,
         work_date: date,
+        pickup_destination: pickupDestination || null,
     };
 
     // Save start time if provided, or default based on status

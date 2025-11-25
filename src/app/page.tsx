@@ -9,6 +9,7 @@ import { FlowSection } from "@/components/landing/FlowSection";
 import { FaqSection } from "@/components/landing/FaqSection";
 import { CtaSection } from "@/components/landing/CtaSection";
 import { redirect } from "next/navigation";
+import { createServerClient } from "@/lib/supabaseServerClient";
 
 interface HomeProps {
   searchParams: Promise<{
@@ -26,6 +27,13 @@ export default async function Home({ searchParams }: HomeProps) {
   if (code) {
     const nextParam = next ? `&next=${encodeURIComponent(next)}` : "";
     redirect(`/auth/callback?code=${code}${nextParam}`);
+  }
+
+  // Check for existing session and redirect to dashboard if logged in
+  const supabase = await createServerClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) {
+    redirect("/app/dashboard");
   }
 
   return (

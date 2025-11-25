@@ -92,7 +92,7 @@ export function AttendanceModal({
 
     const defaultProfileId = editingRecord?.user_id || initialData?.profileId || "";
     const defaultDate = editingRecord?.date || initialData?.date || new Date().toISOString().split("T")[0];
-    const defaultStatus = editingRecord?.status || initialData?.status || "";
+    // Status is hidden, default to empty or inferred by backend
 
     const formatTimeForInput = (time: string | null) => {
         if (!time) return "";
@@ -114,6 +114,7 @@ export function AttendanceModal({
 
     const defaultStartTime = editingRecord ? formatTimeForInput(editingRecord.start_time) : (initialData?.startTime || "");
     const defaultEndTime = editingRecord ? formatTimeForInput(editingRecord.end_time) : (initialData?.endTime || "");
+    const defaultPickupDestination = editingRecord?.pickup_destination || "";
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -304,7 +305,8 @@ export function AttendanceModal({
                             </div>
                         </div>
 
-                        <div className="space-y-1">
+                        {/* Status is hidden as per user request */}
+                        {/* <div className="space-y-1">
                             <Label htmlFor="status">状態</Label>
                             <Select name="status" defaultValue={defaultStatus} required>
                                 <SelectTrigger className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md">
@@ -317,6 +319,18 @@ export function AttendanceModal({
                                     <SelectItem value="absent">欠勤</SelectItem>
                                 </SelectContent>
                             </Select>
+                        </div> */}
+
+                        <div className="space-y-1">
+                            <Label htmlFor="pickup_destination">送迎先</Label>
+                            <Input
+                                id="pickup_destination"
+                                name="pickup_destination"
+                                type="text"
+                                placeholder="送迎先を入力"
+                                defaultValue={defaultPickupDestination}
+                                className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md"
+                            />
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
