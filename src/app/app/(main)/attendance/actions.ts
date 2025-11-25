@@ -55,10 +55,11 @@ export async function createAttendance(formData: FormData) {
     const startTime = formData.get("startTime") as string;
     const endTime = formData.get("endTime") as string;
 
-    // Convert datetime-local to ISO string for time_cards
-    const toISOString = (datetimeLocal: string) => {
-        if (!datetimeLocal) return null;
-        return new Date(datetimeLocal).toISOString();
+    // Convert HH:MM or HH:MM:SS to ISO string for the given date
+    const timeToISO = (timeStr: string | null, dateStr: string): string | null => {
+        if (!timeStr) return null;
+        const normalized = /^\d{2}:\d{2}$/.test(timeStr) ? `${timeStr}:00` : timeStr;
+        return new Date(`${dateStr}T${normalized}`).toISOString();
     };
 
     // Prepare time_cards payload based on status
@@ -69,15 +70,28 @@ export async function createAttendance(formData: FormData) {
 
     // Map status to clock_in/clock_out and scheduled times
     if (status === "working" || status === "finished") {
-        const clockInTime = startTime ? toISOString(startTime) : new Date(`${date}T00:00:00`).toISOString();
+        const clockInTime = timeToISO(startTime, date) || new Date(`${date}T00:00:00`).toISOString();
         payload.clock_in = clockInTime;
         payload.scheduled_start_time = clockInTime;
+    } else {
+        payload.clock_in = null;
+        payload.scheduled_start_time = null;
     }
 
-    if (status === "finished") {
-        const clockOutTime = endTime ? toISOString(endTime) : new Date(`${date}T23:59:59`).toISOString();
+    // Save end time if provided, regardless of status
+    if (endTime) {
+        const clockOutTime = timeToISO(endTime, date);
         payload.clock_out = clockOutTime;
         payload.scheduled_end_time = clockOutTime;
+    } else if (status === "finished") {
+        // If no end time but status is finished, use end of day
+        const clockOutTime = new Date(`${date}T23:59:59`).toISOString();
+        payload.clock_out = clockOutTime;
+        payload.scheduled_end_time = clockOutTime;
+    } else {
+        // Clear end time for working/scheduled/absent statuses when no end time provided
+        payload.clock_out = null;
+        payload.scheduled_end_time = null;
     }
 
     const { error } = await supabase.from("time_cards").insert(payload);
@@ -172,11 +186,18 @@ export async function updateAttendance(formData: FormData) {
         payload.scheduled_start_time = null;
     }
 
-    if (status === "finished") {
-        const clockOutTime = timeToISO(endTime, date) || new Date(`${date}T23:59:59`).toISOString();
+    // Save end time if provided, regardless of status
+    if (endTime) {
+        const clockOutTime = timeToISO(endTime, date);
+        payload.clock_out = clockOutTime;
+        payload.scheduled_end_time = clockOutTime;
+    } else if (status === "finished") {
+        // If no end time but status is finished, use end of day
+        const clockOutTime = new Date(`${date}T23:59:59`).toISOString();
         payload.clock_out = clockOutTime;
         payload.scheduled_end_time = clockOutTime;
     } else {
+        // Clear end time for working/scheduled/absent statuses when no end time provided
         payload.clock_out = null;
         payload.scheduled_end_time = null;
     }

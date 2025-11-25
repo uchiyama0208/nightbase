@@ -14,15 +14,17 @@ create policy "Stores are viewable by everyone"
   on stores for select
   using ( true );
 
-create policy "Admins can insert/update stores"
-  on stores for all
-  using (
-    exists (
-      select 1 from profiles
-      where profiles.user_id = auth.uid()
-      and profiles.role = 'admin'
-    )
-  );
+-- Admin policy will be created after profiles table exists
+-- This is moved to a later migration to avoid dependency issues
+-- create policy "Admins can insert/update stores"
+--   on stores for all
+--   using (
+--     exists (
+--       select 1 from profiles
+--       where profiles.user_id = auth.uid()
+--       and profiles.role = 'admin'
+--     )
+--   );
 
 -- Modify profiles table
 alter table public.profiles add column if not exists real_name text;
