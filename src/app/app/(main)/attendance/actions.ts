@@ -488,7 +488,7 @@ export async function getAttendanceData(roleParam?: string) {
     if (profileIds.length > 0) {
         const { data: timeCardRows, error: timeCardsError } = await serviceSupabase
             .from("time_cards")
-            .select("id, user_id, work_date, clock_in, clock_out, scheduled_start_time, scheduled_end_time, forgot_clockout")
+            .select("id, user_id, work_date, clock_in, clock_out, scheduled_start_time, scheduled_end_time, forgot_clockout, pickup_destination")
             .in("user_id", profileIds)
             .gte("work_date", fromStr)
             .order("work_date", { ascending: false });
@@ -530,6 +530,7 @@ export async function getAttendanceData(roleParam?: string) {
                     end_time: formatTimeStr(tc.scheduled_end_time || tc.clock_out),
                     clock_in: formatTimeStr(tc.clock_in),
                     clock_out: formatTimeStr(tc.clock_out),
+                    pickup_destination: tc.pickup_destination,
                 };
             });
 

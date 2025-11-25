@@ -37,6 +37,7 @@ interface AttendanceRecord {
     status: string;
     start_time: string | null;
     end_time: string | null;
+    pickup_destination?: string | null;
 }
 
 interface AttendanceModalProps {
