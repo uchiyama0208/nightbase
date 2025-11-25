@@ -55,11 +55,13 @@ export async function createAttendance(formData: FormData) {
     const startTime = formData.get("startTime") as string;
     const endTime = formData.get("endTime") as string;
 
-    // Convert HH:MM or HH:MM:SS to ISO string for the given date
+    // Convert HH:MM or HH:MM:SS to ISO string for the given date, treating input as JST
     const timeToISO = (timeStr: string | null, dateStr: string): string | null => {
         if (!timeStr) return null;
         const normalized = /^\d{2}:\d{2}$/.test(timeStr) ? `${timeStr}:00` : timeStr;
-        return new Date(`${dateStr}T${normalized}`).toISOString();
+        // Create date object treating the input as JST (+09:00)
+        // Format: YYYY-MM-DDTHH:mm:ss+09:00
+        return new Date(`${dateStr}T${normalized}+09:00`).toISOString();
     };
 
     // Prepare time_cards payload based on status
@@ -68,9 +70,14 @@ export async function createAttendance(formData: FormData) {
         work_date: date,
     };
 
-    // Map status to clock_in/clock_out and scheduled times
-    if (status === "working" || status === "finished") {
-        const clockInTime = timeToISO(startTime, date) || new Date(`${date}T00:00:00`).toISOString();
+    // Save start time if provided, or default based on status
+    if (startTime) {
+        const clockInTime = timeToISO(startTime, date);
+        payload.clock_in = clockInTime;
+        payload.scheduled_start_time = clockInTime;
+    } else if (status === "working" || status === "finished") {
+        // Default to 00:00 JST if status implies working but no time given
+        const clockInTime = new Date(`${date}T00:00:00+09:00`).toISOString();
         payload.clock_in = clockInTime;
         payload.scheduled_start_time = clockInTime;
     } else {
@@ -84,8 +91,8 @@ export async function createAttendance(formData: FormData) {
         payload.clock_out = clockOutTime;
         payload.scheduled_end_time = clockOutTime;
     } else if (status === "finished") {
-        // If no end time but status is finished, use end of day
-        const clockOutTime = new Date(`${date}T23:59:59`).toISOString();
+        // If no end time but status is finished, use end of day JST
+        const clockOutTime = new Date(`${date}T23:59:59+09:00`).toISOString();
         payload.clock_out = clockOutTime;
         payload.scheduled_end_time = clockOutTime;
     } else {
@@ -163,11 +170,13 @@ export async function updateAttendance(formData: FormData) {
         }
     }
 
-    // Convert HH:MM or HH:MM:SS to ISO string for the given date
+    // Convert HH:MM or HH:MM:SS to ISO string for the given date, treating input as JST
     const timeToISO = (timeStr: string | null, dateStr: string): string | null => {
         if (!timeStr) return null;
         const normalized = /^\d{2}:\d{2}$/.test(timeStr) ? `${timeStr}:00` : timeStr;
-        return new Date(`${dateStr}T${normalized}`).toISOString();
+        // Create date object treating the input as JST (+09:00)
+        // Format: YYYY-MM-DDTHH:mm:ss+09:00
+        return new Date(`${dateStr}T${normalized}+09:00`).toISOString();
     };
 
     // Prepare update payload
@@ -176,9 +185,14 @@ export async function updateAttendance(formData: FormData) {
         work_date: date,
     };
 
-    // Map status to clock_in/clock_out and scheduled times
-    if (status === "working" || status === "finished") {
-        const clockInTime = timeToISO(startTime, date) || new Date(`${date}T00:00:00`).toISOString();
+    // Save start time if provided, or default based on status
+    if (startTime) {
+        const clockInTime = timeToISO(startTime, date);
+        payload.clock_in = clockInTime;
+        payload.scheduled_start_time = clockInTime;
+    } else if (status === "working" || status === "finished") {
+        // Default to 00:00 JST if status implies working but no time given
+        const clockInTime = new Date(`${date}T00:00:00+09:00`).toISOString();
         payload.clock_in = clockInTime;
         payload.scheduled_start_time = clockInTime;
     } else {
@@ -192,8 +206,8 @@ export async function updateAttendance(formData: FormData) {
         payload.clock_out = clockOutTime;
         payload.scheduled_end_time = clockOutTime;
     } else if (status === "finished") {
-        // If no end time but status is finished, use end of day
-        const clockOutTime = new Date(`${date}T23:59:59`).toISOString();
+        // If no end time but status is finished, use end of day JST
+        const clockOutTime = new Date(`${date}T23:59:59+09:00`).toISOString();
         payload.clock_out = clockOutTime;
         payload.scheduled_end_time = clockOutTime;
     } else {
