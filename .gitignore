@@ -32,3 +32,4 @@ dist/
 # Local project / tools
 .vercel
 supabase/.temp/
+tsconfig.tsbuildinfo
