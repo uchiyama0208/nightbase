@@ -1,0 +1,16 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/onboarding/layout,_N_T_/onboarding/create-store/layout,_N_T_/onboarding/create-store/page,_N_T_/onboarding/create-store"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/onboarding/create-store/__PAGE__",
+    "/onboarding/create-store",
+    "/onboarding",
+    "/_index",
+    "/_head"
+  ]
+}

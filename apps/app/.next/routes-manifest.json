@@ -1,0 +1,409 @@
+{
+  "version": 3,
+  "pages404": true,
+  "caseSensitive": false,
+  "basePath": "",
+  "redirects": [
+    {
+      "source": "/:path+/",
+      "destination": "/:path+",
+      "internal": true,
+      "priority": true,
+      "statusCode": 308,
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$"
+    }
+  ],
+  "headers": [],
+  "rewrites": {
+    "beforeFiles": [],
+    "afterFiles": [],
+    "fallback": []
+  },
+  "dynamicRoutes": [
+    {
+      "page": "/admin/cms/blog/[id]",
+      "regex": "^/admin/cms/blog/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/admin/cms/blog/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/admin/cms/case-studies/[id]",
+      "regex": "^/admin/cms/case\\-studies/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/admin/cms/case\\-studies/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/admin/cms/manuals/[id]",
+      "regex": "^/admin/cms/manuals/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/admin/cms/manuals/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/invite/[token]",
+      "regex": "^/invite/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPtoken": "nxtPtoken"
+      },
+      "namedRegex": "^/invite/(?<nxtPtoken>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/tablet/timecard/[storeId]",
+      "regex": "^/tablet/timecard/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPstoreId": "nxtPstoreId"
+      },
+      "namedRegex": "^/tablet/timecard/(?<nxtPstoreId>[^/]+?)(?:/)?$"
+    }
+  ],
+  "staticRoutes": [
+    {
+      "page": "/_global-error",
+      "regex": "^/_global\\-error(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_global\\-error(?:/)?$"
+    },
+    {
+      "page": "/_not-found",
+      "regex": "^/_not\\-found(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_not\\-found(?:/)?$"
+    },
+    {
+      "page": "/admin",
+      "regex": "^/admin(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin(?:/)?$"
+    },
+    {
+      "page": "/admin/analytics",
+      "regex": "^/admin/analytics(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/analytics(?:/)?$"
+    },
+    {
+      "page": "/admin/cms",
+      "regex": "^/admin/cms(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/cms(?:/)?$"
+    },
+    {
+      "page": "/admin/cms/blog",
+      "regex": "^/admin/cms/blog(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/cms/blog(?:/)?$"
+    },
+    {
+      "page": "/admin/cms/blog/new",
+      "regex": "^/admin/cms/blog/new(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/cms/blog/new(?:/)?$"
+    },
+    {
+      "page": "/admin/cms/case-studies",
+      "regex": "^/admin/cms/case\\-studies(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/cms/case\\-studies(?:/)?$"
+    },
+    {
+      "page": "/admin/cms/case-studies/new",
+      "regex": "^/admin/cms/case\\-studies/new(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/cms/case\\-studies/new(?:/)?$"
+    },
+    {
+      "page": "/admin/cms/manuals",
+      "regex": "^/admin/cms/manuals(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/cms/manuals(?:/)?$"
+    },
+    {
+      "page": "/admin/cms/manuals/new",
+      "regex": "^/admin/cms/manuals/new(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/cms/manuals/new(?:/)?$"
+    },
+    {
+      "page": "/admin/settings",
+      "regex": "^/admin/settings(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/settings(?:/)?$"
+    },
+    {
+      "page": "/admin/users",
+      "regex": "^/admin/users(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/users(?:/)?$"
+    },
+    {
+      "page": "/api/admin/invite-user",
+      "regex": "^/api/admin/invite\\-user(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/invite\\-user(?:/)?$"
+    },
+    {
+      "page": "/api/auth/signup-with-invite",
+      "regex": "^/api/auth/signup\\-with\\-invite(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/signup\\-with\\-invite(?:/)?$"
+    },
+    {
+      "page": "/api/cron/auto-clockout",
+      "regex": "^/api/cron/auto\\-clockout(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/cron/auto\\-clockout(?:/)?$"
+    },
+    {
+      "page": "/api/line-link",
+      "regex": "^/api/line\\-link(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/line\\-link(?:/)?$"
+    },
+    {
+      "page": "/app/attendance",
+      "regex": "^/app/attendance(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/app/attendance(?:/)?$"
+    },
+    {
+      "page": "/app/auth/callback",
+      "regex": "^/app/auth/callback(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/app/auth/callback(?:/)?$"
+    },
+    {
+      "page": "/app/auth/login",
+      "regex": "^/app/auth/login(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/app/auth/login(?:/)?$"
+    },
+    {
+      "page": "/app/auth/session",
+      "regex": "^/app/auth/session(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/app/auth/session(?:/)?$"
+    },
+    {
+      "page": "/app/auth/signup",
+      "regex": "^/app/auth/signup(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/app/auth/signup(?:/)?$"
+    },
+    {
+      "page": "/app/bottles",
+      "regex": "^/app/bottles(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/app/bottles(?:/)?$"
+    },
+    {
+      "page": "/app/dashboard",
+      "regex": "^/app/dashboard(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/app/dashboard(?:/)?$"
+    },
+    {
+      "page": "/app/features",
+      "regex": "^/app/features(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/app/features(?:/)?$"
+    },
+    {
+      "page": "/app/invitations",
+      "regex": "^/app/invitations(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/app/invitations(?:/)?$"
+    },
+    {
+      "page": "/app/invitations/join-requests",
+      "regex": "^/app/invitations/join\\-requests(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/app/invitations/join\\-requests(?:/)?$"
+    },
+    {
+      "page": "/app/me",
+      "regex": "^/app/me(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/app/me(?:/)?$"
+    },
+    {
+      "page": "/app/menus",
+      "regex": "^/app/menus(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/app/menus(?:/)?$"
+    },
+    {
+      "page": "/app/roles",
+      "regex": "^/app/roles(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/app/roles(?:/)?$"
+    },
+    {
+      "page": "/app/settings",
+      "regex": "^/app/settings(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/app/settings(?:/)?$"
+    },
+    {
+      "page": "/app/settings/import",
+      "regex": "^/app/settings/import(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/app/settings/import(?:/)?$"
+    },
+    {
+      "page": "/app/settings/join-requests",
+      "regex": "^/app/settings/join\\-requests(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/app/settings/join\\-requests(?:/)?$"
+    },
+    {
+      "page": "/app/settings/store",
+      "regex": "^/app/settings/store(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/app/settings/store(?:/)?$"
+    },
+    {
+      "page": "/app/settings/timecard",
+      "regex": "^/app/settings/timecard(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/app/settings/timecard(?:/)?$"
+    },
+    {
+      "page": "/app/timecard",
+      "regex": "^/app/timecard(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/app/timecard(?:/)?$"
+    },
+    {
+      "page": "/app/users",
+      "regex": "^/app/users(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/app/users(?:/)?$"
+    },
+    {
+      "page": "/auth/callback",
+      "regex": "^/auth/callback(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/auth/callback(?:/)?$"
+    },
+    {
+      "page": "/auth/callback/auth0",
+      "regex": "^/auth/callback/auth0(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/auth/callback/auth0(?:/)?$"
+    },
+    {
+      "page": "/auth/callback/invite",
+      "regex": "^/auth/callback/invite(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/auth/callback/invite(?:/)?$"
+    },
+    {
+      "page": "/auth/line-callback",
+      "regex": "^/auth/line\\-callback(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/auth/line\\-callback(?:/)?$"
+    },
+    {
+      "page": "/dashboard",
+      "regex": "^/dashboard(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard(?:/)?$"
+    },
+    {
+      "page": "/login",
+      "regex": "^/login(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/login(?:/)?$"
+    },
+    {
+      "page": "/login/unregistered",
+      "regex": "^/login/unregistered(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/login/unregistered(?:/)?$"
+    },
+    {
+      "page": "/onboarding/choice",
+      "regex": "^/onboarding/choice(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/onboarding/choice(?:/)?$"
+    },
+    {
+      "page": "/onboarding/create-store",
+      "regex": "^/onboarding/create\\-store(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/onboarding/create\\-store(?:/)?$"
+    },
+    {
+      "page": "/onboarding/join-store",
+      "regex": "^/onboarding/join\\-store(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/onboarding/join\\-store(?:/)?$"
+    },
+    {
+      "page": "/onboarding/pending-approval",
+      "regex": "^/onboarding/pending\\-approval(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/onboarding/pending\\-approval(?:/)?$"
+    },
+    {
+      "page": "/onboarding/profile",
+      "regex": "^/onboarding/profile(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/onboarding/profile(?:/)?$"
+    },
+    {
+      "page": "/onboarding/select-role",
+      "regex": "^/onboarding/select\\-role(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/onboarding/select\\-role(?:/)?$"
+    },
+    {
+      "page": "/onboarding/select-store",
+      "regex": "^/onboarding/select\\-store(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/onboarding/select\\-store(?:/)?$"
+    },
+    {
+      "page": "/onboarding/store-info",
+      "regex": "^/onboarding/store\\-info(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/onboarding/store\\-info(?:/)?$"
+    },
+    {
+      "page": "/signup",
+      "regex": "^/signup(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/signup(?:/)?$"
+    },
+    {
+      "page": "/signup/verify",
+      "regex": "^/signup/verify(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/signup/verify(?:/)?$"
+    }
+  ],
+  "dataRoutes": [],
+  "rsc": {
+    "header": "rsc",
+    "varyHeader": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+    "prefetchHeader": "next-router-prefetch",
+    "didPostponeHeader": "x-nextjs-postponed",
+    "contentTypeHeader": "text/x-component",
+    "suffix": ".rsc",
+    "prefetchSuffix": ".prefetch.rsc",
+    "prefetchSegmentHeader": "next-router-segment-prefetch",
+    "prefetchSegmentSuffix": ".segment.rsc",
+    "prefetchSegmentDirSuffix": ".segments",
+    "clientParamParsing": false,
+    "dynamicRSCPrerender": false
+  },
+  "rewriteHeaders": {
+    "pathHeader": "x-nextjs-rewritten-path",
+    "queryHeader": "x-nextjs-rewritten-query"
+  }
+}

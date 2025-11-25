@@ -1,0 +1,20 @@
+{
+  "node": {
+    "40d281ed84b38ac668808ba72195ebb5e55f757c52": {
+      "workers": {
+        "app/auth/callback/auth0/page": {
+          "moduleId": 15254,
+          "async": false,
+          "exportedName": "acceptInvitation",
+          "filename": "apps/app/src/app/app/(main)/invitations/actions.ts"
+        }
+      },
+      "layer": {
+        "app/auth/callback/auth0/page": "action-browser"
+      },
+      "exportedName": "acceptInvitation",
+      "filename": "apps/app/src/app/app/(main)/invitations/actions.ts"
+    }
+  },
+  "edge": {}
+}

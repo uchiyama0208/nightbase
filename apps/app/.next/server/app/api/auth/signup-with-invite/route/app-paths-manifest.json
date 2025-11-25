@@ -1,0 +1,3 @@
+{
+  "/api/auth/signup-with-invite/route": "app/api/auth/signup-with-invite/route.js"
+}

@@ -1,0 +1,35 @@
+{
+  "node": {
+    "408967fd430c887fbde0062003c88c0e3b39762d03": {
+      "workers": {
+        "app/tablet/timecard/[storeId]/page": {
+          "moduleId": 98761,
+          "async": false,
+          "exportedName": "tabletClockIn",
+          "filename": "apps/app/src/app/tablet/timecard/[storeId]/actions.ts"
+        }
+      },
+      "layer": {
+        "app/tablet/timecard/[storeId]/page": "rsc"
+      },
+      "exportedName": "tabletClockIn",
+      "filename": "apps/app/src/app/tablet/timecard/[storeId]/actions.ts"
+    },
+    "40d97c5a06149575f6c579d2ae7fc11e532f096f33": {
+      "workers": {
+        "app/tablet/timecard/[storeId]/page": {
+          "moduleId": 98761,
+          "async": false,
+          "exportedName": "tabletClockOut",
+          "filename": "apps/app/src/app/tablet/timecard/[storeId]/actions.ts"
+        }
+      },
+      "layer": {
+        "app/tablet/timecard/[storeId]/page": "rsc"
+      },
+      "exportedName": "tabletClockOut",
+      "filename": "apps/app/src/app/tablet/timecard/[storeId]/actions.ts"
+    }
+  },
+  "edge": {}
+}

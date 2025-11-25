@@ -1,0 +1,20 @@
+{
+  "node": {
+    "007459db64f988141da28e810b38601e5e8829989c": {
+      "workers": {
+        "app/onboarding/pending-approval/page": {
+          "moduleId": 77017,
+          "async": false,
+          "exportedName": "checkApprovalStatus",
+          "filename": "apps/app/src/app/onboarding/actions.ts"
+        }
+      },
+      "layer": {
+        "app/onboarding/pending-approval/page": "action-browser"
+      },
+      "exportedName": "checkApprovalStatus",
+      "filename": "apps/app/src/app/onboarding/actions.ts"
+    }
+  },
+  "edge": {}
+}

@@ -1,0 +1,3 @@
+module.exports=[68815,a=>{a.n(a.i(82851))},5540,a=>{a.n(a.i(50035))},43619,a=>{a.n(a.i(79962))},13718,a=>{a.n(a.i(85523))},18198,a=>{a.n(a.i(45518))},62212,a=>{a.n(a.i(66114))},55148,a=>{"use strict";var b=a.i(7997),c=a.i(96987);let d=(0,a.i(86301).getIndustryContentBySlug)("concept-cafe"),e={title:`${d.name} | NightBase`,description:d.heroLead};function f(){return(0,b.jsx)(c.IndustryPage,{industry:d})}a.s(["default",()=>f,"dynamic",0,"force-dynamic","metadata",0,e,"revalidate",0,0])}];
+
+//# sourceMappingURL=_8fa46dc9._.js.map

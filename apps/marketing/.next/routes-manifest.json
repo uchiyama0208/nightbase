@@ -1,0 +1,245 @@
+{
+  "version": 3,
+  "pages404": true,
+  "caseSensitive": false,
+  "basePath": "",
+  "redirects": [
+    {
+      "source": "/:path+/",
+      "destination": "/:path+",
+      "internal": true,
+      "priority": true,
+      "statusCode": 308,
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$"
+    }
+  ],
+  "headers": [],
+  "rewrites": {
+    "beforeFiles": [],
+    "afterFiles": [],
+    "fallback": []
+  },
+  "dynamicRoutes": [
+    {
+      "page": "/blog/[slug]",
+      "regex": "^/blog/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPslug": "nxtPslug"
+      },
+      "namedRegex": "^/blog/(?<nxtPslug>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/case-studies/[slug]",
+      "regex": "^/case\\-studies/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPslug": "nxtPslug"
+      },
+      "namedRegex": "^/case\\-studies/(?<nxtPslug>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/features/[slug]",
+      "regex": "^/features/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPslug": "nxtPslug"
+      },
+      "namedRegex": "^/features/(?<nxtPslug>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/manual/[slug]",
+      "regex": "^/manual/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPslug": "nxtPslug"
+      },
+      "namedRegex": "^/manual/(?<nxtPslug>[^/]+?)(?:/)?$"
+    }
+  ],
+  "staticRoutes": [
+    {
+      "page": "/",
+      "regex": "^/(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/(?:/)?$"
+    },
+    {
+      "page": "/_global-error",
+      "regex": "^/_global\\-error(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_global\\-error(?:/)?$"
+    },
+    {
+      "page": "/_not-found",
+      "regex": "^/_not\\-found(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_not\\-found(?:/)?$"
+    },
+    {
+      "page": "/about",
+      "regex": "^/about(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/about(?:/)?$"
+    },
+    {
+      "page": "/blog",
+      "regex": "^/blog(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/blog(?:/)?$"
+    },
+    {
+      "page": "/case-studies",
+      "regex": "^/case\\-studies(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/case\\-studies(?:/)?$"
+    },
+    {
+      "page": "/company",
+      "regex": "^/company(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/company(?:/)?$"
+    },
+    {
+      "page": "/contact",
+      "regex": "^/contact(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/contact(?:/)?$"
+    },
+    {
+      "page": "/contact/thanks",
+      "regex": "^/contact/thanks(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/contact/thanks(?:/)?$"
+    },
+    {
+      "page": "/features",
+      "regex": "^/features(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/features(?:/)?$"
+    },
+    {
+      "page": "/industries",
+      "regex": "^/industries(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/industries(?:/)?$"
+    },
+    {
+      "page": "/industries/bar",
+      "regex": "^/industries/bar(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/industries/bar(?:/)?$"
+    },
+    {
+      "page": "/industries/cabaret",
+      "regex": "^/industries/cabaret(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/industries/cabaret(?:/)?$"
+    },
+    {
+      "page": "/industries/club",
+      "regex": "^/industries/club(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/industries/club(?:/)?$"
+    },
+    {
+      "page": "/industries/concept-cafe",
+      "regex": "^/industries/concept\\-cafe(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/industries/concept\\-cafe(?:/)?$"
+    },
+    {
+      "page": "/industries/girls-bar",
+      "regex": "^/industries/girls\\-bar(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/industries/girls\\-bar(?:/)?$"
+    },
+    {
+      "page": "/industries/host",
+      "regex": "^/industries/host(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/industries/host(?:/)?$"
+    },
+    {
+      "page": "/industries/lounge",
+      "regex": "^/industries/lounge(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/industries/lounge(?:/)?$"
+    },
+    {
+      "page": "/manual",
+      "regex": "^/manual(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/manual(?:/)?$"
+    },
+    {
+      "page": "/pricing",
+      "regex": "^/pricing(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/pricing(?:/)?$"
+    },
+    {
+      "page": "/privacy-policy",
+      "regex": "^/privacy\\-policy(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/privacy\\-policy(?:/)?$"
+    },
+    {
+      "page": "/security",
+      "regex": "^/security(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/security(?:/)?$"
+    },
+    {
+      "page": "/services",
+      "regex": "^/services(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/services(?:/)?$"
+    },
+    {
+      "page": "/services/design",
+      "regex": "^/services/design(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/services/design(?:/)?$"
+    },
+    {
+      "page": "/services/device-rental",
+      "regex": "^/services/device\\-rental(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/services/device\\-rental(?:/)?$"
+    },
+    {
+      "page": "/services/karaoke-darts",
+      "regex": "^/services/karaoke\\-darts(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/services/karaoke\\-darts(?:/)?$"
+    },
+    {
+      "page": "/services/website",
+      "regex": "^/services/website(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/services/website(?:/)?$"
+    },
+    {
+      "page": "/terms-of-service",
+      "regex": "^/terms\\-of\\-service(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/terms\\-of\\-service(?:/)?$"
+    }
+  ],
+  "dataRoutes": [],
+  "rsc": {
+    "header": "rsc",
+    "varyHeader": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+    "prefetchHeader": "next-router-prefetch",
+    "didPostponeHeader": "x-nextjs-postponed",
+    "contentTypeHeader": "text/x-component",
+    "suffix": ".rsc",
+    "prefetchSuffix": ".prefetch.rsc",
+    "prefetchSegmentHeader": "next-router-segment-prefetch",
+    "prefetchSegmentSuffix": ".segment.rsc",
+    "prefetchSegmentDirSuffix": ".segments",
+    "clientParamParsing": false,
+    "dynamicRSCPrerender": false
+  },
+  "rewriteHeaders": {
+    "pathHeader": "x-nextjs-rewritten-path",
+    "queryHeader": "x-nextjs-rewritten-query"
+  }
+}

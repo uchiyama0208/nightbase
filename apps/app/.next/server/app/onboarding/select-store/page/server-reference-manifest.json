@@ -1,0 +1,20 @@
+{
+  "node": {
+    "40476d16bfafc941e42391cd6c61fd29fb45bf7ba8": {
+      "workers": {
+        "app/onboarding/select-store/page": {
+          "moduleId": 58415,
+          "async": false,
+          "exportedName": "searchStore",
+          "filename": "apps/app/src/app/onboarding/actions.ts"
+        }
+      },
+      "layer": {
+        "app/onboarding/select-store/page": "action-browser"
+      },
+      "exportedName": "searchStore",
+      "filename": "apps/app/src/app/onboarding/actions.ts"
+    }
+  },
+  "edge": {}
+}

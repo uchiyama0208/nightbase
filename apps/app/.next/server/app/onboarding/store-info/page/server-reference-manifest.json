@@ -1,0 +1,20 @@
+{
+  "node": {
+    "40d5fe78616dc84ed84bb024ebbfa70e8272364ded": {
+      "workers": {
+        "app/onboarding/store-info/page": {
+          "moduleId": 62061,
+          "async": false,
+          "exportedName": "createStoreAndLink",
+          "filename": "apps/app/src/app/onboarding/actions.ts"
+        }
+      },
+      "layer": {
+        "app/onboarding/store-info/page": "action-browser"
+      },
+      "exportedName": "createStoreAndLink",
+      "filename": "apps/app/src/app/onboarding/actions.ts"
+    }
+  },
+  "edge": {}
+}
