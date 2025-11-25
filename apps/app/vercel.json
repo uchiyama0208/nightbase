@@ -1,5 +1,5 @@
+```json
 {
-    "buildCommand": "cd ../.. && npm run build --workspace=@nightbase/app",
-    "outputDirectory": ".next",
-    "installCommand": "cd ../.. && npm install"
+    "framework": "nextjs"
 }
+```
