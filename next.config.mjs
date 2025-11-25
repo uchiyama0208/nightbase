@@ -8,6 +8,26 @@ const nextConfig = {
         hostname: 'profile.line-scdn.net',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'api.qrserver.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'upload.wikimedia.org',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'qr-official.line.me',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.supabase.co',
+        pathname: '/**',
+      },
     ],
   },
 };

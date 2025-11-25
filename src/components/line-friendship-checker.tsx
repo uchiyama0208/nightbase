@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -43,10 +45,12 @@ export function LineFriendshipChecker() {
                 </DialogHeader>
                 <div className="flex items-center justify-center py-4">
                     <div className="bg-green-50 p-4 rounded-full">
-                        <img
+                        <Image
                             src="https://upload.wikimedia.org/wikipedia/commons/4/41/LINE_logo.svg"
                             alt="LINEロゴ"
                             className="w-12 h-12"
+                            width={48}
+                            height={48}
                         />
                     </div>
                 </div>

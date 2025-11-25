@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 import { useState, useTransition } from "react";
 import { Invitation, cancelInvitation } from "./actions";
 import { Button } from "@/components/ui/button";
@@ -187,10 +189,12 @@ export function InvitationList({
                                     <TableCell className="font-medium text-center w-1/3">
                                         <div className="flex items-center justify-center gap-2">
                                             {inv.profile?.avatar_url && (
-                                                <img
+                                                <Image
                                                     src={inv.profile.avatar_url}
                                                     alt={`${inv.profile.display_name}のアバター`}
-                                                    className="w-6 h-6 rounded-full object-cover"
+                                                    className="rounded-full object-cover"
+                                                    width={24}
+                                                    height={24}
                                                 />
                                             )}
                                             {inv.profile?.display_name}

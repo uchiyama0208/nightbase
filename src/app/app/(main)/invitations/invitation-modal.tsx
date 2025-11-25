@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 import { useState } from "react";
 import { createInvitation } from "./actions";
 import { Button } from "@/components/ui/button";
@@ -222,12 +224,13 @@ export function InvitationModal({
 
                             <div className="flex justify-center">
                                 {/* Simple QR Code using API */}
-                                <img
+                                <Image
                                     src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(inviteUrl)}`}
                                     alt="招待QRコード"
                                     className="border rounded-lg p-2"
                                     width={150}
                                     height={150}
+                                    unoptimized
                                 />
                             </div>
 

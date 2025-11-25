@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 import { Invitation, cancelInvitation } from "./actions";
 import { Button } from "@/components/ui/button";
 import {
@@ -91,10 +93,12 @@ export function InvitationDetailModal({
                             <Label className="text-xs text-muted-foreground">招待プロフィール</Label>
                             <div className="font-medium flex items-center gap-2">
                                 {invitation.profile?.avatar_url && (
-                                    <img
+                                    <Image
                                         src={invitation.profile.avatar_url}
                                         alt={`${invitation.profile.display_name}のアバター`}
-                                        className="w-6 h-6 rounded-full object-cover"
+                                        className="rounded-full object-cover"
+                                        width={24}
+                                        height={24}
                                     />
                                 )}
                                 {invitation.profile?.display_name}
@@ -138,12 +142,13 @@ export function InvitationDetailModal({
                             </div>
 
                             <div className="flex justify-center">
-                                <img
+                                <Image
                                     src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(inviteUrl)}`}
                                     alt="招待QRコード"
                                     className="border rounded-lg p-2"
                                     width={150}
                                     height={150}
+                                    unoptimized
                                 />
                             </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect, useTransition, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -38,12 +38,12 @@ export function BottleList({ storeId, menus, profiles }: BottleListProps) {
     const [searchQuery, setSearchQuery] = useState("");
     const [isPending, startTransition] = useTransition();
 
-    const fetchBottles = async () => {
+    const fetchBottles = useCallback(async () => {
         startTransition(async () => {
             const data = await getBottleKeeps({ status: statusFilter, search: searchQuery });
             setBottles(data || []);
         });
-    };
+    }, [statusFilter, searchQuery]);
 
     useEffect(() => {
         fetchBottles();

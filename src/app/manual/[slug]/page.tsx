@@ -183,7 +183,7 @@ export default async function ManualDetailPage({ params }: ManualDetailPageParam
                 const mergedClass = [baseClass, (props as any).className].filter(Boolean).join(" ");
                 return (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img {...props} className={mergedClass} />
+                  <img alt="" {...props} className={mergedClass} />
                 );
               },
               hr(props) {
