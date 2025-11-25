@@ -144,7 +144,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
     }, [profile, defaultRole]);
 
     // Auto-save handler with debouncing
-    const autoSaveTimeoutRef = React.useRef<NodeJS.Timeout>();
+    const autoSaveTimeoutRef = React.useRef<NodeJS.Timeout>(undefined);
     const handleFieldChange = React.useCallback(() => {
         if (!profile) return; // Only auto-save for existing profiles
 
