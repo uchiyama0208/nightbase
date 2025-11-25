@@ -1,0 +1,5 @@
+{
+    "buildCommand": "cd ../.. && npm run build --workspace=@nightbase/marketing",
+    "outputDirectory": ".next",
+    "installCommand": "cd ../.. && npm install"
+}
