@@ -43,7 +43,6 @@
   "/auth/callback/invite/route": "/auth/callback/invite",
   "/auth/callback/route": "/auth/callback",
   "/auth/line-callback/page": "/auth/line-callback",
-  "/dashboard/page": "/dashboard",
   "/invite/[token]/page": "/invite/[token]",
   "/login/page": "/login",
   "/login/unregistered/page": "/login/unregistered",
@@ -55,6 +54,7 @@
   "/onboarding/select-role/page": "/onboarding/select-role",
   "/onboarding/select-store/page": "/onboarding/select-store",
   "/onboarding/store-info/page": "/onboarding/store-info",
+  "/page": "/",
   "/signup/page": "/signup",
   "/signup/verify/page": "/signup/verify",
   "/tablet/timecard/[storeId]/page": "/tablet/timecard/[storeId]"

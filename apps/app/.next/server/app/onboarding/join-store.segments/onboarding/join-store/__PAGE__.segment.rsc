@@ -1,9 +1,9 @@
 1:"$Sreact.fragment"
-2:I[47257,["/_next/static/chunks/ff1a16fafef87110.js","/_next/static/chunks/b8b40dd0e3df9808.js"],"ClientPageRoot"]
-3:I[54217,["/_next/static/chunks/27856246d59a4a8a.js","/_next/static/chunks/0e580a8ced0ea916.js","/_next/static/chunks/338a0ff504a02132.js"],"default"]
-6:I[97367,["/_next/static/chunks/ff1a16fafef87110.js","/_next/static/chunks/b8b40dd0e3df9808.js"],"OutletBoundary"]
+2:I[47257,["/_next/static/chunks/ff1a16fafef87110.js","/_next/static/chunks/c81db6e24f0cfdeb.js"],"ClientPageRoot"]
+3:I[54217,["/_next/static/chunks/00f73d08bf39f81f.js","/_next/static/chunks/338a0ff504a02132.js","/_next/static/chunks/9d89752ba1d99858.js","/_next/static/chunks/d579fc0ad81984fe.js","/_next/static/chunks/f94b7ba70970aed9.js"],"default"]
+6:I[97367,["/_next/static/chunks/ff1a16fafef87110.js","/_next/static/chunks/c81db6e24f0cfdeb.js"],"OutletBoundary"]
 7:"$Sreact.suspense"
-0:{"buildId":"hrV5F4DGP_FWmpsxQ7JY2","rsc":["$","$1","c",{"children":[["$","$L2",null,{"Component":"$3","serverProvidedParams":{"searchParams":{},"params":{},"promises":["$@4","$@5"]}}],[["$","script","script-0",{"src":"/_next/static/chunks/27856246d59a4a8a.js","async":true}],["$","script","script-1",{"src":"/_next/static/chunks/0e580a8ced0ea916.js","async":true}],["$","script","script-2",{"src":"/_next/static/chunks/338a0ff504a02132.js","async":true}]],["$","$L6",null,{"children":["$","$7",null,{"name":"Next.MetadataOutlet","children":"$@8"}]}]]}],"loading":null,"isPartial":false}
+0:{"buildId":"HiLygZ9_HKWcZ4TXwX8xm","rsc":["$","$1","c",{"children":[["$","$L2",null,{"Component":"$3","serverProvidedParams":{"searchParams":{},"params":{},"promises":["$@4","$@5"]}}],[["$","script","script-0",{"src":"/_next/static/chunks/d579fc0ad81984fe.js","async":true}],["$","script","script-1",{"src":"/_next/static/chunks/f94b7ba70970aed9.js","async":true}]],["$","$L6",null,{"children":["$","$7",null,{"name":"Next.MetadataOutlet","children":"$@8"}]}]]}],"loading":null,"isPartial":false}
 4:{}
 5:"$0:rsc:props:children:0:props:serverProvidedParams:params"
 8:null

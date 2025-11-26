@@ -20,16 +20,17 @@ module.exports = mod;
 "[project]/apps/marketing/postcss.config.mjs [postcss] (ecmascript)", ((__turbopack_context__) => {
 "use strict";
 
-__turbopack_context__.s([
+/** @type {import('postcss-load-config').Config} */ __turbopack_context__.s([
     "default",
     ()=>__TURBOPACK__default__export__
 ]);
-const __TURBOPACK__default__export__ = {
+const config = {
     plugins: {
         tailwindcss: {},
         autoprefixer: {}
     }
 };
+const __TURBOPACK__default__export__ = config;
 }),
 "[turbopack-node]/transforms/transforms.ts [postcss] (ecmascript)", ((__turbopack_context__) => {
 "use strict";

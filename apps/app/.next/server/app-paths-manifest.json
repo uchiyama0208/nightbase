@@ -43,7 +43,6 @@
   "/auth/callback/invite/route": "app/auth/callback/invite/route.js",
   "/auth/callback/route": "app/auth/callback/route.js",
   "/auth/line-callback/page": "app/auth/line-callback/page.js",
-  "/dashboard/page": "app/dashboard/page.js",
   "/invite/[token]/page": "app/invite/[token]/page.js",
   "/login/page": "app/login/page.js",
   "/login/unregistered/page": "app/login/unregistered/page.js",
@@ -55,6 +54,7 @@
   "/onboarding/select-role/page": "app/onboarding/select-role/page.js",
   "/onboarding/select-store/page": "app/onboarding/select-store/page.js",
   "/onboarding/store-info/page": "app/onboarding/store-info/page.js",
+  "/page": "app/page.js",
   "/signup/page": "app/signup/page.js",
   "/signup/verify/page": "app/signup/verify/page.js",
   "/tablet/timecard/[storeId]/page": "app/tablet/timecard/[storeId]/page.js"

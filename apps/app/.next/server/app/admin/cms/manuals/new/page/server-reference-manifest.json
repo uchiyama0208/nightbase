@@ -1,4 +1,155 @@
 {
-  "node": {},
+  "node": {
+    "405c7cfb7acf03ff32fbbb80b7519d602d9c21f819": {
+      "workers": {
+        "app/admin/cms/manuals/new/page": {
+          "moduleId": 96885,
+          "async": false,
+          "exportedName": "createStore",
+          "filename": "apps/app/src/app/app/(main)/settings/actions.ts"
+        }
+      },
+      "layer": {
+        "app/admin/cms/manuals/new/page": "action-browser"
+      },
+      "exportedName": "createStore",
+      "filename": "apps/app/src/app/app/(main)/settings/actions.ts"
+    },
+    "00642b6ba2fcfa7262834fb54abfd4a10b7fd12d56": {
+      "workers": {
+        "app/admin/cms/manuals/new/page": {
+          "moduleId": 96885,
+          "async": false,
+          "exportedName": "signOut",
+          "filename": "apps/app/src/app/app/(main)/settings/actions.ts"
+        }
+      },
+      "layer": {
+        "app/admin/cms/manuals/new/page": "action-browser"
+      },
+      "exportedName": "signOut",
+      "filename": "apps/app/src/app/app/(main)/settings/actions.ts"
+    },
+    "40341d408f028c7c9e09e5718db53f79f7665ac28c": {
+      "workers": {
+        "app/admin/cms/manuals/new/page": {
+          "moduleId": 96885,
+          "async": false,
+          "exportedName": "updateTimecardSettings",
+          "filename": "apps/app/src/app/app/(main)/settings/actions.ts"
+        }
+      },
+      "layer": {
+        "app/admin/cms/manuals/new/page": "action-browser"
+      },
+      "exportedName": "updateTimecardSettings",
+      "filename": "apps/app/src/app/app/(main)/settings/actions.ts"
+    },
+    "40fa5639615fcc2f608746959cf859a32c49629715": {
+      "workers": {
+        "app/admin/cms/manuals/new/page": {
+          "moduleId": 96885,
+          "async": false,
+          "exportedName": "updateFeatureSettings",
+          "filename": "apps/app/src/app/app/(main)/settings/actions.ts"
+        }
+      },
+      "layer": {
+        "app/admin/cms/manuals/new/page": "action-browser"
+      },
+      "exportedName": "updateFeatureSettings",
+      "filename": "apps/app/src/app/app/(main)/settings/actions.ts"
+    },
+    "405876b122190683f26917671ae7068209f3aa4158": {
+      "workers": {
+        "app/admin/cms/manuals/new/page": {
+          "moduleId": 96885,
+          "async": false,
+          "exportedName": "updateStore",
+          "filename": "apps/app/src/app/app/(main)/settings/actions.ts"
+        }
+      },
+      "layer": {
+        "app/admin/cms/manuals/new/page": "action-browser"
+      },
+      "exportedName": "updateStore",
+      "filename": "apps/app/src/app/app/(main)/settings/actions.ts"
+    },
+    "40627c04ddfab389b3c9a4913a69a6119f43db382a": {
+      "workers": {
+        "app/admin/cms/manuals/new/page": {
+          "moduleId": 96885,
+          "async": false,
+          "exportedName": "updateTheme",
+          "filename": "apps/app/src/app/app/(main)/settings/actions.ts"
+        }
+      },
+      "layer": {
+        "app/admin/cms/manuals/new/page": "action-browser"
+      },
+      "exportedName": "updateTheme",
+      "filename": "apps/app/src/app/app/(main)/settings/actions.ts"
+    },
+    "005003103cf9137765c8b83fa0bcc8d85ef626e4fa": {
+      "workers": {
+        "app/admin/cms/manuals/new/page": {
+          "moduleId": 96885,
+          "async": false,
+          "exportedName": "getSettingsData",
+          "filename": "apps/app/src/app/app/(main)/settings/actions.ts"
+        }
+      },
+      "layer": {
+        "app/admin/cms/manuals/new/page": "action-browser"
+      },
+      "exportedName": "getSettingsData",
+      "filename": "apps/app/src/app/app/(main)/settings/actions.ts"
+    },
+    "00a3ece0f08af191db378518d182c60ae58e5644ab": {
+      "workers": {
+        "app/admin/cms/manuals/new/page": {
+          "moduleId": 96885,
+          "async": false,
+          "exportedName": "deleteStore",
+          "filename": "apps/app/src/app/app/(main)/settings/actions.ts"
+        }
+      },
+      "layer": {
+        "app/admin/cms/manuals/new/page": "action-browser"
+      },
+      "exportedName": "deleteStore",
+      "filename": "apps/app/src/app/app/(main)/settings/actions.ts"
+    },
+    "401480709320f02adfc2c53fe10d5e53c5f50c595f": {
+      "workers": {
+        "app/admin/cms/manuals/new/page": {
+          "moduleId": 96885,
+          "async": false,
+          "exportedName": "uploadStoreIcon",
+          "filename": "apps/app/src/app/app/(main)/settings/actions.ts"
+        }
+      },
+      "layer": {
+        "app/admin/cms/manuals/new/page": "action-browser"
+      },
+      "exportedName": "uploadStoreIcon",
+      "filename": "apps/app/src/app/app/(main)/settings/actions.ts"
+    },
+    "00d692a8991a77d14a953f671fadf7ca43ce78a0e6": {
+      "workers": {
+        "app/admin/cms/manuals/new/page": {
+          "moduleId": 96885,
+          "async": false,
+          "exportedName": "deleteStoreIcon",
+          "filename": "apps/app/src/app/app/(main)/settings/actions.ts"
+        }
+      },
+      "layer": {
+        "app/admin/cms/manuals/new/page": "action-browser"
+      },
+      "exportedName": "deleteStoreIcon",
+      "filename": "apps/app/src/app/app/(main)/settings/actions.ts"
+    }
+  },
   "edge": {}
 }

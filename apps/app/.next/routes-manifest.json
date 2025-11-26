@@ -63,6 +63,12 @@
   ],
   "staticRoutes": [
     {
+      "page": "/",
+      "regex": "^/(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/(?:/)?$"
+    },
+    {
       "page": "/_global-error",
       "regex": "^/_global\\-error(?:/)?$",
       "routeKeys": {},
@@ -307,12 +313,6 @@
       "regex": "^/auth/line\\-callback(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/auth/line\\-callback(?:/)?$"
-    },
-    {
-      "page": "/dashboard",
-      "regex": "^/dashboard(?:/)?$",
-      "routeKeys": {},
-      "namedRegex": "^/dashboard(?:/)?$"
     },
     {
       "page": "/login",
