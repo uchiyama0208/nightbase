@@ -403,6 +403,7 @@ export function TimecardSettingsForm({ store }: TimecardSettingsFormProps) {
                                             setTabletAcceptanceStartTime(e.target.value);
                                             handleSave({ tabletAcceptanceStartTime: e.target.value });
                                         }}
+                                        step={60}
                                         className="mt-1 w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm"
                                     />
                                 </div>
@@ -418,6 +419,7 @@ export function TimecardSettingsForm({ store }: TimecardSettingsFormProps) {
                                             setTabletAcceptanceEndTime(e.target.value);
                                             handleSave({ tabletAcceptanceEndTime: e.target.value });
                                         }}
+                                        step={60}
                                         className="mt-1 w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm"
                                     />
                                 </div>

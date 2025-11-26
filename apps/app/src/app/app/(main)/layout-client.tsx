@@ -31,6 +31,7 @@ export function AppLayoutClient({ children, userRole, profileName, avatarUrl, st
         onMenuClick={hideSidebar ? () => { } : () => setSidebarOpen(true)}
         profileName={profileName}
         avatarUrl={avatarUrl}
+        hasSidebar={!hideSidebar}
       />
       {!hideSidebar && (
         <AppSidebar
@@ -42,8 +43,8 @@ export function AppLayoutClient({ children, userRole, profileName, avatarUrl, st
           onOpenChange={setSidebarOpen}
         />
       )}
-      <main className={hideSidebar ? "min-h-screen pt-12" : "lg:pl-72 min-h-screen pt-12 lg:pt-0"}>
-        <div className="p-4">
+      <main className={hideSidebar ? "min-h-screen pt-14" : "min-h-screen pt-14 lg:pl-72"}>
+        <div className="p-4 lg:px-6 xl:px-8">
           {children}
         </div>
       </main>

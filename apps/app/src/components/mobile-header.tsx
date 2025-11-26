@@ -10,6 +10,7 @@ interface MobileHeaderProps {
     onMenuClick: () => void;
     profileName?: string;
     avatarUrl?: string;
+    hasSidebar?: boolean;
 }
 
 const getPageTitle = (pathname: string): string => {
@@ -23,19 +24,21 @@ const getPageTitle = (pathname: string): string => {
     return "ダッシュボード";
 };
 
-export function MobileHeader({ onMenuClick, profileName, avatarUrl }: MobileHeaderProps) {
+export function MobileHeader({ onMenuClick, profileName, avatarUrl, hasSidebar }: MobileHeaderProps) {
     const pathname = usePathname();
     const pageTitle = getPageTitle(pathname);
 
     return (
-        <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 h-12">
+        <header
+            className={`fixed top-0 left-0 right-0 z-40 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 h-12 ${hasSidebar ? "lg:pl-72" : ""}`}
+        >
             <div className="flex items-center justify-between h-full px-3">
                 {/* Left: Hamburger Menu */}
                 <Button
                     variant="ghost"
                     size="icon"
                     onClick={onMenuClick}
-                    className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
+                    className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 lg:hidden"
                 >
                     <Menu className="h-5 w-5" />
                 </Button>

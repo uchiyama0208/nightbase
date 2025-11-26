@@ -162,6 +162,7 @@ export function StoreInfoForm() {
                                 id="business_start_time"
                                 name="business_start_time"
                                 defaultValue="18:00"
+                                step={60}
                             />
                         </div>
 
@@ -172,6 +173,7 @@ export function StoreInfoForm() {
                                 id="business_end_time"
                                 name="business_end_time"
                                 defaultValue="03:00"
+                                step={60}
                             />
                         </div>
 

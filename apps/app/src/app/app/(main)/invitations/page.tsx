@@ -5,7 +5,7 @@ import { getInvitationsData } from "./actions";
 
 function InvitationsSkeleton() {
     return (
-        <div className="p-2 space-y-6 animate-pulse">
+        <div className="space-y-6 animate-pulse">
             <div className="h-8 w-1/3 bg-gray-200 dark:bg-gray-700 rounded"></div>
             <div className="h-4 w-1/2 bg-gray-200 dark:bg-gray-700 rounded"></div>
             <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded"></div>
@@ -27,10 +27,10 @@ export default async function InvitationsPage() {
     const { invitations, uninvitedProfiles, roles } = response.data;
 
     return (
-        <div className="p-2 space-y-6">
+        <div className="space-y-6">
             <div className="flex flex-col gap-2">
-                <h1 className="text-2xl font-bold tracking-tight">招待管理</h1>
-                <p className="text-muted-foreground">
+                <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">招待管理</h1>
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                     スタッフやキャストを招待し、参加申請を管理します。
                 </p>
             </div>

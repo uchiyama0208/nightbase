@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBottleKeep, updateBottleKeep } from "./actions";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ import { ChevronLeft, Plus } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { MenuEditModal } from "../menus/menu-edit-modal";
 import { UserEditModal } from "../users/user-edit-modal";
+import { FilterSuggestionInput } from "@/components/filter-suggestion-input";
 
 interface BottleModalProps {
     isOpen: boolean;
@@ -52,6 +53,19 @@ export function BottleModal({
 
     const defaultProfileIds = bottle?.bottle_keep_holders?.map((h: any) => h.profile_id) || initialProfileIds;
     const [selectedProfiles, setSelectedProfiles] = useState<string[]>(defaultProfileIds);
+
+    const guestSuggestions = useMemo(
+        () =>
+            Array.from(
+                new Set(profiles.map((profile) => profile.display_name || profile.real_name || "").filter(Boolean)),
+            ) as string[],
+        [profiles],
+    );
+
+    const bottleSuggestions = useMemo(
+        () => Array.from(new Set(menus.map((menu) => menu.name).filter(Boolean))) as string[],
+        [menus],
+    );
 
     const handleProfileToggle = (profileId: string) => {
         setSelectedProfiles(prev =>
@@ -153,11 +167,12 @@ export function BottleModal({
                                 ゲストを追加
                             </button>
                         </div>
-                        <Input
+                        <FilterSuggestionInput
                             type="text"
                             placeholder="ゲストを検索..."
                             value={guestSearch}
-                            onChange={(e) => setGuestSearch(e.target.value)}
+                            onValueChange={setGuestSearch}
+                            suggestions={guestSuggestions}
                             className="bg-white dark:bg-gray-900 mb-2"
                         />
                         <div className="border rounded-lg p-3 max-h-48 overflow-y-auto bg-gray-50 dark:bg-gray-900">
@@ -206,11 +221,12 @@ export function BottleModal({
                                     メニューを追加
                                 </button>
                             </div>
-                            <Input
+                            <FilterSuggestionInput
                                 type="text"
                                 placeholder="ボトルを検索..."
                                 value={bottleSearch}
-                                onChange={(e) => setBottleSearch(e.target.value)}
+                                onValueChange={setBottleSearch}
+                                suggestions={bottleSuggestions}
                                 className="bg-white dark:bg-gray-900 mb-2"
                             />
                             <Select name="menu_id" required>

@@ -43,10 +43,10 @@ export default async function JoinRequestsPage() {
         .order("created_at", { ascending: false });
 
     return (
-        <div className="p-6 space-y-6">
+        <div className="space-y-6">
             <div>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">参加申請</h1>
-                <p className="text-gray-600 dark:text-gray-400 mt-2">
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">参加申請</h1>
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                     店舗への参加申請を管理します
                 </p>
             </div>

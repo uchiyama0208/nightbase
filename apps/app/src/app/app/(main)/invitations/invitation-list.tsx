@@ -2,10 +2,9 @@
 
 import Image from "next/image";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { Invitation, cancelInvitation } from "./actions";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
     Table,
     TableBody,
@@ -27,6 +26,8 @@ import { InvitationModal } from "./invitation-modal";
 import { InvitationDetailModal } from "./invitation-detail-modal";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { FilterSuggestionInput } from "@/components/filter-suggestion-input";
 
 interface InvitationListProps {
     initialInvitations: Invitation[];
@@ -49,8 +50,29 @@ export function InvitationList({
     const [selectedInvitation, setSelectedInvitation] = useState<Invitation | null>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
+    const activeFilters = [
+        searchQuery.trim() && "検索",
+        statusFilter !== "all" && "ステータス",
+        roleFilter !== "all" && (roleFilter === "cast" ? "キャスト" : "スタッフ"),
+    ].filter(Boolean) as string[];
+    const hasFilters = activeFilters.length > 0;
+
+    const suggestionItems = useMemo(
+        () =>
+            Array.from(
+                new Set(
+                    initialInvitations
+                        .map((inv) => inv.profile?.display_name || inv.profile?.real_name || "")
+                        .filter(Boolean),
+                ),
+            ),
+        [initialInvitations],
+    );
+
     const filteredInvitations = invitations.filter((inv) => {
-        const matchesSearch = (inv.profile?.display_name || "").toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesSearch = (inv.profile?.display_name || inv.profile?.real_name || "")
+            .toLowerCase()
+            .includes(searchQuery.toLowerCase());
         const matchesStatus = statusFilter === "all" || inv.status === statusFilter;
         const matchesRole = roleFilter === "all" || inv.profile?.role === roleFilter;
         return matchesSearch && matchesStatus && matchesRole;
@@ -98,33 +120,9 @@ export function InvitationList({
 
     return (
         <div className="space-y-4">
-            <div className="flex flex-col gap-4">
-                <div className="flex flex-row gap-2">
-                    <div className="relative flex-1">
-                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            placeholder="名前で検索..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-8 bg-white dark:bg-gray-800"
-                        />
-                    </div>
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                        <SelectTrigger className="w-[130px] sm:w-[180px] bg-white dark:bg-gray-800">
-                            <SelectValue placeholder="ステータス" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">全て</SelectItem>
-                            <SelectItem value="pending">招待中</SelectItem>
-                            <SelectItem value="accepted">参加済み</SelectItem>
-                            <SelectItem value="canceled">キャンセル</SelectItem>
-                            <SelectItem value="expired">期限切れ</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-
-                <div className="flex flex-row justify-between items-center">
-                    <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-full overflow-x-auto max-w-[calc(100%-50px)]">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-full overflow-x-auto max-w-full">
                         <button
                             onClick={() => setRoleFilter("all")}
                             className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm rounded-full whitespace-nowrap transition-all ${roleFilter === "all"
@@ -153,14 +151,59 @@ export function InvitationList({
                             スタッフ
                         </button>
                     </div>
-                    <Button
-                        onClick={() => setIsModalOpen(true)}
-                        size="icon"
-                        className="rounded-full w-10 h-10 bg-blue-600 hover:bg-blue-700 shrink-0"
-                    >
-                        <Plus className="h-5 w-5" />
-                    </Button>
+                    <Accordion type="single" collapsible className="w-full sm:w-auto">
+                        <AccordionItem
+                            value="filters"
+                            className="rounded-2xl border border-gray-200 bg-white px-2 dark:border-gray-700 dark:bg-gray-800"
+                        >
+                            <AccordionTrigger className="px-2 text-sm font-semibold text-gray-900 dark:text-white">
+                                <div className="flex w-full items-center justify-between pr-2">
+                                    <span>フィルター</span>
+                                    {hasFilters && (
+                                        <span className="text-xs text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/40 px-2 py-0.5 rounded-full">
+                                            {activeFilters.join("・")}
+                                        </span>
+                                    )}
+                                </div>
+                            </AccordionTrigger>
+                            <AccordionContent className="px-2">
+                                <div className="flex flex-col gap-4">
+                                    <div className="flex flex-row gap-2">
+                                        <div className="relative flex-1">
+                                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                            <FilterSuggestionInput
+                                                placeholder="名前で検索..."
+                                                value={searchQuery}
+                                                onValueChange={setSearchQuery}
+                                                suggestions={suggestionItems}
+                                                className="pl-8 bg-white dark:bg-gray-800"
+                                            />
+                                        </div>
+                                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                            <SelectTrigger className="w-[130px] sm:w-[180px] bg-white dark:bg-gray-800">
+                                                <SelectValue placeholder="ステータス" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">全て</SelectItem>
+                                                <SelectItem value="pending">招待中</SelectItem>
+                                                <SelectItem value="accepted">参加済み</SelectItem>
+                                                <SelectItem value="canceled">キャンセル</SelectItem>
+                                                <SelectItem value="expired">期限切れ</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                            </AccordionContent>
+                        </AccordionItem>
+                    </Accordion>
                 </div>
+                <Button
+                    onClick={() => setIsModalOpen(true)}
+                    size="icon"
+                    className="rounded-full w-10 h-10 bg-blue-600 hover:bg-blue-700 shrink-0"
+                >
+                    <Plus className="h-5 w-5" />
+                </Button>
             </div>
 
             <div className="rounded-3xl border bg-white dark:bg-gray-800">

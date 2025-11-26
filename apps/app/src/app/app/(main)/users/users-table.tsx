@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -13,6 +13,8 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { FilterSuggestionInput } from "@/components/filter-suggestion-input";
 
 // Lazy load the modal - only when user clicks
 const UserEditModal = dynamic(() => import("./user-edit-modal").then(mod => ({ default: mod.UserEditModal })), {
@@ -43,6 +45,31 @@ export function UsersTable({ profiles, roleFilter }: UsersTableProps) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [nameQuery, setNameQuery] = useState("");
 
+    const activeFilters = [nameQuery.trim() && "名前"]
+        .filter(Boolean)
+        .map(String);
+    const hasFilters = activeFilters.length > 0;
+
+    const nameSuggestions = useMemo(
+        () =>
+            Array.from(
+                new Set(
+                    profiles
+                        .map((profile) =>
+                            profile.display_name ||
+                            profile.display_name_kana ||
+                            profile.real_name ||
+                            profile.real_name_kana ||
+                            profile.guest_addressee ||
+                            profile.guest_receipt_type ||
+                            "",
+                        )
+                        .filter(Boolean),
+                ),
+            ),
+        [profiles],
+    );
+
     const filteredProfiles = profiles.filter((profile) => {
         if (!nameQuery.trim()) return true;
         const term = nameQuery.trim().toLowerCase();
@@ -66,41 +93,56 @@ export function UsersTable({ profiles, roleFilter }: UsersTableProps) {
     return (
         <>
             <div className="flex flex-col gap-3 mb-4">
-                {/* Row 1: Search Input */}
-                <div className="grid grid-cols-1">
-                    <input
-                        type="text"
-                        placeholder="名前で検索"
-                        value={nameQuery}
-                        onChange={(e) => setNameQuery(e.target.value)}
-                        className="w-full h-10 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 text-xs md:text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                </div>
-
-                {/* Row 2: Toggle & Action */}
-                <div className="flex items-center justify-between">
-                    <div className="inline-flex h-10 items-center rounded-full bg-gray-100 dark:bg-gray-800 p-1 text-xs">
-                        <Link
-                            href="/app/users?role=cast"
-                            className={`px-4 h-full flex items-center rounded-full font-medium transition-colors ${roleFilter === "cast" ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                                }`}
-                        >
-                            キャスト
-                        </Link>
-                        <Link
-                            href="/app/users?role=staff"
-                            className={`px-4 h-full flex items-center rounded-full font-medium transition-colors ${roleFilter === "staff" ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                                }`}
-                        >
-                            スタッフ
-                        </Link>
-                        <Link
-                            href="/app/users?role=guest"
-                            className={`px-4 h-full flex items-center rounded-full font-medium transition-colors ${roleFilter === "guest" ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                                }`}
-                        >
-                            ゲスト
-                        </Link>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex flex-wrap items-center gap-3">
+                        <div className="inline-flex h-10 items-center rounded-full bg-gray-100 dark:bg-gray-800 p-1 text-xs">
+                            <Link
+                                href="/app/users?role=cast"
+                                className={`px-4 h-full flex items-center rounded-full font-medium transition-colors ${roleFilter === "cast" ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"}`}
+                            >
+                                キャスト
+                            </Link>
+                            <Link
+                                href="/app/users?role=staff"
+                                className={`px-4 h-full flex items-center rounded-full font-medium transition-colors ${roleFilter === "staff" ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"}`}
+                            >
+                                スタッフ
+                            </Link>
+                            <Link
+                                href="/app/users?role=guest"
+                                className={`px-4 h-full flex items-center rounded-full font-medium transition-colors ${roleFilter === "guest" ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"}`}
+                            >
+                                ゲスト
+                            </Link>
+                        </div>
+                        <Accordion type="single" collapsible className="w-full sm:w-auto">
+                            <AccordionItem
+                                value="filters"
+                                className="rounded-2xl border border-gray-200 bg-white px-2 dark:border-gray-700 dark:bg-gray-800"
+                            >
+                                <AccordionTrigger className="px-2 text-sm font-semibold text-gray-900 dark:text-white">
+                                    <div className="flex w-full items-center justify-between pr-2">
+                                        <span>フィルター</span>
+                                        {hasFilters && (
+                                            <span className="text-xs text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/40 px-2 py-0.5 rounded-full">
+                                                {activeFilters.join("・")}
+                                            </span>
+                                        )}
+                                    </div>
+                                </AccordionTrigger>
+                                <AccordionContent className="px-2">
+                                    <div className="grid grid-cols-1">
+                                        <FilterSuggestionInput
+                                            placeholder="名前で検索"
+                                            value={nameQuery}
+                                            onValueChange={setNameQuery}
+                                            suggestions={nameSuggestions}
+                                            className="w-full h-10 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 text-xs md:text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                    </div>
+                                </AccordionContent>
+                            </AccordionItem>
+                        </Accordion>
                     </div>
                     <Button
                         size="icon"

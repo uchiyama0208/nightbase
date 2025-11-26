@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect, useTransition, useCallback } from "react";
+import { useState, useEffect, useTransition, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
     Select,
     SelectContent,
@@ -23,6 +22,8 @@ import { getBottleKeeps, deleteBottleKeep } from "./actions";
 import { BottleModal } from "./bottle-modal";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { FilterSuggestionInput } from "@/components/filter-suggestion-input";
 
 interface BottleListProps {
     storeId: string;
@@ -38,6 +39,12 @@ export function BottleList({ storeId, menus, profiles }: BottleListProps) {
     const [searchQuery, setSearchQuery] = useState("");
     const [isPending, startTransition] = useTransition();
 
+    const activeFilters = [
+        searchQuery.trim() && "検索",
+        statusFilter !== "all" && "ステータス",
+    ].filter(Boolean) as string[];
+    const hasFilters = activeFilters.length > 0;
+
     const fetchBottles = useCallback(async () => {
         startTransition(async () => {
             const data = await getBottleKeeps({ status: statusFilter, search: searchQuery });
@@ -48,6 +55,18 @@ export function BottleList({ storeId, menus, profiles }: BottleListProps) {
     useEffect(() => {
         fetchBottles();
     }, [fetchBottles, statusFilter, searchQuery]);
+
+    const suggestionItems = useMemo(
+        () =>
+            Array.from(
+                new Set(
+                    bottles
+                        .flatMap((bottle) => [bottle?.guest_name, bottle?.bottle_name])
+                        .filter((name) => !!name),
+                ),
+            ) as string[],
+        [bottles],
+    );
 
     const handleCreateNew = () => {
         setEditingBottle(null);
@@ -92,31 +111,51 @@ export function BottleList({ storeId, menus, profiles }: BottleListProps) {
 
     return (
         <div className="space-y-4">
-            {/* Filters and Actions */}
-            {/* Filters and Actions */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
-                <div className="flex gap-2 w-full sm:w-auto">
-                    <div className="relative flex-1 sm:flex-none sm:w-[240px]">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <Input
-                            placeholder="ボトル名やゲスト名で検索..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-10"
-                        />
-                    </div>
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                        <SelectTrigger className="flex-1 sm:flex-none sm:w-[240px]">
-                            <SelectValue placeholder="ステータス" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">すべて</SelectItem>
-                            <SelectItem value="active">利用中</SelectItem>
-                            <SelectItem value="empty">空</SelectItem>
-                            <SelectItem value="returned">返却済</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <Accordion type="single" collapsible className="w-full sm:w-auto">
+                    <AccordionItem
+                        value="filters"
+                        className="rounded-2xl border border-gray-200 bg-white px-2 dark:border-gray-700 dark:bg-gray-800"
+                    >
+                        <AccordionTrigger className="px-2 text-sm font-semibold text-gray-900 dark:text-white">
+                            <div className="flex w-full items-center justify-between pr-2">
+                                <span>フィルター</span>
+                                {hasFilters && (
+                                    <span className="text-xs text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/40 px-2 py-0.5 rounded-full">
+                                        {activeFilters.join("・")}
+                                    </span>
+                                )}
+                            </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="px-2">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="flex gap-2 w-full sm:w-auto">
+                                        <div className="relative flex-1 sm:flex-none sm:w-[240px]">
+                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                            <FilterSuggestionInput
+                                                placeholder="ボトル名やゲスト名で検索..."
+                                                value={searchQuery}
+                                                onValueChange={setSearchQuery}
+                                                suggestions={suggestionItems}
+                                                className="pl-10"
+                                            />
+                                        </div>
+                                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                        <SelectTrigger className="flex-1 sm:flex-none sm:w-[240px]">
+                                            <SelectValue placeholder="ステータス" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">すべて</SelectItem>
+                                            <SelectItem value="active">利用中</SelectItem>
+                                            <SelectItem value="empty">空</SelectItem>
+                                            <SelectItem value="returned">返却済</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                        </AccordionContent>
+                    </AccordionItem>
+                </Accordion>
                 <Button onClick={handleCreateNew} className="w-full sm:w-auto">
                     <Plus className="mr-2 h-4 w-4" />
                     新規登録

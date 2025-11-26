@@ -258,6 +258,7 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
                             id="business_start_time"
                             name="business_start_time"
                             defaultValue={store.business_start_time}
+                            step={60}
                             className="bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white"
                         />
                     </div>
@@ -269,6 +270,7 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
                             id="business_end_time"
                             name="business_end_time"
                             defaultValue={store.business_end_time}
+                            step={60}
                             className="bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white"
                         />
                     </div>

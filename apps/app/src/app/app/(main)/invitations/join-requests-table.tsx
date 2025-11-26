@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { Input } from "@/components/ui/input";
+import { useMemo, useState } from "react";
 import {
     Table,
     TableBody,
@@ -14,6 +13,8 @@ import { Search } from "lucide-react";
 import { JoinRequestModal } from "./join-request-modal";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { FilterSuggestionInput } from "@/components/filter-suggestion-input";
 
 interface JoinRequest {
     id: string;
@@ -35,6 +36,24 @@ export function JoinRequestsTable({ requests: initialRequests }: JoinRequestsTab
     const [selectedRequest, setSelectedRequest] = useState<JoinRequest | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
+    const activeFilters = [
+        searchQuery.trim() && "検索",
+        roleFilter !== "all" && (roleFilter === "cast" ? "キャスト" : "スタッフ"),
+    ].filter(Boolean) as string[];
+    const hasFilters = activeFilters.length > 0;
+
+    const suggestionItems = useMemo(
+        () =>
+            Array.from(
+                new Set(
+                    initialRequests
+                        .map((req) => req.display_name || req.real_name)
+                        .filter(Boolean),
+                ),
+            ) as string[],
+        [initialRequests],
+    );
+
     const filteredRequests = requests.filter((req) => {
         const matchesSearch =
             req.display_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -55,8 +74,8 @@ export function JoinRequestsTable({ requests: initialRequests }: JoinRequestsTab
 
     return (
         <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row gap-4 justify-between items-start">
-                <div className="flex flex-wrap gap-2 w-full sm:w-auto items-center">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-wrap items-center gap-3">
                     <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-full">
                         <button
                             onClick={() => setRoleFilter("all")}
@@ -86,6 +105,37 @@ export function JoinRequestsTable({ requests: initialRequests }: JoinRequestsTab
                             スタッフ
                         </button>
                     </div>
+                    <Accordion type="single" collapsible className="w-full sm:w-auto">
+                        <AccordionItem
+                            value="filters"
+                            className="rounded-2xl border border-gray-200 bg-white px-2 dark:border-gray-700 dark:bg-gray-800"
+                        >
+                            <AccordionTrigger className="px-2 text-sm font-semibold text-gray-900 dark:text-white">
+                                <div className="flex w-full items-center justify-between pr-2">
+                                    <span>フィルター</span>
+                                    {hasFilters && (
+                                        <span className="text-xs text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/40 px-2 py-0.5 rounded-full">
+                                            {activeFilters.join("・")}
+                                        </span>
+                                    )}
+                                </div>
+                            </AccordionTrigger>
+                            <AccordionContent className="px-2">
+                                <div className="flex flex-col gap-3">
+                                    <div className="relative w-full sm:w-72">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                        <FilterSuggestionInput
+                                            placeholder="名前で検索"
+                                            value={searchQuery}
+                                            onValueChange={setSearchQuery}
+                                            suggestions={suggestionItems}
+                                            className="pl-8"
+                                        />
+                                    </div>
+                                </div>
+                            </AccordionContent>
+                        </AccordionItem>
+                    </Accordion>
                 </div>
             </div>
 
