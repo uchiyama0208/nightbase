@@ -14,6 +14,7 @@ import { Search } from "lucide-react";
 import { JoinRequestModal } from "./join-request-modal";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 interface JoinRequest {
     id: string;
@@ -55,38 +56,50 @@ export function JoinRequestsTable({ requests: initialRequests }: JoinRequestsTab
 
     return (
         <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row gap-4 justify-between items-start">
-                <div className="flex flex-wrap gap-2 w-full sm:w-auto items-center">
-                    <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-full">
-                        <button
-                            onClick={() => setRoleFilter("all")}
-                            className={`px-4 py-1.5 text-sm rounded-full transition-all ${roleFilter === "all"
-                                ? "bg-white dark:bg-gray-700 shadow-sm font-medium"
-                                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                                }`}
-                        >
-                            全て
-                        </button>
-                        <button
-                            onClick={() => setRoleFilter("cast")}
-                            className={`px-4 py-1.5 text-sm rounded-full transition-all ${roleFilter === "cast"
-                                ? "bg-white dark:bg-gray-700 shadow-sm font-medium"
-                                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                                }`}
-                        >
-                            キャスト
-                        </button>
-                        <button
-                            onClick={() => setRoleFilter("staff")}
-                            className={`px-4 py-1.5 text-sm rounded-full transition-all ${roleFilter === "staff"
-                                ? "bg-white dark:bg-gray-700 shadow-sm font-medium"
-                                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                                }`}
-                        >
-                            スタッフ
-                        </button>
-                    </div>
-                </div>
+            <div className="flex flex-col gap-2">
+                <Accordion type="single" collapsible className="w-full">
+                    <AccordionItem
+                        value="filters"
+                        className="rounded-2xl border border-gray-200 bg-white px-2 dark:border-gray-700 dark:bg-gray-800"
+                    >
+                        <AccordionTrigger className="px-2 text-sm font-semibold text-gray-900 dark:text-white">
+                            フィルター
+                        </AccordionTrigger>
+                        <AccordionContent className="px-2">
+                            <div className="flex flex-wrap gap-2 w-full sm:w-auto items-center">
+                                <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-full">
+                                    <button
+                                        onClick={() => setRoleFilter("all")}
+                                        className={`px-4 py-1.5 text-sm rounded-full transition-all ${roleFilter === "all"
+                                            ? "bg-white dark:bg-gray-700 shadow-sm font-medium"
+                                            : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                                            }`}
+                                    >
+                                        全て
+                                    </button>
+                                    <button
+                                        onClick={() => setRoleFilter("cast")}
+                                        className={`px-4 py-1.5 text-sm rounded-full transition-all ${roleFilter === "cast"
+                                            ? "bg-white dark:bg-gray-700 shadow-sm font-medium"
+                                            : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                                            }`}
+                                    >
+                                        キャスト
+                                    </button>
+                                    <button
+                                        onClick={() => setRoleFilter("staff")}
+                                        className={`px-4 py-1.5 text-sm rounded-full transition-all ${roleFilter === "staff"
+                                            ? "bg-white dark:bg-gray-700 shadow-sm font-medium"
+                                            : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                                            }`}
+                                    >
+                                        スタッフ
+                                    </button>
+                                </div>
+                            </div>
+                        </AccordionContent>
+                    </AccordionItem>
+                </Accordion>
             </div>
 
             <div className="rounded-3xl border bg-white dark:bg-gray-800">

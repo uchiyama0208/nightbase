@@ -13,6 +13,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 // Lazy load the modal - only when user clicks
 const UserEditModal = dynamic(() => import("./user-edit-modal").then(mod => ({ default: mod.UserEditModal })), {
@@ -66,42 +67,52 @@ export function UsersTable({ profiles, roleFilter }: UsersTableProps) {
     return (
         <>
             <div className="flex flex-col gap-3 mb-4">
-                {/* Row 1: Search Input */}
-                <div className="grid grid-cols-1">
-                    <input
-                        type="text"
-                        placeholder="名前で検索"
-                        value={nameQuery}
-                        onChange={(e) => setNameQuery(e.target.value)}
-                        className="w-full h-10 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 text-xs md:text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                </div>
-
-                {/* Row 2: Toggle & Action */}
-                <div className="flex items-center justify-between">
-                    <div className="inline-flex h-10 items-center rounded-full bg-gray-100 dark:bg-gray-800 p-1 text-xs">
-                        <Link
-                            href="/app/users?role=cast"
-                            className={`px-4 h-full flex items-center rounded-full font-medium transition-colors ${roleFilter === "cast" ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                                }`}
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <Accordion type="single" collapsible className="w-full">
+                        <AccordionItem
+                            value="filters"
+                            className="rounded-2xl border border-gray-200 bg-white px-2 dark:border-gray-700 dark:bg-gray-800"
                         >
-                            キャスト
-                        </Link>
-                        <Link
-                            href="/app/users?role=staff"
-                            className={`px-4 h-full flex items-center rounded-full font-medium transition-colors ${roleFilter === "staff" ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                                }`}
-                        >
-                            スタッフ
-                        </Link>
-                        <Link
-                            href="/app/users?role=guest"
-                            className={`px-4 h-full flex items-center rounded-full font-medium transition-colors ${roleFilter === "guest" ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                                }`}
-                        >
-                            ゲスト
-                        </Link>
-                    </div>
+                            <AccordionTrigger className="px-2 text-sm font-semibold text-gray-900 dark:text-white">
+                                フィルター
+                            </AccordionTrigger>
+                            <AccordionContent className="px-2">
+                                <div className="flex flex-col gap-3">
+                                    <div className="grid grid-cols-1">
+                                        <input
+                                            type="text"
+                                            placeholder="名前で検索"
+                                            value={nameQuery}
+                                            onChange={(e) => setNameQuery(e.target.value)}
+                                            className="w-full h-10 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 text-xs md:text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <div className="inline-flex h-10 items-center rounded-full bg-gray-100 dark:bg-gray-800 p-1 text-xs">
+                                            <Link
+                                                href="/app/users?role=cast"
+                                                className={`px-4 h-full flex items-center rounded-full font-medium transition-colors ${roleFilter === "cast" ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"}`}
+                                            >
+                                                キャスト
+                                            </Link>
+                                            <Link
+                                                href="/app/users?role=staff"
+                                                className={`px-4 h-full flex items-center rounded-full font-medium transition-colors ${roleFilter === "staff" ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"}`}
+                                            >
+                                                スタッフ
+                                            </Link>
+                                            <Link
+                                                href="/app/users?role=guest"
+                                                className={`px-4 h-full flex items-center rounded-full font-medium transition-colors ${roleFilter === "guest" ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"}`}
+                                            >
+                                                ゲスト
+                                            </Link>
+                                        </div>
+                                    </div>
+                                </div>
+                            </AccordionContent>
+                        </AccordionItem>
+                    </Accordion>
                     <Button
                         size="icon"
                         variant="outline"

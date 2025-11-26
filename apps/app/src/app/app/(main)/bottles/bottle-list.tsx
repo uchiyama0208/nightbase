@@ -23,6 +23,7 @@ import { getBottleKeeps, deleteBottleKeep } from "./actions";
 import { BottleModal } from "./bottle-modal";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 interface BottleListProps {
     storeId: string;
@@ -92,31 +93,43 @@ export function BottleList({ storeId, menus, profiles }: BottleListProps) {
 
     return (
         <div className="space-y-4">
-            {/* Filters and Actions */}
-            {/* Filters and Actions */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
-                <div className="flex gap-2 w-full sm:w-auto">
-                    <div className="relative flex-1 sm:flex-none sm:w-[240px]">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <Input
-                            placeholder="ボトル名やゲスト名で検索..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-10"
-                        />
-                    </div>
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                        <SelectTrigger className="flex-1 sm:flex-none sm:w-[240px]">
-                            <SelectValue placeholder="ステータス" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">すべて</SelectItem>
-                            <SelectItem value="active">利用中</SelectItem>
-                            <SelectItem value="empty">空</SelectItem>
-                            <SelectItem value="returned">返却済</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <Accordion type="single" collapsible className="w-full">
+                    <AccordionItem
+                        value="filters"
+                        className="rounded-2xl border border-gray-200 bg-white px-2 dark:border-gray-700 dark:bg-gray-800"
+                    >
+                        <AccordionTrigger className="px-2 text-sm font-semibold text-gray-900 dark:text-white">
+                            フィルター
+                        </AccordionTrigger>
+                        <AccordionContent className="px-2">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="flex gap-2 w-full sm:w-auto">
+                                    <div className="relative flex-1 sm:flex-none sm:w-[240px]">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                        <Input
+                                            placeholder="ボトル名やゲスト名で検索..."
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            className="pl-10"
+                                        />
+                                    </div>
+                                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                        <SelectTrigger className="flex-1 sm:flex-none sm:w-[240px]">
+                                            <SelectValue placeholder="ステータス" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">すべて</SelectItem>
+                                            <SelectItem value="active">利用中</SelectItem>
+                                            <SelectItem value="empty">空</SelectItem>
+                                            <SelectItem value="returned">返却済</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                        </AccordionContent>
+                    </AccordionItem>
+                </Accordion>
                 <Button onClick={handleCreateNew} className="w-full sm:w-auto">
                     <Plus className="mr-2 h-4 w-4" />
                     新規登録

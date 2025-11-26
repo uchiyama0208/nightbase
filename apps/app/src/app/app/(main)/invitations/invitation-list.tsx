@@ -27,6 +27,7 @@ import { InvitationModal } from "./invitation-modal";
 import { InvitationDetailModal } from "./invitation-detail-modal";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 interface InvitationListProps {
     initialInvitations: Invitation[];
@@ -98,69 +99,83 @@ export function InvitationList({
 
     return (
         <div className="space-y-4">
-            <div className="flex flex-col gap-4">
-                <div className="flex flex-row gap-2">
-                    <div className="relative flex-1">
-                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            placeholder="名前で検索..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-8 bg-white dark:bg-gray-800"
-                        />
-                    </div>
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                        <SelectTrigger className="w-[130px] sm:w-[180px] bg-white dark:bg-gray-800">
-                            <SelectValue placeholder="ステータス" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">全て</SelectItem>
-                            <SelectItem value="pending">招待中</SelectItem>
-                            <SelectItem value="accepted">参加済み</SelectItem>
-                            <SelectItem value="canceled">キャンセル</SelectItem>
-                            <SelectItem value="expired">期限切れ</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-
-                <div className="flex flex-row justify-between items-center">
-                    <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-full overflow-x-auto max-w-[calc(100%-50px)]">
-                        <button
-                            onClick={() => setRoleFilter("all")}
-                            className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm rounded-full whitespace-nowrap transition-all ${roleFilter === "all"
-                                ? "bg-white dark:bg-gray-700 shadow-sm font-medium"
-                                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                                }`}
-                        >
-                            全て
-                        </button>
-                        <button
-                            onClick={() => setRoleFilter("cast")}
-                            className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm rounded-full whitespace-nowrap transition-all ${roleFilter === "cast"
-                                ? "bg-white dark:bg-gray-700 shadow-sm font-medium"
-                                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                                }`}
-                        >
-                            キャスト
-                        </button>
-                        <button
-                            onClick={() => setRoleFilter("staff")}
-                            className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm rounded-full whitespace-nowrap transition-all ${roleFilter === "staff"
-                                ? "bg-white dark:bg-gray-700 shadow-sm font-medium"
-                                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                                }`}
-                        >
-                            スタッフ
-                        </button>
-                    </div>
-                    <Button
-                        onClick={() => setIsModalOpen(true)}
-                        size="icon"
-                        className="rounded-full w-10 h-10 bg-blue-600 hover:bg-blue-700 shrink-0"
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <Accordion type="single" collapsible className="w-full">
+                    <AccordionItem
+                        value="filters"
+                        className="rounded-2xl border border-gray-200 bg-white px-2 dark:border-gray-700 dark:bg-gray-800"
                     >
-                        <Plus className="h-5 w-5" />
-                    </Button>
-                </div>
+                        <AccordionTrigger className="px-2 text-sm font-semibold text-gray-900 dark:text-white">
+                            フィルター
+                        </AccordionTrigger>
+                        <AccordionContent className="px-2">
+                            <div className="flex flex-col gap-4">
+                                <div className="flex flex-row gap-2">
+                                    <div className="relative flex-1">
+                                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                        <Input
+                                            placeholder="名前で検索..."
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            className="pl-8 bg-white dark:bg-gray-800"
+                                        />
+                                    </div>
+                                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                        <SelectTrigger className="w-[130px] sm:w-[180px] bg-white dark:bg-gray-800">
+                                            <SelectValue placeholder="ステータス" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">全て</SelectItem>
+                                            <SelectItem value="pending">招待中</SelectItem>
+                                            <SelectItem value="accepted">参加済み</SelectItem>
+                                            <SelectItem value="canceled">キャンセル</SelectItem>
+                                            <SelectItem value="expired">期限切れ</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="flex flex-row justify-between items-center">
+                                    <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-full overflow-x-auto max-w-[calc(100%-50px)]">
+                                        <button
+                                            onClick={() => setRoleFilter("all")}
+                                            className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm rounded-full whitespace-nowrap transition-all ${roleFilter === "all"
+                                                ? "bg-white dark:bg-gray-700 shadow-sm font-medium"
+                                                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                                                }`}
+                                        >
+                                            全て
+                                        </button>
+                                        <button
+                                            onClick={() => setRoleFilter("cast")}
+                                            className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm rounded-full whitespace-nowrap transition-all ${roleFilter === "cast"
+                                                ? "bg-white dark:bg-gray-700 shadow-sm font-medium"
+                                                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                                                }`}
+                                        >
+                                            キャスト
+                                        </button>
+                                        <button
+                                            onClick={() => setRoleFilter("staff")}
+                                            className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm rounded-full whitespace-nowrap transition-all ${roleFilter === "staff"
+                                                ? "bg-white dark:bg-gray-700 shadow-sm font-medium"
+                                                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                                                }`}
+                                        >
+                                            スタッフ
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </AccordionContent>
+                    </AccordionItem>
+                </Accordion>
+                <Button
+                    onClick={() => setIsModalOpen(true)}
+                    size="icon"
+                    className="rounded-full w-10 h-10 bg-blue-600 hover:bg-blue-700 shrink-0"
+                >
+                    <Plus className="h-5 w-5" />
+                </Button>
             </div>
 
             <div className="rounded-3xl border bg-white dark:bg-gray-800">

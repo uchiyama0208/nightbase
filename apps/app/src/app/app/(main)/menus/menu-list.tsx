@@ -21,6 +21,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 interface MenuListProps {
     initialMenus: Menu[];
@@ -52,31 +53,43 @@ export function MenuList({ initialMenus, categories }: MenuListProps) {
 
     return (
         <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
-                <div className="flex gap-2 w-full sm:w-auto">
-                    <div className="relative w-full sm:w-[240px]">
-                        <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
-                        <Input
-                            placeholder="メニュー名で検索"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-8"
-                        />
-                    </div>
-                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                        <SelectTrigger className="w-full sm:w-[240px]">
-                            <SelectValue placeholder="カテゴリー" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">すべてのカテゴリー</SelectItem>
-                            {categories.map((cat) => (
-                                <SelectItem key={cat} value={cat}>
-                                    {cat}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <Accordion type="single" collapsible className="w-full">
+                    <AccordionItem
+                        value="filters"
+                        className="rounded-2xl border border-gray-200 bg-white px-2 dark:border-gray-700 dark:bg-gray-800"
+                    >
+                        <AccordionTrigger className="px-2 text-sm font-semibold text-gray-900 dark:text-white">
+                            フィルター
+                        </AccordionTrigger>
+                        <AccordionContent className="px-2">
+                            <div className="flex gap-2 w-full sm:w-auto">
+                                <div className="relative w-full sm:w-[240px]">
+                                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
+                                    <Input
+                                        placeholder="メニュー名で検索"
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        className="pl-8"
+                                    />
+                                </div>
+                                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                                    <SelectTrigger className="w-full sm:w-[240px]">
+                                        <SelectValue placeholder="カテゴリー" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">すべてのカテゴリー</SelectItem>
+                                        {categories.map((cat) => (
+                                            <SelectItem key={cat} value={cat}>
+                                                {cat}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </AccordionContent>
+                    </AccordionItem>
+                </Accordion>
                 <Button onClick={handleCreate} className="w-full sm:w-auto">
                     <Plus className="mr-2 h-4 w-4" />
                     メニュー追加
