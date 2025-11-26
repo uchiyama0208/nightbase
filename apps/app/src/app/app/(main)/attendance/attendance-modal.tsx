@@ -344,6 +344,7 @@ export function AttendanceModal({
                                         name="startTime"
                                         type="time"
                                         defaultValue={defaultStartTime}
+                                        step={60}
                                         className="w-full pl-10 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md"
                                     />
                                 </div>
@@ -358,6 +359,7 @@ export function AttendanceModal({
                                         name="endTime"
                                         type="time"
                                         defaultValue={defaultEndTime}
+                                        step={60}
                                         className="w-full pl-10 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md"
                                     />
                                 </div>

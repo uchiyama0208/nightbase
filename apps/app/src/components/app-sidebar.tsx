@@ -259,7 +259,7 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
             </Sheet>
 
             {/* Desktop Sidebar */}
-            <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-72 lg:flex-col">
+            <div className="hidden lg:fixed lg:top-12 lg:bottom-0 lg:flex lg:w-72 lg:flex-col lg:h-[calc(100%-3rem)]">
                 <SidebarContent />
             </div>
         </>
