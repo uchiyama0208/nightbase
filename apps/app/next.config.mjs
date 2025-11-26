@@ -18,6 +18,10 @@ const nextConfig = {
                 protocol: 'https',
                 hostname: '**.supabase.co',
             },
+            {
+                protocol: 'https',
+                hostname: 'profile.line-scdn.net',
+            },
         ],
     },
 

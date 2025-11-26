@@ -9,6 +9,7 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
+    DialogDescription,
 } from "@/components/ui/dialog";
 import { PickupForm } from "@/components/timecard/pickup-form";
 import { ClockOutModal } from "./clock-out-modal";
@@ -327,6 +328,9 @@ export function ClockButtons({ latestTimeCard, storeSettings, showBreakButtons =
                 <DialogContent className="sm:max-w-[500px] max-w-[calc(100%-2rem)] bg-white dark:bg-white">
                     <DialogHeader>
                         <DialogTitle className="text-gray-900">出勤確認</DialogTitle>
+                        <DialogDescription className="text-gray-600">
+                            出勤前に送迎の有無と目的地を確認してください。
+                        </DialogDescription>
                     </DialogHeader>
                     <div className="py-4">
                         <PickupForm

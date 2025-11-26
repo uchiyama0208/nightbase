@@ -33,7 +33,7 @@ export default function JoinRequestsPage() {
 
     if (loading) {
         return (
-            <div className="p-2 space-y-6 animate-pulse">
+            <div className="space-y-6 animate-pulse">
                 <div className="h-8 w-1/3 bg-gray-200 dark:bg-gray-700 rounded"></div>
                 <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded"></div>
             </div>
@@ -41,7 +41,7 @@ export default function JoinRequestsPage() {
     }
 
     if (error) {
-        return <div className="p-4">Error loading join requests: {error}</div>;
+        return <div className="space-y-2">Error loading join requests: {error}</div>;
     }
 
     if (!data) return null;
@@ -49,7 +49,7 @@ export default function JoinRequestsPage() {
     const { joinRequests } = data;
 
     return (
-        <div className="p-2 space-y-6">
+        <div className="space-y-6">
             <div className="flex flex-col gap-2">
                 <h1 className="text-2xl font-bold tracking-tight">参加申請</h1>
                 <p className="text-muted-foreground">

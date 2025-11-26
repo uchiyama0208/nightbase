@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { JoinRequestModal } from "./join-request-modal";
-import { Users, Calendar } from "lucide-react";
+import { Users, Calendar, Search } from "lucide-react";
 
 interface JoinRequest {
     id: string;
@@ -21,6 +22,8 @@ interface JoinRequestsListProps {
 
 export function JoinRequestsList({ requests: initialRequests }: JoinRequestsListProps) {
     const [requests, setRequests] = useState(initialRequests);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [roleFilter, setRoleFilter] = useState<string>("all");
     const [selectedRequest, setSelectedRequest] = useState<JoinRequest | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -33,6 +36,21 @@ export function JoinRequestsList({ requests: initialRequests }: JoinRequestsList
         setRequests(requests.filter(r => r.id !== requestId));
         setIsModalOpen(false);
     };
+
+    const activeFilters = [
+        searchQuery.trim() && "名前",
+        roleFilter !== "all" && (roleFilter === "cast" ? "キャスト" : "スタッフ"),
+    ].filter(Boolean) as string[];
+
+    const filteredRequests = requests.filter((req) => {
+        const nameMatch = searchQuery.trim().toLowerCase();
+        const matchesSearch =
+            !nameMatch ||
+            req.display_name.toLowerCase().includes(nameMatch) ||
+            req.real_name.toLowerCase().includes(nameMatch);
+        const matchesRole = roleFilter === "all" || req.role === roleFilter;
+        return matchesSearch && matchesRole;
+    });
 
     const getRoleBadge = (role: string) => {
         const colors: Record<string, string> = {
@@ -65,8 +83,73 @@ export function JoinRequestsList({ requests: initialRequests }: JoinRequestsList
 
     return (
         <>
-            <div className="grid gap-4">
-                {requests.map((request) => (
+            <div className="space-y-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-full">
+                            <button
+                                onClick={() => setRoleFilter("all")}
+                                className={`px-4 py-1.5 text-sm rounded-full transition-all ${roleFilter === "all"
+                                    ? "bg-white dark:bg-gray-700 shadow-sm font-medium"
+                                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                                    }`}
+                            >
+                                全て
+                            </button>
+                            <button
+                                onClick={() => setRoleFilter("cast")}
+                                className={`px-4 py-1.5 text-sm rounded-full transition-all ${roleFilter === "cast"
+                                    ? "bg-white dark:bg-gray-700 shadow-sm font-medium"
+                                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                                    }`}
+                            >
+                                キャスト
+                            </button>
+                            <button
+                                onClick={() => setRoleFilter("staff")}
+                                className={`px-4 py-1.5 text-sm rounded-full transition-all ${roleFilter === "staff"
+                                    ? "bg-white dark:bg-gray-700 shadow-sm font-medium"
+                                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                                    }`}
+                            >
+                                スタッフ
+                            </button>
+                        </div>
+                        <div className="relative w-full sm:w-72">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="名前で検索"
+                                className="pl-8"
+                            />
+                        </div>
+                    </div>
+                    {activeFilters.length > 0 && (
+                        <div className="flex flex-wrap gap-2 text-xs text-blue-700 dark:text-blue-300">
+                            {activeFilters.map((filter, index) => (
+                                <span
+                                    key={`${filter}-${index}`}
+                                    className="bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-full"
+                                >
+                                    {filter}
+                                </span>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                <div className="grid gap-4">
+                    {filteredRequests.length === 0 ? (
+                        <Card>
+                            <CardContent className="py-12 text-center">
+                                <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                                <p className="text-gray-600 dark:text-gray-400">
+                                    条件に一致する参加申請はありません
+                                </p>
+                            </CardContent>
+                        </Card>
+                    ) : filteredRequests.map((request) => (
                     <Card
                         key={request.id}
                         className="cursor-pointer hover:shadow-md transition-shadow"
@@ -105,7 +188,8 @@ export function JoinRequestsList({ requests: initialRequests }: JoinRequestsList
                             </div>
                         </CardContent>
                     </Card>
-                ))}
+                    ))}
+                </div>
             </div>
 
             {selectedRequest && (
