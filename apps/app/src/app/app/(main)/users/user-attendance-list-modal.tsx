@@ -98,7 +98,7 @@ export function UserAttendanceListModal({
                                 勤怠データがありません
                             </div>
                         ) : (
-                            <div className="overflow-hidden rounded-md border border-gray-200 dark:border-gray-700">
+                            <div className="overflow-hidden rounded-3xl border border-gray-200 dark:border-gray-700">
                                 <table className="w-full text-sm table-fixed">
                                     <thead className="bg-gray-50 dark:bg-gray-900/50 text-gray-500 dark:text-gray-400 font-medium">
                                         <tr>

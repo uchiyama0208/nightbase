@@ -83,7 +83,7 @@ export function MenuList({ initialMenus, categories }: MenuListProps) {
                 </Button>
             </div>
 
-            <div className="rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <div className="rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
                 <Table>
                     <TableHeader>
                         <TableRow className="border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">

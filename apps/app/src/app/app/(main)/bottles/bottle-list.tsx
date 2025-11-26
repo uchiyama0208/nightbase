@@ -124,7 +124,7 @@ export function BottleList({ storeId, menus, profiles }: BottleListProps) {
             </div>
 
             {/* Table */}
-            <div className="border rounded-lg overflow-hidden bg-white dark:bg-gray-800">
+            <div className="border rounded-3xl overflow-hidden bg-white dark:bg-gray-800">
                 <Table>
                     <TableHeader>
                         <TableRow className="bg-gray-50 dark:bg-gray-900">

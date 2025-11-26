@@ -59,7 +59,7 @@ export default async function ImportSettingsPage() {
 
       <div className="space-y-4">
         {/* Users CSV Import */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 md:p-5 space-y-3">
+        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 md:p-5 space-y-3">
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-sm md:text-base font-semibold text-gray-900 dark:text-white">ユーザーCSVインポート</h2>
@@ -84,7 +84,7 @@ export default async function ImportSettingsPage() {
               <select
                 name="userRole"
                 defaultValue="cast"
-                className="w-full sm:w-auto rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-1.5 text-xs md:text-sm text-gray-700 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full sm:w-auto rounded-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-1.5 text-xs md:text-sm text-gray-700 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="cast">キャストをインポート</option>
                 <option value="staff">スタッフをインポート</option>
@@ -94,7 +94,7 @@ export default async function ImportSettingsPage() {
             <div className="flex justify-end">
               <button
                 type="submit"
-                className="inline-flex justify-center items-center rounded-md bg-blue-600 px-4 py-2 text-xs md:text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+                className="inline-flex justify-center items-center rounded-full bg-blue-600 px-4 py-2 text-xs md:text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
               >
                 ユーザーをインポート
               </button>
@@ -103,7 +103,7 @@ export default async function ImportSettingsPage() {
         </div>
 
         {/* Attendance CSV Import */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 md:p-5 space-y-3">
+        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 md:p-5 space-y-3">
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-sm md:text-base font-semibold text-gray-900 dark:text-white">勤怠CSVインポート</h2>
@@ -128,7 +128,7 @@ export default async function ImportSettingsPage() {
               <select
                 name="attendanceRole"
                 defaultValue="cast"
-                className="w-full sm:w-auto rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-1.5 text-xs md:text-sm text-gray-700 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full sm:w-auto rounded-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-1.5 text-xs md:text-sm text-gray-700 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="cast">キャストの勤怠をインポート</option>
                 <option value="staff">スタッフの勤怠をインポート</option>
@@ -137,7 +137,7 @@ export default async function ImportSettingsPage() {
             <div className="flex justify-end">
               <button
                 type="submit"
-                className="inline-flex justify-center items-center rounded-md bg-blue-600 px-4 py-2 text-xs md:text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+                className="inline-flex justify-center items-center rounded-full bg-blue-600 px-4 py-2 text-xs md:text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
               >
                 勤怠をインポート
               </button>

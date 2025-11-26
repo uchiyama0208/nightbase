@@ -104,7 +104,7 @@ export default async function TimecardPage({
 
             <div>
                 <h2 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white mb-3 md:mb-4">勤務履歴</h2>
-                <div className="rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-x-auto">
+                <div className="rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-x-auto">
                     <div className="min-w-full">
                         <Table>
                             <TableHeader>

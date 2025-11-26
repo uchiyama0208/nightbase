@@ -89,7 +89,7 @@ export function JoinRequestsTable({ requests: initialRequests }: JoinRequestsTab
                 </div>
             </div>
 
-            <div className="rounded-md border bg-white dark:bg-gray-800">
+            <div className="rounded-3xl border bg-white dark:bg-gray-800">
                 <Table>
                     <TableHeader>
                         <TableRow>

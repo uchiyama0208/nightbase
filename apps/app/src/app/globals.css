@@ -5,6 +5,7 @@
 :root {
   color-scheme: light dark;
   background-color: #f9fafb;
+  --radius: 1.5rem;
 }
 
 .dark {
@@ -87,7 +88,7 @@ section {
     -moz-appearance: none;
     width: 1rem;
     height: 1rem;
-    border-radius: 0.25rem;
+    border-radius: 0.375rem;
     border: 1px solid #d1d5db;
     background-color: white;
     cursor: pointer;
