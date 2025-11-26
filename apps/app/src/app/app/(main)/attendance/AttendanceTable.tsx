@@ -251,6 +251,7 @@ export function AttendanceTable({ attendanceRecords, profiles, roleFilter: initi
                                             type="date"
                                             value={dateQuery}
                                             onChange={(e) => setDateQuery(e.target.value)}
+                                            onClick={(event) => event.currentTarget.showPicker?.()}
                                             className="w-full h-10 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 text-xs md:text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         />
                                         <label className="flex items-center justify-center gap-1.5 text-xs md:text-sm text-gray-600 dark:text-gray-300 cursor-pointer h-10 rounded-md border border-transparent hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">

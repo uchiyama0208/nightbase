@@ -113,6 +113,7 @@ export function TimecardHistory({ timeCards, showBreakColumns }: TimecardHistory
                                 type="date"
                                 value={dateFrom}
                                 onChange={(e) => setDateFrom(e.target.value)}
+                                onClick={(event) => event.currentTarget.showPicker?.()}
                                 className="h-10"
                                 placeholder="開始日"
                             />
@@ -120,6 +121,7 @@ export function TimecardHistory({ timeCards, showBreakColumns }: TimecardHistory
                                 type="date"
                                 value={dateTo}
                                 onChange={(e) => setDateTo(e.target.value)}
+                                onClick={(event) => event.currentTarget.showPicker?.()}
                                 className="h-10"
                                 placeholder="終了日"
                             />
