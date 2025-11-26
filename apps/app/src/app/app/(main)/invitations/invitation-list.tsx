@@ -70,7 +70,9 @@ export function InvitationList({
     );
 
     const filteredInvitations = invitations.filter((inv) => {
-        const matchesSearch = (inv.profile?.display_name || "").toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesSearch = (inv.profile?.display_name || inv.profile?.real_name || "")
+            .toLowerCase()
+            .includes(searchQuery.toLowerCase());
         const matchesStatus = statusFilter === "all" || inv.status === statusFilter;
         const matchesRole = roleFilter === "all" || inv.profile?.role === roleFilter;
         return matchesSearch && matchesStatus && matchesRole;

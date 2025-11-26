@@ -16,6 +16,7 @@ export interface Invitation {
     created_at: string;
     profile?: {
         display_name: string;
+        real_name?: string;
         avatar_url: string | null;
         role: string;
     };
@@ -65,6 +66,7 @@ export async function getInvitations(filters?: { status?: string; search?: strin
             invite_expires_at,
             created_at,
             display_name,
+            real_name,
             avatar_url
         `)
         .eq("store_id", storeId)
@@ -114,6 +116,7 @@ export async function getInvitations(filters?: { status?: string; search?: strin
             created_at: p.created_at,
             profile: {
                 display_name: p.display_name,
+                real_name: p.real_name,
                 avatar_url: p.avatar_url,
                 role: p.role
             }
@@ -123,7 +126,7 @@ export async function getInvitations(filters?: { status?: string; search?: strin
     if (filters?.search) {
         const searchLower = filters.search.toLowerCase();
         invitations = invitations.filter((inv) =>
-            (inv.profile?.display_name || "").toLowerCase().includes(searchLower)
+            (inv.profile?.display_name || inv.profile?.real_name || "").toLowerCase().includes(searchLower)
         );
     }
 
