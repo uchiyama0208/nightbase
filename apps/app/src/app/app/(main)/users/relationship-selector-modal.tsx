@@ -16,6 +16,7 @@ import { FilterSuggestionInput } from "@/components/filter-suggestion-input";
 interface Profile {
     id: string;
     display_name: string | null;
+    display_name_kana?: string | null;
     real_name: string | null;
     role: string;
     avatar_url?: string | null;
@@ -55,7 +56,13 @@ export function RelationshipSelectorModal({
             Array.from(
                 new Set(
                     profiles
-                        .map((profile) => profile.display_name || profile.real_name || profile.display_name_kana || "")
+                        .map(
+                            (profile) =>
+                                profile.display_name ||
+                                profile.real_name ||
+                                profile.display_name_kana ||
+                                "",
+                        )
                         .filter(Boolean),
                 ),
             ) as string[],
@@ -79,7 +86,8 @@ export function RelationshipSelectorModal({
             const matchesSearch =
                 !searchQuery ||
                 p.display_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                p.real_name?.toLowerCase().includes(searchQuery.toLowerCase());
+                p.real_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                p.display_name_kana?.toLowerCase().includes(searchQuery.toLowerCase());
             const matchesRole = !roleFilter || p.role === roleFilter;
             return matchesSearch && matchesRole;
         });
