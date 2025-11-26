@@ -6,10 +6,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
-interface FilterSuggestionInputProps extends Omit<InputProps, "value" | "onChange"> {
+interface FilterSuggestionInputProps extends Omit<InputProps, "value"> {
     value: string;
     onValueChange: (value: string) => void;
     suggestions?: string[];
+    onChange?: InputProps["onChange"];
 }
 
 export function FilterSuggestionInput({
