@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { JoinRequestModal } from "./join-request-modal";
 import { Users, Calendar, Search } from "lucide-react";
+import { FilterSuggestionInput } from "@/components/filter-suggestion-input";
 
 interface JoinRequest {
     id: string;
@@ -41,6 +41,14 @@ export function JoinRequestsList({ requests: initialRequests }: JoinRequestsList
         searchQuery.trim() && "名前",
         roleFilter !== "all" && (roleFilter === "cast" ? "キャスト" : "スタッフ"),
     ].filter(Boolean) as string[];
+
+    const suggestionItems = useMemo(
+        () =>
+            Array.from(
+                new Set(initialRequests.map((req) => req.display_name || req.real_name).filter(Boolean)),
+            ) as string[],
+        [initialRequests],
+    );
 
     const filteredRequests = requests.filter((req) => {
         const nameMatch = searchQuery.trim().toLowerCase();
@@ -117,10 +125,11 @@ export function JoinRequestsList({ requests: initialRequests }: JoinRequestsList
                         </div>
                         <div className="relative w-full sm:w-72">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input
+                            <FilterSuggestionInput
                                 value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onValueChange={setSearchQuery}
                                 placeholder="名前で検索"
+                                suggestions={suggestionItems}
                                 className="pl-8"
                             />
                         </div>

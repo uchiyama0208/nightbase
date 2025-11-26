@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect, useTransition, useCallback } from "react";
+import { useState, useEffect, useTransition, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
     Select,
     SelectContent,
@@ -24,6 +23,7 @@ import { BottleModal } from "./bottle-modal";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { FilterSuggestionInput } from "@/components/filter-suggestion-input";
 
 interface BottleListProps {
     storeId: string;
@@ -55,6 +55,18 @@ export function BottleList({ storeId, menus, profiles }: BottleListProps) {
     useEffect(() => {
         fetchBottles();
     }, [fetchBottles, statusFilter, searchQuery]);
+
+    const suggestionItems = useMemo(
+        () =>
+            Array.from(
+                new Set(
+                    bottles
+                        .flatMap((bottle) => [bottle?.guest_name, bottle?.bottle_name])
+                        .filter((name) => !!name),
+                ),
+            ) as string[],
+        [bottles],
+    );
 
     const handleCreateNew = () => {
         setEditingBottle(null);
@@ -117,16 +129,17 @@ export function BottleList({ storeId, menus, profiles }: BottleListProps) {
                         </AccordionTrigger>
                         <AccordionContent className="px-2">
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                <div className="flex gap-2 w-full sm:w-auto">
-                                    <div className="relative flex-1 sm:flex-none sm:w-[240px]">
-                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                        <Input
-                                            placeholder="ボトル名やゲスト名で検索..."
-                                            value={searchQuery}
-                                            onChange={(e) => setSearchQuery(e.target.value)}
-                                            className="pl-10"
-                                        />
-                                    </div>
+                                    <div className="flex gap-2 w-full sm:w-auto">
+                                        <div className="relative flex-1 sm:flex-none sm:w-[240px]">
+                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                            <FilterSuggestionInput
+                                                placeholder="ボトル名やゲスト名で検索..."
+                                                value={searchQuery}
+                                                onValueChange={setSearchQuery}
+                                                suggestions={suggestionItems}
+                                                className="pl-10"
+                                            />
+                                        </div>
                                     <Select value={statusFilter} onValueChange={setStatusFilter}>
                                         <SelectTrigger className="flex-1 sm:flex-none sm:w-[240px]">
                                             <SelectValue placeholder="ステータス" />

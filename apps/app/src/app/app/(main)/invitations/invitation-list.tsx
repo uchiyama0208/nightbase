@@ -2,10 +2,9 @@
 
 import Image from "next/image";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { Invitation, cancelInvitation } from "./actions";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
     Table,
     TableBody,
@@ -28,6 +27,7 @@ import { InvitationDetailModal } from "./invitation-detail-modal";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { FilterSuggestionInput } from "@/components/filter-suggestion-input";
 
 interface InvitationListProps {
     initialInvitations: Invitation[];
@@ -56,6 +56,18 @@ export function InvitationList({
         roleFilter !== "all" && (roleFilter === "cast" ? "キャスト" : "スタッフ"),
     ].filter(Boolean) as string[];
     const hasFilters = activeFilters.length > 0;
+
+    const suggestionItems = useMemo(
+        () =>
+            Array.from(
+                new Set(
+                    initialInvitations
+                        .map((inv) => inv.profile?.display_name || inv.profile?.real_name || "")
+                        .filter(Boolean),
+                ),
+            ),
+        [initialInvitations],
+    );
 
     const filteredInvitations = invitations.filter((inv) => {
         const matchesSearch = (inv.profile?.display_name || "").toLowerCase().includes(searchQuery.toLowerCase());
@@ -157,10 +169,11 @@ export function InvitationList({
                                     <div className="flex flex-row gap-2">
                                         <div className="relative flex-1">
                                             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                                            <Input
+                                            <FilterSuggestionInput
                                                 placeholder="名前で検索..."
                                                 value={searchQuery}
-                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                                onValueChange={setSearchQuery}
+                                                suggestions={suggestionItems}
                                                 className="pl-8 bg-white dark:bg-gray-800"
                                             />
                                         </div>

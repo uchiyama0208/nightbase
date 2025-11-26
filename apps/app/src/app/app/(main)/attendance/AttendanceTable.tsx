@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
     Table,
     TableBody,
@@ -42,6 +42,7 @@ import { Plus } from "lucide-react";
 
 import { AttendanceModal } from "./attendance-modal";
 import { UserEditModal } from "../users/user-edit-modal";
+import { FilterSuggestionInput } from "@/components/filter-suggestion-input";
 
 interface AttendanceTableProps {
     attendanceRecords: AttendanceRecord[];
@@ -72,6 +73,18 @@ export function AttendanceTable({ attendanceRecords, profiles, roleFilter: initi
         if (roleFilter === "cast") return p.role === "cast";
         return p.role === "staff" || p.role === "admin";
     });
+
+    const nameSuggestions = useMemo(
+        () =>
+            Array.from(
+                new Set(
+                    tableProfiles
+                        .map((profile) => profile.display_name_kana || profile.display_name || profile.real_name || "")
+                        .filter(Boolean),
+                ),
+            ),
+        [tableProfiles],
+    );
 
     const profileMap: Record<string, Profile> = {};
     for (const p of profiles) {
@@ -227,11 +240,11 @@ export function AttendanceTable({ attendanceRecords, profiles, roleFilter: initi
                                 </AccordionTrigger>
                                 <AccordionContent className="px-2">
                                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4 items-center">
-                                        <input
-                                            type="text"
+                                        <FilterSuggestionInput
                                             placeholder="名前で検索"
                                             value={nameQuery}
-                                            onChange={(e) => setNameQuery(e.target.value)}
+                                            onValueChange={setNameQuery}
+                                            suggestions={nameSuggestions}
                                             className="w-full h-10 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 text-xs md:text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         />
                                         <input

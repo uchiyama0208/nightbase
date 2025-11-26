@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Menu } from "./actions";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
     Table,
     TableBody,
@@ -22,6 +21,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { FilterSuggestionInput } from "@/components/filter-suggestion-input";
 
 interface MenuListProps {
     initialMenus: Menu[];
@@ -40,6 +40,11 @@ export function MenuList({ initialMenus, categories }: MenuListProps) {
         selectedCategory !== "all" && "カテゴリー",
     ].filter(Boolean) as string[];
     const hasFilters = activeFilters.length > 0;
+
+    const suggestionItems = useMemo(
+        () => Array.from(new Set(initialMenus.map((menu) => menu.name).filter(Boolean))) as string[],
+        [initialMenus],
+    );
 
     const filteredMenus = initialMenus.filter((menu) => {
         const matchesSearch = menu.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -79,10 +84,11 @@ export function MenuList({ initialMenus, categories }: MenuListProps) {
                             <div className="flex gap-2 w-full sm:w-auto">
                                 <div className="relative w-full sm:w-[240px]">
                                     <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
-                                    <Input
+                                    <FilterSuggestionInput
                                         placeholder="メニュー名で検索"
                                         value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        onValueChange={setSearchQuery}
+                                        suggestions={suggestionItems}
                                         className="pl-8"
                                     />
                                 </div>

@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, Search, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
     Dialog,
     DialogContent,
@@ -12,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserCircle } from "lucide-react";
+import { FilterSuggestionInput } from "@/components/filter-suggestion-input";
 
 interface Profile {
     id: string;
@@ -49,6 +49,18 @@ export function RelationshipSelectorModal({
     const [searchQuery, setSearchQuery] = useState("");
     const [roleFilter, setRoleFilter] = useState<string | null>(null);
     const [localSelectedIds, setLocalSelectedIds] = useState<string[]>(selectedIds);
+
+    const suggestionItems = useMemo(
+        () =>
+            Array.from(
+                new Set(
+                    profiles
+                        .map((profile) => profile.display_name || profile.real_name || profile.display_name_kana || "")
+                        .filter(Boolean),
+                ),
+            ) as string[],
+        [profiles],
+    );
 
     useEffect(() => {
         setLocalSelectedIds(selectedIds);
@@ -129,11 +141,12 @@ export function RelationshipSelectorModal({
                     {/* Search */}
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <Input
+                        <FilterSuggestionInput
                             type="text"
                             placeholder="名前で検索..."
                             value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onValueChange={setSearchQuery}
+                            suggestions={suggestionItems}
                             className="pl-10 rounded-md"
                         />
                     </div>

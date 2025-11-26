@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { Input } from "@/components/ui/input";
+import { useMemo, useState } from "react";
 import {
     Table,
     TableBody,
@@ -15,6 +14,7 @@ import { JoinRequestModal } from "./join-request-modal";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { FilterSuggestionInput } from "@/components/filter-suggestion-input";
 
 interface JoinRequest {
     id: string;
@@ -41,6 +41,18 @@ export function JoinRequestsTable({ requests: initialRequests }: JoinRequestsTab
         roleFilter !== "all" && (roleFilter === "cast" ? "キャスト" : "スタッフ"),
     ].filter(Boolean) as string[];
     const hasFilters = activeFilters.length > 0;
+
+    const suggestionItems = useMemo(
+        () =>
+            Array.from(
+                new Set(
+                    initialRequests
+                        .map((req) => req.display_name || req.real_name)
+                        .filter(Boolean),
+                ),
+            ) as string[],
+        [initialRequests],
+    );
 
     const filteredRequests = requests.filter((req) => {
         const matchesSearch =
@@ -112,10 +124,11 @@ export function JoinRequestsTable({ requests: initialRequests }: JoinRequestsTab
                                 <div className="flex flex-col gap-3">
                                     <div className="relative w-full sm:w-72">
                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                        <Input
+                                        <FilterSuggestionInput
                                             placeholder="名前で検索"
                                             value={searchQuery}
-                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            onValueChange={setSearchQuery}
+                                            suggestions={suggestionItems}
                                             className="pl-8"
                                         />
                                     </div>

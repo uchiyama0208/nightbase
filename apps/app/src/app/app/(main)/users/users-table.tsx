@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { FilterSuggestionInput } from "@/components/filter-suggestion-input";
 
 // Lazy load the modal - only when user clicks
 const UserEditModal = dynamic(() => import("./user-edit-modal").then(mod => ({ default: mod.UserEditModal })), {
@@ -48,6 +49,26 @@ export function UsersTable({ profiles, roleFilter }: UsersTableProps) {
         .filter(Boolean)
         .map(String);
     const hasFilters = activeFilters.length > 0;
+
+    const nameSuggestions = useMemo(
+        () =>
+            Array.from(
+                new Set(
+                    profiles
+                        .map((profile) =>
+                            profile.display_name ||
+                            profile.display_name_kana ||
+                            profile.real_name ||
+                            profile.real_name_kana ||
+                            profile.guest_addressee ||
+                            profile.guest_receipt_type ||
+                            "",
+                        )
+                        .filter(Boolean),
+                ),
+            ),
+        [profiles],
+    );
 
     const filteredProfiles = profiles.filter((profile) => {
         if (!nameQuery.trim()) return true;
@@ -111,11 +132,11 @@ export function UsersTable({ profiles, roleFilter }: UsersTableProps) {
                                 </AccordionTrigger>
                                 <AccordionContent className="px-2">
                                     <div className="grid grid-cols-1">
-                                        <input
-                                            type="text"
+                                        <FilterSuggestionInput
                                             placeholder="名前で検索"
                                             value={nameQuery}
-                                            onChange={(e) => setNameQuery(e.target.value)}
+                                            onValueChange={setNameQuery}
+                                            suggestions={nameSuggestions}
                                             className="w-full h-10 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 text-xs md:text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         />
                                     </div>
