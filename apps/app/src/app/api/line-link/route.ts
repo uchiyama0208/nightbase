@@ -24,6 +24,9 @@ export async function GET(request: NextRequest) {
         edgeFunctionUrl.searchParams.set("userId", userId);
     }
 
+    // Pass the current origin as frontend_url
+    edgeFunctionUrl.searchParams.set("frontend_url", request.nextUrl.origin);
+
     // Redirect to the edge function
     return NextResponse.redirect(edgeFunctionUrl.toString());
 }

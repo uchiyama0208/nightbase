@@ -35,13 +35,35 @@ serve(async (req) => {
         console.log("Decoded state:", decodedState);
 
         // Parse state to get mode and optional invite token
+        // Parse state to get mode, optional invite token, and frontendUrl
+        // Format: uuid:mode:extraParam:frontendUrl
         const stateParts = decodedState.split(":");
         const mode = stateParts[1];
-        let extraParam = stateParts[2] || null;
+        let extraParam = stateParts[2];
 
-        // Sanitize extraParam
-        if (extraParam === "null" || extraParam === "undefined") {
+        // Handle "null" string or undefined/empty
+        if (extraParam === "null" || extraParam === "undefined" || !extraParam) {
             extraParam = null;
+        }
+
+        // Get frontendUrl if present (4th part onwards)
+        let frontendUrlFromState = null;
+        if (stateParts.length > 3) {
+            // Rejoin the rest of the parts using ":", in case decoding happened and split the URL
+            // e.g. "http://localhost:3001" might have been split into ["http", "//localhost", "3001"]
+            const urlPart = stateParts.slice(3).join(":");
+            if (urlPart) {
+                try {
+                    // Try to decode in case it is still encoded (e.g. "http%3A%2F%2F...")
+                    // If it was already decoded and rejoined (e.g. "http://..."), decodeURIComponent handles it fine usually
+                    // providing it doesn't contain invalid sequences.
+                    frontendUrlFromState = decodeURIComponent(urlPart);
+                } catch (e) {
+                    console.error("Failed to decode frontendUrl from state:", e);
+                    // Fallback to raw rejoined string
+                    frontendUrlFromState = urlPart;
+                }
+            }
         }
 
         const inviteToken = mode !== 'link' ? extraParam : null;
@@ -54,6 +76,7 @@ serve(async (req) => {
         console.log("Extra Param:", extraParam);
         console.log("Invite Token:", inviteToken);
         console.log("Link User ID:", linkUserId);
+        console.log("Frontend URL from State:", frontendUrlFromState);
         console.log("==================");
 
         // Get environment variables
@@ -63,7 +86,9 @@ serve(async (req) => {
         // Supabase automatically provides these
         const supabaseUrl = Deno.env.get("SUPABASE_URL");
         const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-        const frontendUrl = Deno.env.get("FRONTEND_URL") || "http://localhost:3000";
+
+        // Use frontendUrl from state if available, otherwise fallback to env var or default
+        const frontendUrl = frontendUrlFromState || Deno.env.get("FRONTEND_URL") || "http://localhost:3000";
 
         if (!channelId || !channelSecret || !callbackUrl || !supabaseUrl || !supabaseServiceKey) {
             return new Response("Missing configuration", { status: 500 });

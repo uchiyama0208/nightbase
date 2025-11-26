@@ -7,6 +7,7 @@ serve(async (req) => {
     let mode = url.searchParams.get("mode") || "join-store";
     let inviteToken = url.searchParams.get("invite_token");
     let userId = url.searchParams.get("userId");
+    let frontendUrl = url.searchParams.get("frontend_url");
 
     // Check if request has body (POST request)
     if (req.method === "POST") {
@@ -15,6 +16,7 @@ serve(async (req) => {
             if (body.mode) mode = body.mode;
             if (body.inviteToken) inviteToken = body.inviteToken;
             if (body.userId) userId = body.userId;
+            if (body.frontendUrl) frontendUrl = body.frontendUrl;
         } catch (e) {
             console.error("Error parsing request body:", e);
         }
@@ -28,6 +30,7 @@ serve(async (req) => {
     console.log("Mode:", mode);
     console.log("Invite Token:", inviteToken);
     console.log("User ID:", userId);
+    console.log("Frontend URL:", frontendUrl);
     console.log("=======================");
 
     // Get environment variables
@@ -47,13 +50,24 @@ serve(async (req) => {
     authUrl.searchParams.set("client_id", channelId);
     authUrl.searchParams.set("redirect_uri", callbackUrl);
 
-    // Construct state with optional invite token or userId
+    // Construct state with optional invite token or userId and frontendUrl
+    // Format: uuid:mode:extraParam:frontendUrl
     let stateValue = `${state}:${mode}`;
+
+    // Add extraParam (inviteToken or userId)
     if (inviteToken) {
         stateValue += `:${inviteToken}`;
     } else if (userId) {
         stateValue += `:${userId}`;
+    } else {
+        stateValue += `:null`; // Placeholder for extraParam
     }
+
+    // Add frontendUrl if present
+    if (frontendUrl) {
+        stateValue += `:${encodeURIComponent(frontendUrl)}`;
+    }
+
     authUrl.searchParams.set("state", stateValue);
     authUrl.searchParams.set("scope", "profile openid email");
     authUrl.searchParams.set("bot_prompt", "aggressive");
