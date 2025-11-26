@@ -35,8 +35,8 @@ export default async function MenusPage() {
     return (
         <div className="space-y-4">
             <div className="flex flex-col gap-2">
-                <h1 className="text-2xl font-bold tracking-tight">メニュー管理</h1>
-                <p className="text-muted-foreground">
+                <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">メニュー管理</h1>
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                     お店のメニューの登録・編集・削除ができます。
                 </p>
             </div>

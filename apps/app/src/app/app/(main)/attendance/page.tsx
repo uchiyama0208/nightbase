@@ -100,16 +100,16 @@ export default async function AttendancePage({
 
 	return (
 		<div className="space-y-4">
-			<div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-				<div>
-					<h1 className="text-xl md:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-						勤怠
-					</h1>
-					<p className="mt-2 text-xs md:text-sm text-gray-600 dark:text-gray-400">
-						シフトの確認と出勤状況を管理します。
-					</p>
-				</div>
-			</div>
+                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                                <div>
+                                        <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+                                                勤怠
+                                        </h1>
+                                        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                                                シフトの確認と出勤状況を管理します。
+                                        </p>
+                                </div>
+                        </div>
 
 			<AttendanceTable attendanceRecords={allRecords} profiles={allProfiles} roleFilter={roleFilter} />
 		</div>

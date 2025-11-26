@@ -1,8 +1,6 @@
-import { cache } from "react";
 import { createServerClient } from "@/lib/supabaseServerClient";
-import { redirect } from "next/navigation";
 
-export const getAppData = cache(async () => {
+export async function getAppData() {
     const supabase = await createServerClient();
 
     const {
@@ -43,4 +41,4 @@ export const getAppData = cache(async () => {
     const theme = (profile?.theme as "light" | "dark") || "light";
 
     return { user, profile, theme };
-});
+}

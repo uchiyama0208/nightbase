@@ -35,6 +35,12 @@ export function MenuList({ initialMenus, categories }: MenuListProps) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingMenu, setEditingMenu] = useState<Menu | null>(null);
 
+    const activeFilters = [
+        searchQuery.trim() && "検索",
+        selectedCategory !== "all" && "カテゴリー",
+    ].filter(Boolean) as string[];
+    const hasFilters = activeFilters.length > 0;
+
     const filteredMenus = initialMenus.filter((menu) => {
         const matchesSearch = menu.name.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesCategory = selectedCategory === "all" || menu.category === selectedCategory;
@@ -54,13 +60,20 @@ export function MenuList({ initialMenus, categories }: MenuListProps) {
     return (
         <div className="space-y-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <Accordion type="single" collapsible className="w-full">
+                <Accordion type="single" collapsible className="w-full sm:w-auto">
                     <AccordionItem
                         value="filters"
                         className="rounded-2xl border border-gray-200 bg-white px-2 dark:border-gray-700 dark:bg-gray-800"
                     >
                         <AccordionTrigger className="px-2 text-sm font-semibold text-gray-900 dark:text-white">
-                            フィルター
+                            <div className="flex w-full items-center justify-between pr-2">
+                                <span>フィルター</span>
+                                {hasFilters && (
+                                    <span className="text-xs text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/40 px-2 py-0.5 rounded-full">
+                                        {activeFilters.join("・")}
+                                    </span>
+                                )}
+                            </div>
                         </AccordionTrigger>
                         <AccordionContent className="px-2">
                             <div className="flex gap-2 w-full sm:w-auto">

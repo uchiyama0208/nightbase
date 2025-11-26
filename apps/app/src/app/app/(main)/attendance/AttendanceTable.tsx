@@ -182,65 +182,79 @@ export function AttendanceTable({ attendanceRecords, profiles, roleFilter: initi
         setEditingRecord(null);
     };
 
+    const activeFilters = [
+        nameQuery.trim() && "名前",
+        dateQuery && "日付",
+        workingOnly && "出勤中のみ",
+    ].filter(Boolean) as string[];
+    const hasFilters = activeFilters.length > 0;
+
     return (
         <>
             <div className="flex flex-col gap-3 mb-4">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <Accordion type="single" collapsible className="w-full">
-                        <AccordionItem
-                            value="filters"
-                            className="rounded-2xl border border-gray-200 bg-white px-2 dark:border-gray-700 dark:bg-gray-800"
-                        >
-                            <AccordionTrigger className="px-2 text-sm font-semibold text-gray-900 dark:text-white">
-                                フィルター
-                            </AccordionTrigger>
-                            <AccordionContent className="px-2">
-                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4 items-center">
-                                    <input
-                                        type="text"
-                                        placeholder="名前で検索"
-                                        value={nameQuery}
-                                        onChange={(e) => setNameQuery(e.target.value)}
-                                        className="w-full h-10 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 text-xs md:text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    />
-                                    <input
-                                        type="date"
-                                        value={dateQuery}
-                                        onChange={(e) => setDateQuery(e.target.value)}
-                                        className="w-full h-10 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 text-xs md:text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    />
-                                    <label className="flex items-center justify-center gap-1.5 text-xs md:text-sm text-gray-600 dark:text-gray-300 cursor-pointer h-10 rounded-md border border-transparent hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                                        <input
-                                            type="checkbox"
-                                            checked={workingOnly}
-                                            onChange={(e) => setWorkingOnly(e.target.checked)}
-                                            className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 focus:ring-blue-500 dark:focus:ring-blue-400"
-                                            style={{ accentColor: '#2563eb' }}
-                                        />
-                                        <span className="whitespace-nowrap">出勤中のみ</span>
-                                    </label>
-                                    <div className="sm:col-span-3 flex items-center justify-between">
-                                        <div className="inline-flex h-10 items-center rounded-full bg-gray-100 dark:bg-gray-800 p-1 text-xs">
-                                            <button
-                                                type="button"
-                                                onClick={() => setRoleFilter("cast")}
-                                                className={`px-4 h-full flex items-center rounded-full font-medium transition-colors ${roleFilter === "cast" ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"}`}
-                                            >
-                                                キャスト
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => setRoleFilter("staff")}
-                                                className={`px-4 h-full flex items-center rounded-full font-medium transition-colors ${roleFilter === "staff" ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"}`}
-                                            >
-                                                スタッフ
-                                            </button>
-                                        </div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex flex-wrap items-center gap-3">
+                        <div className="inline-flex h-10 items-center rounded-full bg-gray-100 dark:bg-gray-800 p-1 text-xs">
+                            <button
+                                type="button"
+                                onClick={() => setRoleFilter("cast")}
+                                className={`px-4 h-full flex items-center rounded-full font-medium transition-colors ${roleFilter === "cast" ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"}`}
+                            >
+                                キャスト
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setRoleFilter("staff")}
+                                className={`px-4 h-full flex items-center rounded-full font-medium transition-colors ${roleFilter === "staff" ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"}`}
+                            >
+                                スタッフ
+                            </button>
+                        </div>
+                        <Accordion type="single" collapsible className="w-full sm:w-auto">
+                            <AccordionItem
+                                value="filters"
+                                className="rounded-2xl border border-gray-200 bg-white px-2 dark:border-gray-700 dark:bg-gray-800"
+                            >
+                                <AccordionTrigger className="px-2 text-sm font-semibold text-gray-900 dark:text-white">
+                                    <div className="flex w-full items-center justify-between pr-2">
+                                        <span>フィルター</span>
+                                        {hasFilters && (
+                                            <span className="text-xs text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/40 px-2 py-0.5 rounded-full">
+                                                {activeFilters.join("・")}
+                                            </span>
+                                        )}
                                     </div>
-                                </div>
-                            </AccordionContent>
-                        </AccordionItem>
-                    </Accordion>
+                                </AccordionTrigger>
+                                <AccordionContent className="px-2">
+                                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4 items-center">
+                                        <input
+                                            type="text"
+                                            placeholder="名前で検索"
+                                            value={nameQuery}
+                                            onChange={(e) => setNameQuery(e.target.value)}
+                                            className="w-full h-10 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 text-xs md:text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                        <input
+                                            type="date"
+                                            value={dateQuery}
+                                            onChange={(e) => setDateQuery(e.target.value)}
+                                            className="w-full h-10 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 text-xs md:text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                        <label className="flex items-center justify-center gap-1.5 text-xs md:text-sm text-gray-600 dark:text-gray-300 cursor-pointer h-10 rounded-md border border-transparent hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                                            <input
+                                                type="checkbox"
+                                                checked={workingOnly}
+                                                onChange={(e) => setWorkingOnly(e.target.checked)}
+                                                className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 focus:ring-blue-500 dark:focus:ring-blue-400"
+                                                style={{ accentColor: '#2563eb' }}
+                                            />
+                                            <span className="whitespace-nowrap">出勤中のみ</span>
+                                        </label>
+                                    </div>
+                                </AccordionContent>
+                            </AccordionItem>
+                        </Accordion>
+                    </div>
                     <Button
                         size="icon"
                         variant="outline"

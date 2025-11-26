@@ -48,7 +48,9 @@ export default async function AppLayout({
 
     const userRole = profile?.role || "guest";
     const profileName = profile?.display_name || undefined;
-    const avatarUrl = profile?.avatar_url || undefined;
+    const avatarUrl = profile?.avatar_url
+        ? `${profile.avatar_url}${profile.avatar_url.includes("?") ? "&" : "?"}t=${Date.now()}`
+        : undefined;
     const store = profile?.stores as any;
     const storeName = store ? store.name : undefined;
     const storeFeatures = store

@@ -90,8 +90,8 @@ export default async function UsersPage({
     return (
         <div className="space-y-4">
             <div>
-                <h1 className="text-xl md:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">プロフィール情報</h1>
-                <p className="text-xs md:text-sm text-muted-foreground dark:text-gray-400">
+                <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">プロフィール情報</h1>
+                <p className="mt-2 text-sm text-muted-foreground dark:text-gray-400">
                     キャスト・スタッフ・ゲストのプロフィールを管理します。
                 </p>
             </div>
