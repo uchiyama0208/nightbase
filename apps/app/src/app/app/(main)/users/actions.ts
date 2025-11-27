@@ -393,7 +393,7 @@ export async function deleteUser(profileId: string) {
         throw new Error("User not authenticated");
     }
 
-    // Resolve current profile and store to ensure permission
+    // Get current user's profile and store
     const { data: appUser } = await supabase
         .from("users")
         .select("current_profile_id")
@@ -414,13 +414,15 @@ export async function deleteUser(profileId: string) {
         throw new Error("店舗情報が見つかりません");
     }
 
-    // Only admin or staff can delete users (adjust based on requirements, assuming staff/admin for now)
-    // Ideally check if currentProfile.role is 'admin' or 'staff'
+    // Permission check: only admin or staff can delete users
+    if (!['admin', 'staff'].includes(currentProfile.role)) {
+        throw new Error("ユーザーを削除する権限がありません");
+    }
 
-    // Verify the target profile belongs to the same store
+    // Get target profile
     const { data: targetProfile } = await supabase
         .from("profiles")
-        .select("store_id")
+        .select("store_id, user_id")
         .eq("id", profileId)
         .maybeSingle();
 
@@ -428,11 +430,36 @@ export async function deleteUser(profileId: string) {
         throw new Error("ユーザーが見つかりません");
     }
 
+    // Verify same store
     if (targetProfile.store_id !== currentProfile.store_id) {
         throw new Error("権限がありません");
     }
 
-    // Delete the profile
+    // Prevent self-deletion
+    if (profileId === appUser.current_profile_id) {
+        throw new Error("自分自身を削除することはできません");
+    }
+
+    // Find all users who have this profile as current_profile_id
+    const { data: affectedUsers } = await supabase
+        .from("users")
+        .select("id")
+        .eq("current_profile_id", profileId);
+
+    // Update affected users' current_profile_id to null
+    if (affectedUsers && affectedUsers.length > 0) {
+        const { error: updateError } = await supabase
+            .from("users")
+            .update({ current_profile_id: null })
+            .eq("current_profile_id", profileId);
+
+        if (updateError) {
+            console.error("Error updating affected users:", updateError);
+            throw new Error("関連ユーザーの更新に失敗しました");
+        }
+    }
+
+    // Delete the profile (CASCADE DELETE will handle related data)
     const { error } = await supabase.from("profiles").delete().eq("id", profileId);
 
     if (error) {

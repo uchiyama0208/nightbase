@@ -387,10 +387,12 @@ export async function deleteStore() {
         throw new Error("No store found");
     }
 
-    if (profile.role !== "staff") {
-        throw new Error(`Insufficient permissions: Current role is '${profile.role}'`);
+    // Permission check: only admin or staff can delete store
+    if (!['admin', 'staff'].includes(profile.role)) {
+        throw new Error(`権限がありません: 現在の役割は '${profile.role}' です`);
     }
 
+    // Delete the store (CASCADE DELETE will handle profiles and related data)
     const { error } = await supabase
         .from("stores")
         .delete()
@@ -398,9 +400,11 @@ export async function deleteStore() {
 
     if (error) {
         console.error("Error deleting store:", error);
-        throw new Error("Failed to delete store");
+        throw new Error("店舗の削除に失敗しました");
     }
 
+    // Update current_profile_id to null (CASCADE DELETE will handle this automatically with ON DELETE SET NULL)
+    // But we do it explicitly here for immediate effect
     await supabase
         .from("users")
         .update({ current_profile_id: null })

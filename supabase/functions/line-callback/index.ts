@@ -83,9 +83,15 @@ serve(async (req) => {
         const channelId = Deno.env.get("LINE_CHANNEL_ID");
         const channelSecret = Deno.env.get("LINE_CHANNEL_SECRET");
         const callbackUrl = Deno.env.get("LINE_CALLBACK_URL");
-        // Supabase automatically provides these
+        // Supabase automatically provides SUPABASE_URL
+        // SERVICE_ROLE_KEY is set manually (SUPABASE_ prefix is reserved)
         const supabaseUrl = Deno.env.get("SUPABASE_URL");
-        const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+        const supabaseServiceKey = Deno.env.get("SERVICE_ROLE_KEY");
+        
+        console.log("=== ENV DEBUG ===");
+        console.log("SUPABASE_URL:", supabaseUrl ? "SET" : "NOT SET");
+        console.log("SERVICE_ROLE_KEY:", supabaseServiceKey ? `SET (${supabaseServiceKey.substring(0, 20)}...)` : "NOT SET");
+        console.log("=================");
 
         // Use frontendUrl from state if available, otherwise fallback to env var or default
         const frontendUrl = frontendUrlFromState || Deno.env.get("FRONTEND_URL") || "http://localhost:3000";
@@ -355,6 +361,15 @@ serve(async (req) => {
             });
 
             if (authError) {
+                console.error("=== INVITATION AUTH ERROR DETAILS ===");
+                console.error("Error message:", authError.message);
+                console.error("Error name:", authError.name);
+                console.error("Error status:", authError.status);
+                console.error("Full error:", JSON.stringify(authError, null, 2));
+                console.error("Attempted email:", email);
+                console.error("Invitation profile ID:", invitedProfileId);
+                console.error("====================================");
+
                 // Check if error is because user already exists
                 if (authError.message?.includes("already been registered")) {
                     console.log("User already exists, attempting to recover userId...");
@@ -392,7 +407,7 @@ serve(async (req) => {
                         }
                     }
                 } else {
-                    console.error("User creation failed:", authError);
+                    console.error("Invitation user creation failed with non-duplicate error");
                     return new Response(`ユーザーの作成に失敗しました: ${authError.message}`, { status: 500 });
                 }
             }
@@ -544,19 +559,57 @@ serve(async (req) => {
 
                 // Create new user with password (LINE user ID as password)
                 // loginEmail is already set to default
+                // Use direct fetch to Admin API to bypass potential client issues
 
-                let { data: newAuthUser, error: authError } = await supabase.auth.admin.createUser({
-                    email: loginEmail,
-                    password: profile.userId,
-                    email_confirm: true,
-                    user_metadata: {
-                        line_user_id: profile.userId,
-                        name: profile.displayName,
-                        avatar_url: profile.pictureUrl,
+                console.log("=== CREATE USER DEBUG ===");
+                console.log("URL:", `${supabaseUrl}/auth/v1/admin/users`);
+                console.log("Email:", loginEmail);
+                console.log("Service Key (first 30 chars):", supabaseServiceKey?.substring(0, 30));
+                console.log("=========================");
+
+                const createUserResponse = await fetch(`${supabaseUrl}/auth/v1/admin/users`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "apikey": supabaseServiceKey,
+                        "Authorization": `Bearer ${supabaseServiceKey}`,
                     },
+                    body: JSON.stringify({
+                        email: loginEmail,
+                        password: profile.userId,
+                        email_confirm: true,
+                        user_metadata: {
+                            line_user_id: profile.userId,
+                            name: profile.displayName,
+                            avatar_url: profile.pictureUrl,
+                        },
+                    }),
                 });
 
+                let newAuthUser: { user: any } | null = null;
+                let authError: { message: string; name?: string; status?: number } | null = null;
+
+                if (!createUserResponse.ok) {
+                    const errorData = await createUserResponse.json();
+                    authError = {
+                        message: errorData.msg || errorData.message || "Unknown error",
+                        name: "AuthApiError",
+                        status: createUserResponse.status,
+                    };
+                } else {
+                    const userData = await createUserResponse.json();
+                    newAuthUser = { user: userData };
+                }
+
                 if (authError) {
+                    console.error("=== AUTH ERROR DETAILS ===");
+                    console.error("Error message:", authError.message);
+                    console.error("Error name:", authError.name);
+                    console.error("Error status:", authError.status);
+                    console.error("Full error:", JSON.stringify(authError, null, 2));
+                    console.error("Attempted email:", loginEmail);
+                    console.error("========================");
+
                     // Check if error is because user already exists
                     if (authError.message?.includes("already been registered")) {
                         console.log("User already exists, attempting to recover userId...");
@@ -594,7 +647,7 @@ serve(async (req) => {
                             }
                         }
                     } else {
-                        console.error("User creation failed:", authError);
+                        console.error("User creation failed with non-duplicate error");
                         return new Response(`ユーザーの作成に失敗しました: ${authError.message}`, { status: 500 });
                     }
                 }
