@@ -16,8 +16,32 @@ export async function createUser(formData: FormData) {
 
     const displayName = formData.get("displayName") as string;
     const displayNameKana = (formData.get("displayNameKana") as string | null)?.trim() || null;
-    const realName = formData.get("realName") as string;
-    const realNameKana = formData.get("realNameKana") as string;
+    const lastName = (formData.get("lastName") as string | null)?.trim() || null;
+    const firstName = (formData.get("firstName") as string | null)?.trim() || null;
+    const lastNameKana = (formData.get("lastNameKana") as string | null)?.trim() || null;
+    const firstNameKana = (formData.get("firstNameKana") as string | null)?.trim() || null;
+    // Legacy support: construct real_name from last/first if not provided directly (though UI will likely send split)
+    // or just store them. The migration added columns, so we should store them.
+    // We can also populate real_name for backward compatibility if we want, but the plan said "Split".
+    // Let's populate real_name as a combination for now to be safe with existing code that reads it.
+    const realName = (formData.get("realName") as string | null)?.trim() || [lastName, firstName].filter(Boolean).join(" ");
+    const realNameKana = (formData.get("realNameKana") as string | null)?.trim() || [lastNameKana, firstNameKana].filter(Boolean).join(" ");
+
+    const zipCode = (formData.get("zipCode") as string | null)?.trim() || null;
+    const prefecture = (formData.get("prefecture") as string | null)?.trim() || null;
+    const city = (formData.get("city") as string | null)?.trim() || null;
+    const street = (formData.get("street") as string | null)?.trim() || null;
+    const building = (formData.get("building") as string | null)?.trim() || null;
+    const phoneNumber = (formData.get("phoneNumber") as string | null)?.trim() || null;
+    const emergencyPhoneNumber = (formData.get("emergencyPhoneNumber") as string | null)?.trim() || null;
+    const nearestStation = (formData.get("nearestStation") as string | null)?.trim() || null;
+
+    // Cast specific fields
+    const height = (formData.get("height") as string | null)?.trim() ? parseInt(formData.get("height") as string) : null;
+    const desiredCastName = (formData.get("desiredCastName") as string | null)?.trim() || null;
+    const desiredHourlyWage = (formData.get("desiredHourlyWage") as string | null)?.trim() ? parseInt(formData.get("desiredHourlyWage") as string) : null;
+    const desiredShiftDays = (formData.get("desiredShiftDays") as string | null)?.trim() || null;
+
     const role = formData.get("role") as string;
     const guestAddressee = (formData.get("guestAddressee") as string | null)?.trim() || null;
     const guestReceiptTypeRaw = (formData.get("guestReceiptType") as string | null) ?? "none";
@@ -57,6 +81,19 @@ export async function createUser(formData: FormData) {
         display_name_kana: displayNameKana,
         real_name: realName,
         real_name_kana: realNameKana,
+        last_name: lastName,
+        first_name: firstName,
+        last_name_kana: lastNameKana,
+        first_name_kana: firstNameKana,
+        zip_code: zipCode,
+        prefecture: prefecture,
+        city: city,
+        street: street,
+        building: building,
+        phone_number: phoneNumber,
+        emergency_phone_number: emergencyPhoneNumber,
+        nearest_station: nearestStation,
+        height: height,
         role: role,
         store_id: currentProfile.store_id,
         user_id: null, // Explicitly set to null to avoid default value issues
@@ -208,8 +245,26 @@ export async function updateUser(formData: FormData) {
     const profileId = formData.get("profileId") as string;
     const displayName = formData.get("displayName") as string;
     const displayNameKana = (formData.get("displayNameKana") as string | null)?.trim() || null;
-    const realName = (formData.get("realName") as string | null) ?? "";
-    const realNameKana = (formData.get("realNameKana") as string | null) ?? "";
+
+    const lastName = (formData.get("lastName") as string | null)?.trim() || null;
+    const firstName = (formData.get("firstName") as string | null)?.trim() || null;
+    const lastNameKana = (formData.get("lastNameKana") as string | null)?.trim() || null;
+    const firstNameKana = (formData.get("firstNameKana") as string | null)?.trim() || null;
+
+    const realName = (formData.get("realName") as string | null)?.trim() || [lastName, firstName].filter(Boolean).join(" ");
+    const realNameKana = (formData.get("realNameKana") as string | null)?.trim() || [lastNameKana, firstNameKana].filter(Boolean).join(" ");
+
+    const zipCode = (formData.get("zipCode") as string | null)?.trim() || null;
+    const prefecture = (formData.get("prefecture") as string | null)?.trim() || null;
+    const city = (formData.get("city") as string | null)?.trim() || null;
+    const street = (formData.get("street") as string | null)?.trim() || null;
+    const building = (formData.get("building") as string | null)?.trim() || null;
+    const phoneNumber = (formData.get("phoneNumber") as string | null)?.trim() || null;
+
+    const emergencyPhoneNumber = (formData.get("emergencyPhoneNumber") as string | null)?.trim() || null;
+    const nearestStation = (formData.get("nearestStation") as string | null)?.trim() || null;
+    const height = (formData.get("height") as string | null)?.trim() ? parseInt(formData.get("height") as string) : null;
+
     const role = formData.get("role") as string;
     const guestAddressee = (formData.get("guestAddressee") as string | null)?.trim() || null;
     const guestReceiptTypeRaw = (formData.get("guestReceiptType") as string | null) ?? "none";
@@ -299,6 +354,19 @@ export async function updateUser(formData: FormData) {
             display_name_kana: displayNameKana,
             real_name: realName,
             real_name_kana: realNameKana,
+            last_name: lastName,
+            first_name: firstName,
+            last_name_kana: lastNameKana,
+            first_name_kana: firstNameKana,
+            zip_code: zipCode,
+            prefecture: prefecture,
+            city: city,
+            street: street,
+            building: building,
+            phone_number: phoneNumber,
+            emergency_phone_number: emergencyPhoneNumber,
+            nearest_station: nearestStation,
+            height: height,
             role,
             guest_addressee: role === "guest" ? guestAddressee : null,
             guest_receipt_type: role === "guest" ? guestReceiptType : "none",
@@ -406,7 +474,7 @@ export async function getProfileDetails(profileId: string) {
 
     // Get comments
     const { data: comments, error: comError } = await supabase
-        .from("profile_comments")
+        .from("comments")
         .select(`
             *,
             author:profiles!author_profile_id (
@@ -435,7 +503,7 @@ export async function getProfileDetails(profileId: string) {
 
     // Fetch all likes for these comments in one query
     const { data: allLikes } = await supabase
-        .from("profile_comment_likes")
+        .from("comment_likes")
         .select("comment_id, profile_id")
         .in("comment_id", commentIds);
 
@@ -555,7 +623,7 @@ export async function updateProfileRelationships(
         if (insError) throw new Error(insError.message);
     }
 
-    revalidatePath("/app/users");
+    // revalidatePath("/app/users");
     return { success: true };
 }
 
@@ -583,7 +651,7 @@ export async function addProfileComment(targetProfileId: string, content: string
 
     if (!currentProfile?.store_id) throw new Error("No store");
 
-    const { error } = await supabase.from("profile_comments").insert({
+    const { error } = await supabase.from("comments").insert({
         store_id: currentProfile.store_id,
         target_profile_id: targetProfileId,
         author_profile_id: appUser.current_profile_id,
@@ -664,7 +732,7 @@ export async function updateProfileComment(commentId: string, content: string) {
 
     // Verify user is the author
     const { data: comment } = await supabase
-        .from("profile_comments")
+        .from("comments")
         .select("author_profile_id")
         .eq("id", commentId)
         .maybeSingle();
@@ -674,7 +742,7 @@ export async function updateProfileComment(commentId: string, content: string) {
     }
 
     const { error } = await supabase
-        .from("profile_comments")
+        .from("comments")
         .update({ content, updated_at: new Date().toISOString() })
         .eq("id", commentId);
 
@@ -702,7 +770,7 @@ export async function deleteProfileComment(commentId: string) {
 
     // Verify user is the author
     const { data: comment } = await supabase
-        .from("profile_comments")
+        .from("comments")
         .select("author_profile_id")
         .eq("id", commentId)
         .maybeSingle();
@@ -712,7 +780,7 @@ export async function deleteProfileComment(commentId: string) {
     }
 
     const { error } = await supabase
-        .from("profile_comments")
+        .from("comments")
         .delete()
         .eq("id", commentId);
 
@@ -740,7 +808,7 @@ export async function toggleCommentLike(commentId: string) {
 
     // Check if already liked
     const { data: existingLike } = await supabase
-        .from("profile_comment_likes")
+        .from("comment_likes")
         .select("id")
         .eq("comment_id", commentId)
         .eq("profile_id", appUser.current_profile_id)
@@ -749,7 +817,7 @@ export async function toggleCommentLike(commentId: string) {
     if (existingLike) {
         // Unlike
         const { error } = await supabase
-            .from("profile_comment_likes")
+            .from("comment_likes")
             .delete()
             .eq("id", existingLike.id);
 
@@ -757,7 +825,7 @@ export async function toggleCommentLike(commentId: string) {
     } else {
         // Like
         const { error } = await supabase
-            .from("profile_comment_likes")
+            .from("comment_likes")
             .insert({
                 comment_id: commentId,
                 profile_id: appUser.current_profile_id,

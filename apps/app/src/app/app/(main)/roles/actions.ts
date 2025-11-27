@@ -134,6 +134,8 @@ export async function deleteRole(id: string) {
 export async function assignRole(profileId: string, roleId: string | null) {
     const supabase = await createServerClient();
     const storeId = await getStoreId();
+    
+    console.log('assignRole called with:', { profileId, roleId, storeId });
 
     // Verify profile belongs to store
     const { data: profile } = await supabase
@@ -146,14 +148,26 @@ export async function assignRole(profileId: string, roleId: string | null) {
         throw new Error("Invalid profile");
     }
 
-    const { error } = await supabase
+    // First check if profile exists and current role_id
+    const { data: currentProfile } = await supabase
+        .from("profiles")
+        .select("id, role_id, store_id")
+        .eq("id", profileId)
+        .single();
+    
+    console.log('Current profile before update:', currentProfile);
+
+    const { data, error, count } = await supabase
         .from("profiles")
         .update({ role_id: roleId })
-        .eq("id", profileId);
+        .eq("id", profileId)
+        .select();
+
+    console.log('assignRole result:', { profileId, roleId, data, error, count, updatedRows: data?.length });
 
     if (error) throw new Error(error.message);
     revalidatePath("/app/roles");
-    return { success: true };
+    return { success: true, data };
 }
 
 export async function getRoles(storeId?: string) {

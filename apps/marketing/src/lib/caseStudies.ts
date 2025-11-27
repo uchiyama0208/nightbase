@@ -2,6 +2,13 @@ import { createClient } from "@/lib/supabaseClient";
 import type { CaseStudy, CaseStudyStatus } from "@/types/case-studies";
 import type { Database } from "@/types/supabase";
 
+function hasSupabaseEnv() {
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
+}
+
 type CmsEntryRow = Pick<
   Database["public"]["Tables"]["cms_entries"]["Row"],
   "id" | "type" | "slug" | "title" | "body" | "excerpt" | "tags" | "cover_image_url" | "status" | "published_at"
@@ -43,6 +50,11 @@ export function formatCaseStudyIndustry(industry: string | null): string {
 }
 
 export async function getPublishedCaseStudies(limit?: number): Promise<CaseStudy[]> {
+  if (!hasSupabaseEnv()) {
+    console.warn("Supabase環境変数が未設定のため、導入事例一覧の取得をスキップします。");
+    return [];
+  }
+
   const supabase = createClient();
   const nowIso = new Date().toISOString();
 
@@ -73,6 +85,11 @@ export async function getPublishedCaseStudies(limit?: number): Promise<CaseStudy
 }
 
 export async function getPublishedCaseStudyBySlug(slug: string): Promise<CaseStudy | null> {
+  if (!hasSupabaseEnv()) {
+    console.warn("Supabase環境変数が未設定のため、導入事例の取得をスキップします。");
+    return null;
+  }
+
   const supabase = createClient();
   const normalizedSlug = (slug ?? "").trim();
 

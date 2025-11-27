@@ -11,57 +11,32 @@ export const metadata: Metadata = {
 import { getAppData } from "../../data-access";
 
 // Server-side data fetching
-async function getUsersData(roleParam: string, queryParam: string) {
+async function getUsersData(storeId: string, currentProfileId: string) {
     const supabase = await createServerClient();
-    const { user, profile } = await getAppData();
-
-    if (!user) {
-        redirect("/login");
-    }
-
-    if (!profile || !profile.store_id) {
-        redirect("/app/me");
-    }
-
-    const storeId = profile.store_id;
 
     // Build query
-    let query = supabase
+    const { data: profiles, error } = await supabase
         .from("profiles")
         .select("*, stores(*)")
         .eq("store_id", storeId)
         .order("created_at", { ascending: false });
-
-    // Filter by role
-    const normalizedRole = roleParam.toLowerCase();
-    if (normalizedRole && ["cast", "staff", "guest"].includes(normalizedRole)) {
-        if (normalizedRole === "staff") {
-            query = query.in("role", ["staff", "admin"]);
-        } else {
-            query = query.eq("role", normalizedRole);
-        }
-    } else {
-        query = query.eq("role", "cast");
-    }
-
-    // Filter by search query
-    if (queryParam) {
-        query = query.or(
-            `display_name.ilike.%${queryParam}%,real_name.ilike.%${queryParam}%`
-        );
-    }
-
-    const { data: profiles, error } = await query;
 
     if (error) {
         console.error("Error fetching profiles:", error);
         throw new Error(error.message);
     }
 
-    return {
-        profiles: profiles || [],
-        role: normalizedRole || "cast",
-    };
+    // Get current user's role permissions
+    const { data: currentProfile } = await supabase
+        .from("profiles")
+        .select("role_id, store_roles(permissions)")
+        .eq("id", currentProfileId)
+        .single();
+
+    const storeRoles = currentProfile?.store_roles as any;
+    const hidePersonalInfo = storeRoles?.permissions?.hide_personal_info || false;
+
+    return { profiles: profiles || [], hidePersonalInfo };
 }
 
 function UsersSkeleton() {
@@ -82,10 +57,18 @@ export default async function UsersPage({
 }) {
     const params = await searchParams;
     const roleParam = params.role || "cast";
-    const queryParam = params.query || "";
 
-    const data = await getUsersData(roleParam, queryParam);
-    const { profiles, role } = data;
+    const { user, profile } = await getAppData();
+
+    if (!user) {
+        redirect("/login");
+    }
+
+    if (!profile || !profile.store_id) {
+        redirect("/app/me");
+    }
+
+    const { profiles, hidePersonalInfo } = await getUsersData(profile.store_id, profile.id);
 
     return (
         <div className="space-y-4">
@@ -97,7 +80,7 @@ export default async function UsersPage({
             </div>
 
             <Suspense fallback={<UsersSkeleton />}>
-                <UsersTable profiles={profiles} roleFilter={role} />
+                <UsersTable profiles={profiles} roleFilter={roleParam} hidePersonalInfo={hidePersonalInfo} />
             </Suspense>
         </div>
     );

@@ -20,9 +20,10 @@ import {
     ChevronDown,
     UserPlus,
     Wine,
+    FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { useState } from "react";
 import { createBrowserClient } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
@@ -95,6 +96,12 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
             href: "/app/bottles",
             roles: ["admin", "staff"],
         },
+        {
+            label: "履歴書",
+            icon: FileText,
+            href: "/app/resumes",
+            roles: ["admin", "staff"],
+        },
     ];
 
     const settingsRoutes = [
@@ -105,7 +112,7 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
             roles: ["admin", "staff"],
         },
         {
-            label: "権限管理",
+            label: "権限",
             icon: Shield,
             href: "/app/roles",
             roles: ["admin", "staff"],
@@ -118,7 +125,7 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
             roles: ["admin", "staff"],
         },
         {
-            label: "招待管理",
+            label: "招待",
             icon: Mail,
             href: "/app/invitations",
             roles: ["admin", "staff"],
@@ -253,6 +260,7 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
                 >
                     <SheetHeader className="sr-only">
                         <SheetTitle>Menu</SheetTitle>
+                        <SheetDescription>ナビゲーションメニュー</SheetDescription>
                     </SheetHeader>
                     <SidebarContent isMobile={true} />
                 </SheetContent>

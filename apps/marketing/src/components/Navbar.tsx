@@ -29,7 +29,7 @@ export function Navbar({ navigation }: NavbarProps) {
   return (
     <>
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-100 shadow-sm">
-        <div className="container flex h-16 items-center justify-between gap-5">
+        <div className="container px-4 sm:px-6 lg:px-8 flex h-16 items-center justify-between gap-5">
           <Link
             href="/"
             onClick={() => setOpen(false)}

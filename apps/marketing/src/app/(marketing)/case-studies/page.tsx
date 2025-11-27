@@ -13,7 +13,7 @@ export default async function CaseStudiesPage() {
   const studies = await getPublishedCaseStudies();
 
   return (
-    <AuroraPage variant="teal" containerClassName="space-y-16 px-3 sm:px-4">
+    <AuroraPage variant="teal" containerClassName="space-y-16">
       <section className="text-center">
         <div className="space-y-6">
           <span className="inline-flex items-center rounded-full border border-white/50 bg-white/30 px-4 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-primary">

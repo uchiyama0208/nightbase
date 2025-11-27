@@ -1,16 +1,199 @@
 import { AuroraPage } from "@/components/layouts/AuroraPage";
-import { siteContent } from "@/content/site";
 
 export default function TermsOfServicePage() {
-  const { legal } = siteContent;
-
   return (
-    <AuroraPage variant="indigo" containerClassName="mx-auto max-w-3xl space-y-6">
-      <h1 className="text-4xl font-semibold text-[#0f172a] sm:text-5xl">{legal.terms.title}</h1>
-      <div className="glass-panel space-y-4 p-8 text-sm text-neutral-600">
-        {legal.terms.content.map((paragraph) => (
-          <p key={paragraph}>{paragraph}</p>
-        ))}
+    <AuroraPage variant="indigo" containerClassName="mx-auto max-w-3xl space-y-8">
+      <header className="space-y-3">
+        <h1 className="text-3xl sm:text-4xl font-semibold text-[#0f172a]">NightBase 利用規約</h1>
+        <p className="text-sm text-neutral-600 leading-relaxed">
+          本利用規約（以下「本規約」といいます。）は、NB-Team（以下「運営者」といいます。）が提供する
+          「NightBase」（以下「本サービス」といいます。）の利用条件を定めるものです。本サービスを利用する
+          すべての方（以下「ユーザー」といいます。）は、本規約に同意したうえで本サービスを利用するものとします。
+        </p>
+      </header>
+
+      <div className="glass-panel space-y-6 p-6 md:p-8 text-sm leading-relaxed text-neutral-700">
+        <section className="space-y-2">
+          <h2 className="text-base font-semibold text-[#0f172a]">第1条（適用）</h2>
+          <p>本規約は、本サービスの提供及び利用に関する運営者とユーザーとの一切の関係に適用されます。</p>
+          <p>運営者が本サービス上で随時掲示する各種ポリシー、ガイドライン等は、本規約の一部を構成するものとします。</p>
+          <p>ユーザーが本サービスを実際に利用した時点で、本規約に同意したものとみなします。</p>
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="text-base font-semibold text-[#0f172a]">第2条（本サービスの概要）</h2>
+          <p>
+            本サービスは、キャバクラ、ガールズバーその他ナイトワーク店舗等における勤怠管理・店舗管理を行うための
+            SaaS型サービスです。
+          </p>
+          <p>本サービスの主な機能は、以下のとおりです。</p>
+          <ul className="list-disc list-inside space-y-1">
+            <li>従業員・キャスト等の勤怠情報の管理（出勤・退勤時刻、位置情報、IPアドレス等）</li>
+            <li>QRコード、店舗Wi-Fi／IPアドレス等を用いた打刻機能</li>
+            <li>店舗売上や在籍キャスト数等の店舗情報管理</li>
+            <li>その他、上記に付随する管理・分析機能</li>
+          </ul>
+          <p>本サービスは、主として店舗オーナー、店長、スタッフ、キャスト等の業務利用を想定した業務用サービスです。</p>
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="text-base font-semibold text-[#0f172a]">第3条（ユーザー登録）</h2>
+          <p>
+            本サービスの利用を希望する者は、本規約に同意の上、運営者の定める方法によりユーザー登録を行うものとします。
+          </p>
+          <p>
+            登録の際、ユーザーは真実かつ正確な情報を提供しなければなりません。虚偽、不正確、又は最新でない情報が提供されたことにより
+            生じた不利益について、運営者は一切の責任を負いません。
+          </p>
+          <p>運営者は、以下のいずれかに該当すると判断した場合、ユーザー登録を承認しないことがあり、その理由について説明義務を負いません。</p>
+          <ul className="list-disc list-inside space-y-1">
+            <li>本規約に違反するおそれがあると運営者が判断した場合</li>
+            <li>過去に本規約違反等により利用停止等の措置を受けたことがある場合</li>
+            <li>その他、運営者が不適切と判断した場合</li>
+          </ul>
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="text-base font-semibold text-[#0f172a]">第4条（アカウント管理）</h2>
+          <p>
+            ユーザーは、自己の責任において、本サービスのログイン情報（メールアドレス、パスワード等）を適切に管理・保管するものとし、
+            第三者に開示・貸与・譲渡してはなりません。
+          </p>
+          <p>
+            ログイン情報の管理不備、使用上の過誤、第三者の使用等によって生じた損害について、運営者は一切の責任を負いません。
+          </p>
+          <p>
+            ログイン情報が第三者に不正利用されている疑いがある場合、ユーザーは速やかに運営者に通知するとともに、運営者の指示に従うものとします。
+          </p>
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="text-base font-semibold text-[#0f172a]">第5条（利用料金および支払方法）</h2>
+          <p>
+            本サービスの一部機能は有料となり、ユーザーは運営者が別途定め、本サービス上又は申込画面等に表示する料金を支払うものとします。
+          </p>
+          <p>利用料金の支払いは、運営者が指定する決済手段（Stripe等の決済サービスを含みます。）によって行うものとします。</p>
+          <p>
+            ユーザーは、利用料金の支払いに際して、クレジットカード情報その他の決済情報を真実かつ正確に提供しなければなりません。
+          </p>
+          <p>一旦支払われた利用料金は、法令に別段の定めがある場合を除き、返金されません。</p>
+          <p>ユーザーが利用料金の支払いを遅滞した場合、運営者は本サービスの利用停止その他必要な措置を講じることができます。</p>
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="text-base font-semibold text-[#0f172a]">第6条（禁止事項）</h2>
+          <p>ユーザーは、本サービスの利用にあたり、以下の行為をしてはなりません。</p>
+          <ul className="list-disc list-inside space-y-1">
+            <li>法令または公序良俗に違反する行為</li>
+            <li>犯罪行為、または犯罪行為に関連する行為</li>
+            <li>運営者または第三者の権利・利益を侵害する行為</li>
+            <li>虚偽の情報を登録・提供する行為</li>
+            <li>本人以外の名義・アカウントを使用して打刻・勤怠登録等を行う行為</li>
+            <li>位置情報、IPアドレス等を不正に改ざんするなど、本サービスの仕組みを不正に利用する行為</li>
+            <li>本サービスの運営を妨害する行為（過度なアクセス、脆弱性攻撃等を含む）</li>
+            <li>本サービスを逆コンパイル、リバースエンジニアリング等する行為</li>
+            <li>本サービスを第三者に再販売、再配布、転貸する行為（運営者が明示的に許可した場合を除く）</li>
+            <li>その他、運営者が不適切と判断する行為</li>
+          </ul>
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="text-base font-semibold text-[#0f172a]">第7条（サービスの変更・中断・終了）</h2>
+          <p>運営者は、ユーザーに事前に通知することなく、本サービスの内容の一部または全部を変更することができます。</p>
+          <p>
+            運営者は、以下のいずれかに該当すると判断した場合、ユーザーに事前に通知することなく、本サービスの提供を一時的に中断または停止することがあります。
+          </p>
+          <ul className="list-disc list-inside space-y-1">
+            <li>システムの保守点検、更新等を行う場合</li>
+            <li>火災、停電、天災地変等の不可抗力により、本サービスの提供が困難となった場合</li>
+            <li>外部サービス（Supabase、Vercel、Stripe、その他のクラウド・インフラ・決済サービス等）の障害や停止が発生した場合</li>
+            <li>その他、運営者がやむを得ないと判断した場合</li>
+          </ul>
+          <p>
+            運営者は、相当期間の予告をもって本サービスの提供を終了することができます。運営者は、本条に基づく本サービスの変更・中断・終了により
+            ユーザーに生じた損害について、一切の責任を負わないものとします。
+          </p>
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="text-base font-semibold text-[#0f172a]">第8条（免責事項）</h2>
+          <p>
+            運営者は、本サービスがユーザーの特定の目的に適合すること、期待される機能・商品性・正確性・有用性を有すること、ならびに不具合や障害が
+            生じないことについて、明示又は黙示を問わず、いかなる保証も行いません。
+          </p>
+          <p>
+            本サービスで管理される勤怠情報・売上情報等のデータは、ユーザーの入力・運用に依拠するものであり、運営者はその正確性・完全性について
+            一切の責任を負いません。
+          </p>
+          <p>
+            本サービスの利用に起因してユーザーに生じた損害について、運営者に故意または重過失がある場合を除き、運営者の責任は、当該ユーザーが過去
+            1か月間に運営者に支払った利用料金の額を上限とします。
+          </p>
+          <p>ユーザーとその従業員・キャスト・取引先その他第三者との間で生じた紛争について、運営者は一切の責任を負いません。</p>
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="text-base font-semibold text-[#0f172a]">第9条（知的財産権）</h2>
+          <p>
+            本サービスに関する一切の著作権・商標権その他の知的財産権は、運営者または適法な権利を有する第三者に帰属します。
+          </p>
+          <p>
+            ユーザーは、本サービスの利用により得られる情報を、運営者の許諾なく複製、転用、頒布、公開その他私的利用の範囲を超えて利用してはなりません。
+          </p>
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="text-base font-semibold text-[#0f172a]">第10条（個人情報の取扱い）</h2>
+          <p>
+            本サービスにおけるユーザーの個人情報の取扱いについては、別途定める「プライバシーポリシー」に従うものとし、ユーザーは当該プライバシーポリシーに
+            同意の上で本サービスを利用するものとします。
+          </p>
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="text-base font-semibold text-[#0f172a]">第11条（利用停止・登録抹消）</h2>
+          <p>
+            運営者は、ユーザーが以下のいずれかに該当すると判断した場合、事前の通知なく、本サービスの全部または一部の利用停止、登録情報の削除その他
+            運営者が必要と判断する措置を講じることができます。
+          </p>
+          <ul className="list-disc list-inside space-y-1">
+            <li>本規約のいずれかの条項に違反した場合</li>
+            <li>不正な目的により本サービスを利用した場合</li>
+            <li>運営者からの問い合わせその他の連絡に対して一定期間応答がない場合</li>
+            <li>その他、運営者がユーザーとして不適切と判断した場合</li>
+          </ul>
+          <p>運営者は、本条に基づき行った措置によりユーザーに生じた損害について、一切の責任を負いません。</p>
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="text-base font-semibold text-[#0f172a]">第12条（規約の変更）</h2>
+          <p>運営者は、必要と認めた場合、本規約を変更することができます。</p>
+          <p>
+            本規約を変更する場合、運営者は、本サービス上での掲示またはその他運営者が適当と判断する方法により、変更内容及び効力発生日を事前に通知します。
+          </p>
+          <p>
+            変更後の本規約は、効力発生日以降、本サービスに関する一切の事項に適用されるものとし、ユーザーが変更後に本サービスを利用した場合、当該ユーザーは
+            変更後の本規約に同意したものとみなします。
+          </p>
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="text-base font-semibold text-[#0f172a]">第13条（準拠法および管轄）</h2>
+          <p>本規約の解釈・適用については、日本法を準拠法とします。</p>
+          <p>
+            本サービスに関して運営者とユーザーとの間に生じた紛争については、運営者の指定する日本国内の簡易裁判所又は地方裁判所を第一審の専属的合意管轄裁判所
+            とします。
+          </p>
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="text-base font-semibold text-[#0f172a]">第14条（お問い合わせ窓口）</h2>
+          <p>本サービスに関するお問い合わせは、以下の窓口までご連絡ください。</p>
+          <p>NightBase運営者：NB-Team</p>
+          <p>メールアドレス：nightbase@gmail.com</p>
+        </section>
+
+        <p className="text-xs text-neutral-400 pt-4">以上</p>
       </div>
     </AuroraPage>
   );

@@ -18,6 +18,8 @@ const getPageTitle = (pathname: string): string => {
     if (pathname.includes("/timecard")) return "タイムカード";
     if (pathname.includes("/attendance")) return "出勤管理";
     if (pathname.includes("/users")) return "プロフィール情報";
+    if (pathname.includes("/invitations")) return "招待";
+    if (pathname.includes("/roles")) return "権限";
     if (pathname.includes("/features")) return "機能追加";
     if (pathname.includes("/settings")) return "設定";
     if (pathname.includes("/me")) return "マイページ";

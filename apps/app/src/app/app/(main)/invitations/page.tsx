@@ -29,7 +29,7 @@ export default async function InvitationsPage() {
     return (
         <div className="space-y-6">
             <div className="flex flex-col gap-2">
-                <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">招待管理</h1>
+                <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">招待</h1>
                 <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                     スタッフやキャストを招待し、参加申請を管理します。
                 </p>

@@ -69,11 +69,9 @@ export default async function BottlesPage() {
 
     return (
         <div className="space-y-4">
-            <div className="flex flex-col gap-2">
-                <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-                    ボトルキープ管理
-                </h1>
-                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+            <div>
+                <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">ボトルキープ管理</h1>
+                <p className="mt-2 text-sm text-muted-foreground dark:text-gray-400">
                     お客様のボトルキープを管理します。
                 </p>
             </div>

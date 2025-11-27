@@ -4,7 +4,6 @@ import { FeatureSection } from "@/components/landing/FeatureSection";
 import { SolutionSection } from "@/components/landing/SolutionSection";
 import { ShowcaseSection } from "@/components/landing/ShowcaseSection";
 import { PricingSection } from "@/components/landing/PricingSection";
-import { TestimonialSection } from "@/components/landing/TestimonialSection";
 import { FlowSection } from "@/components/landing/FlowSection";
 import { FaqSection } from "@/components/landing/FaqSection";
 import { CtaSection } from "@/components/landing/CtaSection";
@@ -32,7 +31,6 @@ export default async function Home({ searchParams }: HomeProps) {
       <SolutionSection />
       <ShowcaseSection />
       <PricingSection />
-      <TestimonialSection />
       <FlowSection />
       <FaqSection />
       <CtaSection />

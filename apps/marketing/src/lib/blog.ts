@@ -3,6 +3,13 @@ import type { Database } from "@/types/supabase";
 
 import { createClient } from "./supabaseClient";
 
+function hasSupabaseEnv() {
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
+}
+
 type CmsEntryRow = Pick<
   Database["public"]["Tables"]["cms_entries"]["Row"],
   "id" | "type" | "slug" | "title" | "body" | "excerpt" | "tags" | "cover_image_url" | "status" | "published_at"
@@ -30,6 +37,11 @@ const BLOG_POST_FIELDS =
   "id, type, slug, title, body, excerpt, cover_image_url, tags, published_at, status";
 
 export async function getPublishedBlogPosts(): Promise<BlogPost[]> {
+  if (!hasSupabaseEnv()) {
+    console.warn("Supabase環境変数が未設定のため、ブログ記事一覧の取得をスキップします。");
+    return [];
+  }
+
   const supabase = createClient();
   const nowIso = new Date().toISOString();
 

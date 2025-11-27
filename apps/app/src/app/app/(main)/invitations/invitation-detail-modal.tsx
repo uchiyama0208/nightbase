@@ -69,6 +69,15 @@ export function InvitationDetailModal({
         return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">招待中</Badge>;
     };
 
+    const getExpiresAtLabel = () => {
+        // 参加済み、または有効期限が設定されていない場合は「ー」を表示
+        if (invitation.status === "accepted" || !invitation.expires_at) {
+            return "ー";
+        }
+
+        return format(new Date(invitation.expires_at), "yyyy/MM/dd HH:mm", { locale: ja });
+    };
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-[calc(100vw-32px)] sm:max-w-[400px] max-h-[calc(100vh-32px)] overflow-y-auto bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
@@ -124,7 +133,7 @@ export function InvitationDetailModal({
                         <div className="space-y-1">
                             <Label className="text-xs text-muted-foreground">有効期限</Label>
                             <div className="font-medium">
-                                {format(new Date(invitation.expires_at), "yyyy/MM/dd HH:mm", { locale: ja })}
+                                {getExpiresAtLabel()}
                             </div>
                         </div>
                     </div>

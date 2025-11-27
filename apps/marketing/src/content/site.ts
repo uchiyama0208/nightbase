@@ -36,7 +36,6 @@ export const siteContent: SiteContent = {
         title: "会社情報",
         items: [
           { href: "/about", label: "NightBaseについて" },
-          { href: "/company", label: "会社概要" },
           { href: "/contact", label: "お問い合わせ" }
         ]
       },

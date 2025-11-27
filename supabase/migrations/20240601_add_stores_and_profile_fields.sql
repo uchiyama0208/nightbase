@@ -10,6 +10,7 @@ create table if not exists public.stores (
 alter table public.stores enable row level security;
 
 -- Stores policies
+drop policy if exists "Stores are viewable by everyone" on stores;
 create policy "Stores are viewable by everyone"
   on stores for select
   using ( true );
@@ -25,6 +26,19 @@ create policy "Stores are viewable by everyone"
 --       and profiles.role = 'admin'
 --     )
 --   );
+
+-- Create profiles table if it doesn't exist
+create table if not exists public.profiles (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid references auth.users(id) on delete cascade,
+  display_name text,
+  role text default 'guest',
+  created_at timestamptz default now() not null,
+  updated_at timestamptz default now() not null
+);
+
+-- Enable RLS on profiles
+alter table public.profiles enable row level security;
 
 -- Modify profiles table
 alter table public.profiles add column if not exists real_name text;

@@ -15,6 +15,7 @@ import {
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogFooter,
     DialogHeader,
     DialogTitle,
@@ -45,6 +46,13 @@ import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
+import { CommentList } from "@/components/comment-list";
+import {
+    Accordion,
+    AccordionContent,
+    AccordionItem,
+    AccordionTrigger,
+} from "@/components/ui/accordion";
 
 interface Profile {
     id: string;
@@ -52,6 +60,19 @@ interface Profile {
     display_name_kana: string | null;
     real_name: string | null;
     real_name_kana: string | null;
+    last_name?: string | null;
+    first_name?: string | null;
+    last_name_kana?: string | null;
+    first_name_kana?: string | null;
+    zip_code?: string | null;
+    prefecture?: string | null;
+    city?: string | null;
+    street?: string | null;
+    building?: string | null;
+    phone_number?: string | null;
+    emergency_phone_number?: string | null;
+    nearest_station?: string | null;
+    height?: number | null;
     role: string;
     store_id: string;
     guest_addressee?: string | null;
@@ -66,14 +87,17 @@ interface UserEditModalProps {
     onOpenChange: (open: boolean) => void;
     isNested?: boolean;
     defaultRole?: string;
+    hidePersonalInfo?: boolean;
 }
 
-export function UserEditModal({ profile, open, onOpenChange, isNested = false, defaultRole: propDefaultRole }: UserEditModalProps) {
+export function UserEditModal({ profile, open, onOpenChange, isNested = false, defaultRole: propDefaultRole, hidePersonalInfo = false }: UserEditModalProps) {
     const searchParams = useSearchParams();
     const defaultRole = propDefaultRole || searchParams.get("role") || "cast";
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [role, setRole] = useState<string>(profile?.role ?? defaultRole);
+    const roleToggleRef = React.useRef<HTMLDivElement>(null);
+    const [sliderStyle, setSliderStyle] = useState({ left: 0, width: 0 });
 
     const [showActions, setShowActions] = useState(false);
     const [showAttendanceList, setShowAttendanceList] = useState(false);
@@ -85,15 +109,8 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
     const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
     const [relationships, setRelationships] = useState<any[]>([]);
     const [comments, setComments] = useState<any[]>([]);
-    const [newComment, setNewComment] = useState("");
     const [isLoadingDetails, setIsLoadingDetails] = useState(false);
     const [currentUserProfileId, setCurrentUserProfileId] = useState<string | null>(null);
-
-    // Comment editing state
-    const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
-    const [editingCommentText, setEditingCommentText] = useState("");
-    const [commentMenuOpen, setCommentMenuOpen] = useState<string | null>(null);
-    const [deleteCommentId, setDeleteCommentId] = useState<string | null>(null);
 
     // Relationship selector state
     const [relationshipSelectorOpen, setRelationshipSelectorOpen] = useState<string | null>(null);
@@ -103,6 +120,63 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
     const [bottleKeeps, setBottleKeeps] = useState<any[]>([]);
     const [menus, setMenus] = useState<any[]>([]);
     const [isBottleModalOpen, setIsBottleModalOpen] = useState(false);
+
+    // Address state for auto-fill
+    const [addressState, setAddressState] = useState({
+        zipCode: "",
+        prefecture: "",
+        city: "",
+        street: "",
+        building: ""
+    });
+
+    useEffect(() => {
+        if (profile) {
+            setAddressState({
+                zipCode: profile.zip_code || "",
+                prefecture: profile.prefecture || "",
+                city: profile.city || "",
+                street: profile.street || "",
+                building: profile.building || ""
+            });
+        } else {
+            setAddressState({
+                zipCode: "",
+                prefecture: "",
+                city: "",
+                street: "",
+                building: ""
+            });
+        }
+    }, [profile]);
+
+    const handleZipCodeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        setAddressState(prev => ({ ...prev, zipCode: value }));
+
+        if (value.length === 7) {
+            try {
+                const response = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${value}`);
+                const data = await response.json();
+                if (data.results?.[0]) {
+                    const { address1, address2, address3 } = data.results[0];
+                    setAddressState(prev => ({
+                        ...prev,
+                        zipCode: value,
+                        prefecture: address1,
+                        city: address2,
+                        street: address3
+                    }));
+                }
+            } catch (error) {
+                console.error("Failed to fetch address:", error);
+            }
+        }
+    };
+
+    const handleAddressChange = (field: keyof typeof addressState) => (e: React.ChangeEvent<HTMLInputElement>) => {
+        setAddressState(prev => ({ ...prev, [field]: e.target.value }));
+    };
 
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -143,6 +217,30 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
         setRole(profile?.role ?? defaultRole);
     }, [profile, defaultRole]);
 
+    // Update slider position when role changes
+    const isNewProfile = !profile;
+    useEffect(() => {
+        const updateSlider = () => {
+            if (!roleToggleRef.current) return;
+            const buttons = roleToggleRef.current.querySelectorAll('button');
+            const roleIndex = role === "cast" ? 0 : role === "staff" ? 1 : 2;
+            const button = buttons[roleIndex] as HTMLButtonElement;
+            if (button) {
+                setSliderStyle({
+                    left: button.offsetLeft,
+                    width: button.offsetWidth,
+                });
+            }
+        };
+
+        // Initial delay to wait for DOM render
+        if (open && isNewProfile) {
+            const timer = setTimeout(updateSlider, 50);
+            return () => clearTimeout(timer);
+        }
+        updateSlider();
+    }, [role, open, isNewProfile]);
+
     // Auto-save handler with debouncing
     const autoSaveTimeoutRef = React.useRef<NodeJS.Timeout>(undefined);
     const handleFieldChange = React.useCallback(() => {
@@ -171,18 +269,34 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
             const fetchData = async () => {
                 setIsLoadingDetails(true);
                 try {
-                    const profiles = await getAllProfiles();
+                    // Fetch common data in parallel
+                    const [profiles, currentId, menusData] = await Promise.all([
+                        getAllProfiles(),
+                        getCurrentUserProfileId(),
+                        getMenus()
+                    ]);
+
                     setAllProfiles(profiles as any[]);
-
-                    // Get current user's profile ID
-                    const currentId = await getCurrentUserProfileId();
                     setCurrentUserProfileId(currentId);
+                    setMenus(menusData);
 
+                    // Fetch profile specific data if profile exists
                     if (profile) {
-                        const details = await getProfileDetails(profile.id);
+                        const promises: Promise<any>[] = [getProfileDetails(profile.id)];
+
+                        if (profile.role === "guest") {
+                            promises.push(getUserBottleKeeps(profile.id));
+                        }
+
+                        const [details, keeps] = await Promise.all(promises);
+
                         if (details) {
                             setRelationships(details.relationships);
                             setComments(details.comments);
+                        }
+
+                        if (keeps) {
+                            setBottleKeeps(keeps);
                         }
                     }
                 } catch (error) {
@@ -198,31 +312,8 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
             setComments([]);
             setBottleKeeps([]);
             setMenus([]);
-            setNewComment("");
-            setEditingCommentId(null);
-            setCommentMenuOpen(null);
         }
     }, [open, profile]);
-
-    useEffect(() => {
-        if (open && profile && profile.role === "guest") {
-            const fetchBottleKeeps = async () => {
-                const keeps = await getUserBottleKeeps(profile.id);
-                setBottleKeeps(keeps);
-            };
-            fetchBottleKeeps();
-        }
-    }, [open, profile]);
-
-    useEffect(() => {
-        if (open) {
-            const fetchMenus = async () => {
-                const menusData = await getMenus();
-                setMenus(menusData);
-            };
-            fetchMenus();
-        }
-    }, [open]);
 
     const refreshBottleKeeps = async () => {
         if (!profile) return;
@@ -286,45 +377,49 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
         }
     };
 
-    const handleAddComment = async () => {
-        if (!profile || !newComment.trim()) return;
+    const handleAddComment = async (content: string) => {
+        if (!profile) return { success: false, error: "No profile" };
         try {
-            await addProfileComment(profile.id, newComment);
-            setNewComment("");
+            await addProfileComment(profile.id, content);
             await refreshComments();
+            return { success: true };
         } catch (error) {
             console.error("Failed to add comment:", error);
+            return { success: false, error: "Failed to add comment" };
         }
     };
 
-    const handleEditComment = async (commentId: string) => {
-        if (!editingCommentText.trim()) return;
+    const handleEditComment = async (commentId: string, content: string) => {
         try {
-            await updateProfileComment(commentId, editingCommentText);
-            setEditingCommentId(null);
-            setEditingCommentText("");
+            await updateProfileComment(commentId, content);
             await refreshComments();
+            return { success: true };
         } catch (error) {
             console.error("Failed to update comment:", error);
+            return { success: false, error: "Failed to update comment" };
         }
     };
 
     const handleDeleteComment = async (commentId: string) => {
         try {
             await deleteProfileComment(commentId);
-            setDeleteCommentId(null);
             await refreshComments();
+            return { success: true };
         } catch (error) {
             console.error("Failed to delete comment:", error);
+            return { success: false, error: "Failed to delete comment" };
         }
     };
 
     const handleToggleLike = async (commentId: string) => {
         try {
             await toggleCommentLike(commentId);
-            await refreshComments();
+            // Optimistic UI handles the immediate update, but we can refresh to sync
+            refreshComments();
+            return { success: true };
         } catch (error) {
             console.error("Failed to toggle like:", error);
+            return { success: false, error: "Failed to toggle like" };
         }
     };
 
@@ -385,6 +480,9 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                         <DialogTitle className="flex-1 text-center text-xl md:text-2xl font-bold text-gray-900 dark:text-white truncate">
                             {profile ? (profile.display_name || "ユーザー編集") : "新規作成"}
                         </DialogTitle>
+                        <DialogDescription className="sr-only">
+                            {profile ? "ユーザー情報を編集します" : "新しいユーザーを作成します"}
+                        </DialogDescription>
                         {profile ? (
                             <button
                                 type="button"
@@ -431,6 +529,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
 
                     <div className="space-y-6">
                         <form
+                            id="profile-form"
                             action={handleSubmit}
                             className="space-y-4"
                             key={profile?.id || 'new'}
@@ -466,13 +565,24 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
 
                             {!profile && (
                                 <div className="flex justify-center mb-2">
-                                    <div className="inline-flex h-9 items-center rounded-full bg-gray-100 dark:bg-gray-800 p-1 text-xs">
+                                    <div
+                                        ref={roleToggleRef}
+                                        className="relative inline-flex h-9 items-center rounded-full bg-gray-100 dark:bg-gray-800 p-1 text-xs"
+                                    >
+                                        {/* Sliding indicator */}
+                                        <div
+                                            className="absolute top-1 h-7 rounded-full bg-white dark:bg-gray-700 shadow-sm transition-all duration-300 ease-out"
+                                            style={{
+                                                left: sliderStyle.left || 4,
+                                                width: sliderStyle.width || 'auto',
+                                            }}
+                                        />
                                         <button
                                             type="button"
                                             onClick={() => setRole("cast")}
-                                            className={`px-4 h-full flex items-center rounded-full font-medium transition-colors ${role === "cast"
-                                                ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm"
-                                                : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                                            className={`relative z-10 px-4 h-full flex items-center justify-center rounded-full font-medium whitespace-nowrap transition-colors duration-300 ${role === "cast"
+                                                ? "text-gray-900 dark:text-white"
+                                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                                                 }`}
                                         >
                                             キャスト
@@ -480,9 +590,9 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                         <button
                                             type="button"
                                             onClick={() => setRole("staff")}
-                                            className={`px-4 h-full flex items-center rounded-full font-medium transition-colors ${role === "staff"
-                                                ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm"
-                                                : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                                            className={`relative z-10 px-4 h-full flex items-center justify-center rounded-full font-medium whitespace-nowrap transition-colors duration-300 ${role === "staff"
+                                                ? "text-gray-900 dark:text-white"
+                                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                                                 }`}
                                         >
                                             スタッフ
@@ -490,9 +600,9 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                         <button
                                             type="button"
                                             onClick={() => setRole("guest")}
-                                            className={`px-4 h-full flex items-center rounded-full font-medium transition-colors ${role === "guest"
-                                                ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm"
-                                                : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                                            className={`relative z-10 px-4 h-full flex items-center justify-center rounded-full font-medium whitespace-nowrap transition-colors duration-300 ${role === "guest"
+                                                ? "text-gray-900 dark:text-white"
+                                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                                                 }`}
                                         >
                                             ゲスト
@@ -525,60 +635,56 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                 />
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="realName">本名</Label>
-                                    <Input
-                                        id="realName"
-                                        name="realName"
-                                        defaultValue={profile?.real_name || ""}
-                                        placeholder="本名"
-                                        className="rounded-md"
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label htmlFor="realNameKana">本名（かな）</Label>
-                                    <Input
-                                        id="realNameKana"
-                                        name="realNameKana"
-                                        defaultValue={profile?.real_name_kana || ""}
-                                        placeholder="ほんみょう"
-                                        className="rounded-md"
-                                    />
-                                </div>
-                            </div>
-
-                            {role === "guest" && (
-                                <div className="space-y-2">
-                                    <Label htmlFor="guestAddressee">宛名</Label>
-                                    <Input
-                                        id="guestAddressee"
-                                        name="guestAddressee"
-                                        type="text"
-                                        defaultValue={profile?.guest_addressee ?? ""}
-                                        placeholder="例: 山田様"
-                                        className="rounded-md"
-                                    />
+                            {!hidePersonalInfo && role === "cast" && (
+                                <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                                    <h3 className="font-medium text-gray-900 dark:text-white">キャスト情報</h3>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="height">身長 (cm)</Label>
+                                            <Input
+                                                id="height"
+                                                name="height"
+                                                type="number"
+                                                defaultValue={profile?.height || ""}
+                                                placeholder="160"
+                                                className="rounded-md"
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
                             )}
 
                             {role === "guest" && (
-                                <div className="space-y-2">
-                                    <Label htmlFor="guestReceiptType">領収書</Label>
-                                    <Select
-                                        name="guestReceiptType"
-                                        defaultValue={profile?.guest_receipt_type || "none"}
-                                    >
-                                        <SelectTrigger className="rounded-md">
-                                            <SelectValue placeholder="領収書の種類を選択" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="none">なし</SelectItem>
-                                            <SelectItem value="amount_only">金額のみ</SelectItem>
-                                            <SelectItem value="with_date">日付入り</SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                                    <h3 className="font-medium text-gray-900 dark:text-white">ゲスト情報</h3>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="guestAddressee">宛名</Label>
+                                        <Input
+                                            id="guestAddressee"
+                                            name="guestAddressee"
+                                            type="text"
+                                            defaultValue={profile?.guest_addressee ?? ""}
+                                            placeholder="例: 山田様"
+                                            className="rounded-md"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="guestReceiptType">領収書</Label>
+                                        <Select
+                                            name="guestReceiptType"
+                                            defaultValue={profile?.guest_receipt_type || "unspecified"}
+                                        >
+                                            <SelectTrigger id="guestReceiptType" className="rounded-md">
+                                                <SelectValue placeholder="領収書の種類を選択" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="unspecified">未設定</SelectItem>
+                                                <SelectItem value="none">なし</SelectItem>
+                                                <SelectItem value="amount_only">金額のみ</SelectItem>
+                                                <SelectItem value="with_date">日付入り</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
                                 </div>
                             )}
 
@@ -617,27 +723,8 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                 </div>
                             )}
 
-                            {!profile && (
-                                <DialogFooter className="mt-6">
-                                    <div className="flex flex-col w-full gap-3">
-                                        <Button type="submit" disabled={isSubmitting} className="w-full rounded-full h-10">
-                                            {isSubmitting ? "作成中..." : "作成する"}
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            onClick={() => onOpenChange(false)}
-                                            className="w-full rounded-full border-gray-300 dark:border-gray-600 h-10"
-                                        >
-                                            キャンセル
-                                        </Button>
-                                    </div>
-                                </DialogFooter>
-                            )}
-                        </form>
-
-                        {profile && (
-                            <>
+                            {/* Compatibility & Relationships */}
+                            {profile && (
                                 <div className="border-t border-gray-200 dark:border-gray-700 pt-6 space-y-6">
                                     {/* Compatibility */}
                                     <div className="space-y-4">
@@ -645,7 +732,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                         <div className="space-y-3">
                                             <div className="space-y-2">
                                                 <div className="flex items-center justify-between">
-                                                    <Label className="text-xs text-gray-500">相性 ◯</Label>
+                                                    <span className="text-xs text-gray-500 font-medium">相性 ◯</span>
                                                     <button
                                                         type="button"
                                                         onClick={() => setRelationshipSelectorOpen("compatibility_good")}
@@ -673,7 +760,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                             </div>
                                             <div className="space-y-2">
                                                 <div className="flex items-center justify-between">
-                                                    <Label className="text-xs text-gray-500">相性 ✕</Label>
+                                                    <span className="text-xs text-gray-500 font-medium">相性 ✕</span>
                                                     <button
                                                         type="button"
                                                         onClick={() => setRelationshipSelectorOpen("compatibility_bad")}
@@ -706,7 +793,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                     {(role === "cast" || role === "guest") && (
                                         <div className="space-y-2">
                                             <div className="flex items-center justify-between">
-                                                <Label>指名</Label>
+                                                <span className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">指名</span>
                                                 <button
                                                     type="button"
                                                     onClick={() => setRelationshipSelectorOpen("nomination")}
@@ -738,7 +825,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                     {(role === "cast" || role === "staff") && (
                                         <div className="space-y-2">
                                             <div className="flex items-center justify-between">
-                                                <Label>担当</Label>
+                                                <span className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">担当</span>
                                                 <button
                                                     type="button"
                                                     onClick={() => setRelationshipSelectorOpen("in_charge")}
@@ -766,210 +853,234 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                         </div>
                                     )}
                                 </div>
+                            )}
 
-                                {/* Comments */}
-                                <div className="border-t border-gray-200 dark:border-gray-700 pt-6 space-y-4">
-                                    <h3 className="font-medium text-gray-900 dark:text-white">コメント</h3>
-
-                                    <div className="space-y-4 max-h-60 overflow-y-auto">
-                                        {comments.map((comment) => (
-                                            <div key={comment.id} className="flex gap-3 items-start bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg relative">
-                                                <Avatar className="h-6 w-6">
-                                                    <AvatarImage src={comment.author?.avatar_url || ""} />
-                                                    <AvatarFallback className="bg-gray-200 dark:bg-gray-700">
-                                                        <UserCircle className="h-6 w-6 text-gray-700 dark:text-gray-300" />
-                                                    </AvatarFallback>
-                                                </Avatar>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center justify-between gap-2 mb-1">
-                                                        <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                                                            {comment.author?.display_name || "不明なユーザー"}
-                                                        </span>
-                                                        <div className="flex items-center gap-2 flex-shrink-0">
-                                                            <span className="text-xs text-gray-500">
-                                                                {format(new Date(comment.updated_at), "yyyy/MM/dd")}
-                                                            </span>
-                                                            {comment.author?.id === currentUserProfileId && (
-                                                                <div className="relative">
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => setCommentMenuOpen(commentMenuOpen === comment.id ? null : comment.id)}
-                                                                        className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
-                                                                    >
-                                                                        <MoreHorizontal className="h-3 w-3 text-gray-700 dark:text-gray-300" />
-                                                                    </button>
-                                                                    {commentMenuOpen === comment.id && (
-                                                                        <>
-                                                                            <div
-                                                                                className="fixed inset-0 z-40"
-                                                                                onClick={(e) => {
-                                                                                    e.stopPropagation();
-                                                                                    setCommentMenuOpen(null);
-                                                                                }}
-                                                                            />
-                                                                            <div className="absolute right-0 top-6 z-50 w-24 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg p-1 flex flex-col gap-1 text-xs">
-                                                                                <button
-                                                                                    type="button"
-                                                                                    className="w-full text-left px-2 py-1.5 rounded flex items-center gap-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                                                                                    onClick={() => {
-                                                                                        setEditingCommentId(comment.id);
-                                                                                        setEditingCommentText(comment.content);
-                                                                                        setCommentMenuOpen(null);
-                                                                                    }}
-                                                                                >
-                                                                                    <Edit2 className="h-3 w-3" />
-                                                                                    編集
-                                                                                </button>
-                                                                                <button
-                                                                                    type="button"
-                                                                                    className="w-full text-left px-2 py-1.5 rounded flex items-center gap-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                                                                    onClick={() => {
-                                                                                        setDeleteCommentId(comment.id);
-                                                                                        setCommentMenuOpen(null);
-                                                                                    }}
-                                                                                >
-                                                                                    <Trash2 className="h-3 w-3" />
-                                                                                    削除
-                                                                                </button>
-                                                                            </div>
-                                                                        </>
-                                                                    )}
-                                                                </div>
-                                                            )}
+                            {/* Personal Info Accordion */}
+                            {!hidePersonalInfo && (
+                                <div className="border-t border-gray-100 dark:border-gray-800 pt-4">
+                                    <Accordion type="single" collapsible className="w-full">
+                                        <AccordionItem value="personal-info" className="border-none">
+                                            <AccordionTrigger className="py-2 hover:no-underline">
+                                                <span className="font-medium text-gray-900 dark:text-white">個人情報</span>
+                                            </AccordionTrigger>
+                                            <AccordionContent>
+                                                <div className="space-y-4 pt-2">
+                                                    {/* 本名 */}
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div className="space-y-2">
+                                                            <Label htmlFor="lastName">姓</Label>
+                                                            <Input
+                                                                id="lastName"
+                                                                name="lastName"
+                                                                defaultValue={profile?.last_name || ""}
+                                                                placeholder="姓"
+                                                                className="rounded-md"
+                                                            />
+                                                        </div>
+                                                        <div className="space-y-2">
+                                                            <Label htmlFor="firstName">名</Label>
+                                                            <Input
+                                                                id="firstName"
+                                                                name="firstName"
+                                                                defaultValue={profile?.first_name || ""}
+                                                                placeholder="名"
+                                                                className="rounded-md"
+                                                            />
                                                         </div>
                                                     </div>
-                                                    {editingCommentId === comment.id ? (
+
+                                                    <div className="grid grid-cols-2 gap-4">
                                                         <div className="space-y-2">
-                                                            <Textarea
-                                                                value={editingCommentText}
-                                                                onChange={(e) => setEditingCommentText(e.target.value)}
-                                                                className="min-h-[60px]"
+                                                            <Label htmlFor="lastNameKana">姓（かな）</Label>
+                                                            <Input
+                                                                id="lastNameKana"
+                                                                name="lastNameKana"
+                                                                defaultValue={profile?.last_name_kana || ""}
+                                                                placeholder="せい"
+                                                                className="rounded-md"
                                                             />
-                                                            <div className="flex gap-2">
-                                                                <Button
-                                                                    type="button"
-                                                                    size="sm"
-                                                                    onClick={() => handleEditComment(comment.id)}
-                                                                >
-                                                                    保存
-                                                                </Button>
-                                                                <Button
-                                                                    type="button"
-                                                                    size="sm"
-                                                                    variant="outline"
-                                                                    onClick={() => {
-                                                                        setEditingCommentId(null);
-                                                                        setEditingCommentText("");
-                                                                    }}
-                                                                >
-                                                                    キャンセル
-                                                                </Button>
+                                                        </div>
+                                                        <div className="space-y-2">
+                                                            <Label htmlFor="firstNameKana">名（かな）</Label>
+                                                            <Input
+                                                                id="firstNameKana"
+                                                                name="firstNameKana"
+                                                                defaultValue={profile?.first_name_kana || ""}
+                                                                placeholder="めい"
+                                                                className="rounded-md"
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    {/* 電話番号 */}
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="phoneNumber">電話番号</Label>
+                                                        <Input
+                                                            id="phoneNumber"
+                                                            name="phoneNumber"
+                                                            defaultValue={profile?.phone_number || ""}
+                                                            placeholder="090-1234-5678"
+                                                            className="rounded-md"
+                                                        />
+                                                    </div>
+
+                                                    {/* 住所 */}
+                                                    <div className="space-y-4 pt-4">
+                                                        <span className="text-sm text-gray-500 font-medium">住所</span>
+
+                                                        <div className="grid grid-cols-2 gap-4">
+                                                            <div className="space-y-2">
+                                                                <Label htmlFor="zipCode" className="text-xs text-gray-500">郵便番号</Label>
+                                                                <Input
+                                                                    id="zipCode"
+                                                                    name="zipCode"
+                                                                    value={addressState.zipCode}
+                                                                    onChange={handleZipCodeChange}
+                                                                    placeholder="1234567"
+                                                                    className="rounded-md"
+                                                                    maxLength={7}
+                                                                />
+                                                            </div>
+                                                            <div className="space-y-2">
+                                                                <Label htmlFor="prefecture" className="text-xs text-gray-500">都道府県</Label>
+                                                                <Input
+                                                                    id="prefecture"
+                                                                    name="prefecture"
+                                                                    value={addressState.prefecture}
+                                                                    onChange={handleAddressChange("prefecture")}
+                                                                    placeholder="東京都"
+                                                                    className="rounded-md"
+                                                                />
                                                             </div>
                                                         </div>
-                                                    ) : (
+
                                                         <div className="space-y-2">
-                                                            <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">
-                                                                {comment.content}
-                                                            </p>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleToggleLike(comment.id)}
-                                                                className={`flex items-center gap-1 text-xs transition-colors ${comment.user_has_liked
-                                                                    ? "text-pink-500 dark:text-pink-400"
-                                                                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                                                                    }`}
-                                                            >
-                                                                <Heart className={`h-3 w-3 ${comment.user_has_liked ? "fill-current" : ""}`} />
-                                                                <span>{comment.like_count > 0 ? comment.like_count : "いいね"}</span>
-                                                            </button>
+                                                            <Label htmlFor="city" className="text-xs text-gray-500">市区町村</Label>
+                                                            <Input
+                                                                id="city"
+                                                                name="city"
+                                                                value={addressState.city}
+                                                                onChange={handleAddressChange("city")}
+                                                                placeholder="渋谷区"
+                                                                className="rounded-md"
+                                                            />
+                                                        </div>
+
+                                                        <div className="space-y-2">
+                                                            <Label htmlFor="street" className="text-xs text-gray-500">番地</Label>
+                                                            <Input
+                                                                id="street"
+                                                                name="street"
+                                                                value={addressState.street}
+                                                                onChange={handleAddressChange("street")}
+                                                                placeholder="道玄坂1-1-1"
+                                                                className="rounded-md"
+                                                            />
+                                                        </div>
+
+                                                        <div className="space-y-2">
+                                                            <Label htmlFor="building" className="text-xs text-gray-500">建物名</Label>
+                                                            <Input
+                                                                id="building"
+                                                                name="building"
+                                                                value={addressState.building}
+                                                                onChange={handleAddressChange("building")}
+                                                                placeholder="渋谷ビル 101"
+                                                                className="rounded-md"
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    {/* 緊急連絡先・最寄り駅 (cast/staff only) */}
+                                                    {(role === "cast" || role === "staff") && (
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+                                                            <div className="space-y-2">
+                                                                <Label htmlFor="emergencyPhoneNumber">緊急連絡先</Label>
+                                                                <Input
+                                                                    id="emergencyPhoneNumber"
+                                                                    name="emergencyPhoneNumber"
+                                                                    defaultValue={profile?.emergency_phone_number || ""}
+                                                                    placeholder="090-1234-5678"
+                                                                    className="rounded-md"
+                                                                />
+                                                            </div>
+                                                            <div className="space-y-2">
+                                                                <Label htmlFor="nearestStation">最寄り駅</Label>
+                                                                <Input
+                                                                    id="nearestStation"
+                                                                    name="nearestStation"
+                                                                    defaultValue={profile?.nearest_station || ""}
+                                                                    placeholder="渋谷駅"
+                                                                    className="rounded-md"
+                                                                />
+                                                            </div>
                                                         </div>
                                                     )}
                                                 </div>
-                                            </div>
-                                        ))}
-                                        {comments.length === 0 && (
-                                            <p className="text-sm text-gray-500 text-center py-2">コメントはありません</p>
-                                        )}
-                                    </div>
+                                            </AccordionContent>
+                                        </AccordionItem>
+                                    </Accordion>
+                                </div>
+                            )}
 
-                                    <div className="flex gap-2">
-                                        <Input
-                                            value={newComment}
-                                            onChange={(e) => setNewComment(e.target.value)}
-                                            placeholder="コメントを入力..."
-                                            className="flex-1 h-10"
-                                            onKeyDown={(e) => {
-                                                if (e.key === "Enter" && !e.shiftKey) {
-                                                    e.preventDefault();
-                                                    handleAddComment();
-                                                }
-                                            }}
-                                        />
+                            {!profile && (
+                                <DialogFooter className="mt-6">
+                                    <div className="flex flex-col w-full gap-3">
+                                        <Button type="submit" disabled={isSubmitting} className="w-full rounded-full h-10">
+                                            {isSubmitting ? "作成中..." : "作成する"}
+                                        </Button>
                                         <Button
                                             type="button"
-                                            size="icon"
-                                            onClick={handleAddComment}
-                                            disabled={!newComment.trim()}
-                                            className="h-10 w-10"
+                                            variant="outline"
+                                            onClick={() => onOpenChange(false)}
+                                            className="w-full rounded-full border-gray-300 dark:border-gray-600 h-10"
                                         >
-                                            <Send className="h-4 w-4" />
+                                            キャンセル
                                         </Button>
                                     </div>
-                                </div>
-                            </>
+                                </DialogFooter>
+                            )}
+                        </form>
+
+                        {profile && (
+                            <div className="border-t border-gray-200 dark:border-gray-700 pt-6 space-y-4">
+                                <h3 className="font-medium text-gray-900 dark:text-white">コメント</h3>
+                                <CommentList
+                                    comments={comments}
+                                    currentUserId={currentUserProfileId}
+                                    onAddComment={handleAddComment}
+                                    onEditComment={handleEditComment}
+                                    onDeleteComment={handleDeleteComment}
+                                    onToggleLike={handleToggleLike}
+                                />
+                            </div>
                         )}
 
 
                     </div>
                 </DialogContent>
-            </Dialog>
+            </Dialog >
 
             {/* Bottle Modal - only show if not nested */}
-            {!isNested && profile && profile.role === "guest" && (
-                <BottleModal
-                    isOpen={isBottleModalOpen}
-                    onClose={() => {
-                        setIsBottleModalOpen(false);
-                        refreshBottleKeeps();
-                    }}
-                    menus={menus}
-                    profiles={allProfiles}
-                    initialProfileIds={profile ? [profile.id] : []}
-                />
-            )}
+            {
+                !isNested && profile && profile.role === "guest" && (
+                    <BottleModal
+                        isOpen={isBottleModalOpen}
+                        onClose={(shouldRefresh) => {
+                            setIsBottleModalOpen(false);
+                            if (shouldRefresh) {
+                                refreshBottleKeeps();
+                            }
+                        }}
+                        menus={menus}
+                        profiles={[profile]}
+                        initialProfileIds={[profile.id]}
+                    />
+                )
+            }
 
             {/* Delete Comment Confirmation Modal */}
-            <Dialog open={!!deleteCommentId} onOpenChange={(open) => !open && setDeleteCommentId(null)}>
-                <DialogContent className="sm:max-w-[400px] bg-white dark:bg-gray-800 w-[90%] rounded-lg p-6">
-                    <DialogHeader>
-                        <DialogTitle className="text-center text-lg font-bold text-gray-900 dark:text-white">
-                            コメントを削除
-                        </DialogTitle>
-                    </DialogHeader>
-                    <div className="py-4 text-center text-gray-600 dark:text-gray-300">
-                        <p>本当にこのコメントを削除しますか？</p>
-                        <p className="text-sm mt-2 text-gray-500">この操作は取り消せません。</p>
-                    </div>
-                    <DialogFooter className="flex-col sm:flex-row gap-3">
-                        <Button
-                            type="button"
-                            variant="destructive"
-                            onClick={() => deleteCommentId && handleDeleteComment(deleteCommentId)}
-                            className="w-full rounded-full bg-red-600 hover:bg-red-700 text-white h-10"
-                        >
-                            削除
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setDeleteCommentId(null)}
-                            className="w-full rounded-full border-gray-300 dark:border-gray-600 h-10"
-                        >
-                            キャンセル
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            {/* This modal is now handled internally by CommentList */}
 
             {/* Delete User Confirmation Modal */}
             <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
@@ -978,9 +1089,12 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                         <DialogTitle className="text-center text-lg font-bold text-gray-900 dark:text-white">
                             ユーザーを削除
                         </DialogTitle>
+                        <DialogDescription className="sr-only">
+                            ユーザーを削除する確認ダイアログ
+                        </DialogDescription>
                     </DialogHeader>
                     <div className="py-4 text-center text-gray-600 dark:text-gray-300">
-                        <p>本当に「{profile?.display_name}」を削除しますか？</p>
+                        <p>本当にこのユーザーを削除しますか？</p>
                         <p className="text-sm mt-2 text-gray-500">この操作は取り消せません。</p>
                     </div>
                     <DialogFooter className="flex-col sm:flex-row gap-3">
@@ -1007,61 +1121,79 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
             </Dialog>
 
             {/* Attendance List Modal */}
-            {profile && (
-                <UserAttendanceListModal
-                    isOpen={showAttendanceList}
-                    onClose={() => setShowAttendanceList(false)}
-                    profileId={profile.id}
-                    profileName={profile.display_name || "メンバー"}
-                    onEditRecord={(record) => setEditingAttendanceRecord(record)}
-                />
-            )}
+            {
+                profile && (
+                    <UserAttendanceListModal
+                        isOpen={showAttendanceList}
+                        onClose={() => setShowAttendanceList(false)}
+                        profileId={profile.id}
+                        profileName={profile.display_name || "メンバー"}
+                        onEditRecord={(record) => setEditingAttendanceRecord(record)}
+                    />
+                )
+            }
 
             {/* Attendance Edit Modal (opened from list) */}
-            {editingAttendanceRecord && profile && (
-                <AttendanceModal
-                    isOpen={!!editingAttendanceRecord}
-                    onClose={() => setEditingAttendanceRecord(null)}
-                    profiles={[profile]}
-                    currentProfileId={profile.id}
-                    editingRecord={editingAttendanceRecord}
-                />
-            )}
+            {
+                editingAttendanceRecord && profile && (
+                    <AttendanceModal
+                        isOpen={!!editingAttendanceRecord}
+                        onClose={() => setEditingAttendanceRecord(null)}
+                        profiles={[profile]}
+                        currentProfileId={profile.id}
+                        editingRecord={editingAttendanceRecord}
+                    />
+                )
+            }
 
             {/* Relationship Selector Modals */}
-            {profile && relationshipSelectorOpen && (
-                <RelationshipSelectorModal
-                    isOpen={!!relationshipSelectorOpen}
-                    onClose={() => setRelationshipSelectorOpen(null)}
-                    title={
-                        relationshipSelectorOpen === "compatibility_good"
-                            ? "相性 ◯"
-                            : relationshipSelectorOpen === "compatibility_bad"
-                                ? "相性 ✕"
-                                : relationshipSelectorOpen === "nomination"
-                                    ? "指名"
-                                    : "担当"
-                    }
-                    profiles={allProfiles}
-                    selectedIds={getSelectedIds(relationshipSelectorOpen)}
-                    onSelectionChange={(ids) => {
-                        if (relationshipSelectorOpen) {
-                            handleRelationshipChange(relationshipSelectorOpen, ids);
+            {
+                profile && relationshipSelectorOpen && (
+                    <RelationshipSelectorModal
+                        isOpen={!!relationshipSelectorOpen}
+                        onClose={() => setRelationshipSelectorOpen(null)}
+                        title={
+                            relationshipSelectorOpen === "compatibility_good"
+                                ? "相性 ◯"
+                                : relationshipSelectorOpen === "compatibility_bad"
+                                    ? "相性 ✕"
+                                    : relationshipSelectorOpen === "nomination"
+                                        ? "指名"
+                                        : "担当"
                         }
-                    }}
-                    currentProfileId={profile.id}
-                />
-            )}
+                        profiles={(() => {
+                            if (relationshipSelectorOpen === "nomination") {
+                                if (role === "guest") return allProfiles.filter(p => p.role === "cast");
+                                if (role === "cast") return allProfiles.filter(p => p.role === "guest");
+                            }
+                            if (relationshipSelectorOpen === "in_charge") {
+                                if (role === "staff") return allProfiles.filter(p => p.role === "cast");
+                                if (role === "cast") return allProfiles.filter(p => p.role === "staff");
+                            }
+                            return allProfiles;
+                        })()}
+                        selectedIds={getSelectedIds(relationshipSelectorOpen)}
+                        onSelectionChange={(ids) => {
+                            if (relationshipSelectorOpen) {
+                                handleRelationshipChange(relationshipSelectorOpen, ids);
+                            }
+                        }}
+                        currentProfileId={profile.id}
+                    />
+                )
+            }
 
             {/* Nested Profile Modal */}
-            {nestedProfileId && (
-                <UserEditModal
-                    open={!!nestedProfileId}
-                    onOpenChange={(open) => !open && setNestedProfileId(null)}
-                    profile={allProfiles.find((p) => p.id === nestedProfileId) || null}
-                    isNested={true}
-                />
-            )}
+            {
+                nestedProfileId && (
+                    <UserEditModal
+                        open={!!nestedProfileId}
+                        onOpenChange={(open) => !open && setNestedProfileId(null)}
+                        profile={allProfiles.find((p) => p.id === nestedProfileId) || null}
+                        isNested={true}
+                    />
+                )
+            }
         </>
     );
 }

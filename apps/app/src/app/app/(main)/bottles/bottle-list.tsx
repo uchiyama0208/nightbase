@@ -23,7 +23,7 @@ import { BottleModal } from "./bottle-modal";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { FilterSuggestionInput } from "@/components/filter-suggestion-input";
+import { Input } from "@/components/ui/input";
 
 interface BottleListProps {
     storeId: string;
@@ -35,26 +35,26 @@ export function BottleList({ storeId, menus, profiles }: BottleListProps) {
     const [bottles, setBottles] = useState<any[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingBottle, setEditingBottle] = useState<any | null>(null);
-    const [statusFilter, setStatusFilter] = useState("all");
+    const [remainingFilter, setRemainingFilter] = useState("all");
     const [searchQuery, setSearchQuery] = useState("");
     const [isPending, startTransition] = useTransition();
 
     const activeFilters = [
         searchQuery.trim() && "検索",
-        statusFilter !== "all" && "ステータス",
+        remainingFilter !== "all" && "残量",
     ].filter(Boolean) as string[];
     const hasFilters = activeFilters.length > 0;
 
     const fetchBottles = useCallback(async () => {
         startTransition(async () => {
-            const data = await getBottleKeeps({ status: statusFilter, search: searchQuery });
+            const data = await getBottleKeeps({ remainingAmount: remainingFilter, search: searchQuery });
             setBottles(data || []);
         });
-    }, [statusFilter, searchQuery]);
+    }, [remainingFilter, searchQuery]);
 
     useEffect(() => {
         fetchBottles();
-    }, [fetchBottles, statusFilter, searchQuery]);
+    }, [fetchBottles, remainingFilter, searchQuery]);
 
     const suggestionItems = useMemo(
         () =>
@@ -85,10 +85,12 @@ export function BottleList({ storeId, menus, profiles }: BottleListProps) {
         }
     };
 
-    const handleModalClose = () => {
+    const handleModalClose = (shouldRefresh = false) => {
         setIsModalOpen(false);
         setEditingBottle(null);
-        fetchBottles();
+        if (shouldRefresh) {
+            fetchBottles();
+        }
     };
 
     const getRemainingAmountText = (amount: number) => {
@@ -100,91 +102,85 @@ export function BottleList({ storeId, menus, profiles }: BottleListProps) {
         return `${amount}%`;
     };
 
-    const getStatusText = (status: string) => {
-        switch (status) {
-            case "active": return "利用中";
-            case "empty": return "空";
-            case "returned": return "返却済";
-            default: return status;
-        }
-    };
+
 
     return (
         <div className="space-y-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <Accordion type="single" collapsible className="w-full sm:w-auto">
-                    <AccordionItem
-                        value="filters"
-                        className="rounded-2xl border border-gray-200 bg-white px-2 dark:border-gray-700 dark:bg-gray-800"
-                    >
-                        <AccordionTrigger className="px-2 text-sm font-semibold text-gray-900 dark:text-white">
-                            <div className="flex w-full items-center justify-between pr-2">
-                                <span>フィルター</span>
-                                {hasFilters && (
-                                    <span className="text-xs text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/40 px-2 py-0.5 rounded-full">
-                                        {activeFilters.join("・")}
-                                    </span>
-                                )}
-                            </div>
-                        </AccordionTrigger>
-                        <AccordionContent className="px-2">
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                    <div className="flex gap-2 w-full sm:w-auto">
-                                        <div className="relative flex-1 sm:flex-none sm:w-[240px]">
-                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                            <FilterSuggestionInput
-                                                placeholder="ボトル名やゲスト名で検索..."
-                                                value={searchQuery}
-                                                onValueChange={setSearchQuery}
-                                                suggestions={suggestionItems}
-                                                className="pl-10"
-                                            />
-                                        </div>
-                                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                        <SelectTrigger className="flex-1 sm:flex-none sm:w-[240px]">
-                                            <SelectValue placeholder="ステータス" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">すべて</SelectItem>
-                                            <SelectItem value="active">利用中</SelectItem>
-                                            <SelectItem value="empty">空</SelectItem>
-                                            <SelectItem value="returned">返却済</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </div>
-                        </AccordionContent>
-                    </AccordionItem>
-                </Accordion>
-                <Button onClick={handleCreateNew} className="w-full sm:w-auto">
-                    <Plus className="mr-2 h-4 w-4" />
-                    新規登録
+            <div className="flex items-center justify-end mb-4">
+                <Button
+                    size="icon"
+                    className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
+                    onClick={handleCreateNew}
+                >
+                    <Plus className="h-5 w-5" />
                 </Button>
             </div>
 
-            {/* Table */}
-            <div className="border rounded-3xl overflow-hidden bg-white dark:bg-gray-800">
+            <Accordion type="single" collapsible className="w-full mb-4">
+                <AccordionItem
+                    value="filters"
+                    className="rounded-2xl border border-gray-200 bg-white px-2 dark:border-gray-700 dark:bg-gray-800"
+                >
+                    <AccordionTrigger className="px-2 text-sm font-semibold text-gray-900 dark:text-white">
+                        <div className="flex w-full items-center justify-between pr-2">
+                            <span>フィルター</span>
+                            {hasFilters && (
+                                <span className="text-xs text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/40 px-2 py-0.5 rounded-full">
+                                    {activeFilters.join("・")}
+                                </span>
+                            )}
+                        </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-2">
+                        <div className="flex flex-col gap-3 pt-2 pb-2">
+                            <div className="relative w-full">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                <Input
+                                    placeholder="ボトル名やゲスト名で検索..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="pl-10 w-full h-10 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs md:text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                            <Select value={remainingFilter} onValueChange={setRemainingFilter}>
+                                <SelectTrigger className="w-full h-10">
+                                    <SelectValue placeholder="残量" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">すべて</SelectItem>
+                                    <SelectItem value="100">未開封</SelectItem>
+                                    <SelectItem value="75">多め</SelectItem>
+                                    <SelectItem value="50">半分</SelectItem>
+                                    <SelectItem value="25">少なめ</SelectItem>
+                                    <SelectItem value="0">無し</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </AccordionContent>
+                </AccordionItem>
+            </Accordion>
+
+            <div className="rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-x-auto">
                 <Table>
                     <TableHeader>
-                        <TableRow className="bg-gray-50 dark:bg-gray-900">
-                            <TableHead className="text-gray-900 dark:text-white font-semibold text-center w-1/3 md:w-1/6">ゲスト</TableHead>
-                            <TableHead className="text-gray-900 dark:text-white font-semibold text-center w-1/3 md:w-1/6">ボトル</TableHead>
-                            <TableHead className="text-gray-900 dark:text-white font-semibold text-center w-1/3 md:w-1/6">残量</TableHead>
-                            <TableHead className="hidden md:table-cell text-gray-900 dark:text-white font-semibold text-center w-1/6">ステータス</TableHead>
-                            <TableHead className="hidden md:table-cell text-gray-900 dark:text-white font-semibold text-center w-1/6">開栓日</TableHead>
-                            <TableHead className="hidden md:table-cell text-gray-900 dark:text-white font-semibold text-center w-1/6">操作</TableHead>
+                        <TableRow className="border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                            <TableHead className="px-3 sm:px-4 text-center text-gray-500 dark:text-gray-400 w-1/5">ゲスト</TableHead>
+                            <TableHead className="px-3 sm:px-4 text-center text-gray-500 dark:text-gray-400 w-1/5">ボトル</TableHead>
+                            <TableHead className="px-3 sm:px-4 text-center text-gray-500 dark:text-gray-400 w-1/5">残量</TableHead>
+                            <TableHead className="hidden md:table-cell px-3 sm:px-4 text-center text-gray-500 dark:text-gray-400 w-1/5">開栓日</TableHead>
+                            <TableHead className="hidden md:table-cell px-3 sm:px-4 text-center text-gray-500 dark:text-gray-400 w-1/5">操作</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {isPending ? (
                             <TableRow>
-                                <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                                <TableCell colSpan={5} className="text-center py-8 text-gray-500 dark:text-gray-400">
                                     読み込み中...
                                 </TableCell>
                             </TableRow>
                         ) : bottles.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                                <TableCell colSpan={5} className="text-center py-8 text-gray-500 dark:text-gray-400">
                                     <div className="flex flex-col items-center gap-2">
                                         <Wine className="h-12 w-12 text-gray-300" />
                                         <p>ボトルキープがありません</p>
@@ -193,17 +189,21 @@ export function BottleList({ storeId, menus, profiles }: BottleListProps) {
                             </TableRow>
                         ) : (
                             bottles.map((bottle) => (
-                                <TableRow key={bottle.id}>
-                                    <TableCell className="text-center">
+                                <TableRow 
+                                    key={bottle.id} 
+                                    className="border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer"
+                                    onClick={() => handleEdit(bottle)}
+                                >
+                                    <TableCell className="px-3 sm:px-4 text-center text-gray-900 dark:text-white">
                                         {bottle.bottle_keep_holders
                                             ?.map((h: any) => h.profiles?.display_name)
                                             .filter(Boolean)
                                             .join(", ") || "-"}
                                     </TableCell>
-                                    <TableCell className="text-center">
+                                    <TableCell className="px-3 sm:px-4 text-center text-gray-900 dark:text-white">
                                         {bottle.menus?.name || "-"}
                                     </TableCell>
-                                    <TableCell className="text-center">
+                                    <TableCell className="px-3 sm:px-4 text-center text-gray-900 dark:text-white">
                                         <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${bottle.remaining_amount <= 0
                                             ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
                                             : bottle.remaining_amount < 50
@@ -214,21 +214,11 @@ export function BottleList({ storeId, menus, profiles }: BottleListProps) {
                                         </span>
                                     </TableCell>
                                     <TableCell className="hidden md:table-cell text-center">
-                                        <span className={`inline-block px-2 py-1 rounded text-xs ${bottle.status === "active"
-                                            ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
-                                            : bottle.status === "empty"
-                                                ? "bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-300"
-                                                : "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300"
-                                            }`}>
-                                            {getStatusText(bottle.status)}
-                                        </span>
-                                    </TableCell>
-                                    <TableCell className="hidden md:table-cell text-center">
                                         {bottle.opened_at
                                             ? format(new Date(bottle.opened_at), "yyyy/MM/dd", { locale: ja })
                                             : "-"}
                                     </TableCell>
-                                    <TableCell className="hidden md:table-cell text-center">
+                                    <TableCell className="hidden md:table-cell text-center" onClick={(e) => e.stopPropagation()}>
                                         <div className="flex justify-center gap-2">
                                             <Button
                                                 variant="ghost"
@@ -253,16 +243,14 @@ export function BottleList({ storeId, menus, profiles }: BottleListProps) {
                 </Table>
             </div>
 
-            {/* Modal */}
-            {isModalOpen && (
-                <BottleModal
-                    isOpen={isModalOpen}
-                    onClose={handleModalClose}
-                    bottle={editingBottle}
-                    menus={menus}
-                    profiles={profiles}
-                />
-            )}
+            {/* Modal - 常にレンダリングして状態を保持 */}
+            <BottleModal
+                isOpen={isModalOpen}
+                onClose={handleModalClose}
+                bottle={editingBottle}
+                menus={menus}
+                profiles={profiles}
+            />
         </div>
     );
 }

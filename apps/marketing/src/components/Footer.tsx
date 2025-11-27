@@ -10,7 +10,7 @@ interface FooterProps {
 export function Footer({ footer }: FooterProps) {
   return (
     <footer className="bg-slate-50 border-t border-slate-200 pt-16 pb-8">
-      <div className="container">
+      <div className="container px-4 sm:px-6 lg:px-8">
         <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4 mb-12">
           <div className="space-y-4">
             <Image

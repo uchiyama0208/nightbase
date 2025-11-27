@@ -27,9 +27,10 @@ interface Profile {
 interface RolesPageClientProps {
   roles: Role[];
   profiles: Profile[];
+  currentProfileId: string;
 }
 
-export function RolesPageClient({ roles, profiles }: RolesPageClientProps) {
+export function RolesPageClient({ roles, profiles, currentProfileId }: RolesPageClientProps) {
   const [target, setTarget] = useState<RoleTarget>("staff");
   const triggerRef = React.useRef<HTMLButtonElement>(null);
 
@@ -38,28 +39,38 @@ export function RolesPageClient({ roles, profiles }: RolesPageClientProps) {
     return roleTarget === target;
   });
 
+  const roleIndex = target === "cast" ? 0 : 1;
+
   return (
     <div className="relative min-h-screen pb-20">
       <div className="space-y-4">
         {/* Header */}
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">権限管理</h1>
-          <p className="mt-1 text-xs md:text-sm text-gray-500 dark:text-gray-400">
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">権限</h1>
+          <p className="mt-2 text-sm text-muted-foreground dark:text-gray-400">
             店舗の役割と権限を設定します。
           </p>
         </div>
 
         {/* Tabs */}
         <div className="flex items-center justify-between gap-4">
-          <div className="inline-flex items-center rounded-full bg-gray-100 dark:bg-gray-800 p-1">
+          <div className="relative inline-flex h-10 items-center rounded-full bg-gray-100 dark:bg-gray-800 p-1">
+            <div
+              className="absolute h-8 rounded-full bg-white dark:bg-gray-700 shadow-sm transition-transform duration-300 ease-in-out"
+              style={{
+                width: "80px",
+                left: "4px",
+                transform: `translateX(calc(${roleIndex} * (80px + 0px)))`
+              }}
+            />
             <button
               type="button"
               onClick={() => setTarget("cast")}
               className={cn(
-                "px-4 py-2 rounded-full text-sm font-medium transition-colors",
+                "relative z-10 w-20 flex items-center justify-center h-8 rounded-full text-sm font-medium transition-colors duration-200",
                 target === "cast"
-                  ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm"
-                  : "text-gray-600 dark:text-gray-400"
+                  ? "text-gray-900 dark:text-white"
+                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
               )}
             >
               キャスト
@@ -68,10 +79,10 @@ export function RolesPageClient({ roles, profiles }: RolesPageClientProps) {
               type="button"
               onClick={() => setTarget("staff")}
               className={cn(
-                "px-4 py-2 rounded-full text-sm font-medium transition-colors",
+                "relative z-10 w-20 flex items-center justify-center h-8 rounded-full text-sm font-medium transition-colors duration-200",
                 target === "staff"
-                  ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm"
-                  : "text-gray-600 dark:text-gray-400"
+                  ? "text-gray-900 dark:text-white"
+                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
               )}
             >
               スタッフ
@@ -79,7 +90,7 @@ export function RolesPageClient({ roles, profiles }: RolesPageClientProps) {
           </div>
           <Button
             size="icon"
-            className="h-10 w-10 rounded-full bg-white hover:bg-gray-50 border-2 border-blue-500 text-blue-500"
+            className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
             onClick={() => triggerRef.current?.click()}
           >
             <Plus className="h-5 w-5" />
@@ -89,7 +100,7 @@ export function RolesPageClient({ roles, profiles }: RolesPageClientProps) {
         {/* Roles Grid */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filteredRoles.map((role) => (
-            <RoleCard key={role.id} role={role} profiles={profiles} />
+            <RoleCard key={role.id} role={role} profiles={profiles} currentProfileId={currentProfileId} />
           ))}
         </div>
       </div>

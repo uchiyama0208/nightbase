@@ -8,7 +8,7 @@ export async function getAppData() {
     } = await supabase.auth.getUser();
 
     if (!user) {
-        return { user: null, profile: null, theme: "light" as const };
+        return { user: null, profile: null, storeId: undefined, theme: "light" as const };
     }
 
     // Optimize: Try to fetch everything in one go using deep embedding
@@ -29,7 +29,7 @@ export async function getAppData() {
         .maybeSingle();
 
     if (!appUser?.current_profile_id) {
-        return { user, profile: null, theme: "light" as const };
+        return { user, profile: null, storeId: undefined, theme: "light" as const };
     }
 
     const { data: profile } = await supabase
@@ -39,6 +39,7 @@ export async function getAppData() {
         .maybeSingle();
 
     const theme = (profile?.theme as "light" | "dark") || "light";
+    const storeId = profile?.store_id;
 
-    return { user, profile, theme };
+    return { user, profile, storeId, theme };
 }

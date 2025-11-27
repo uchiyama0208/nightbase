@@ -1,3 +1,5 @@
+"use client";
+
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
@@ -8,6 +10,18 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     ({ className, type = "text", onClick, ...props }, ref) => {
         const shouldOpenPicker = ["date", "time", "datetime-local", "month"].includes(type);
 
+        // Only add onClick handler if needed
+        const inputProps = shouldOpenPicker || onClick
+            ? {
+                onClick: (event: React.MouseEvent<HTMLInputElement>) => {
+                    onClick?.(event);
+                    if (shouldOpenPicker) {
+                        event.currentTarget.showPicker?.();
+                    }
+                },
+            }
+            : {};
+
         return (
             <input
                 type={type}
@@ -16,13 +30,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
                     className,
                 )}
                 ref={ref}
-                onClick={(event) => {
-                    onClick?.(event);
-
-                    if (shouldOpenPicker) {
-                        event.currentTarget.showPicker?.();
-                    }
-                }}
+                {...inputProps}
                 {...props}
             />
         );

@@ -53,6 +53,11 @@ export function FilterSuggestionInput({
                         onChange?.(event);
                         setOpen(true);
                     }}
+                    onClick={(event) => {
+                        // Prevent default date picker behavior for text inputs
+                        event.preventDefault();
+                        setOpen(true);
+                    }}
                     onFocus={(event) => {
                         onFocus?.(event);
                         setOpen(true);

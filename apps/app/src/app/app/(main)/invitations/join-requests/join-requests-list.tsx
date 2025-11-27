@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { JoinRequestModal } from "./join-request-modal";
 import { Users, Calendar, Search } from "lucide-react";
-import { FilterSuggestionInput } from "@/components/filter-suggestion-input";
+import { Input } from "@/components/ui/input";
 
 interface JoinRequest {
     id: string;
@@ -125,11 +125,10 @@ export function JoinRequestsList({ requests: initialRequests }: JoinRequestsList
                         </div>
                         <div className="relative w-full sm:w-72">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <FilterSuggestionInput
+                            <Input
                                 value={searchQuery}
-                                onValueChange={setSearchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
                                 placeholder="名前で検索"
-                                suggestions={suggestionItems}
                                 className="pl-8"
                             />
                         </div>
@@ -159,44 +158,44 @@ export function JoinRequestsList({ requests: initialRequests }: JoinRequestsList
                             </CardContent>
                         </Card>
                     ) : filteredRequests.map((request) => (
-                    <Card
-                        key={request.id}
-                        className="cursor-pointer hover:shadow-md transition-shadow"
-                        onClick={() => handleRequestClick(request)}
-                    >
-                        <CardContent className="p-6">
-                            <div className="flex items-center justify-between">
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-3 mb-2">
-                                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                                            {request.display_name}
-                                        </h3>
-                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleBadge(request.role)}`}>
-                                            {getRoleLabel(request.role)}
-                                        </span>
+                        <Card
+                            key={request.id}
+                            className="cursor-pointer hover:shadow-md transition-shadow"
+                            onClick={() => handleRequestClick(request)}
+                        >
+                            <CardContent className="p-6">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                                                {request.display_name}
+                                            </h3>
+                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleBadge(request.role)}`}>
+                                                {getRoleLabel(request.role)}
+                                            </span>
+                                        </div>
+                                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                                            本名: {request.real_name}
+                                        </p>
+                                        <div className="flex items-center gap-2 mt-2 text-xs text-gray-500 dark:text-gray-500">
+                                            <Calendar className="h-3 w-3" />
+                                            <span>
+                                                {new Date(request.created_at).toLocaleDateString("ja-JP", {
+                                                    year: "numeric",
+                                                    month: "long",
+                                                    day: "numeric",
+                                                    hour: "2-digit",
+                                                    minute: "2-digit",
+                                                })}
+                                            </span>
+                                        </div>
                                     </div>
-                                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                                        本名: {request.real_name}
-                                    </p>
-                                    <div className="flex items-center gap-2 mt-2 text-xs text-gray-500 dark:text-gray-500">
-                                        <Calendar className="h-3 w-3" />
-                                        <span>
-                                            {new Date(request.created_at).toLocaleDateString("ja-JP", {
-                                                year: "numeric",
-                                                month: "long",
-                                                day: "numeric",
-                                                hour: "2-digit",
-                                                minute: "2-digit",
-                                            })}
-                                        </span>
-                                    </div>
+                                    <Button variant="outline" size="sm">
+                                        詳細を見る
+                                    </Button>
                                 </div>
-                                <Button variant="outline" size="sm">
-                                    詳細を見る
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
+                            </CardContent>
+                        </Card>
                     ))}
                 </div>
             </div>

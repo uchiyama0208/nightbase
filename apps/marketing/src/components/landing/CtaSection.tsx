@@ -21,21 +21,16 @@ export function CtaSection() {
                 </p>
 
                 <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                    <Button size="lg" className="w-full sm:w-auto bg-blue-600 hover:bg-blue-500 text-white rounded-full px-8 h-14 text-lg shadow-lg shadow-blue-600/30" asChild>
+                    <Button
+                        size="lg"
+                        className="w-full sm:w-auto bg-blue-600 hover:bg-blue-500 text-white rounded-full px-8 h-14 text-lg shadow-lg shadow-blue-600/30"
+                        asChild
+                    >
                         <Link href="/contact">
                             デモを予約する
                             <ArrowRight className="ml-2 h-5 w-5" />
                         </Link>
                     </Button>
-                    <div className="flex gap-4 text-slate-400 text-sm font-medium">
-                        <Link href="/contact" className="hover:text-white transition-colors underline underline-offset-4">
-                            LINEでお問い合わせ
-                        </Link>
-                        <span className="text-slate-600">|</span>
-                        <Link href="/contact" className="hover:text-white transition-colors underline underline-offset-4">
-                            メールでお問い合わせ
-                        </Link>
-                    </div>
                 </div>
             </div>
         </section>

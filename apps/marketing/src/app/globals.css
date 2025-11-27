@@ -7,6 +7,28 @@
   background-color: #f9fafb;
 }
 
+/* 全ページ共通の左右余白: Tailwind の container に適用 */
+@layer utilities {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  @screen sm {
+    .container {
+      padding-left: 1.5rem; /* sm:px-6 相当 */
+      padding-right: 1.5rem;
+    }
+  }
+
+  @screen lg {
+    .container {
+      padding-left: 2rem; /* lg:px-8 相当 */
+      padding-right: 2rem;
+    }
+  }
+}
+
 .dark {
   background-color: #111827;
 }

@@ -14,7 +14,7 @@ import { JoinRequestModal } from "./join-request-modal";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { FilterSuggestionInput } from "@/components/filter-suggestion-input";
+import { Input } from "@/components/ui/input";
 
 interface JoinRequest {
     id: string;
@@ -124,11 +124,10 @@ export function JoinRequestsTable({ requests: initialRequests }: JoinRequestsTab
                                 <div className="flex flex-col gap-3">
                                     <div className="relative w-full sm:w-72">
                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                        <FilterSuggestionInput
+                                        <Input
                                             placeholder="名前で検索"
                                             value={searchQuery}
-                                            onValueChange={setSearchQuery}
-                                            suggestions={suggestionItems}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
                                             className="pl-8"
                                         />
                                     </div>

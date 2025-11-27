@@ -54,6 +54,20 @@ const config: Config = {
                 md: 'calc(var(--radius) - 2px)',
                 sm: 'calc(var(--radius) - 4px)',
             },
+            keyframes: {
+                'accordion-down': {
+                    from: { opacity: '0', transform: 'translateY(-8px)' },
+                    to: { opacity: '1', transform: 'translateY(0)' },
+                },
+                'accordion-up': {
+                    from: { opacity: '1', transform: 'translateY(0)' },
+                    to: { opacity: '0', transform: 'translateY(-8px)' },
+                },
+            },
+            animation: {
+                'accordion-down': 'accordion-down 0.2s ease-out forwards',
+                'accordion-up': 'accordion-up 0.15s ease-out forwards',
+            },
         },
     },
     plugins: [],

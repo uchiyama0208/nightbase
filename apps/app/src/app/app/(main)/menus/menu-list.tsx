@@ -21,7 +21,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { FilterSuggestionInput } from "@/components/filter-suggestion-input";
+import { Input } from "@/components/ui/input";
 
 interface MenuListProps {
     initialMenus: Menu[];
@@ -64,70 +64,73 @@ export function MenuList({ initialMenus, categories }: MenuListProps) {
 
     return (
         <div className="space-y-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <Accordion type="single" collapsible className="w-full sm:w-auto">
-                    <AccordionItem
-                        value="filters"
-                        className="rounded-2xl border border-gray-200 bg-white px-2 dark:border-gray-700 dark:bg-gray-800"
-                    >
-                        <AccordionTrigger className="px-2 text-sm font-semibold text-gray-900 dark:text-white">
-                            <div className="flex w-full items-center justify-between pr-2">
-                                <span>フィルター</span>
-                                {hasFilters && (
-                                    <span className="text-xs text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/40 px-2 py-0.5 rounded-full">
-                                        {activeFilters.join("・")}
-                                    </span>
-                                )}
-                            </div>
-                        </AccordionTrigger>
-                        <AccordionContent className="px-2">
-                            <div className="flex gap-2 w-full sm:w-auto">
-                                <div className="relative w-full sm:w-[240px]">
-                                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
-                                    <FilterSuggestionInput
-                                        placeholder="メニュー名で検索"
-                                        value={searchQuery}
-                                        onValueChange={setSearchQuery}
-                                        suggestions={suggestionItems}
-                                        className="pl-8"
-                                    />
-                                </div>
-                                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                                    <SelectTrigger className="w-full sm:w-[240px]">
-                                        <SelectValue placeholder="カテゴリー" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">すべてのカテゴリー</SelectItem>
-                                        {categories.map((cat) => (
-                                            <SelectItem key={cat} value={cat}>
-                                                {cat}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </AccordionContent>
-                    </AccordionItem>
-                </Accordion>
-                <Button onClick={handleCreate} className="w-full sm:w-auto">
-                    <Plus className="mr-2 h-4 w-4" />
-                    メニュー追加
+            <div className="flex items-center justify-end mb-4">
+                <Button
+                    size="icon"
+                    className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
+                    onClick={handleCreate}
+                >
+                    <Plus className="h-5 w-5" />
                 </Button>
             </div>
 
-            <div className="rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <Accordion type="single" collapsible className="w-full mb-4">
+                <AccordionItem
+                    value="filters"
+                    className="rounded-2xl border border-gray-200 bg-white px-2 dark:border-gray-700 dark:bg-gray-800"
+                >
+                    <AccordionTrigger className="px-2 text-sm font-semibold text-gray-900 dark:text-white">
+                        <div className="flex w-full items-center justify-between pr-2">
+                            <span>フィルター</span>
+                            {hasFilters && (
+                                <span className="text-xs text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/40 px-2 py-0.5 rounded-full">
+                                    {activeFilters.join("・")}
+                                </span>
+                            )}
+                        </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-2">
+                        <div className="flex flex-col gap-3 pt-2 pb-2">
+                            <div className="relative w-full">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                <Input
+                                    placeholder="メニュー名で検索"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="pl-9 w-full h-10 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs md:text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                                <SelectTrigger className="w-full h-10">
+                                    <SelectValue placeholder="カテゴリー" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">すべてのカテゴリー</SelectItem>
+                                    {categories.map((cat) => (
+                                        <SelectItem key={cat} value={cat}>
+                                            {cat}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </AccordionContent>
+                </AccordionItem>
+            </Accordion>
+
+            <div className="rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-x-auto">
                 <Table>
                     <TableHeader>
                         <TableRow className="border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                            <TableHead className="text-gray-500 dark:text-gray-400 text-center w-1/3">メニュー名</TableHead>
-                            <TableHead className="text-gray-500 dark:text-gray-400 text-center w-1/3">カテゴリー</TableHead>
-                            <TableHead className="text-gray-500 dark:text-gray-400 text-center w-1/3">金額</TableHead>
+                            <TableHead className="px-3 sm:px-4 text-center text-gray-500 dark:text-gray-400 w-1/3">メニュー名</TableHead>
+                            <TableHead className="px-3 sm:px-4 text-center text-gray-500 dark:text-gray-400 w-1/3">カテゴリー</TableHead>
+                            <TableHead className="px-3 sm:px-4 text-center text-gray-500 dark:text-gray-400 w-1/3">金額</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {filteredMenus.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={3} className="text-center py-8 text-gray-500 dark:text-gray-400">
+                                <TableCell colSpan={3} className="px-3 sm:px-4 text-center py-8 text-gray-500 dark:text-gray-400">
                                     メニューが見つかりません
                                 </TableCell>
                             </TableRow>
@@ -138,13 +141,13 @@ export function MenuList({ initialMenus, categories }: MenuListProps) {
                                     className="border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer"
                                     onClick={() => handleEdit(menu)}
                                 >
-                                    <TableCell className="text-center text-gray-900 dark:text-white">{menu.name}</TableCell>
-                                    <TableCell className="text-center">
+                                    <TableCell className="px-3 sm:px-4 text-center text-gray-900 dark:text-white">{menu.name}</TableCell>
+                                    <TableCell className="px-3 sm:px-4 text-center">
                                         <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800 dark:bg-gray-700 dark:text-gray-200">
                                             {menu.category}
                                         </span>
                                     </TableCell>
-                                    <TableCell className="text-center text-gray-900 dark:text-white">
+                                    <TableCell className="px-3 sm:px-4 text-center text-gray-900 dark:text-white">
                                         ¥{menu.price.toLocaleString()}
                                     </TableCell>
                                 </TableRow>

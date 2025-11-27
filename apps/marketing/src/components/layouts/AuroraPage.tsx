@@ -39,7 +39,7 @@ export function AuroraPage({
         aria-hidden
         className="pointer-events-none absolute inset-x-0 bottom-0 h-64 bg-[radial-gradient(circle_at_bottom,_rgba(95,111,255,0.1),_transparent_60%)]"
       />
-      <div className={cn("container relative z-10 space-y-16", containerClassName)}>{children}</div>
+      <div className={cn("container px-4 sm:px-6 lg:px-8 relative z-10 space-y-16", containerClassName)}>{children}</div>
     </div>
   );
 }

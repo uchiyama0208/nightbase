@@ -5,7 +5,7 @@ import { createServerClient } from "@/lib/supabaseServerClient";
 import { RolesPageClient } from "./roles-client";
 
 export const metadata: Metadata = {
-    title: "権限管理",
+    title: "権限",
 };
 
 async function getRolesData() {
@@ -48,12 +48,13 @@ async function getRolesData() {
 
     const { data: profiles } = await supabase
         .from("profiles")
-        .select("id, display_name, real_name, role_id")
+        .select("id, display_name, real_name, role_id, role")
         .eq("store_id", currentProfile.store_id);
 
     return {
         roles: roles || [],
         profiles: profiles || [],
+        currentProfileId: appUser.current_profile_id,
     };
 }
 
@@ -71,7 +72,7 @@ export default async function RolesPage() {
 
     return (
         <Suspense fallback={<RolesSkeleton />}>
-            <RolesPageClient roles={data.roles} profiles={data.profiles} />
+            <RolesPageClient roles={data.roles} profiles={data.profiles} currentProfileId={data.currentProfileId} />
         </Suspense>
     );
 }

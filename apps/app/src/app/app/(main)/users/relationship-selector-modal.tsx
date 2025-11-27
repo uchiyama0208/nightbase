@@ -8,10 +8,11 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
+    DialogDescription,
 } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserCircle } from "lucide-react";
-import { FilterSuggestionInput } from "@/components/filter-suggestion-input";
+import { Input } from "@/components/ui/input";
 
 interface Profile {
     id: string;
@@ -48,8 +49,14 @@ export function RelationshipSelectorModal({
     currentProfileId,
 }: RelationshipSelectorModalProps) {
     const [searchQuery, setSearchQuery] = useState("");
-    const [roleFilter, setRoleFilter] = useState<string | null>(null);
+    const [roleFilter, setRoleFilter] = useState<string | null>("cast");
     const [localSelectedIds, setLocalSelectedIds] = useState<string[]>(selectedIds);
+    const roleIndex = useMemo(() => {
+        if (roleFilter === "cast") return 0;
+        if (roleFilter === "staff") return 1;
+        if (roleFilter === "guest") return 2;
+        return 0;
+    }, [roleFilter]);
 
     const suggestionItems = useMemo(
         () =>
@@ -76,7 +83,7 @@ export function RelationshipSelectorModal({
     useEffect(() => {
         if (!isOpen) {
             setSearchQuery("");
-            setRoleFilter(null);
+            setRoleFilter("cast");
         }
     }, [isOpen]);
 
@@ -144,45 +151,48 @@ export function RelationshipSelectorModal({
                     </DialogTitle>
                     <div className="w-8 h-8" />
                 </DialogHeader>
+                <DialogDescription className="sr-only">
+                    {title}を選択してください
+                </DialogDescription>
 
                 <div className="px-3 space-y-4 flex-1 overflow-hidden flex flex-col">
                     {/* Search */}
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <FilterSuggestionInput
+                        <Input
                             type="text"
                             placeholder="名前で検索..."
                             value={searchQuery}
-                            onValueChange={setSearchQuery}
-                            suggestions={suggestionItems}
+                            onChange={(e) => setSearchQuery(e.target.value)}
                             className="pl-10 rounded-md"
                         />
                     </div>
 
                     {/* Role Filter - Toggle Button Style */}
-                    <div className="inline-flex h-9 items-center rounded-full bg-gray-100 dark:bg-gray-800 p-1 text-xs">
-                        <button
-                            onClick={() => setRoleFilter(null)}
-                            className={`px-4 h-full flex items-center rounded-full font-medium transition-colors ${roleFilter === null
-                                ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm"
-                                : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                                }`}
-                        >
-                            すべて
-                        </button>
-                        {["cast", "staff", "guest"].map((role) => (
-                            <button
-                                key={role}
-                                onClick={() => setRoleFilter(role)}
-                                className={`px-4 h-full flex items-center rounded-full font-medium transition-colors ${roleFilter === role
-                                    ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm"
-                                    : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                                    }`}
-                            >
-                                {roleLabels[role]}
-                            </button>
-                        ))}
-                    </div>
+                    {(title !== "指名" && title !== "担当") && (
+                        <div className="relative inline-flex h-10 items-center rounded-full bg-gray-100 dark:bg-gray-800 p-1 w-fit mx-auto">
+                            <div
+                                className="absolute h-8 rounded-full bg-white dark:bg-gray-700 shadow-sm transition-transform duration-300 ease-in-out"
+                                style={{
+                                    width: "72px",
+                                    left: "4px",
+                                    transform: `translateX(calc(${roleIndex} * 72px))`
+                                }}
+                            />
+                            {["cast", "staff", "guest"].map((role) => (
+                                <button
+                                    key={role}
+                                    onClick={() => setRoleFilter(role)}
+                                    className={`relative z-10 w-[72px] flex items-center justify-center h-8 rounded-full text-sm font-medium transition-colors duration-200 ${roleFilter === role
+                                        ? "text-gray-900 dark:text-white"
+                                        : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                                        }`}
+                                >
+                                    {roleLabels[role]}
+                                </button>
+                            ))}
+                        </div>
+                    )}
 
                     {/* Profile List */}
                     <div className="flex-1 overflow-y-auto -mx-3 px-3">

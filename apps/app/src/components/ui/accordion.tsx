@@ -60,7 +60,7 @@ const AccordionTrigger = React.forwardRef<
             {...props}
         >
             {children}
-            <ChevronDown className={cn("h-4 w-4 shrink-0 transition-transform duration-200", isOpen && "rotate-180")} />
+            <ChevronDown className={cn("h-4 w-4 shrink-0 text-gray-500 transition-transform duration-300 ease-in-out", isOpen && "rotate-180")} />
         </button>
     </h3>
 ));
@@ -73,9 +73,14 @@ const AccordionContent = React.forwardRef<
     <div
         ref={ref}
         className={cn(
-            "overflow-hidden text-sm transition-all",
-            isOpen ? "animate-accordion-down" : "animate-accordion-up hidden"
+            "overflow-hidden text-sm",
+            isOpen 
+                ? "animate-accordion-down" 
+                : "animate-accordion-up pointer-events-none"
         )}
+        style={{
+            display: isOpen ? "block" : "none",
+        }}
         {...props}
     >
         <div className={cn("pb-4 pt-0", className)}>{children}</div>
