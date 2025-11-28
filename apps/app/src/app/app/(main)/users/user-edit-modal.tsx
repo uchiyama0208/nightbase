@@ -88,9 +88,11 @@ interface UserEditModalProps {
     isNested?: boolean;
     defaultRole?: string;
     hidePersonalInfo?: boolean;
+    onDelete?: (profileId: string) => void;
+    onUpdate?: (profile: Partial<Profile> & { id: string }) => void;
 }
 
-export function UserEditModal({ profile, open, onOpenChange, isNested = false, defaultRole: propDefaultRole, hidePersonalInfo = false }: UserEditModalProps) {
+export function UserEditModal({ profile, open, onOpenChange, isNested = false, defaultRole: propDefaultRole, hidePersonalInfo = false, onDelete, onUpdate }: UserEditModalProps) {
     const searchParams = useSearchParams();
     const defaultRole = propDefaultRole || searchParams.get("role") || "cast";
 
@@ -120,6 +122,9 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
     const [bottleKeeps, setBottleKeeps] = useState<any[]>([]);
     const [menus, setMenus] = useState<any[]>([]);
     const [isBottleModalOpen, setIsBottleModalOpen] = useState(false);
+
+    // Past Employments state
+    const [pastEmployments, setPastEmployments] = useState<any[]>([]);
 
     // Address state for auto-fill
     const [addressState, setAddressState] = useState({
@@ -288,15 +293,25 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                             promises.push(getUserBottleKeeps(profile.id));
                         }
 
-                        const [details, keeps] = await Promise.all(promises);
+                        if (profile.role === "cast") {
+                            const { getPastEmployments } = await import("./actions");
+                            promises.push(getPastEmployments(profile.id));
+                        }
+
+                        const results = await Promise.all(promises);
+                        const details = results[0];
 
                         if (details) {
                             setRelationships(details.relationships);
                             setComments(details.comments);
                         }
 
-                        if (keeps) {
-                            setBottleKeeps(keeps);
+                        if (profile.role === "guest" && results[1]) {
+                            setBottleKeeps(results[1]);
+                        }
+
+                        if (profile.role === "cast" && results[1]) {
+                            setPastEmployments(results[1]);
                         }
                     }
                 } catch (error) {
@@ -312,6 +327,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
             setComments([]);
             setBottleKeeps([]);
             setMenus([]);
+            setPastEmployments([]);
         }
     }, [open, profile]);
 
@@ -330,36 +346,58 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
     };
 
     const handleSubmit = async (formData: FormData) => {
-        setIsSubmitting(true);
-        try {
-            if (profile) {
-                await updateUser(formData);
-            } else {
-                await createUser(formData);
-            }
-            onOpenChange(false);
-            router.refresh();
-        } catch (error) {
-            console.error("Failed to save user:", error);
-            alert("ユーザーの保存に失敗しました");
-        } finally {
-            setIsSubmitting(false);
+        // Extract form data for optimistic update
+        const updatedData = {
+            id: profile?.id || "",
+            display_name: formData.get("displayName") as string,
+            display_name_kana: formData.get("displayNameKana") as string || null,
+            real_name: formData.get("realName") as string || null,
+            real_name_kana: formData.get("realNameKana") as string || null,
+            role: formData.get("role") as string,
+        };
+
+        // Optimistic UI: close modal and update parent immediately (sync, no await)
+        onOpenChange(false);
+        if (profile && onUpdate) {
+            onUpdate(updatedData);
         }
+
+        // Fire and forget - don't block UI
+        (async () => {
+            try {
+                if (profile) {
+                    await updateUser(formData);
+                } else {
+                    await createUser(formData);
+                }
+            } catch (error) {
+                console.error("Failed to save user:", error);
+                router.refresh();
+            }
+        })();
     };
 
     const handleDelete = async () => {
         if (!profile) return;
-        setIsSubmitting(true);
+
+        // Optimistic UI: immediately close modals and notify parent
+        setShowDeleteConfirm(false);
+        onOpenChange(false);
+
+        // Notify parent to remove from list immediately
+        if (onDelete) {
+            onDelete(profile.id);
+        }
+
+        // Delete in background
         try {
             await deleteUser(profile.id);
-            setShowDeleteConfirm(false);
-            onOpenChange(false);
             router.refresh();
         } catch (error) {
             console.error("Failed to delete user:", error);
-            alert("ユーザーの削除に失敗しました");
-        } finally {
-            setIsSubmitting(false);
+            // Optionally: could show a toast notification here
+            // For now, the refresh will restore the item if delete failed
+            router.refresh();
         }
     };
 
@@ -650,6 +688,26 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                 className="rounded-md"
                                             />
                                         </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="status">状態</Label>
+                                            <Select
+                                                name="status"
+                                                defaultValue={(profile as any)?.status || "通常"}
+                                            >
+                                                <SelectTrigger id="status" className="rounded-md">
+                                                    <SelectValue placeholder="状態を選択" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="通常">通常</SelectItem>
+                                                    <SelectItem value="未面接">未面接</SelectItem>
+                                                    <SelectItem value="保留">保留</SelectItem>
+                                                    <SelectItem value="不合格">不合格</SelectItem>
+                                                    <SelectItem value="体入">体入</SelectItem>
+                                                    <SelectItem value="休職中">休職中</SelectItem>
+                                                    <SelectItem value="退店済み">退店済み</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
                                     </div>
                                 </div>
                             )}
@@ -852,6 +910,85 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                             </div>
                                         </div>
                                     )}
+                                </div>
+                            )}
+
+                            {/* Resume Section Accordion (Cast only) */}
+                            {!hidePersonalInfo && role === "cast" && (
+                                <div className="border-t border-gray-100 dark:border-gray-800 pt-4">
+                                    <Accordion type="single" collapsible className="w-full">
+                                        <AccordionItem value="resume" className="border-none">
+                                            <AccordionTrigger className="py-2 hover:no-underline">
+                                                <span className="font-medium text-gray-900 dark:text-white">履歴書</span>
+                                            </AccordionTrigger>
+                                            <AccordionContent>
+                                                <div className="space-y-4 pt-2">
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="desiredCastName">希望キャスト名</Label>
+                                                        <Input
+                                                            id="desiredCastName"
+                                                            name="desiredCastName"
+                                                            defaultValue={(profile as any)?.desired_cast_name || ""}
+                                                            placeholder="例: さくら"
+                                                            className="rounded-md"
+                                                        />
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div className="space-y-2">
+                                                            <Label htmlFor="desiredHourlyWage">希望時給 (円)</Label>
+                                                            <Input
+                                                                id="desiredHourlyWage"
+                                                                name="desiredHourlyWage"
+                                                                type="number"
+                                                                defaultValue={(profile as any)?.desired_hourly_wage || ""}
+                                                                placeholder="3000"
+                                                                className="rounded-md"
+                                                            />
+                                                        </div>
+                                                        <div className="space-y-2">
+                                                            <Label htmlFor="desiredShiftDays">希望シフト</Label>
+                                                            <Input
+                                                                id="desiredShiftDays"
+                                                                name="desiredShiftDays"
+                                                                defaultValue={(profile as any)?.desired_shift_days || ""}
+                                                                placeholder="週3回"
+                                                                className="rounded-md"
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    {profile && (
+                                                        <div className="space-y-2 pt-2">
+                                                            <Label>過去在籍店</Label>
+                                                            <div className="space-y-2">
+                                                                {pastEmployments.length === 0 ? (
+                                                                    <span className="text-sm text-gray-400 dark:text-gray-500">登録なし</span>
+                                                                ) : (
+                                                                    pastEmployments.map((employment) => (
+                                                                        <div key={employment.id} className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+                                                                            <div className="font-medium text-sm text-gray-900 dark:text-white">
+                                                                                {employment.store_name}
+                                                                            </div>
+                                                                            {employment.period && (
+                                                                                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                                                                    期間: {employment.period}
+                                                                                </div>
+                                                                            )}
+                                                                            <div className="flex gap-3 mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                                                                {employment.hourly_wage && <span>時給: ¥{employment.hourly_wage.toLocaleString()}</span>}
+                                                                                {employment.sales_amount && <span>売上: ¥{employment.sales_amount.toLocaleString()}</span>}
+                                                                                {employment.customer_count && <span>客数: {employment.customer_count}人</span>}
+                                                                            </div>
+                                                                        </div>
+                                                                    ))
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </AccordionContent>
+                                        </AccordionItem>
+                                    </Accordion>
                                 </div>
                             )}
 
@@ -1084,7 +1221,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
 
             {/* Delete User Confirmation Modal */}
             <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-                <DialogContent className="sm:max-w-[400px] bg-white dark:bg-gray-800 w-[95%] rounded-lg p-6">
+                <DialogContent className="sm:max-w-[400px] bg-white dark:bg-gray-800 w-[95%] rounded-lg p-6 z-[60]">
                     <DialogHeader>
                         <DialogTitle className="text-center text-lg font-bold text-gray-900 dark:text-white">
                             ユーザーを削除

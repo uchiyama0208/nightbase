@@ -2,6 +2,8 @@ import { createServerClient } from "@/lib/supabaseServerClient";
 import { redirect } from "next/navigation";
 import { importUsersFromCsv } from "../../users/actions";
 import { importAttendanceFromCsv } from "../../attendance/actions";
+import { importMenusFromCsv, getMenuCategories } from "../../menus/actions";
+import { MenuImportSection } from "./menu-import-section";
 
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
@@ -40,6 +42,9 @@ export default async function ImportSettingsPage() {
     redirect("/app/timecard");
   }
 
+  // Fetch menu categories for the dropdown
+  const menuCategories = await getMenuCategories();
+
   return (
     <div className="max-w-3xl mx-auto space-y-4">
       <div className="flex items-center space-x-4 mb-2">
@@ -70,7 +75,6 @@ export default async function ImportSettingsPage() {
           </div>
           <form
             action={importUsersFromCsv}
-            encType="multipart/form-data"
             className="flex flex-col gap-2"
           >
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -114,7 +118,6 @@ export default async function ImportSettingsPage() {
           </div>
           <form
             action={importAttendanceFromCsv}
-            encType="multipart/form-data"
             className="flex flex-col gap-2"
           >
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -144,6 +147,9 @@ export default async function ImportSettingsPage() {
             </div>
           </form>
         </div>
+
+        {/* Menu CSV Import */}
+        <MenuImportSection categories={menuCategories} importAction={importMenusFromCsv} />
       </div>
     </div>
   );

@@ -5,7 +5,7 @@ import crypto from "crypto";
 
 export async function POST(request: Request) {
     try {
-        const { email, password, inviteToken, invitePassword } = await request.json();
+        const { email, password, inviteToken, invitePassword, isLogin } = await request.json();
 
         if (!email || !password || !inviteToken) {
             return NextResponse.json(
@@ -41,7 +41,63 @@ export async function POST(request: Request) {
 
         const supabase = await createServerClient();
 
-        // Create user with Supabase Auth
+        // If isLogin flag is set, try to sign in existing user
+        if (isLogin) {
+            const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+            });
+
+            if (signInError) {
+                console.error("Login error:", signInError);
+                return NextResponse.json(
+                    { success: false, message: "メールアドレスまたはパスワードが間違っています" },
+                    { status: 400 }
+                );
+            }
+
+            if (!signInData.user) {
+                return NextResponse.json(
+                    { success: false, message: "ログインに失敗しました" },
+                    { status: 500 }
+                );
+            }
+
+            // Link the invited profile to the existing user
+            const { error: linkError } = await supabase
+                .from("profiles")
+                .update({
+                    user_id: signInData.user.id,
+                    invite_status: "accepted",
+                    invite_token: null,
+                    invite_expires_at: null,
+                })
+                .eq("id", inviteToken);
+
+            if (linkError) {
+                console.error("Profile link error:", linkError);
+                return NextResponse.json(
+                    { success: false, message: "プロフィールのリンクに失敗しました" },
+                    { status: 500 }
+                );
+            }
+
+            // Update users table with upsert (in case it doesn't exist)
+            await supabase
+                .from("users")
+                .upsert({
+                    id: signInData.user.id,
+                    current_profile_id: inviteToken,
+                }, { onConflict: "id" });
+
+            return NextResponse.json({
+                success: true,
+                isLogin: true,
+                message: "ログインしました。招待を受諾しました。",
+            });
+        }
+
+        // Try to create new user with Supabase Auth
         const { data, error } = await supabase.auth.signUp({
             email,
             password,
@@ -55,6 +111,20 @@ export async function POST(request: Request) {
 
         if (error) {
             console.error("Signup error:", error);
+            
+            // Check if user already exists
+            if (error.message?.includes("already been registered") || 
+                error.message?.includes("User already registered")) {
+                return NextResponse.json(
+                    { 
+                        success: false, 
+                        existingUser: true,
+                        message: "このメールアドレスは既に登録されています。ログインしてください。" 
+                    },
+                    { status: 400 }
+                );
+            }
+            
             return NextResponse.json(
                 { success: false, message: error.message },
                 { status: 400 }

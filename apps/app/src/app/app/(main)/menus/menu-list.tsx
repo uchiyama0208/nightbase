@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Menu } from "./actions";
+import { Menu, MenuCategory } from "./actions";
 import { Button } from "@/components/ui/button";
 import {
     Table,
@@ -11,8 +11,9 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { Plus, Search, Edit2 } from "lucide-react";
+import { Plus, Search, Settings } from "lucide-react";
 import { MenuEditModal } from "./menu-edit-modal";
+import { CategoryManageModal } from "./category-manage-modal";
 import {
     Select,
     SelectContent,
@@ -25,30 +26,26 @@ import { Input } from "@/components/ui/input";
 
 interface MenuListProps {
     initialMenus: Menu[];
-    categories: string[];
+    categories: MenuCategory[];
 }
 
 export function MenuList({ initialMenus, categories }: MenuListProps) {
     const [menus, setMenus] = useState(initialMenus);
     const [searchQuery, setSearchQuery] = useState("");
-    const [selectedCategory, setSelectedCategory] = useState<string>("all");
+    const [selectedCategoryId, setSelectedCategoryId] = useState<string>("all");
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
     const [editingMenu, setEditingMenu] = useState<Menu | null>(null);
 
     const activeFilters = [
         searchQuery.trim() && "検索",
-        selectedCategory !== "all" && "カテゴリー",
+        selectedCategoryId !== "all" && "カテゴリー",
     ].filter(Boolean) as string[];
     const hasFilters = activeFilters.length > 0;
 
-    const suggestionItems = useMemo(
-        () => Array.from(new Set(initialMenus.map((menu) => menu.name).filter(Boolean))) as string[],
-        [initialMenus],
-    );
-
     const filteredMenus = initialMenus.filter((menu) => {
         const matchesSearch = menu.name.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesCategory = selectedCategory === "all" || menu.category === selectedCategory;
+        const matchesCategory = selectedCategoryId === "all" || menu.category_id === selectedCategoryId;
         return matchesSearch && matchesCategory;
     });
 
@@ -64,7 +61,16 @@ export function MenuList({ initialMenus, categories }: MenuListProps) {
 
     return (
         <div className="space-y-4">
-            <div className="flex items-center justify-end mb-4">
+            <div className="flex items-center justify-end gap-2 mb-4">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-10 rounded-full bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-sm"
+                    onClick={() => setIsCategoryModalOpen(true)}
+                >
+                    <Settings className="h-4 w-4 mr-2" />
+                    カテゴリー管理
+                </Button>
                 <Button
                     size="icon"
                     className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
@@ -100,15 +106,15 @@ export function MenuList({ initialMenus, categories }: MenuListProps) {
                                     className="pl-9 w-full h-10 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs md:text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
                             </div>
-                            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                            <Select value={selectedCategoryId} onValueChange={setSelectedCategoryId}>
                                 <SelectTrigger className="w-full h-10">
                                     <SelectValue placeholder="カテゴリー" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">すべてのカテゴリー</SelectItem>
                                     {categories.map((cat) => (
-                                        <SelectItem key={cat} value={cat}>
-                                            {cat}
+                                        <SelectItem key={cat.id} value={cat.id}>
+                                            {cat.name}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -144,7 +150,7 @@ export function MenuList({ initialMenus, categories }: MenuListProps) {
                                     <TableCell className="px-3 sm:px-4 text-center text-gray-900 dark:text-white">{menu.name}</TableCell>
                                     <TableCell className="px-3 sm:px-4 text-center">
                                         <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800 dark:bg-gray-700 dark:text-gray-200">
-                                            {menu.category}
+                                            {menu.category?.name || "未分類"}
                                         </span>
                                     </TableCell>
                                     <TableCell className="px-3 sm:px-4 text-center text-gray-900 dark:text-white">
@@ -161,6 +167,12 @@ export function MenuList({ initialMenus, categories }: MenuListProps) {
                 menu={editingMenu}
                 open={isModalOpen}
                 onOpenChange={setIsModalOpen}
+                categories={categories}
+            />
+
+            <CategoryManageModal
+                open={isCategoryModalOpen}
+                onOpenChange={setIsCategoryModalOpen}
                 categories={categories}
             />
         </div>

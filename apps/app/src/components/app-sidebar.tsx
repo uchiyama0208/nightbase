@@ -96,12 +96,6 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
             href: "/app/bottles",
             roles: ["admin", "staff"],
         },
-        {
-            label: "履歴書",
-            icon: FileText,
-            href: "/app/resumes",
-            roles: ["admin", "staff"],
-        },
     ];
 
     const settingsRoutes = [

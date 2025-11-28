@@ -7,33 +7,33 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { createMenu, updateMenu, deleteMenu, Menu } from "./actions";
+import { createMenu, updateMenu, deleteMenu, Menu, MenuCategory, createMenuCategory } from "./actions";
 import { useRouter } from "next/navigation";
 
 interface MenuEditModalProps {
     menu: Menu | null;
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    categories: string[];
+    categories: MenuCategory[];
 }
 
 export function MenuEditModal({ menu, open, onOpenChange, categories }: MenuEditModalProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [categoryMode, setCategoryMode] = useState<"select" | "create">("select");
-    const [selectedCategory, setSelectedCategory] = useState("");
-    const [newCategory, setNewCategory] = useState("");
+    const [selectedCategoryId, setSelectedCategoryId] = useState("");
+    const [newCategoryName, setNewCategoryName] = useState("");
     const [showActions, setShowActions] = useState(false);
     const router = useRouter();
 
     useEffect(() => {
         if (open) {
             if (menu) {
-                setSelectedCategory(menu.category);
+                setSelectedCategoryId(menu.category_id);
                 setCategoryMode("select");
-                setNewCategory("");
+                setNewCategoryName("");
             } else {
-                setSelectedCategory("");
-                setNewCategory("");
+                setSelectedCategoryId("");
+                setNewCategoryName("");
                 setCategoryMode(categories.length > 0 ? "select" : "create");
             }
         }
@@ -44,22 +44,34 @@ export function MenuEditModal({ menu, open, onOpenChange, categories }: MenuEdit
         setIsSubmitting(true);
 
         const formData = new FormData(e.currentTarget);
-        // カテゴリーの処理
-        let category = "";
-        if (categoryMode === "create") {
-            category = newCategory;
-        } else {
-            category = selectedCategory;
-        }
-
-        if (!category) {
-            alert("カテゴリーを入力してください");
-            setIsSubmitting(false);
-            return;
-        }
-        formData.set("category", category);
 
         try {
+            // カテゴリーの処理
+            let categoryId = "";
+            if (categoryMode === "create") {
+                if (!newCategoryName.trim()) {
+                    alert("カテゴリー名を入力してください");
+                    setIsSubmitting(false);
+                    return;
+                }
+                // Create new category first
+                const result = await createMenuCategory(newCategoryName);
+                if (result.success && result.category) {
+                    categoryId = result.category.id;
+                } else {
+                    throw new Error("Failed to create category");
+                }
+            } else {
+                categoryId = selectedCategoryId;
+            }
+
+            if (!categoryId) {
+                alert("カテゴリーを選択してください");
+                setIsSubmitting(false);
+                return;
+            }
+            formData.set("category_id", categoryId);
+
             if (menu) {
                 formData.append("id", menu.id);
                 await updateMenu(formData);
@@ -178,22 +190,22 @@ export function MenuEditModal({ menu, open, onOpenChange, categories }: MenuEdit
                         </div>
 
                         {categoryMode === "select" ? (
-                            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                            <Select value={selectedCategoryId} onValueChange={setSelectedCategoryId}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="カテゴリーを選択" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {categories.map((cat) => (
-                                        <SelectItem key={cat} value={cat}>
-                                            {cat}
+                                        <SelectItem key={cat.id} value={cat.id}>
+                                            {cat.name}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
                         ) : (
                             <Input
-                                value={newCategory}
-                                onChange={(e) => setNewCategory(e.target.value)}
+                                value={newCategoryName}
+                                onChange={(e) => setNewCategoryName(e.target.value)}
                                 placeholder="新しいカテゴリー名"
                             />
                         )}
@@ -205,7 +217,7 @@ export function MenuEditModal({ menu, open, onOpenChange, categories }: MenuEdit
                             id="price"
                             name="price"
                             type="number"
-                            defaultValue={menu?.price || ""}
+                            defaultValue={menu?.price !== undefined ? menu.price : ""}
                             placeholder="1000"
                             required
                             min="0"

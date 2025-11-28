@@ -260,6 +260,7 @@ export async function createStoreAndLink(storeData: FormData) {
             day_switch_time: daySwitchTime,
             closed_days: closedDays,
             referral_source: referralSource,
+            show_menus: true, // Install menus feature by default
         })
         .select()
         .single();
@@ -279,11 +280,15 @@ export async function createStoreAndLink(storeData: FormData) {
         .from("store_roles")
         .insert({
             store_id: store.id,
-            name: "スタッフ",
+            name: "デフォルトスタッフ",
             permissions: {
                 can_manage_roles: true,
                 can_manage_users: true,
                 can_manage_settings: true,
+                can_manage_attendance: true,
+                can_manage_menus: true,
+                can_manage_bottles: true,
+                can_view_reports: true,
             },
             is_system_role: true,
         })
@@ -300,8 +305,10 @@ export async function createStoreAndLink(storeData: FormData) {
         .from("store_roles")
         .insert({
             store_id: store.id,
-            name: "キャスト",
-            permissions: {},
+            name: "デフォルトキャスト",
+            permissions: {
+                target: "cast",
+            },
             is_system_role: true,
         })
         .select()

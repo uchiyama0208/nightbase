@@ -38,6 +38,11 @@ export default async function MyPage() {
 
     const currentProfileId = appUser?.current_profile_id;
 
+    // If user has no profiles, redirect to store creation/join page
+    if (!profiles || profiles.length === 0) {
+        redirect("/onboarding/choice");
+    }
+
     // Get user profile for settings
     const profile = await getUserProfile();
 

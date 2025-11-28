@@ -220,7 +220,7 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
                     <div className="space-y-2">
                         <Label htmlFor="industry" className="text-gray-900 dark:text-gray-200">業種</Label>
                         <Select name="industry" defaultValue={store.industry || undefined}>
-                            <SelectTrigger className="bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white">
+                            <SelectTrigger id="industry" className="bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white">
                                 <SelectValue placeholder="業種を選択" />
                             </SelectTrigger>
                             <SelectContent>
@@ -236,7 +236,7 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
                     <div className="space-y-2">
                         <Label htmlFor="prefecture" className="text-gray-900 dark:text-gray-200">都道府県</Label>
                         <Select name="prefecture" defaultValue={store.prefecture || undefined}>
-                            <SelectTrigger className="bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white">
+                            <SelectTrigger id="prefecture" className="bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white">
                                 <SelectValue placeholder="都道府県を選択" />
                             </SelectTrigger>
                             <SelectContent>
@@ -281,7 +281,7 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
                             name="day_switch_time"
                             defaultValue={daySwitchDefault}
                         >
-                            <SelectTrigger className="bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white">
+                            <SelectTrigger id="day_switch_time" className="bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white">
                                 <SelectValue placeholder="日にち切り替え時間を選択" />
                             </SelectTrigger>
                             <SelectContent>

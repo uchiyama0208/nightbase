@@ -87,7 +87,7 @@ serve(async (req) => {
         // SERVICE_ROLE_KEY is set manually (SUPABASE_ prefix is reserved)
         const supabaseUrl = Deno.env.get("SUPABASE_URL");
         const supabaseServiceKey = Deno.env.get("SERVICE_ROLE_KEY");
-        
+
         console.log("=== ENV DEBUG ===");
         console.log("SUPABASE_URL:", supabaseUrl ? "SET" : "NOT SET");
         console.log("SERVICE_ROLE_KEY:", supabaseServiceKey ? `SET (${supabaseServiceKey.substring(0, 20)}...)` : "NOT SET");
@@ -149,7 +149,8 @@ serve(async (req) => {
         });
 
         // Email for this LINE user
-        const email = `${profile.userId}@line.nightbase.app`;
+        // Append timestamp to avoid "Database error checking email" if a previous account is corrupted
+        const email = `${profile.userId}-${Date.now()}@line.nightbase.app`;
 
         let userId: string | null = null;
         let invitedProfileId: string | null = null;
@@ -196,7 +197,8 @@ serve(async (req) => {
 
             // Check if this is an email user (not a LINE placeholder email)
             const isEmailUser = existingAuthUser?.user?.email &&
-                !existingAuthUser.user.email.endsWith("@line.nightbase.app");
+                !existingAuthUser.user.email.endsWith("@line.nightbase.app") &&
+                !existingAuthUser.user.email.endsWith("@line-v2.nightbase.app");
 
             console.log("Link - isEmailUser:", isEmailUser);
             console.log("Link - auth email:", existingAuthUser?.user?.email);
@@ -502,7 +504,8 @@ serve(async (req) => {
                 // Check if this is an email user (not a LINE placeholder email)
                 // Email users should keep their original password
                 isEmailUser = authUser?.user?.email &&
-                    !authUser.user.email.endsWith("@line.nightbase.app");
+                    !authUser.user.email.endsWith("@line.nightbase.app") &&
+                    !authUser.user.email.endsWith("@line-v2.nightbase.app");
 
                 console.log("Re-login - isEmailUser:", isEmailUser);
                 console.log("Re-login - auth email:", authUser?.user?.email);
@@ -537,7 +540,7 @@ serve(async (req) => {
                     });
                 } else {
                     // Fallback to LINE email format
-                    loginEmail = `${profile.userId}@line.nightbase.app`;
+                    loginEmail = `${profile.userId}@line-v2.nightbase.app`;
                 }
             } else {
                 // New LINE user

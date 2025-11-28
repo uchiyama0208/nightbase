@@ -333,7 +333,7 @@ export async function getUninvitedProfiles(storeId?: string) {
     // Get all profiles for the store
     const { data: profiles } = await supabase
         .from("profiles")
-        .select("id, display_name, role, avatar_url")
+        .select("id, display_name, display_name_kana, role, avatar_url")
         .eq("store_id", storeId)
         .is("user_id", null); // Only profiles not yet linked to a user? 
     // Wait, the requirement is "invite profiles". Usually this means profiles that exist but don't have a user account yet?

@@ -24,7 +24,10 @@ export async function createStore(formData: FormData) {
     // 1. Create Store
     const { data: store, error: storeError } = await supabase
         .from("stores")
-        .insert({ name: storeName })
+        .insert({
+            name: storeName,
+            show_menus: true, // Install menus feature by default
+        })
         .select()
         .single();
 

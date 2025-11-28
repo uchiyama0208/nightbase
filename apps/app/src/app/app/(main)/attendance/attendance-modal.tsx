@@ -78,17 +78,27 @@ export function AttendanceModal({
     // If creating (initialData), use those.
     // Fallback to defaults.
 
-    const [selectedRole, setSelectedRole] = useState(defaultRole);
     const [showActions, setShowActions] = useState(false);
 
     const editingProfile = editingRecord
         ? profiles.find((p) => p.id === editingRecord.user_id) || null
         : null;
 
+    // When editing, use the editing profile's role; otherwise use defaultRole
+    const [selectedRole, setSelectedRole] = useState(editingProfile?.role || defaultRole);
+
+    // Update selectedRole when editingProfile changes
+    useEffect(() => {
+        if (editingProfile) {
+            setSelectedRole(editingProfile.role);
+        }
+    }, [editingProfile]);
+
     // Filter profiles for the dropdown based on selectedRole
     const filteredProfiles = profiles.filter(p => {
         if (selectedRole === "cast") return p.role === "cast";
-        return p.role === "staff";
+        if (selectedRole === "staff") return p.role === "staff";
+        return p.role === selectedRole;
     });
 
     const defaultProfileId = editingRecord?.user_id || initialData?.profileId || "";
@@ -278,7 +288,7 @@ export function AttendanceModal({
                         <div className="space-y-1">
                             <Label htmlFor="profileId">メンバー</Label>
                             <Select name="profileId" defaultValue={defaultProfileId} required>
-                                <SelectTrigger className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md">
+                                <SelectTrigger id="profileId" className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md">
                                     <SelectValue placeholder="メンバーを選択" />
                                 </SelectTrigger>
                                 <SelectContent>

@@ -357,7 +357,7 @@ export async function getTimecardData() {
         return { redirect: "/login" };
     }
 
-    const showBreakColumns = store ? (store.show_break_columns ?? true) : true;
+    const showBreakColumns = store ? (store.show_break_columns ?? false) : false;
 
     // Get today's latest time card (use JST)
     const now = new Date();

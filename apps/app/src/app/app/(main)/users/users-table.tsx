@@ -43,12 +43,30 @@ interface UsersTableProps {
     hidePersonalInfo?: boolean;
 }
 
-export function UsersTable({ profiles, roleFilter, hidePersonalInfo = false }: UsersTableProps) {
+export function UsersTable({ profiles: initialProfiles, roleFilter, hidePersonalInfo = false }: UsersTableProps) {
     const router = useRouter();
     const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [nameQuery, setNameQuery] = useState("");
     const [optimisticRole, setOptimisticRole] = useState(roleFilter);
+    const [profiles, setProfiles] = useState(initialProfiles);
+
+    // Sync profiles when initialProfiles changes
+    useEffect(() => {
+        setProfiles(initialProfiles);
+    }, [initialProfiles]);
+
+    const handleDeleteProfile = (profileId: string) => {
+        // Optimistically remove from list
+        setProfiles(prev => prev.filter(p => p.id !== profileId));
+    };
+
+    const handleUpdateProfile = (updatedProfile: Partial<Profile> & { id: string }) => {
+        // Optimistically update in list
+        setProfiles(prev => prev.map(p => 
+            p.id === updatedProfile.id ? { ...p, ...updatedProfile } : p
+        ));
+    };
 
     useEffect(() => {
         setOptimisticRole(roleFilter);
@@ -90,30 +108,37 @@ export function UsersTable({ profiles, roleFilter, hidePersonalInfo = false }: U
         [profiles, optimisticRole],
     );
 
-    const filteredProfiles = profiles.filter((profile) => {
-        // Role filtering
-        let roleMatch = false;
-        if (optimisticRole === "staff") {
-            roleMatch = ["staff", "admin"].includes(profile.role);
-        } else {
-            roleMatch = profile.role === optimisticRole;
-        }
-        if (!roleMatch) return false;
+    const filteredProfiles = profiles
+        .filter((profile) => {
+            // Role filtering
+            let roleMatch = false;
+            if (optimisticRole === "staff") {
+                roleMatch = ["staff", "admin"].includes(profile.role);
+            } else {
+                roleMatch = profile.role === optimisticRole;
+            }
+            if (!roleMatch) return false;
 
-        // Name filtering
-        if (!nameQuery.trim()) return true;
-        const term = nameQuery.trim().toLowerCase();
-        const target = (
-            profile.display_name ||
-            profile.display_name_kana ||
-            profile.real_name ||
-            profile.real_name_kana ||
-            profile.guest_addressee ||
-            profile.guest_receipt_type ||
-            ""
-        ).toLowerCase();
-        return target.includes(term);
-    });
+            // Name filtering
+            if (!nameQuery.trim()) return true;
+            const term = nameQuery.trim().toLowerCase();
+            const target = (
+                profile.display_name ||
+                profile.display_name_kana ||
+                profile.real_name ||
+                profile.real_name_kana ||
+                profile.guest_addressee ||
+                profile.guest_receipt_type ||
+                ""
+            ).toLowerCase();
+            return target.includes(term);
+        })
+        .sort((a, b) => {
+            // Sort by display_name_kana (hiragana) in 50音順
+            const aKana = (a.display_name_kana || a.display_name || "").toLowerCase();
+            const bKana = (b.display_name_kana || b.display_name || "").toLowerCase();
+            return aKana.localeCompare(bKana, "ja");
+        });
 
     const handleRowClick = (profile: Profile) => {
         setSelectedProfile(profile);
@@ -280,6 +305,8 @@ export function UsersTable({ profiles, roleFilter, hidePersonalInfo = false }: U
                     open={isModalOpen}
                     onOpenChange={setIsModalOpen}
                     hidePersonalInfo={hidePersonalInfo}
+                    onDelete={handleDeleteProfile}
+                    onUpdate={handleUpdateProfile}
                 />
             )}
         </>

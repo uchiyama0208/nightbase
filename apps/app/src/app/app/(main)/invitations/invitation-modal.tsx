@@ -29,6 +29,7 @@ import { UserEditModal } from "../users/user-edit-modal";
 interface Profile {
     id: string;
     display_name: string;
+    display_name_kana?: string;
     role: string;
     avatar_url: string | null;
 }
@@ -36,6 +37,10 @@ interface Profile {
 interface Role {
     id: string;
     name: string;
+    permissions?: {
+        target?: "staff" | "cast";
+        [key: string]: any;
+    };
 }
 
 interface InvitationModalProps {
@@ -61,6 +66,28 @@ export function InvitationModal({
     const [inviteUrl, setInviteUrl] = useState("");
     const [copied, setCopied] = useState(false);
     const [showCreateProfile, setShowCreateProfile] = useState(false);
+    const [targetType, setTargetType] = useState<"staff" | "cast">("cast"); // Default to cast as it's more common to invite casts? Or maybe staff? Let's default to cast as per screenshot order usually cast is first or second? In list it was All/Cast/Staff. Let's default to Cast.
+
+    // Filter profiles based on targetType and sort by kana
+    const filteredProfiles = uninvitedProfiles
+        .filter(profile => profile.role === targetType)
+        .sort((a, b) => {
+            const kanaA = a.display_name_kana || a.display_name || "";
+            const kanaB = b.display_name_kana || b.display_name || "";
+            return kanaA.localeCompare(kanaB, "ja");
+        });
+
+    // Filter roles based on targetType
+    // If targetType is 'cast', show roles with target='cast'
+    // If targetType is 'staff', show roles with target='staff' or undefined (assuming general roles are for staff)
+    const filteredRoles = roles.filter(role => {
+        const target = role.permissions?.target;
+        if (targetType === 'cast') {
+            return target === 'cast';
+        } else {
+            return target !== 'cast'; // Show staff roles and generic roles for staff
+        }
+    });
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -105,6 +132,7 @@ export function InvitationModal({
             setPassword("");
             setUsePassword(false);
             setInviteUrl("");
+            setTargetType("cast");
         }, 300);
     };
 
@@ -123,6 +151,46 @@ export function InvitationModal({
 
                     {step === "form" ? (
                         <form onSubmit={handleSubmit} className="space-y-4 py-4">
+                            {/* Toggle for Staff/Cast */}
+                            <div className="flex justify-center pb-2">
+                                <div className="relative inline-flex h-10 items-center rounded-full bg-gray-100 dark:bg-gray-700 p-1">
+                                    <div
+                                        className="absolute h-8 rounded-full bg-white dark:bg-gray-600 shadow-sm transition-transform duration-300 ease-in-out"
+                                        style={{
+                                            width: "100px",
+                                            left: "4px",
+                                            transform: `translateX(${targetType === "staff" ? "100px" : "0px"})`,
+                                        }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setTargetType("cast");
+                                            setSelectedProfileId(""); // Reset selection when switching
+                                            setSelectedRoleId("none");
+                                        }}
+                                        className={`relative z-10 w-[100px] flex items-center justify-center h-8 rounded-full text-sm font-medium transition-colors duration-200 ${targetType === "cast"
+                                            ? "text-gray-900 dark:text-white"
+                                            : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
+                                    >
+                                        キャスト
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setTargetType("staff");
+                                            setSelectedProfileId(""); // Reset selection when switching
+                                            setSelectedRoleId("none");
+                                        }}
+                                        className={`relative z-10 w-[100px] flex items-center justify-center h-8 rounded-full text-sm font-medium transition-colors duration-200 ${targetType === "staff"
+                                            ? "text-gray-900 dark:text-white"
+                                            : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
+                                    >
+                                        スタッフ
+                                    </button>
+                                </div>
+                            </div>
+
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between">
                                     <Label>プロフィール選択</Label>
@@ -137,27 +205,33 @@ export function InvitationModal({
                                 </div>
                                 <Select value={selectedProfileId} onValueChange={setSelectedProfileId}>
                                     <SelectTrigger>
-                                        <SelectValue placeholder="招待するプロフィールを選択" />
+                                        <SelectValue placeholder={`${targetType === "cast" ? "キャスト" : "スタッフ"}を選択`} />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {uninvitedProfiles.map((profile) => (
-                                            <SelectItem key={profile.id} value={profile.id}>
-                                                {profile.display_name} ({profile.role === "cast" ? "キャスト" : "スタッフ"})
-                                            </SelectItem>
-                                        ))}
+                                        {filteredProfiles.length === 0 ? (
+                                            <div className="p-2 text-sm text-gray-500 text-center">
+                                                招待可能な{targetType === "cast" ? "キャスト" : "スタッフ"}がいません
+                                            </div>
+                                        ) : (
+                                            filteredProfiles.map((profile) => (
+                                                <SelectItem key={profile.id} value={profile.id}>
+                                                    {profile.display_name}
+                                                </SelectItem>
+                                            ))
+                                        )}
                                     </SelectContent>
                                 </Select>
                             </div>
 
                             <div className="space-y-2">
-                                <Label>付与するロール (任意)</Label>
+                                <Label>付与するロール</Label>
                                 <Select value={selectedRoleId} onValueChange={setSelectedRoleId}>
                                     <SelectTrigger>
                                         <SelectValue placeholder="ロールを選択 (なし)" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="none">なし (デフォルト権限)</SelectItem>
-                                        {roles.map((role) => (
+                                        <SelectItem value="none">なし</SelectItem>
+                                        {filteredRoles.map((role) => (
                                             <SelectItem key={role.id} value={role.id}>
                                                 {role.name}
                                             </SelectItem>

@@ -47,6 +47,7 @@ export function InviteClient({ invitation, userId }: InviteClientProps) {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [formError, setFormError] = useState("");
+    const [isLoginMode, setIsLoginMode] = useState(false); // Toggle between signup and login
 
     // Common state
     const [loading, setLoading] = useState(false);
@@ -96,6 +97,16 @@ export function InviteClient({ invitation, userId }: InviteClientProps) {
     const validateEmailForm = () => {
         setFormError("");
 
+        // Login mode only requires email and password
+        if (isLoginMode) {
+            if (!email || !password) {
+                setFormError("メールアドレスとパスワードを入力してください");
+                return false;
+            }
+            return true;
+        }
+
+        // Signup mode requires all fields
         if (!email || !password || !confirmPassword) {
             setFormError("すべての項目を入力してください");
             return false;
@@ -158,14 +169,27 @@ export function InviteClient({ invitation, userId }: InviteClientProps) {
                     password,
                     inviteToken: invitation.token,
                     invitePassword,
+                    isLogin: isLoginMode,
                 }),
             });
 
             const result = await response.json();
 
             if (!result.success) {
-                setFormError(result.message || "登録に失敗しました");
+                // If existing user, switch to login mode
+                if (result.existingUser) {
+                    setIsLoginMode(true);
+                    setFormError("このメールアドレスは既に登録されています。パスワードを入力してログインしてください。");
+                } else {
+                    setFormError(result.message || "登録に失敗しました");
+                }
                 setLoading(false);
+                return;
+            }
+
+            // If login was successful, redirect to dashboard
+            if (result.isLogin) {
+                router.push("/app/dashboard");
                 return;
             }
 
@@ -318,33 +342,50 @@ export function InviteClient({ invitation, userId }: InviteClientProps) {
                                 </div>
                             </div>
 
-                            <div>
-                                <Label htmlFor="confirm-password" className="text-gray-900 dark:text-white">
-                                    パスワード（確認） <span className="text-red-500">*</span>
-                                </Label>
-                                <div className="relative mt-1">
-                                    <Input
-                                        id="confirm-password"
-                                        type={showConfirmPassword ? "text" : "password"}
-                                        value={confirmPassword}
-                                        onChange={(e) => setConfirmPassword(e.target.value)}
-                                        placeholder="パスワードを再入力"
-                                        className="pr-10"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                                    >
-                                        {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                                    </button>
+                            {/* Only show confirm password in signup mode */}
+                            {!isLoginMode && (
+                                <div>
+                                    <Label htmlFor="confirm-password" className="text-gray-900 dark:text-white">
+                                        パスワード（確認） <span className="text-red-500">*</span>
+                                    </Label>
+                                    <div className="relative mt-1">
+                                        <Input
+                                            id="confirm-password"
+                                            type={showConfirmPassword ? "text" : "password"}
+                                            value={confirmPassword}
+                                            onChange={(e) => setConfirmPassword(e.target.value)}
+                                            placeholder="パスワードを再入力"
+                                            className="pr-10"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                        >
+                                            {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
                             {formError && (
                                 <p className="text-sm text-red-600 bg-red-50 dark:bg-red-900/20 p-2 rounded">
                                     {formError}
                                 </p>
+                            )}
+
+                            {/* Toggle between signup and login mode */}
+                            {isLoginMode && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsLoginMode(false);
+                                        setFormError("");
+                                    }}
+                                    className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                                >
+                                    新規登録に戻る
+                                </button>
                             )}
                         </div>
                     )}

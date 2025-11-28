@@ -94,6 +94,10 @@ export async function createUser(formData: FormData) {
         emergency_phone_number: emergencyPhoneNumber,
         nearest_station: nearestStation,
         height: height,
+        desired_cast_name: desiredCastName,
+        desired_hourly_wage: desiredHourlyWage,
+        desired_shift_days: desiredShiftDays,
+        status: role === "cast" ? (formData.get("status") as string || "通常") : null,
         role: role,
         store_id: currentProfile.store_id,
         user_id: null, // Explicitly set to null to avoid default value issues
@@ -265,6 +269,10 @@ export async function updateUser(formData: FormData) {
     const nearestStation = (formData.get("nearestStation") as string | null)?.trim() || null;
     const height = (formData.get("height") as string | null)?.trim() ? parseInt(formData.get("height") as string) : null;
 
+    const desiredCastName = (formData.get("desiredCastName") as string | null)?.trim() || null;
+    const desiredHourlyWage = (formData.get("desiredHourlyWage") as string | null)?.trim() ? parseInt(formData.get("desiredHourlyWage") as string) : null;
+    const desiredShiftDays = (formData.get("desiredShiftDays") as string | null)?.trim() || null;
+
     const role = formData.get("role") as string;
     const guestAddressee = (formData.get("guestAddressee") as string | null)?.trim() || null;
     const guestReceiptTypeRaw = (formData.get("guestReceiptType") as string | null) ?? "none";
@@ -324,7 +332,7 @@ export async function updateUser(formData: FormData) {
             .eq("id", currentProfile.role_id)
             .single();
 
-        if (currentRole?.name === "スタッフ" && currentRole?.is_system_role) {
+        if (currentRole?.name === "デフォルトスタッフ" && currentRole?.is_system_role) {
             // If we are changing the role (assuming role passed here is the string role, but we might need to handle role_id change too if UI supports it)
             // The current UI seems to pass 'role' string (admin/staff/cast/guest).
             // If the intention is to change the role, we need to be careful.
@@ -367,6 +375,10 @@ export async function updateUser(formData: FormData) {
             emergency_phone_number: emergencyPhoneNumber,
             nearest_station: nearestStation,
             height: height,
+            desired_cast_name: desiredCastName,
+            desired_hourly_wage: desiredHourlyWage,
+            desired_shift_days: desiredShiftDays,
+            status: role === "cast" ? (formData.get("status") as string || "通常") : null,
             role,
             guest_addressee: role === "guest" ? guestAddressee : null,
             guest_receipt_type: role === "guest" ? guestReceiptType : "none",
@@ -1076,3 +1088,89 @@ export async function deleteProfileAvatar(profileId: string) {
     return { success: true };
 }
 
+// Past Employment Management
+export async function getPastEmployments(profileId: string) {
+    const supabase = await createServerClient();
+    const { data, error } = await supabase
+        .from("past_employments")
+        .select("*")
+        .eq("profile_id", profileId)
+        .order("created_at", { ascending: false });
+
+    if (error) {
+        console.error("Error fetching past employments:", error);
+        return [];
+    }
+
+    return data;
+}
+
+export async function createPastEmployment(formData: FormData) {
+    const supabase = await createServerClient();
+
+    const profileId = formData.get("profileId") as string;
+    const storeName = formData.get("storeName") as string;
+    const period = formData.get("period") as string;
+    const hourlyWage = formData.get("hourlyWage") as string;
+    const salesAmount = formData.get("salesAmount") as string;
+    const customerCount = formData.get("customerCount") as string;
+
+    const { error } = await supabase.from("past_employments").insert({
+        profile_id: profileId,
+        store_name: storeName,
+        period: period || null,
+        hourly_wage: hourlyWage ? parseInt(hourlyWage) : null,
+        sales_amount: salesAmount ? parseInt(salesAmount) : null,
+        customer_count: customerCount ? parseInt(customerCount) : null,
+    });
+
+    if (error) {
+        console.error("Error creating past employment:", error);
+        throw new Error("過去在籍店の追加に失敗しました");
+    }
+
+    revalidatePath("/app/users");
+    return { success: true };
+}
+
+export async function updatePastEmployment(id: string, formData: FormData) {
+    const supabase = await createServerClient();
+
+    const storeName = formData.get("storeName") as string;
+    const period = formData.get("period") as string;
+    const hourlyWage = formData.get("hourlyWage") as string;
+    const salesAmount = formData.get("salesAmount") as string;
+    const customerCount = formData.get("customerCount") as string;
+
+    const { error } = await supabase
+        .from("past_employments")
+        .update({
+            store_name: storeName,
+            period: period || null,
+            hourly_wage: hourlyWage ? parseInt(hourlyWage) : null,
+            sales_amount: salesAmount ? parseInt(salesAmount) : null,
+            customer_count: customerCount ? parseInt(customerCount) : null,
+        })
+        .eq("id", id);
+
+    if (error) {
+        console.error("Error updating past employment:", error);
+        throw new Error("過去在籍店の更新に失敗しました");
+    }
+
+    revalidatePath("/app/users");
+    return { success: true };
+}
+
+export async function deletePastEmployment(id: string) {
+    const supabase = await createServerClient();
+    const { error } = await supabase.from("past_employments").delete().eq("id", id);
+
+    if (error) {
+        console.error("Error deleting past employment:", error);
+        throw new Error("過去在籍店の削除に失敗しました");
+    }
+
+    revalidatePath("/app/users");
+    return { success: true };
+}

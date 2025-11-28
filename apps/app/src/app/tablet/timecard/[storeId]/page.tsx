@@ -13,6 +13,7 @@ type TabletProfile = {
   id: string;
   display_name: string | null;
   display_name_kana: string | null;
+  role: string;
 };
 
 type TodayCard = {
@@ -148,11 +149,19 @@ export default async function TabletTimecardPage(props: PageProps) {
   }
 
   const today = getTodayDate();
+  const allowedRoles = (store?.tablet_allowed_roles as string[] | null) ?? ["staff", "cast"];
 
-  const { data: profileRows } = await supabase
+  let profileQuery = supabase
     .from("profiles")
-    .select("id, display_name, display_name_kana")
+    .select("id, display_name, display_name_kana, role")
     .eq("store_id", storeId);
+
+  // Filter by allowed roles
+  if (allowedRoles.length > 0) {
+    profileQuery = profileQuery.in("role", allowedRoles);
+  }
+
+  const { data: profileRows } = await profileQuery;
 
   const profiles: TabletProfile[] = (profileRows || []) as any;
   const profileMap = new Map<string, TabletProfile>();
@@ -198,7 +207,6 @@ export default async function TabletTimecardPage(props: PageProps) {
   const mode = modeRaw;
   const selectedProfile = selectedProfileId ? profileMap.get(selectedProfileId) || null : null;
   const rawRole = searchParams.role;
-  const allowedRoles = (store?.tablet_allowed_roles as string[] | null) ?? ["staff", "cast"];
   const hasMultipleRoles = allowedRoles.includes("staff") && allowedRoles.includes("cast");
   const selectedRole = typeof rawRole === "string" && allowedRoles.includes(rawRole) ? rawRole : null;
 

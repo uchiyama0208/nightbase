@@ -24,7 +24,7 @@ export function TimecardSettingsForm({ store }: TimecardSettingsFormProps) {
     const [isPending, startTransition] = useTransition();
 
     // State for all fields
-    const [showBreakColumns, setShowBreakColumns] = useState(store.show_break_columns ?? true);
+    const [showBreakColumns, setShowBreakColumns] = useState(store.show_break_columns ?? false);
     const [tabletTimecardEnabled, setTabletTimecardEnabled] = useState(store.tablet_timecard_enabled ?? false);
     const [tabletAllowedStaff, setTabletAllowedStaff] = useState(
         !store.tablet_allowed_roles || store.tablet_allowed_roles.includes("staff"),
@@ -116,7 +116,7 @@ export function TimecardSettingsForm({ store }: TimecardSettingsFormProps) {
 
     // Sync state with props when they change
     useEffect(() => {
-        setShowBreakColumns(store.show_break_columns ?? true);
+        setShowBreakColumns(store.show_break_columns ?? false);
         setTabletTimecardEnabled(store.tablet_timecard_enabled ?? false);
         setTabletAllowedStaff(!store.tablet_allowed_roles || store.tablet_allowed_roles.includes("staff"));
         setTabletAllowedCast(!store.tablet_allowed_roles || store.tablet_allowed_roles.includes("cast"));
