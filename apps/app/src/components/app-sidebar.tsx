@@ -21,6 +21,11 @@ import {
     UserPlus,
     Wine,
     FileText,
+    LayoutGrid,
+    Armchair,
+    UserRoundCog,
+    ClipboardList,
+    Receipt,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
@@ -94,6 +99,36 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
             label: "ボトルキープ",
             icon: Wine,
             href: "/app/bottles",
+            roles: ["admin", "staff"],
+        },
+        {
+            label: "フロア管理",
+            icon: LayoutGrid,
+            href: "/app/floor",
+            roles: ["admin", "staff"],
+        },
+        {
+            label: "席エディター",
+            icon: Armchair,
+            href: "/app/seats",
+            roles: ["admin", "staff"],
+        },
+        {
+            label: "付け回し",
+            icon: UserRoundCog,
+            href: "/app/assignments",
+            roles: ["admin", "staff"],
+        },
+        {
+            label: "注文",
+            icon: ClipboardList,
+            href: "/app/orders",
+            roles: ["admin", "staff"],
+        },
+        {
+            label: "伝票",
+            icon: Receipt,
+            href: "/app/slips",
             roles: ["admin", "staff"],
         },
     ];

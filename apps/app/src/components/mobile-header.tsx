@@ -23,6 +23,11 @@ const getPageTitle = (pathname: string): string => {
     if (pathname.includes("/features")) return "機能追加";
     if (pathname.includes("/settings")) return "設定";
     if (pathname.includes("/me")) return "マイページ";
+    if (pathname.includes("/floor")) return "フロア管理";
+    if (pathname.includes("/seats")) return "席エディター";
+    if (pathname.includes("/assignments")) return "付け回し";
+    if (pathname.includes("/orders")) return "注文";
+    if (pathname.includes("/slips")) return "伝票";
     return "ダッシュボード";
 };
 

@@ -30,4 +30,39 @@ const nextConfig = {
     },
 };
 
-export default nextConfig;
+const withPWA = (await import("@ducanh2912/next-pwa")).default({
+    dest: "public",
+    cacheOnFrontEndNav: true,
+    aggressiveFrontEndNavCaching: true,
+    reloadOnOnline: true,
+    swcMinify: true,
+    disable: process.env.NODE_ENV === "development",
+    workboxOptions: {
+        disableDevLogs: true,
+        runtimeCaching: [
+            {
+                urlPattern: /^https?.*/,
+                handler: 'NetworkFirst',
+                options: {
+                    cacheName: 'offlineCache',
+                    expiration: {
+                        maxEntries: 200,
+                    },
+                    networkTimeoutSeconds: 10, // Fallback to cache if network takes longer than 10 seconds
+                },
+            },
+            {
+                urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp|ico|css|js|woff2?)$/i,
+                handler: 'StaleWhileRevalidate',
+                options: {
+                    cacheName: 'assetCache',
+                    expiration: {
+                        maxEntries: 200,
+                    },
+                },
+            },
+        ],
+    },
+});
+
+export default withPWA(nextConfig);
