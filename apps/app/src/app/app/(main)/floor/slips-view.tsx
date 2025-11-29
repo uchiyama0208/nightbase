@@ -47,7 +47,7 @@ interface Slip {
     status: "open" | "closed";
 }
 
-export default function SlipsPage() {
+export function SlipsView() {
     const [tables, setTables] = useState<FloorTable[]>([]);
     const [sessions, setSessions] = useState<TableSession[]>([]);
     const [slips, setSlips] = useState<Slip[]>([]);

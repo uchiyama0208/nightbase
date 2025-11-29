@@ -40,7 +40,7 @@ export function InfoPanel({ selectedTable, session, onClose }: InfoPanelProps) {
                                     <div className="bg-background p-2 rounded border">
                                         <div className="text-xs text-muted-foreground">開始時間</div>
                                         <div className="font-medium">
-                                            {new Date(session.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            {new Date(session.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tokyo' })}
                                         </div>
                                     </div>
                                 </div>
@@ -48,18 +48,23 @@ export function InfoPanel({ selectedTable, session, onClose }: InfoPanelProps) {
 
                             <div className="space-y-2">
                                 <h3 className="text-sm font-medium text-muted-foreground">指名キャスト</h3>
-                                <div className="space-y-2">
-                                    {(session as any).cast_assignments?.map((assignment: any) => (
-                                        <div key={assignment.id} className="flex items-center justify-between p-2 bg-background border rounded">
-                                            <div className="flex items-center gap-2">
-                                                <div className={`w-2 h-2 rounded-full ${assignment.status === 'shime' ? 'bg-pink-500' : 'bg-blue-500'
-                                                    }`} />
-                                                <span className="text-sm font-medium">
-                                                    {assignment.profiles?.display_name || assignment.profiles?.name}
-                                                </span>
-                                            </div>
-                                            <span className="text-xs text-muted-foreground">
-                                                {new Date(assignment.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}~
+                                <div className="flex flex-wrap gap-2">
+                                    {session.cast_assignments?.map((assignment: any) => (
+                                        <div
+                                            key={assignment.id}
+                                            className="flex items-center gap-1 bg-white dark:bg-slate-800 px-2 py-1 rounded-md text-xs"
+                                        >
+                                            <Avatar className="h-5 w-5">
+                                                <AvatarImage src={assignment.profiles?.avatar_url} />
+                                                <AvatarFallback className="text-[10px]">
+                                                    {assignment.profiles?.display_name?.[0]}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <span className="text-slate-700 dark:text-slate-300">
+                                                {assignment.profiles?.display_name}
+                                            </span>
+                                            <span className="text-slate-500 dark:text-slate-400 text-[10px]">
+                                                {new Date(assignment.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tokyo' })}~
                                             </span>
                                         </div>
                                     ))}

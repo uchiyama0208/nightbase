@@ -18,7 +18,7 @@ interface Cast {
     avatar_url?: string;
 }
 
-export default function AssignmentsPage() {
+export function AssignmentsView() {
     const [tables, setTables] = useState<Table[]>([]);
     const [sessions, setSessions] = useState<TableSession[]>([]);
     const [waitingCasts, setWaitingCasts] = useState<Cast[]>([]);

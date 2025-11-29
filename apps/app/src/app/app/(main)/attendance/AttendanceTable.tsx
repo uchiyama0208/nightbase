@@ -140,7 +140,7 @@ export function AttendanceTable({ attendanceRecords, profiles, roleFilter: initi
         if (match) return timeString.slice(0, 5);
         const date = new Date(timeString);
         if (isNaN(date.getTime())) return "-";
-        return date.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
+        return date.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Tokyo" });
     };
 
     const formatDate = (dateString: string) => {

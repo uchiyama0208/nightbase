@@ -115,7 +115,7 @@ export function AttendanceModal({
         try {
             const date = new Date(time);
             if (!isNaN(date.getTime())) {
-                return date.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", hour12: false });
+                return date.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Tokyo" });
             }
         } catch (e) {
             console.error("Error parsing time:", e);

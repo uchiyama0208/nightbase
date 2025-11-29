@@ -10,6 +10,7 @@ import { createServiceRoleClient } from "@/lib/supabaseServiceClient";
 import { WorkingTimeCard } from "./working-time-card";
 import { ClockInCard } from "./clock-in-card";
 import { getAppData } from "../../data-access";
+import { LineRegistrationPrompt } from "./line-registration-prompt";
 
 export const metadata: Metadata = {
     title: "ダッシュボード",
@@ -93,6 +94,7 @@ async function getDashboardData() {
         activeStaffCount,
         currentUserTimeCard,
         lastClockIn,
+        hasLineId: !!profile.line_user_id,
     };
 }
 
@@ -113,10 +115,13 @@ function DashboardSkeleton() {
 // Server Component (default export)
 export default async function DashboardPage() {
     const data = await getDashboardData();
-    const { currentProfile, storeName, activeCastCount, activeStaffCount, currentUserTimeCard, lastClockIn } = data;
+    const { currentProfile, storeName, activeCastCount, activeStaffCount, currentUserTimeCard, lastClockIn, hasLineId } = data;
 
     return (
         <>
+            {/* LINE Registration Prompt */}
+            <LineRegistrationPrompt hasLineId={hasLineId} storeName={storeName || undefined} />
+
             <div className="space-y-4">
                 <div>
                     <h1 className="text-xl md:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">

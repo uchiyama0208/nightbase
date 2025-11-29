@@ -147,7 +147,7 @@ export default function SeatsEditorPage() {
     };
 
     // Render grid preview with borders
-    const renderGridPreview = (grid: boolean[][]) => {
+    const renderGridPreview = (grid: boolean[][] | undefined) => {
         if (!grid || grid.length === 0) return <span className="text-muted-foreground">未設定</span>;
 
         return (
@@ -189,19 +189,19 @@ export default function SeatsEditorPage() {
                         </div>
                     </div>
                 ) : (
-                    <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-2">
                         {tables.map((table) => (
                             <Card
                                 key={table.id}
-                                className="cursor-pointer hover:shadow-md transition-shadow"
+                                className="cursor-pointer shadow-sm hover:shadow-md transition-shadow border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950"
                                 onClick={() => handleOpenModal(table)}
                             >
-                                <CardContent className="p-4">
-                                    <div className="flex items-center gap-4">
-                                        <h3 className="font-semibold text-base flex-shrink-0 min-w-[100px]">
+                                <CardContent className="p-2">
+                                    <div className="flex flex-col items-center justify-center gap-2">
+                                        <h3 className="font-semibold text-xl text-center">
                                             {table.name}
                                         </h3>
-                                        <div className="bg-gray-50 dark:bg-gray-900 p-2 rounded">
+                                        <div className="bg-gray-50 dark:bg-gray-900 p-1 rounded">
                                             {renderGridPreview(table.layout_data?.grid)}
                                         </div>
                                     </div>
@@ -236,9 +236,9 @@ export default function SeatsEditorPage() {
                                 <path d="m15 18-6-6 6-6" />
                             </svg>
                         </Button>
-                        <h2 className="text-lg font-semibold">
+                        <DialogTitle className="text-lg font-semibold">
                             {editingTable ? "テーブル編集" : "テーブル追加"}
-                        </h2>
+                        </DialogTitle>
                         {editingTable ? (
                             <Button
                                 variant="ghost"

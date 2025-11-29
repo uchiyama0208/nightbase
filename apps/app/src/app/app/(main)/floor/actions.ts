@@ -19,7 +19,7 @@ export async function getActiveSessions() {
     return sessions;
 }
 
-export async function createSession(tableId: string, guestCount: number, mainGuestId?: string) {
+export async function createSession(tableId: string, mainGuestId?: string) {
     const supabase = await createServerClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Not authenticated");
@@ -37,7 +37,7 @@ export async function createSession(tableId: string, guestCount: number, mainGue
         .insert({
             store_id: profile.store_id,
             table_id: tableId,
-            guest_count: guestCount,
+            guest_count: 1,
             main_guest_id: mainGuestId,
             status: 'active'
         })
@@ -49,7 +49,7 @@ export async function createSession(tableId: string, guestCount: number, mainGue
     return data;
 }
 
-export async function assignCast(sessionId: string, castId: string, status: string) {
+export async function assignCast(sessionId: string, castId: string, status: string, gridX?: number, gridY?: number) {
     const supabase = await createServerClient();
 
     const { data, error } = await supabase
@@ -57,7 +57,9 @@ export async function assignCast(sessionId: string, castId: string, status: stri
         .insert({
             table_session_id: sessionId,
             cast_id: castId,
-            status: status
+            status: status,
+            grid_x: gridX,
+            grid_y: gridY
         })
         .select()
         .single();

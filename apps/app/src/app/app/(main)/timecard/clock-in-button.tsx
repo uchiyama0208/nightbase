@@ -142,6 +142,7 @@ export function ClockButtons({ latestTimeCard, storeSettings, showBreakButtons =
             hour: "2-digit",
             minute: "2-digit",
             second: "2-digit",
+            timeZone: "Asia/Tokyo",
         });
     };
 
@@ -151,6 +152,7 @@ export function ClockButtons({ latestTimeCard, storeSettings, showBreakButtons =
             month: "long",
             day: "numeric",
             weekday: "long",
+            timeZone: "Asia/Tokyo",
         });
     };
 
