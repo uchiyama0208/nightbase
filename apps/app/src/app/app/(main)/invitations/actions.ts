@@ -149,15 +149,34 @@ export async function acceptInvitation(token: string) {
         return { success: false, error: "Invitation not found" };
     }
 
+    // Get user's existing profile to copy LINE info (avatar_url, line_user_id)
+    const { data: existingProfile } = await supabase
+        .from("profiles")
+        .select("avatar_url, line_user_id")
+        .eq("user_id", user.id)
+        .not("avatar_url", "is", null)
+        .limit(1)
+        .maybeSingle();
+
     // Update profile to link user and clear invite
+    const updateData: Record<string, any> = {
+        user_id: user.id,
+        invite_status: "accepted",
+        invite_token: null, // Clear token
+        invite_expires_at: null
+    };
+
+    // Copy LINE info from existing profile if available
+    if (existingProfile?.avatar_url) {
+        updateData.avatar_url = existingProfile.avatar_url;
+    }
+    if (existingProfile?.line_user_id) {
+        updateData.line_user_id = existingProfile.line_user_id;
+    }
+
     const { error } = await supabase
         .from("profiles")
-        .update({
-            user_id: user.id,
-            invite_status: "accepted",
-            invite_token: null, // Clear token
-            invite_expires_at: null
-        })
+        .update(updateData)
         .eq("id", profile.profile_id);
 
     if (error) {
