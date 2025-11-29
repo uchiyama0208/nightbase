@@ -25,7 +25,7 @@ export function BillSettingsForm() {
             const data = await getBillSettings();
             setSettings(data);
         } catch (error) {
-            toast({ title: "設定の読み込みに失敗しました", variant: "destructive" });
+            toast({ title: "エラー", description: "設定の読み込みに失敗しました" });
         } finally {
             setLoading(false);
         }
@@ -38,7 +38,7 @@ export function BillSettingsForm() {
             await updateBillSettings(settings);
             toast({ title: "設定を保存しました" });
         } catch (error) {
-            toast({ title: "保存に失敗しました", variant: "destructive" });
+            toast({ title: "エラー", description: "保存に失敗しました" });
         } finally {
             setSaving(false);
         }
