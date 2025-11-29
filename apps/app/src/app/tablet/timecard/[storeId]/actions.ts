@@ -1,6 +1,5 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createServiceRoleClient } from "@/lib/supabaseServiceClient";
 
@@ -47,7 +46,7 @@ export async function tabletClockIn(formData: FormData) {
   const profile = profileRow as { id: string; store_id: string | null } | null;
 
   if (!profile || profile.store_id !== storeId) {
-    redirect(`/tablet/timecard/${storeId}`);
+    return;
   }
 
   // Get store settings for time rounding
@@ -101,10 +100,7 @@ export async function tabletClockIn(formData: FormData) {
 
   // ダッシュボードの出勤中人数カードを更新
   revalidatePath("/app/dashboard");
-
   revalidatePath("/app/attendance");
-
-  redirect(`/tablet/timecard/${storeId}`);
 }
 
 export async function tabletClockOut(formData: FormData) {
@@ -124,7 +120,7 @@ export async function tabletClockOut(formData: FormData) {
     .maybeSingle();
 
   if (!profile || profile.store_id !== storeId) {
-    redirect(`/tablet/timecard/${storeId}`);
+    return;
   }
 
   // Get store settings for time rounding
@@ -174,11 +170,7 @@ export async function tabletClockOut(formData: FormData) {
 
   // ダッシュボードの出勤中人数カードを更新
   revalidatePath("/app/dashboard");
-
-
   if (card) {
     revalidatePath("/app/attendance");
   }
-
-  redirect(`/tablet/timecard/${storeId}`);
 }
