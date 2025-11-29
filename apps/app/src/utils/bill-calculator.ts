@@ -1,5 +1,67 @@
 import { TableSession, BillSettings, Order } from "@/types/floor";
 
+const MILLISECONDS_PER_MINUTE = 1000 * 60;
+const EXTENSION_BLOCK_MINUTES = 30;
+
+function getTimestamp(value: string | null): number | null {
+    if (!value) return null;
+
+    const timestamp = new Date(value).getTime();
+    return Number.isNaN(timestamp) ? null : timestamp;
+}
+
+function calculateDuration(start: string, end: string | null): number {
+    const startTime = getTimestamp(start);
+    const endTime = getTimestamp(end);
+    const fallbackEnd = Date.now();
+
+    if (!startTime) return 0;
+
+    const duration = Math.ceil(((endTime ?? fallbackEnd) - startTime) / MILLISECONDS_PER_MINUTE);
+    return Math.max(duration, 0);
+}
+
+function calculateExtension(durationMinutes: number, setDuration: number): {
+    extensionMinutes: number;
+    extensionBlocks: number;
+} {
+    const extensionMinutes = Math.max(0, durationMinutes - setDuration);
+    const extensionBlocks = Math.ceil(extensionMinutes / EXTENSION_BLOCK_MINUTES);
+
+    return {
+        extensionMinutes,
+        extensionBlocks
+    };
+}
+
+function calculateCastFees(settings: BillSettings, assignments: TableSession["cast_assignments"]): {
+    shimeCount: number;
+    jounaiCount: number;
+    shimeTotal: number;
+    jounaiTotal: number;
+    total: number;
+} {
+    const counts = (assignments ?? []).reduce(
+        (acc, assignment) => {
+            if (assignment.status === "shime") acc.shime += 1;
+            if (assignment.status === "jounai") acc.jounai += 1;
+            return acc;
+        },
+        { shime: 0, jounai: 0 }
+    );
+
+    const shimeTotal = counts.shime * settings.shime_fee;
+    const jounaiTotal = counts.jounai * settings.jounai_fee;
+
+    return {
+        shimeCount: counts.shime,
+        jounaiCount: counts.jounai,
+        shimeTotal,
+        jounaiTotal,
+        total: shimeTotal + jounaiTotal
+    };
+}
+
 export interface BillBreakdown {
     timeCharge: {
         durationMinutes: number;
@@ -30,39 +92,20 @@ export function calculateBill(
     orders: Order[],
     settings: BillSettings
 ): BillBreakdown {
-    // 1. Time Charge
-    const startTime = new Date(session.start_time).getTime();
-    const endTime = session.end_time ? new Date(session.end_time).getTime() : Date.now();
-    const durationMinutes = Math.ceil((endTime - startTime) / (1000 * 60));
-
-    const setDuration = settings.set_duration_minutes || 60;
-    const extensionMinutes = Math.max(0, durationMinutes - setDuration);
-    const extensionBlocks = Math.ceil(extensionMinutes / 30); // Assuming 30 min blocks for simplicity logic
+    const durationMinutes = calculateDuration(session.start_time, session.end_time);
+    const { extensionMinutes, extensionBlocks } = calculateExtension(
+        durationMinutes,
+        settings.set_duration_minutes || 60
+    );
 
     const basePrice = settings.hourly_charge * session.guest_count;
-    const extensionPrice = (extensionBlocks * settings.extension_fee_30m) * session.guest_count;
+    const extensionPrice = extensionBlocks * settings.extension_fee_30m * session.guest_count;
     const timeChargeTotal = basePrice + extensionPrice;
 
-    // 2. Cast Fees
-    let shimeCount = 0;
-    let jounaiCount = 0;
-
-    if (session.cast_assignments) {
-        session.cast_assignments.forEach(a => {
-            if (a.status === 'shime') shimeCount++;
-            if (a.status === 'jounai') jounaiCount++;
-        });
-    }
-
-    const shimeTotal = shimeCount * settings.shime_fee;
-    const jounaiTotal = jounaiCount * settings.jounai_fee;
-    const castFeesTotal = shimeTotal + jounaiTotal;
-
-    // 3. Orders
+    const castFees = calculateCastFees(settings, session.cast_assignments);
     const orderTotal = orders.reduce((sum, order) => sum + (order.amount || 0), 0);
 
-    // 4. Grand Total
-    const subtotal = timeChargeTotal + castFeesTotal + orderTotal;
+    const subtotal = timeChargeTotal + castFees.total + orderTotal;
     const serviceCharge = Math.floor(subtotal * settings.service_rate);
     const tax = Math.floor((subtotal + serviceCharge) * settings.tax_rate);
     const total = subtotal + serviceCharge + tax;
@@ -75,13 +118,7 @@ export function calculateBill(
             extensionPrice,
             total: timeChargeTotal
         },
-        castFees: {
-            shimeCount,
-            jounaiCount,
-            shimeTotal,
-            jounaiTotal,
-            total: castFeesTotal
-        },
+        castFees,
         orders: {
             items: orders,
             total: orderTotal

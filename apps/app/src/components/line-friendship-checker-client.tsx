@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ExternalLink } from "lucide-react";
@@ -15,6 +15,22 @@ interface LineFriendshipCheckerClientProps {
 export function LineFriendshipCheckerClient({ shouldHide }: LineFriendshipCheckerClientProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [dontShowAgain, setDontShowAgain] = useState(false);
+
+    const persistPreferenceIfNeeded = useCallback(async () => {
+        if (!dontShowAgain) return;
+
+        try {
+            await updateLineFriendshipPreference(true);
+        } catch (error) {
+            console.error("Failed to save preference:", error);
+        }
+    }, [dontShowAgain]);
+
+    const removeIsFriendQueryParam = useCallback(() => {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("is_friend");
+        window.history.replaceState({}, "", url.toString());
+    }, []);
 
     useEffect(() => {
         // Don't show if user has previously opted out
@@ -30,36 +46,16 @@ export function LineFriendshipCheckerClient({ shouldHide }: LineFriendshipChecke
         }
     }, [shouldHide]);
 
-    const handleClose = async () => {
-        if (dontShowAgain) {
-            try {
-                await updateLineFriendshipPreference(true);
-            } catch (error) {
-                console.error("Failed to save preference:", error);
-            }
-        }
-
+    const handleClose = useCallback(async () => {
+        await persistPreferenceIfNeeded();
         setIsOpen(false);
-        // Remove the param from the URL
-        const url = new URL(window.location.href);
-        url.searchParams.delete("is_friend");
-        window.history.replaceState({}, "", url.toString());
-    };
+        removeIsFriendQueryParam();
+    }, [persistPreferenceIfNeeded, removeIsFriendQueryParam]);
 
-    const handleAddFriend = async () => {
-        // Redirect to LINE Official Account
+    const handleAddFriend = useCallback(async () => {
         window.open("https://lin.ee/L93zfbS", "_blank");
-
-        if (dontShowAgain) {
-            try {
-                await updateLineFriendshipPreference(true);
-            } catch (error) {
-                console.error("Failed to save preference:", error);
-            }
-        }
-
-        handleClose();
-    };
+        await handleClose();
+    }, [handleClose]);
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
