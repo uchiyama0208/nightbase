@@ -34,7 +34,6 @@ export default function FloorSettingsPage() {
             width: 100,
             height: 100,
             shape: "rect",
-            capacity: 4,
             layout_data: { seats: [], objects: [] }
         };
 
@@ -45,7 +44,7 @@ export default function FloorSettingsPage() {
                 toast({ title: "テーブルを追加しました" });
             }
         } catch (error) {
-            toast({ title: "エラーが発生しました", variant: "destructive" });
+            toast({ title: "エラー", description: "テーブルの追加に失敗しました" });
         }
     };
 
@@ -71,7 +70,7 @@ export default function FloorSettingsPage() {
             setSelectedTableId(null);
             toast({ title: "テーブルを削除しました" });
         } catch (error) {
-            toast({ title: "エラーが発生しました", variant: "destructive" });
+            toast({ title: "エラー", description: "テーブルの削除に失敗しました" });
         }
     };
 
@@ -211,16 +210,6 @@ export default function FloorSettingsPage() {
                                             <option value="circle">円形</option>
                                         </select>
                                     </div>
-                                    <div>
-                                        <label className="text-sm font-medium">定員</label>
-                                        <input
-                                            type="number"
-                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                                            value={table.capacity}
-                                            onChange={(e) => handleUpdateTable(table.id, { capacity: parseInt(e.target.value) })}
-                                        />
-                                    </div>
-
                                     <Button
                                         variant="outline"
                                         className="w-full"
