@@ -331,7 +331,7 @@ export function TabletTimecardClient({
               </svg>
               戻る
             </button>
-            <div className="flex-1 grid grid-cols-5 gap-2">
+            <div className="flex-1 flex flex-col gap-1">
               {kanaGroups.map((group) => {
                 const count = filteredProfiles.filter(p => getKanaGroupLabel(p.display_name_kana) === group.label).length;
                 return (
@@ -339,14 +339,14 @@ export function TabletTimecardClient({
                     key={group.label}
                     onClick={() => setSelectedKanaGroup(group.label)}
                     disabled={count === 0}
-                    className={`px-4 py-6 rounded-xl ${cardBgClass} border-2 ${borderClass} ${
+                    className={`flex-1 px-6 rounded-xl ${cardBgClass} border-2 ${borderClass} ${
                       count === 0 
                         ? "opacity-40 cursor-not-allowed" 
                         : `hover:border-blue-400 ${isDarkMode ? "hover:bg-slate-700" : "hover:bg-blue-50"}`
-                    } flex flex-col items-center justify-center transition-all`}
+                    } flex items-center justify-between transition-all`}
                   >
-                    <div className={`text-2xl font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
-                      {group.label}
+                    <div className={`text-xl font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+                      {group.label} 行
                     </div>
                     <div className={`text-sm ${textMutedClass}`}>{count}名</div>
                   </button>
