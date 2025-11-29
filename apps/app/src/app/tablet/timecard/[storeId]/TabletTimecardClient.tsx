@@ -94,7 +94,6 @@ export function TabletTimecardClient({
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const [selectedKanaGroup, setSelectedKanaGroup] = useState<string | null>(null);
   const [selectedProfile, setSelectedProfile] = useState<TabletProfile | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPickupValid, setIsPickupValid] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -144,27 +143,25 @@ export function TabletTimecardClient({
   }, []);
 
   const handleClockIn = async (formData: FormData) => {
-    if (!selectedProfile || isSubmitting) return;
+    if (!selectedProfile) return;
     
-    setIsSubmitting(true);
+    const profileName = selectedProfile.display_name;
+    const profileId = selectedProfile.id;
     
     // Optimistic update - add card immediately
     const optimisticCard: TodayCard = {
       id: `temp-${Date.now()}`,
-      user_id: selectedProfile.id,
+      user_id: profileId,
       work_date: getTodayDate(),
       clock_in: new Date().toISOString(),
       clock_out: null,
     };
     
     setTodayCards(prev => [optimisticCard, ...prev]);
-    setSuccessMessage(`${selectedProfile.display_name}さんの出勤を記録しました`);
+    setSuccessMessage(`${profileName}さんの出勤を記録しました`);
     
     // Reset UI immediately
-    setTimeout(() => {
-      resetToStart();
-      setIsSubmitting(false);
-    }, 1500);
+    resetToStart();
     
     // Execute server action in background
     startTransition(async () => {
@@ -179,25 +176,23 @@ export function TabletTimecardClient({
   };
 
   const handleClockOut = async (formData: FormData) => {
-    if (!selectedProfile || isSubmitting) return;
+    if (!selectedProfile) return;
     
-    setIsSubmitting(true);
+    const profileName = selectedProfile.display_name;
+    const profileId = selectedProfile.id;
     
     // Optimistic update - update card immediately
     setTodayCards(prev => prev.map(card => {
-      if (card.user_id === selectedProfile.id && !card.clock_out) {
+      if (card.user_id === profileId && !card.clock_out) {
         return { ...card, clock_out: new Date().toISOString() };
       }
       return card;
     }));
     
-    setSuccessMessage(`${selectedProfile.display_name}さんの退勤を記録しました`);
+    setSuccessMessage(`${profileName}さんの退勤を記録しました`);
     
     // Reset UI immediately
-    setTimeout(() => {
-      resetToStart();
-      setIsSubmitting(false);
-    }, 1500);
+    resetToStart();
     
     // Execute server action in background
     startTransition(async () => {
@@ -426,14 +421,14 @@ export function TabletTimecardClient({
 
                 <button
                   type="submit"
-                  disabled={!isPickupValid || isSubmitting}
+                  disabled={!isPickupValid}
                   className={`mt-4 w-full py-8 rounded-2xl text-white text-2xl font-bold shadow-lg transition-colors ${
-                    isPickupValid && !isSubmitting
+                    isPickupValid
                       ? "bg-blue-500 hover:bg-blue-600 cursor-pointer"
                       : "bg-gray-400 cursor-not-allowed"
                   }`}
                 >
-                  {isSubmitting ? "処理中..." : "出勤する"}
+                  出勤する
                 </button>
               </form>
             ) : (
@@ -452,14 +447,9 @@ export function TabletTimecardClient({
 
                 <button
                   type="submit"
-                  disabled={isSubmitting}
-                  className={`mt-4 w-full py-8 rounded-2xl text-white text-2xl font-bold shadow-lg transition-colors ${
-                    !isSubmitting
-                      ? "bg-rose-500 hover:bg-rose-600"
-                      : "bg-gray-400 cursor-not-allowed"
-                  }`}
+                  className="mt-4 w-full py-8 rounded-2xl bg-rose-500 hover:bg-rose-600 text-white text-2xl font-bold shadow-lg transition-colors"
                 >
-                  {isSubmitting ? "処理中..." : "退勤する"}
+                  退勤する
                 </button>
               </form>
             )}
