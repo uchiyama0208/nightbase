@@ -43,16 +43,11 @@ export function TimecardSettingsForm({ store }: TimecardSettingsFormProps) {
     const [locationRadius, setLocationRadius] = useState(store.location_radius ?? 50);
     const [loadingLocation, setLoadingLocation] = useState(false);
 
-    // Address State
-    const [address, setAddress] = useState<string>("");
-    const [isFetchingAddress, setIsFetchingAddress] = useState(false);
-
     // Time Rounding Settings State
     const [timeRoundingEnabled, setTimeRoundingEnabled] = useState(store.time_rounding_enabled ?? false);
     const [timeRoundingMethod, setTimeRoundingMethod] = useState(store.time_rounding_method || "round");
     const [timeRoundingMinutes, setTimeRoundingMinutes] = useState(store.time_rounding_minutes ?? 15);
 
-    // Auto Clock-Out Settings State
     // Auto Clock-Out Settings State
     const [autoClockoutEnabled, setAutoClockoutEnabled] = useState(store.auto_clockout_enabled ?? false);
 
@@ -71,49 +66,6 @@ export function TimecardSettingsForm({ store }: TimecardSettingsFormProps) {
         setTimeout(() => setCopied(false), 2000);
     };
 
-    // Fetch address from coordinates using Nominatim
-    useEffect(() => {
-        const fetchAddress = async () => {
-            if (!latitude || !longitude) {
-                setAddress("");
-                return;
-            }
-
-            setIsFetchingAddress(true);
-            try {
-                // Use Nominatim API for reverse geocoding
-                // Note: Please respect Nominatim's usage policy (User-Agent, rate limiting)
-                const response = await fetch(
-                    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1&accept-language=ja`,
-                    {
-                        headers: {
-                            "User-Agent": "Nightbase/1.0"
-                        }
-                    }
-                );
-
-                if (response.ok) {
-                    const data = await response.json();
-                    setAddress(data.display_name || "住所が見つかりませんでした");
-                } else {
-                    setAddress("住所の取得に失敗しました");
-                }
-            } catch (error) {
-                console.error("Error fetching address:", error);
-                setAddress("住所の取得エラー");
-            } finally {
-                setIsFetchingAddress(false);
-            }
-        };
-
-        // Debounce the API call
-        const timer = setTimeout(() => {
-            fetchAddress();
-        }, 1000);
-
-        return () => clearTimeout(timer);
-    }, [latitude, longitude]);
-
     // Sync state with props when they change
     useEffect(() => {
         setShowBreakColumns(store.show_break_columns ?? false);
@@ -127,85 +79,50 @@ export function TimecardSettingsForm({ store }: TimecardSettingsFormProps) {
         setLocationCheckEnabled(store.location_check_enabled ?? false);
         setLatitude(store.latitude);
         setLongitude(store.longitude);
-        setLocationRadius(store.location_radius ?? 50);
+        setLocationRadius(store.location_radius || 50);
 
         setTimeRoundingEnabled(store.time_rounding_enabled ?? false);
         setTimeRoundingMethod(store.time_rounding_method || "round");
-        setTimeRoundingMinutes(store.time_rounding_minutes ?? 15);
-
+        setTimeRoundingMinutes(store.time_rounding_minutes || 15);
         setAutoClockoutEnabled(store.auto_clockout_enabled ?? false);
     }, [store]);
 
     const isRoleSelectionInvalid = tabletTimecardEnabled && !tabletAllowedStaff && !tabletAllowedCast;
 
-    const handleSave = (updates: Partial<{
-        showBreakColumns: boolean;
-        tabletTimecardEnabled: boolean;
-        tabletAllowedStaff: boolean;
-        tabletAllowedCast: boolean;
-        tabletAcceptanceStartTime: string;
-        tabletAcceptanceEndTime: string;
-        tabletTheme: string;
-        locationCheckEnabled: boolean;
-        latitude: number | null;
-        longitude: number | null;
-        locationRadius: number;
-        timeRoundingEnabled: boolean;
-        timeRoundingMethod: string;
-        timeRoundingMinutes: number;
-        autoClockoutEnabled: boolean;
-    }>) => {
+    const handleSave = (updates: any = {}) => {
+        const formData = new FormData();
+        formData.append("showBreakColumns", (updates.showBreakColumns ?? showBreakColumns) ? "on" : "off");
+        formData.append("tabletTimecardEnabled", (updates.tabletTimecardEnabled ?? tabletTimecardEnabled) ? "on" : "off");
+        formData.append("tabletAcceptanceStartTime", updates.tabletAcceptanceStartTime ?? tabletAcceptanceStartTime);
+        formData.append("tabletAcceptanceEndTime", updates.tabletAcceptanceEndTime ?? tabletAcceptanceEndTime);
+
+        const roles = [];
+        if (updates.tabletAllowedStaff ?? tabletAllowedStaff) roles.push("staff");
+        if (updates.tabletAllowedCast ?? tabletAllowedCast) roles.push("cast");
+        roles.forEach(role => formData.append("tabletAllowedRoles", role));
+
+        formData.append("tabletTheme", updates.tabletTheme ?? tabletTheme);
+
+        formData.append("locationCheckEnabled", (updates.locationCheckEnabled ?? locationCheckEnabled) ? "on" : "off");
+
+        const lat = updates.latitude ?? latitude;
+        const lng = updates.longitude ?? longitude;
+        if (lat) formData.append("latitude", lat.toString());
+        if (lng) formData.append("longitude", lng.toString());
+
+        formData.append("locationRadius", (updates.locationRadius ?? locationRadius).toString());
+
+        formData.append("timeRoundingEnabled", (updates.timeRoundingEnabled ?? timeRoundingEnabled) ? "on" : "off");
+        formData.append("timeRoundingMethod", updates.timeRoundingMethod ?? timeRoundingMethod);
+        formData.append("timeRoundingMinutes", (updates.timeRoundingMinutes ?? timeRoundingMinutes).toString());
+        formData.append("autoClockoutEnabled", (updates.autoClockoutEnabled ?? autoClockoutEnabled) ? "on" : "off");
+
         startTransition(async () => {
-            const newState = {
-                showBreakColumns,
-                tabletTimecardEnabled,
-                tabletAllowedStaff,
-                tabletAllowedCast,
-                tabletAcceptanceStartTime,
-                tabletAcceptanceEndTime,
-                tabletTheme,
-                locationCheckEnabled,
-                latitude,
-                longitude,
-                locationRadius,
-                timeRoundingEnabled,
-                timeRoundingMethod,
-                timeRoundingMinutes,
-                autoClockoutEnabled,
-                ...updates
-            };
-
-            const formData = new FormData();
-            formData.append("showBreakColumns", newState.showBreakColumns ? "on" : "off");
-            formData.append("tabletTimecardEnabled", newState.tabletTimecardEnabled ? "on" : "off");
-            formData.append("tabletAcceptanceStartTime", newState.tabletAcceptanceStartTime);
-            formData.append("tabletAcceptanceEndTime", newState.tabletAcceptanceEndTime);
-
-            // Handle roles
-            if (newState.tabletAllowedStaff) formData.append("tabletAllowedRoles", "staff");
-            if (newState.tabletAllowedCast) formData.append("tabletAllowedRoles", "cast");
-
-            formData.append("tabletTheme", newState.tabletTheme);
-
-            // Location settings
-            formData.append("locationCheckEnabled", newState.locationCheckEnabled ? "on" : "off");
-            if (newState.latitude !== null) formData.append("latitude", newState.latitude.toString());
-            if (newState.longitude !== null) formData.append("longitude", newState.longitude.toString());
-            formData.append("locationRadius", newState.locationRadius.toString());
-
-            // Time rounding settings
-            formData.append("timeRoundingEnabled", newState.timeRoundingEnabled ? "on" : "off");
-            formData.append("timeRoundingMethod", newState.timeRoundingMethod);
-            formData.append("timeRoundingMinutes", newState.timeRoundingMinutes.toString());
-
-            // Auto clock-out settings
-            formData.append("autoClockoutEnabled", newState.autoClockoutEnabled ? "on" : "off");
-
             try {
                 await updateTimecardSettings(formData);
             } catch (error) {
-                console.error("Failed to update settings", error);
-                // Ideally we would revert state here, but for simplicity we rely on the next prop update or user correction
+                console.error("Failed to update settings:", error);
+                alert("設定の保存に失敗しました");
             }
         });
     };
@@ -224,9 +141,14 @@ export function TimecardSettingsForm({ store }: TimecardSettingsFormProps) {
                 const newLng = position.coords.longitude;
                 setLatitude(newLat);
                 setLongitude(newLng);
-                setLoadingLocation(false);
+
+                handleSave({
+                    latitude: newLat,
+                    longitude: newLng
+                });
+
                 alert("現在位置を取得しました。");
-                handleSave({ latitude: newLat, longitude: newLng });
+                setLoadingLocation(false);
             },
             (error) => {
                 console.error("Error getting location:", error);
@@ -281,67 +203,31 @@ export function TimecardSettingsForm({ store }: TimecardSettingsFormProps) {
 
                 {locationCheckEnabled && (
                     <div className="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                        <div className="grid gap-4 md:grid-cols-2">
-                            <div className="space-y-2">
-                                <Label htmlFor="latitude" className="text-sm font-medium text-gray-900 dark:text-white">緯度</Label>
-                                <Input
-                                    id="latitude"
-                                    type="number"
-                                    step="any"
-                                    value={latitude ?? ""}
-                                    onChange={(e) => {
-                                        const val = parseFloat(e.target.value);
-                                        setLatitude(val);
-                                        handleSave({ latitude: val });
-                                    }}
-                                    placeholder="例: 35.6895"
-                                    className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="longitude" className="text-sm font-medium text-gray-900 dark:text-white">経度</Label>
-                                <Input
-                                    id="longitude"
-                                    type="number"
-                                    step="any"
-                                    value={longitude ?? ""}
-                                    onChange={(e) => {
-                                        const val = parseFloat(e.target.value);
-                                        setLongitude(val);
-                                        handleSave({ longitude: val });
-                                    }}
-                                    placeholder="例: 139.6917"
-                                    className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
-                                />
-                            </div>
-                        </div>
-
-                        {/* Address Display */}
-                        <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-md text-sm">
-                            <span className="font-medium text-gray-700 dark:text-gray-300">住所: </span>
-                            <span className="text-gray-600 dark:text-gray-400">
-                                {isFetchingAddress ? "取得中..." : (address || "緯度・経度を入力すると住所が表示されます")}
-                            </span>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                ※ 実際の住所と若干ずれる場合があります。
-                            </p>
-                        </div>
-
-                        <div>
+                        <div className="flex items-center justify-between">
+                            <Label className="text-gray-900 dark:text-gray-200">位置情報 (緯度・経度)</Label>
                             <Button
                                 type="button"
                                 variant="outline"
                                 size="sm"
                                 onClick={handleGetCurrentLocation}
-                                disabled={loadingLocation || isPending}
-                                className="dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                                disabled={loadingLocation}
                             >
                                 {loadingLocation ? "取得中..." : "現在位置を取得して設定"}
                             </Button>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                現在地を店舗の位置として設定します
-                            </p>
                         </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg text-center">
+                                <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">緯度</div>
+                                <div className="font-mono text-sm">{latitude?.toFixed(6) ?? "未設定"}</div>
+                            </div>
+                            <div className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg text-center">
+                                <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">経度</div>
+                                <div className="font-mono text-sm">{longitude?.toFixed(6) ?? "未設定"}</div>
+                            </div>
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            現在地を店舗の位置として設定します
+                        </p>
 
                         <div className="space-y-2">
                             <Label htmlFor="locationRadius" className="text-sm font-medium text-gray-900 dark:text-white">許可範囲 (メートル)</Label>
@@ -404,7 +290,7 @@ export function TimecardSettingsForm({ store }: TimecardSettingsFormProps) {
                                             handleSave({ tabletAcceptanceStartTime: e.target.value });
                                         }}
                                         step={60}
-                                        className="mt-1 w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm"
+                                        className="mt-1 w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-base"
                                     />
                                 </div>
                                 <div>
@@ -420,7 +306,7 @@ export function TimecardSettingsForm({ store }: TimecardSettingsFormProps) {
                                             handleSave({ tabletAcceptanceEndTime: e.target.value });
                                         }}
                                         step={60}
-                                        className="mt-1 w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm"
+                                        className="mt-1 w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-base"
                                     />
                                 </div>
                             </div>

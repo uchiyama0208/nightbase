@@ -1,25 +1,18 @@
-"use client";
-
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { assignCast } from "./actions";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { getAllProfiles } from "../users/actions";
-import { useToast } from "@/components/ui/use-toast";
-import { TableSession, Table } from "@/types/floor";
+import { ChevronLeft } from "lucide-react";
 
 interface PlacementModalProps {
     isOpen: boolean;
     onClose: () => void;
-    session: TableSession;
-    table: Table;
-    onPlacementComplete: () => void;
+    onProfileSelect: (profile: any) => void;
+    mode?: "guest" | "cast";
 }
 
-export function PlacementModal({ isOpen, onClose, session, table, onPlacementComplete }: PlacementModalProps) {
-    const [profileType, setProfileType] = useState<"guest" | "cast" | "staff">("guest");
+export function PlacementModal({ isOpen, onClose, onProfileSelect, mode = "guest" }: PlacementModalProps) {
     const [allProfiles, setAllProfiles] = useState<any[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
-    const { toast } = useToast();
 
     useEffect(() => {
         if (isOpen) {
@@ -32,65 +25,41 @@ export function PlacementModal({ isOpen, onClose, session, table, onPlacementCom
         setAllProfiles(data);
     };
 
-    const handleProfileClick = async (profileId: string) => {
-        try {
-            // For now, place at grid position (0, 0) - you can enhance this later
-            await assignCast(session.id, profileId, "free", 0, 0);
-            toast({ title: "配置しました" });
-            onClose();
-            await onPlacementComplete();
-        } catch (error) {
-            console.error(error);
-            toast({ title: "配置に失敗しました" });
-        }
+    const handleProfileClick = (profile: any) => {
+        onProfileSelect(profile);
+        onClose();
     };
 
     const filteredProfiles = allProfiles
-        .filter(p => p.role === profileType)
+        .filter(p => p.role === mode)
         .filter(p =>
             p.display_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             p.display_name_kana?.toLowerCase().includes(searchQuery.toLowerCase())
         );
 
+    const title = mode === "guest" ? "ゲストを選択" : "キャストを選択";
+    const emptyMessage = mode === "guest" ? "該当するゲストがいません" : "該当するキャストがいません";
+
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                    <DialogTitle className="text-xl font-bold">配置する人を選択</DialogTitle>
+                <DialogHeader className="mb-3 sm:mb-4 flex flex-row items-center justify-between gap-2 relative">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-0"
+                        aria-label="戻る"
+                    >
+                        <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <DialogTitle className="flex-1 text-center text-xl font-bold">{title}</DialogTitle>
+                    <DialogDescription className="sr-only">
+                        {mode === "guest" ? "ゲスト選択" : "キャスト選択"}
+                    </DialogDescription>
+                    <div className="h-8 w-8" /> {/* Spacer for centering */}
                 </DialogHeader>
 
                 <div className="space-y-4 py-4">
-                    {/* Toggle Buttons */}
-                    <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-full w-fit mx-auto">
-                        <button
-                            onClick={() => setProfileType("guest")}
-                            className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${profileType === "guest"
-                                    ? "bg-blue-500 text-white shadow-md"
-                                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
-                                }`}
-                        >
-                            ゲスト
-                        </button>
-                        <button
-                            onClick={() => setProfileType("cast")}
-                            className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${profileType === "cast"
-                                    ? "bg-blue-500 text-white shadow-md"
-                                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
-                                }`}
-                        >
-                            キャスト
-                        </button>
-                        <button
-                            onClick={() => setProfileType("staff")}
-                            className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${profileType === "staff"
-                                    ? "bg-blue-500 text-white shadow-md"
-                                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
-                                }`}
-                        >
-                            スタッフ
-                        </button>
-                    </div>
-
                     {/* Search Input */}
                     <div className="relative">
                         <input
@@ -131,13 +100,13 @@ export function PlacementModal({ isOpen, onClose, session, table, onPlacementCom
                         <div className="max-h-[400px] overflow-y-auto">
                             {filteredProfiles.length === 0 ? (
                                 <div className="py-12 text-center text-slate-500 dark:text-slate-400">
-                                    該当するユーザーがいません
+                                    {emptyMessage}
                                 </div>
                             ) : (
                                 filteredProfiles.map((profile) => (
                                     <button
                                         key={profile.id}
-                                        onClick={() => handleProfileClick(profile.id)}
+                                        onClick={() => handleProfileClick(profile)}
                                         className="grid grid-cols-2 w-full border-b border-slate-200 dark:border-slate-700 last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                                     >
                                         <div className="px-4 py-4 text-center text-slate-900 dark:text-slate-100">

@@ -44,7 +44,7 @@ export function AppLayoutClient({ children, userRole, profileName, avatarUrl, st
         />
       )}
       <main className={hideSidebar ? "min-h-screen pt-14" : "min-h-screen pt-14 lg:pl-72"}>
-        <div className="p-4 lg:px-6 xl:px-8">
+        <div className="px-2 py-1 sm:px-3 sm:py-2 md:p-4 lg:px-6 xl:px-8">
           {children}
         </div>
       </main>

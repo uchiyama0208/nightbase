@@ -21,9 +21,6 @@ out/
 dist/
 
 # Environment files
-.env
-.env.*
-.env.local
 
 # Misc
 .DS_Store

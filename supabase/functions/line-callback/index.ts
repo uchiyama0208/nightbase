@@ -498,6 +498,17 @@ serve(async (req) => {
                     }
                 }
 
+                // Update latest LINE profile info
+                if (profile.pictureUrl) {
+                    console.log("Updating profile avatar from LINE for user:", userId);
+                    await supabase
+                        .from("profiles")
+                        .update({
+                            avatar_url: profile.pictureUrl,
+                        })
+                        .eq("user_id", userId);
+                }
+
                 // Get current auth user email
                 const { data: authUser } = await supabase.auth.admin.getUserById(userId);
 

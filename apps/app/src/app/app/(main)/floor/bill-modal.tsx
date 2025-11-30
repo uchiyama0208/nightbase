@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { TableSession, BillSettings, Order } from "@/types/floor";
-import { getBillSettings } from "../floor-settings/bill-actions"; // Reusing action
+import { getBillSettings } from "../seats/bill-actions";
 import { checkoutSession } from "./actions";
 import { calculateBill, BillBreakdown } from "@/utils/bill-calculator";
 import { Loader2 } from "lucide-react";

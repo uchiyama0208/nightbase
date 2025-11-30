@@ -21,10 +21,11 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { Receipt, Search, Printer, CreditCard, Banknote, Clock, CheckCircle } from "lucide-react";
+import { Receipt, Search, Printer, CreditCard, Banknote, Clock, CheckCircle, Plus } from "lucide-react";
 import { Table as FloorTable, TableSession } from "@/types/floor";
-import { getTables } from "../floor-settings/actions";
-import { getActiveSessions, closeSession } from "../floor/actions";
+import { getTables } from "../seats/actions";
+import { getActiveSessions, closeSession, createSession } from "../floor/actions";
+import { NewSessionModal } from "../floor/new-session-modal";
 
 interface OrderItem {
     id: string;
@@ -55,6 +56,7 @@ export default function SlipsPage() {
     const [isDetailOpen, setIsDetailOpen] = useState(false);
     const [isPaymentOpen, setIsPaymentOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
+    const [isNewSessionOpen, setIsNewSessionOpen] = useState(false);
     const { toast } = useToast();
 
     useEffect(() => {
@@ -161,14 +163,19 @@ export default function SlipsPage() {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h1 className="text-2xl font-bold">伝票</h1>
-                <div className="relative w-64">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        placeholder="テーブルを検索..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-9"
-                    />
+                <div className="flex items-center gap-2">
+                    <div className="relative w-48">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="テーブルを検索..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-9"
+                        />
+                    </div>
+                    <Button onClick={() => setIsNewSessionOpen(true)} size="icon">
+                        <Plus className="h-5 w-5" />
+                    </Button>
                 </div>
             </div>
 
@@ -333,6 +340,14 @@ export default function SlipsPage() {
                     )}
                 </DialogContent>
             </Dialog>
+
+            {/* New Session Modal */}
+            <NewSessionModal
+                isOpen={isNewSessionOpen}
+                onClose={() => setIsNewSessionOpen(false)}
+                tables={tables.filter(t => !sessions.some(s => s.table_id === t.id))}
+                onSessionCreated={loadData}
+            />
         </div>
     );
 }

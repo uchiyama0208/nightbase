@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Table } from "@/types/floor";
-import { getTables, createTable, updateTable, deleteTable } from "../floor-settings/actions";
+import { Table, TableType } from "@/types/floor";
+import { getTables, createTable, updateTable, deleteTable, getTableTypes } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { useToast } from "@/components/ui/use-toast";
 import { Plus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { TableTypeManageModal } from "./table-type-manage-modal";
 
 const GRID_SIZE = 8;
 
@@ -48,20 +49,32 @@ function GridEditor({ grid, onChange }: { grid: boolean[][]; onChange: (grid: bo
 
 export default function SeatsEditorPage() {
     const [tables, setTables] = useState<Table[]>([]);
+    const [tableTypes, setTableTypes] = useState<TableType[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [isTypeModalOpen, setIsTypeModalOpen] = useState(false);
     const [editingTable, setEditingTable] = useState<Table | null>(null);
     const [deletingTableId, setDeletingTableId] = useState<string | null>(null);
     const { toast } = useToast();
 
     const [formData, setFormData] = useState({
         name: "",
+        type_id: "" as string | null,
         grid: Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(false)),
     });
 
     useEffect(() => {
-        loadTables();
+        loadData();
     }, []);
+
+    const loadData = async () => {
+        const [tablesData, typesData] = await Promise.all([
+            getTables(),
+            getTableTypes()
+        ]);
+        setTables(tablesData);
+        setTableTypes(typesData as TableType[]);
+    };
 
     const loadTables = async () => {
         const data = await getTables();
@@ -74,12 +87,14 @@ export default function SeatsEditorPage() {
             const grid = table.layout_data?.grid || Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(false));
             setFormData({
                 name: table.name,
+                type_id: table.type_id || "",
                 grid: grid,
             });
         } else {
             setEditingTable(null);
             setFormData({
                 name: "",
+                type_id: "",
                 grid: Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(false)),
             });
         }
@@ -97,12 +112,14 @@ export default function SeatsEditorPage() {
             if (editingTable) {
                 await updateTable(editingTable.id, {
                     name: formData.name,
+                    type_id: formData.type_id || null,
                     layout_data: layoutData,
                 });
                 toast({ title: "テーブルを更新しました" });
             } else {
                 await createTable({
                     name: formData.name,
+                    type_id: formData.type_id || null,
                     x: 100,
                     y: 100,
                     width: 120,
@@ -196,7 +213,7 @@ export default function SeatsEditorPage() {
                                 className="cursor-pointer shadow-sm hover:shadow-md transition-shadow border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950"
                                 onClick={() => handleOpenModal(table)}
                             >
-                                <CardContent className="p-2">
+                                <CardContent className="px-2 py-1">
                                     <div className="flex flex-col items-center justify-center gap-2">
                                         <h3 className="font-semibold text-xl text-center">
                                             {table.name}
@@ -277,6 +294,31 @@ export default function SeatsEditorPage() {
                                 placeholder="例: テーブル 1"
                             />
                         </div>
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <Label>席タイプ</Label>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsTypeModalOpen(true)}
+                                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                                >
+                                    <Plus className="h-3 w-3" />
+                                    席タイプ追加
+                                </button>
+                            </div>
+                            <select
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base"
+                                value={formData.type_id || ""}
+                                onChange={(e) => setFormData((prev) => ({ ...prev, type_id: e.target.value || null }))}
+                            >
+                                <option value="">なし</option>
+                                {tableTypes.map((type) => (
+                                    <option key={type.id} value={type.id}>
+                                        {type.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
                         <GridEditor
                             grid={formData.grid}
                             onChange={(grid) => setFormData((prev) => ({ ...prev, grid }))}
@@ -304,24 +346,32 @@ export default function SeatsEditorPage() {
                     <div className="py-4">
                         <p>このテーブルを削除しますか？</p>
                     </div>
-                    <DialogFooter className="flex gap-2">
+                    <DialogFooter className="flex flex-col-reverse gap-2">
                         <Button
                             variant="outline"
                             onClick={() => setIsDeleteModalOpen(false)}
-                            className="flex-1"
+                            className="w-full h-11"
                         >
                             キャンセル
                         </Button>
                         <Button
                             variant="destructive"
                             onClick={() => deletingTableId && handleDelete(deletingTableId)}
-                            className="flex-1"
+                            className="w-full h-11"
                         >
                             削除
                         </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Table Type Management Modal */}
+            <TableTypeManageModal
+                open={isTypeModalOpen}
+                onOpenChange={setIsTypeModalOpen}
+                tableTypes={tableTypes}
+                onUpdate={loadData}
+            />
         </div>
     );
 }

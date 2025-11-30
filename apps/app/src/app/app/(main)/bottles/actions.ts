@@ -41,7 +41,6 @@ export async function getBottleKeeps(filters?: {
       menus (
         id,
         name,
-        category,
         price
       ),
       bottle_keep_holders (

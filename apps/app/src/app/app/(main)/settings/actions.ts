@@ -267,6 +267,10 @@ export async function updateStore(formData: FormData) {
     const day_switch_time = formData.get("day_switch_time") as string;
     const industry = formData.get("industry") as string;
     const prefecture = formData.get("prefecture") as string;
+    const city = formData.get("city") as string;
+    const address_line1 = formData.get("address_line1") as string;
+    const address_line2 = formData.get("address_line2") as string;
+    const postal_code = formData.get("postal_code") as string;
     const closed_days = formData.getAll("closed_days") as string[];
     const allow_join_requests = formData.get("allow_join_requests") === "on";
 
@@ -279,6 +283,10 @@ export async function updateStore(formData: FormData) {
             day_switch_time: day_switch_time || null,
             industry: industry || null,
             prefecture: prefecture || null,
+            city: city || null,
+            address_line1: address_line1 || null,
+            address_line2: address_line2 || null,
+            postal_code: postal_code || null,
             closed_days: closed_days.length > 0 ? closed_days : null,
             allow_join_requests,
             updated_at: new Date().toISOString(),
@@ -523,4 +531,80 @@ export async function deleteStoreIcon() {
 
     revalidatePath("/app/settings/store");
     return { success: true };
+}
+
+export async function geocodeAddress(address: string) {
+    "use server";
+
+    console.log("Geocoding address:", address);
+    try {
+        const response = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&accept-language=ja`,
+            {
+                headers: {
+                    "User-Agent": "Nightbase/1.0 (info@nightbase.jp)"
+                }
+            }
+        );
+
+        if (!response.ok) {
+            console.error("Geocoding API error:", response.status, response.statusText);
+            const text = await response.text();
+            console.error("Response body:", text);
+            return { error: "Geocoding failed" };
+        }
+
+        const data = await response.json();
+        console.log("Geocoding result:", data);
+
+        if (data && data.length > 0) {
+            return {
+                success: true,
+                latitude: parseFloat(data[0].lat),
+                longitude: parseFloat(data[0].lon)
+            };
+        }
+
+        return { error: "Address not found" };
+    } catch (error) {
+        console.error("Geocoding error:", error);
+        return { error: "Geocoding request failed" };
+    }
+}
+
+export async function searchAddressByPostalCode(postalCode: string) {
+    "use server";
+
+    try {
+        // Remove hyphens if present
+        const cleanPostalCode = postalCode.replace(/-/g, "");
+
+        const response = await fetch(
+            `https://zipcloud.ibsnet.co.jp/api/search?zipcode=${cleanPostalCode}`,
+            {
+                method: 'GET',
+            }
+        );
+
+        if (!response.ok) {
+            return { error: "Failed to fetch address" };
+        }
+
+        const data = await response.json();
+
+        if (data.status === 200 && data.results && data.results.length > 0) {
+            const result = data.results[0];
+            return {
+                success: true,
+                prefecture: result.address1, // 都道府県
+                city: result.address2,       // 市区町村
+                addressLine1: result.address3 // 町域
+            };
+        }
+
+        return { error: "Address not found" };
+    } catch (error) {
+        console.error("Postal code search error:", error);
+        return { error: "Request failed" };
+    }
 }

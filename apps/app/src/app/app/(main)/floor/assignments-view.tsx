@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Table, TableSession } from "@/types/floor";
-import { getTables } from "../floor-settings/actions";
+import { getTables } from "../seats/actions";
 import { getActiveSessions, assignCast, removeCastAssignment, getWaitingCasts } from "../floor/actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -120,8 +120,8 @@ export function AssignmentsView() {
                     const assignments = (session as any).cast_assignments || [];
 
                     return (
-                        <Card key={session.id} className={selectedSession === session.id ? "ring-2 ring-blue-500" : ""}>
-                            <CardHeader className="pb-2">
+                        <Card key={session.id} className={selectedSession === session.id ? "ring-2 ring-blue-500 p-3" : "p-3"}>
+                            <CardHeader className="pb-0 mb-2">
                                 <div className="flex justify-between items-start">
                                     <div>
                                         <CardTitle className="text-lg">{table?.name || "不明"}</CardTitle>
@@ -133,7 +133,7 @@ export function AssignmentsView() {
                                     <Badge variant="secondary">{session.guest_count}名</Badge>
                                 </div>
                             </CardHeader>
-                            <CardContent className="space-y-4">
+                            <CardContent className="space-y-2">
                                 {/* Assigned Casts */}
                                 <div className="space-y-2">
                                     <p className="text-sm font-medium">配置中のキャスト</p>

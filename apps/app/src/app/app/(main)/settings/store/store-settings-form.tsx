@@ -10,12 +10,12 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { updateStore, uploadStoreIcon, deleteStoreIcon } from "../actions";
+import { updateStore, uploadStoreIcon, deleteStoreIcon, searchAddressByPostalCode } from "../actions";
 import { ChevronLeft, Upload, Download, Trash2, Store as StoreIcon } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useRouter } from "next/navigation";
-import React from "react";
+import React, { useState } from "react";
 
 const INDUSTRIES = [
     "バー",
@@ -107,6 +107,31 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
 
     const router = useRouter();
     const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+    // Address State
+    const [postalCode, setPostalCode] = useState<string>(store.postal_code || "");
+    const [prefecture, setPrefecture] = useState<string>(store.prefecture || "");
+    const [city, setCity] = useState<string>(store.city || "");
+    const [addressLine1, setAddressLine1] = useState<string>(store.address_line1 || "");
+    const [addressLine2, setAddressLine2] = useState<string>(store.address_line2 || "");
+
+    const handlePostalCodeSearch = async () => {
+        if (!postalCode || postalCode.length < 7) return;
+
+        try {
+            const result = await searchAddressByPostalCode(postalCode);
+            if (result.success) {
+                setPrefecture(result.prefecture || "");
+                setCity(result.city || "");
+                setAddressLine1(result.addressLine1 || "");
+            } else {
+                alert("住所が見つかりませんでした。");
+            }
+        } catch (error) {
+            console.error("Error searching address:", error);
+            alert("住所検索に失敗しました。");
+        }
+    };
 
     const handleIconClick = () => {
         fileInputRef.current?.click();
@@ -216,6 +241,90 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
                     </p>
                 </div>
 
+                <div className="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white">住所情報</h3>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                            <Label htmlFor="postal_code" className="text-gray-900 dark:text-gray-200">郵便番号</Label>
+                            <div className="flex gap-2">
+                                <Input
+                                    id="postal_code"
+                                    name="postal_code"
+                                    value={postalCode}
+                                    onChange={(e) => setPostalCode(e.target.value)}
+                                    placeholder="例: 100-0001"
+                                    className="bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white"
+                                />
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={handlePostalCodeSearch}
+                                    disabled={!postalCode || postalCode.replace(/-/g, "").length < 7}
+                                    className="shrink-0"
+                                >
+                                    住所検索
+                                </Button>
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="prefecture" className="text-gray-900 dark:text-gray-200">都道府県</Label>
+                            <Select
+                                name="prefecture"
+                                value={prefecture}
+                                onValueChange={setPrefecture}
+                            >
+                                <SelectTrigger id="prefecture" className="bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white">
+                                    <SelectValue placeholder="都道府県を選択" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {PREFECTURES.map((pref) => (
+                                        <SelectItem key={pref} value={pref}>
+                                            {pref}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="city" className="text-gray-900 dark:text-gray-200">市区町村</Label>
+                        <Input
+                            id="city"
+                            name="city"
+                            value={city}
+                            onChange={(e) => setCity(e.target.value)}
+                            placeholder="例: 千代田区"
+                            className="bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white"
+                        />
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="address_line1" className="text-gray-900 dark:text-gray-200">丁目・番地</Label>
+                        <Input
+                            id="address_line1"
+                            name="address_line1"
+                            value={addressLine1}
+                            onChange={(e) => setAddressLine1(e.target.value)}
+                            placeholder="例: 千代田1-1-1"
+                            className="bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white"
+                        />
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="address_line2" className="text-gray-900 dark:text-gray-200">建物名・部屋番号</Label>
+                        <Input
+                            id="address_line2"
+                            name="address_line2"
+                            value={addressLine2}
+                            onChange={(e) => setAddressLine2(e.target.value)}
+                            placeholder="例: ○○ビル 3F"
+                            className="bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white"
+                        />
+                    </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                         <Label htmlFor="industry" className="text-gray-900 dark:text-gray-200">業種</Label>
@@ -227,22 +336,6 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
                                 {INDUSTRIES.map((industry) => (
                                     <SelectItem key={industry} value={industry}>
                                         {industry}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label htmlFor="prefecture" className="text-gray-900 dark:text-gray-200">都道府県</Label>
-                        <Select name="prefecture" defaultValue={store.prefecture || undefined}>
-                            <SelectTrigger id="prefecture" className="bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white">
-                                <SelectValue placeholder="都道府県を選択" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {PREFECTURES.map((pref) => (
-                                    <SelectItem key={pref} value={pref}>
-                                        {pref}
                                     </SelectItem>
                                 ))}
                             </SelectContent>

@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/table";
 import { Receipt, Search, Printer, CreditCard, Banknote, Clock, CheckCircle } from "lucide-react";
 import { Table as FloorTable, TableSession } from "@/types/floor";
-import { getTables } from "../floor-settings/actions";
+import { getTables } from "../seats/actions";
 import { getActiveSessions, closeSession } from "../floor/actions";
 
 interface OrderItem {

@@ -6,20 +6,72 @@ import { revalidatePath } from "next/cache";
 
 export async function getActiveSessions() {
     const supabase = await createServerClient();
-    const { data: sessions, error } = await supabase
+
+    // まずセッションを取得
+    const { data: sessions, error: sessionsError } = await supabase
         .from("table_sessions")
-        .select("*, cast_assignments(*, profiles(*)), orders(*)")
+        .select(`*, orders(*)`)
         .is("end_time", null);
 
-    if (error) {
-        console.error("Error fetching sessions:", error);
+    if (sessionsError) {
+        console.error("Error fetching sessions:", sessionsError);
         return [];
     }
 
-    return sessions;
+    // 各セッションのcast_assignmentsを取得
+    const sessionsWithAssignments = await Promise.all(
+        (sessions || []).map(async (session) => {
+            const { data: assignments, error: assignmentsError } = await supabase
+                .from("cast_assignments")
+                .select("*")
+                .eq("table_session_id", session.id);
+
+            if (assignmentsError) {
+                console.error("Error fetching assignments:", assignmentsError);
+                return { ...session, cast_assignments: [] };
+            }
+
+            // 各assignmentのprofilesを取得
+            const assignmentsWithProfiles = await Promise.all(
+                (assignments || []).map(async (assignment) => {
+                    const { data: castProfile } = await supabase
+                        .from("profiles")
+                        .select("*")
+                        .eq("id", assignment.cast_id)
+                        .single();
+
+                    let guestProfile = null;
+                    if (assignment.guest_id) {
+                        if (assignment.guest_id === assignment.cast_id) {
+                            // If it's a guest assignment, use the cast profile (which is the guest profile)
+                            guestProfile = castProfile;
+                        } else {
+                            // If it's a cast assignment linked to a guest, fetch the guest profile
+                            const { data } = await supabase
+                                .from("profiles")
+                                .select("*")
+                                .eq("id", assignment.guest_id)
+                                .single();
+                            guestProfile = data;
+                        }
+                    }
+
+                    return {
+                        ...assignment,
+                        profiles: castProfile,
+                        guest_profile: guestProfile
+                    };
+                })
+            );
+
+            return { ...session, cast_assignments: assignmentsWithProfiles };
+        })
+    );
+
+    return sessionsWithAssignments;
 }
 
-export async function createSession(tableId: string, mainGuestId?: string) {
+export async function createSession(tableId?: string | null, mainGuestId?: string, pricingSystemId?: string) {
     const supabase = await createServerClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Not authenticated");
@@ -36,9 +88,10 @@ export async function createSession(tableId: string, mainGuestId?: string) {
         .from("table_sessions")
         .insert({
             store_id: profile.store_id,
-            table_id: tableId,
+            table_id: tableId || null,
             guest_count: 1,
             main_guest_id: mainGuestId,
+            pricing_system_id: pricingSystemId || null,
             status: 'active'
         })
         .select()
@@ -46,10 +99,20 @@ export async function createSession(tableId: string, mainGuestId?: string) {
 
     if (error) throw error;
     revalidatePath("/app/floor");
+    revalidatePath("/app/slips");
     return data;
 }
 
-export async function assignCast(sessionId: string, castId: string, status: string, gridX?: number, gridY?: number) {
+export async function assignCast(
+    sessionId: string,
+    castId: string,
+    status: string,
+    guestId?: string | null,
+    gridX?: number,
+    gridY?: number,
+    startTime?: string,
+    endTime?: string | null
+) {
     const supabase = await createServerClient();
 
     const { data, error } = await supabase
@@ -57,9 +120,12 @@ export async function assignCast(sessionId: string, castId: string, status: stri
         .insert({
             table_session_id: sessionId,
             cast_id: castId,
+            guest_id: guestId,
             status: status,
             grid_x: gridX,
-            grid_y: gridY
+            grid_y: gridY,
+            start_time: startTime || new Date().toISOString(),
+            end_time: endTime || null
         })
         .select()
         .single();
@@ -145,7 +211,19 @@ export async function removeCastAssignment(assignmentId: string) {
 
     if (error) throw error;
     revalidatePath("/app/floor");
-    revalidatePath("/app/assignments");
+    return { success: true };
+}
+
+export async function updateCastAssignmentStatus(assignmentId: string, status: string) {
+    const supabase = await createServerClient();
+
+    const { error } = await supabase
+        .from("cast_assignments")
+        .update({ status })
+        .eq("id", assignmentId);
+
+    if (error) throw error;
+    revalidatePath("/app/floor");
     return { success: true };
 }
 
@@ -175,6 +253,34 @@ export async function getMenus() {
     }
 
     return menus;
+}
+
+export async function getMenuCategories() {
+    const supabase = await createServerClient();
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    const { data: profile } = await supabase
+        .from("profiles")
+        .select("store_id")
+        .eq("user_id", user.id)
+        .single();
+
+    if (!profile?.store_id) return [];
+
+    const { data: categories, error } = await supabase
+        .from("menu_categories")
+        .select("*")
+        .eq("store_id", profile.store_id)
+        .order("sort_order", { ascending: true });
+
+    if (error) {
+        console.error("Error fetching menu categories:", error);
+        return [];
+    }
+
+    return categories;
 }
 
 export async function getWaitingCasts() {
