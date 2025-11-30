@@ -5,24 +5,34 @@ import type { Database } from "@/types/supabase";
 
 export function ensureEnv(name: string, value: string | undefined): string {
   if (!value) {
-    // Only throw in server context (not during build)
-    if (typeof window === 'undefined' && process.env.NODE_ENV !== 'test') {
-      console.warn(`Supabaseの環境変数 "${name}" が設定されていません`);
-      // Return valid placeholder URLs for build
+    // During build time only, return placeholder
+    if (typeof window === 'undefined' && process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
+      console.warn(`Supabaseの環境変数 "${name}" が設定されていません（ビルド時）`);
       if (name === 'NEXT_PUBLIC_SUPABASE_URL') {
         return 'https://placeholder.supabase.co';
       }
       return 'placeholder-key';
     }
-    throw new Error(
-      `Supabaseの環境変数 "${name}" が設定されていません。NEXT_PUBLIC_SUPABASE_URL と NEXT_PUBLIC_SUPABASE_ANON_KEY を確認してください。`
-    );
+
+    // In development or runtime, throw error
+    const errorMessage = `Supabaseの環境変数 "${name}" が設定されていません。NEXT_PUBLIC_SUPABASE_URL と NEXT_PUBLIC_SUPABASE_ANON_KEY を .env.local ファイルで設定してください。`;
+    console.error(errorMessage);
+    throw new Error(errorMessage);
   }
 
   return value;
 }
 
 export function getSupabaseConfig() {
+  // Debug: Log environment variables on server
+  if (typeof window === 'undefined') {
+    console.log('[supabaseClient] Server environment check:', {
+      hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+      hasKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      urlPreview: process.env.NEXT_PUBLIC_SUPABASE_URL?.substring(0, 30),
+    });
+  }
+
   const supabaseUrl = ensureEnv("NEXT_PUBLIC_SUPABASE_URL", process.env.NEXT_PUBLIC_SUPABASE_URL);
   const supabaseAnonKey = ensureEnv(
     "NEXT_PUBLIC_SUPABASE_ANON_KEY",
