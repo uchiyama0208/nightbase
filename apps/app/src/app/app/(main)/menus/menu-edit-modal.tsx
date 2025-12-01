@@ -224,6 +224,56 @@ export function MenuEditModal({ menu, open, onOpenChange, categories }: MenuEdit
                         />
                     </div>
 
+                    <div className="space-y-4 pt-2">
+                        <div className="space-y-2">
+                            <Label>注文対象</Label>
+                            <div className="flex gap-4">
+                                <div className="flex items-center space-x-2">
+                                    <input
+                                        type="checkbox"
+                                        id="is_for_guest"
+                                        name="is_for_guest"
+                                        defaultChecked={menu ? menu.is_for_guest : true}
+                                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                    />
+                                    <Label htmlFor="is_for_guest" className="font-normal cursor-pointer">ゲスト</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <input
+                                        type="checkbox"
+                                        id="is_for_cast"
+                                        name="is_for_cast"
+                                        defaultChecked={menu ? menu.is_for_cast : true}
+                                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                    />
+                                    <Label htmlFor="is_for_cast" className="font-normal cursor-pointer">キャスト</Label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                            <input
+                                type="checkbox"
+                                id="is_hidden"
+                                name="is_hidden"
+                                defaultChecked={menu ? menu.is_hidden : false}
+                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <Label htmlFor="is_hidden" className="font-normal cursor-pointer">メニュー一覧で非表示にする</Label>
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                            <input
+                                type="checkbox"
+                                id="hide_from_slip"
+                                name="hide_from_slip"
+                                defaultChecked={menu ? menu.hide_from_slip : false}
+                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <Label htmlFor="hide_from_slip" className="font-normal cursor-pointer">伝票で非表示にする</Label>
+                        </div>
+                    </div>
+
                     <DialogFooter className="flex-col sm:flex-col gap-3">
                         <Button type="submit" disabled={isSubmitting} className="h-11 w-full">
                             {isSubmitting ? "保存中..." : "保存"}

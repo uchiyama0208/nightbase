@@ -12,6 +12,7 @@ import { NewSessionModal } from "./new-session-modal";
 import { SessionDetailModal } from "./session-detail-modal";
 import { QuickOrderModal } from "./quick-order-modal";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { SlipDetailModal } from "@/components/slips/slip-detail-modal";
 
 export default function FloorPage() {
     const [tables, setTables] = useState<Table[]>([]);
@@ -21,20 +22,34 @@ export default function FloorPage() {
     const [selectedTable, setSelectedTable] = useState<Table | null>(null);
     const [quickOrderSession, setQuickOrderSession] = useState<TableSession | null>(null);
     const [quickOrderTable, setQuickOrderTable] = useState<Table | null>(null);
+    const [slipSessionId, setSlipSessionId] = useState<string | null>(null);
 
     useEffect(() => {
         loadData();
-        const interval = setInterval(loadData, 30000);
+        const interval = setInterval(() => loadData(), 30000);
         return () => clearInterval(interval);
     }, []);
 
-    const loadData = async () => {
+    const loadData = async (targetSessionId?: string) => {
         const [tablesData, sessionsData] = await Promise.all([
             getTables(),
             getActiveSessions(),
         ]);
         setTables(tablesData);
         setSessions(sessionsData as any);
+
+        // If a target session ID is provided, select it immediately
+        if (targetSessionId) {
+            const session = (sessionsData as any[]).find((s) => s.id === targetSessionId);
+            if (session) {
+                const table = tablesData.find((t) => t.id === session.table_id);
+                if (table) {
+                    setSelectedSession(session as TableSession);
+                    setSelectedTable(table);
+                }
+            }
+            return;
+        }
 
         // Ensure the currently selected session/table are refreshed with latest data
         setSelectedSession((prev) => {
@@ -198,17 +213,21 @@ export default function FloorPage() {
                 isOpen={isNewSessionOpen}
                 onClose={() => setIsNewSessionOpen(false)}
                 tables={tables}
-                onSessionCreated={loadData}
+                onSessionCreated={(sessionId) => loadData(sessionId)}
             />
 
             {
                 selectedSession && selectedTable && (
                     <SessionDetailModal
-                        isOpen={!!selectedSession}
+                        isOpen={!!selectedSession && !slipSessionId}
                         onClose={() => setSelectedSession(null)}
                         session={selectedSession}
                         table={selectedTable}
-                        onUpdate={loadData}
+                        onUpdate={() => loadData(selectedSession.id)}
+                        onOpenSlip={(sessionId) => {
+                            // 伝票モーダルを開く（セッション詳細モーダルは閉じない）
+                            setSlipSessionId(sessionId);
+                        }}
                     />
                 )
             }
@@ -229,6 +248,14 @@ export default function FloorPage() {
                     />
                 )
             }
+
+            <SlipDetailModal
+                isOpen={!!slipSessionId}
+                onClose={() => setSlipSessionId(null)}
+                sessionId={slipSessionId}
+                onUpdate={loadData}
+                editable={true}
+            />
         </div >
     );
 }

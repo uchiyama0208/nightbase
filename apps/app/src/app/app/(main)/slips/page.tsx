@@ -5,33 +5,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { useToast } from "@/components/ui/use-toast";
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogFooter,
-} from "@/components/ui/dialog";
-import {
-    Table as UITable,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
-import { Receipt, Search, Printer, CreditCard, Banknote, Clock, CheckCircle, Plus } from "lucide-react";
+import { Search, Clock, Plus } from "lucide-react";
 import { Table as FloorTable, TableSession } from "@/types/floor";
 import { getTables } from "../seats/actions";
-import { getActiveSessions, closeSession, createSession } from "../floor/actions";
+import { getActiveSessions } from "../floor/actions";
 import { NewSessionModal } from "../floor/new-session-modal";
+import { SlipDetailModal } from "@/components/slips/slip-detail-modal";
 
 interface OrderItem {
     id: string;
     name: string;
     price: number;
     quantity: number;
+    castName?: string;
 }
 
 interface Slip {
@@ -46,18 +32,16 @@ interface Slip {
     serviceCharge: number;
     total: number;
     status: "open" | "closed";
+    pricingSystemId: string | null;
 }
 
 export default function SlipsPage() {
     const [tables, setTables] = useState<FloorTable[]>([]);
     const [sessions, setSessions] = useState<TableSession[]>([]);
     const [slips, setSlips] = useState<Slip[]>([]);
-    const [selectedSlip, setSelectedSlip] = useState<Slip | null>(null);
-    const [isDetailOpen, setIsDetailOpen] = useState(false);
-    const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+    const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
     const [isNewSessionOpen, setIsNewSessionOpen] = useState(false);
-    const { toast } = useToast();
 
     useEffect(() => {
         loadData();
@@ -73,15 +57,19 @@ export default function SlipsPage() {
         setTables(tablesData);
         setSessions(sessionsData as any);
 
-        // Generate slips from sessions
-        // TODO: Load actual order data from API
+        // Generate slips from sessions with actual order data
         const generatedSlips: Slip[] = sessionsData.map((session: any) => {
             const table = tablesData.find((t: FloorTable) => t.id === session.table_id);
-            // Placeholder orders for demo
-            const orders: OrderItem[] = [
-                { id: "1", name: "セット料金", price: 5000, quantity: session.guest_count },
-                { id: "2", name: "ドリンク", price: 800, quantity: 3 },
-            ];
+
+            // Use actual orders from session, or empty array if none
+            const orders: OrderItem[] = (session.orders || []).map((order: any) => ({
+                id: order.id,
+                name: order.item_name || order.menus?.name || order.menu?.name || "不明",
+                price: order.amount || 0,
+                quantity: order.quantity || 1,
+                castName: order.profiles?.display_name,
+            }));
+
             const subtotal = orders.reduce((sum, item) => sum + item.price * item.quantity, 0);
             const tax = Math.floor(subtotal * 0.1);
             const serviceCharge = Math.floor(subtotal * 0.2);
@@ -91,13 +79,14 @@ export default function SlipsPage() {
                 tableId: session.table_id,
                 tableName: table?.name || "不明",
                 guestCount: session.guest_count,
-                startedAt: session.started_at,
+                startedAt: session.start_time,
                 orders,
                 subtotal,
                 tax,
                 serviceCharge,
                 total: subtotal + tax + serviceCharge,
                 status: "open" as const,
+                pricingSystemId: session.pricing_system_id,
             };
         });
 
@@ -105,7 +94,10 @@ export default function SlipsPage() {
     };
 
     const formatTime = (dateString: string) => {
-        return new Date(dateString).toLocaleTimeString("ja-JP", {
+        if (!dateString) return "--:--";
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return "--:--";
+        return date.toLocaleTimeString("ja-JP", {
             hour: "2-digit",
             minute: "2-digit",
             timeZone: "Asia/Tokyo",
@@ -120,7 +112,9 @@ export default function SlipsPage() {
     };
 
     const calculateDuration = (startedAt: string) => {
+        if (!startedAt) return "--時間--分";
         const start = new Date(startedAt);
+        if (isNaN(start.getTime())) return "--時間--分";
         const now = new Date();
         const diffMs = now.getTime() - start.getTime();
         const hours = Math.floor(diffMs / (1000 * 60 * 60));
@@ -129,30 +123,7 @@ export default function SlipsPage() {
     };
 
     const handleViewDetail = (slip: Slip) => {
-        setSelectedSlip(slip);
-        setIsDetailOpen(true);
-    };
-
-    const handlePayment = (slip: Slip) => {
-        setSelectedSlip(slip);
-        setIsPaymentOpen(true);
-    };
-
-    const handleCloseSession = async (paymentMethod: "cash" | "card") => {
-        if (!selectedSlip) return;
-
-        try {
-            await closeSession(selectedSlip.sessionId);
-            await loadData();
-            setIsPaymentOpen(false);
-            setIsDetailOpen(false);
-            toast({
-                title: "会計が完了しました",
-                description: `${paymentMethod === "cash" ? "現金" : "カード"}で¥${selectedSlip.total.toLocaleString()}を精算しました`,
-            });
-        } catch (error) {
-            toast({ title: "会計処理に失敗しました" });
-        }
+        setSelectedSessionId(slip.sessionId);
     };
 
     const filteredSlips = slips.filter(slip =>
@@ -182,7 +153,11 @@ export default function SlipsPage() {
             {/* Active Slips */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {filteredSlips.map(slip => (
-                    <Card key={slip.sessionId} className="hover:shadow-md transition-shadow">
+                    <Card
+                        key={slip.sessionId}
+                        className="hover:shadow-md transition-shadow cursor-pointer"
+                        onClick={() => handleViewDetail(slip)}
+                    >
                         <CardHeader className="pb-2">
                             <div className="flex justify-between items-start">
                                 <div>
@@ -206,23 +181,7 @@ export default function SlipsPage() {
                                 <span className="text-muted-foreground">合計</span>
                                 <span className="text-xl font-bold">¥{slip.total.toLocaleString()}</span>
                             </div>
-                            <div className="flex gap-2">
-                                <Button
-                                    variant="outline"
-                                    className="flex-1"
-                                    onClick={() => handleViewDetail(slip)}
-                                >
-                                    <Receipt className="h-4 w-4 mr-2" />
-                                    詳細
-                                </Button>
-                                <Button
-                                    className="flex-1"
-                                    onClick={() => handlePayment(slip)}
-                                >
-                                    <CreditCard className="h-4 w-4 mr-2" />
-                                    会計
-                                </Button>
-                            </div>
+
                         </CardContent>
                     </Card>
                 ))}
@@ -236,110 +195,14 @@ export default function SlipsPage() {
                 </Card>
             )}
 
-            {/* Detail Dialog */}
-            <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-                <DialogContent className="max-w-md">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <Receipt className="h-5 w-5" />
-                            {selectedSlip?.tableName} - 伝票詳細
-                        </DialogTitle>
-                    </DialogHeader>
-                    {selectedSlip && (
-                        <div className="space-y-4">
-                            <div className="text-sm text-muted-foreground">
-                                {formatDate(selectedSlip.startedAt)} {formatTime(selectedSlip.startedAt)}〜
-                                <span className="ml-2">({calculateDuration(selectedSlip.startedAt)})</span>
-                            </div>
-
-                            <UITable>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>商品</TableHead>
-                                        <TableHead className="text-right">数量</TableHead>
-                                        <TableHead className="text-right">金額</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {selectedSlip.orders.map(order => (
-                                        <TableRow key={order.id}>
-                                            <TableCell>{order.name}</TableCell>
-                                            <TableCell className="text-right">{order.quantity}</TableCell>
-                                            <TableCell className="text-right">
-                                                ¥{(order.price * order.quantity).toLocaleString()}
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </UITable>
-
-                            <div className="border-t pt-4 space-y-2">
-                                <div className="flex justify-between text-sm">
-                                    <span>小計</span>
-                                    <span>¥{selectedSlip.subtotal.toLocaleString()}</span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                    <span>サービス料 (20%)</span>
-                                    <span>¥{selectedSlip.serviceCharge.toLocaleString()}</span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                    <span>消費税 (10%)</span>
-                                    <span>¥{selectedSlip.tax.toLocaleString()}</span>
-                                </div>
-                                <div className="flex justify-between font-bold text-lg border-t pt-2">
-                                    <span>合計</span>
-                                    <span>¥{selectedSlip.total.toLocaleString()}</span>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsDetailOpen(false)}>
-                            閉じる
-                        </Button>
-                        <Button onClick={() => window.print()}>
-                            <Printer className="h-4 w-4 mr-2" />
-                            印刷
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* Payment Dialog */}
-            <Dialog open={isPaymentOpen} onOpenChange={setIsPaymentOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>会計処理</DialogTitle>
-                    </DialogHeader>
-                    {selectedSlip && (
-                        <div className="space-y-6">
-                            <div className="text-center">
-                                <p className="text-sm text-muted-foreground">{selectedSlip.tableName}</p>
-                                <p className="text-3xl font-bold mt-2">¥{selectedSlip.total.toLocaleString()}</p>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <Button
-                                    variant="outline"
-                                    className="h-24 flex flex-col gap-2"
-                                    onClick={() => handleCloseSession("cash")}
-                                >
-                                    <Banknote className="h-8 w-8" />
-                                    <span>現金</span>
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    className="h-24 flex flex-col gap-2"
-                                    onClick={() => handleCloseSession("card")}
-                                >
-                                    <CreditCard className="h-8 w-8" />
-                                    <span>カード</span>
-                                </Button>
-                            </div>
-                        </div>
-                    )}
-                </DialogContent>
-            </Dialog>
+            {/* Slip Detail Modal */}
+            <SlipDetailModal
+                isOpen={!!selectedSessionId}
+                onClose={() => setSelectedSessionId(null)}
+                sessionId={selectedSessionId}
+                onUpdate={loadData}
+                editable={true}
+            />
 
             {/* New Session Modal */}
             <NewSessionModal
@@ -348,6 +211,6 @@ export default function SlipsPage() {
                 tables={tables.filter(t => !sessions.some(s => s.table_id === t.id))}
                 onSessionCreated={loadData}
             />
-        </div>
+                    </div>
     );
 }

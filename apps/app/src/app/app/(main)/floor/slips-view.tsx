@@ -175,7 +175,11 @@ export function SlipsView() {
             {/* Active Slips */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {filteredSlips.map(slip => (
-                    <Card key={slip.sessionId} className="hover:shadow-md transition-shadow">
+                    <Card
+                        key={slip.sessionId}
+                        className="hover:shadow-md transition-shadow cursor-pointer"
+                        onClick={() => handleViewDetail(slip)}
+                    >
                         <CardHeader className="pb-2">
                             <div className="flex justify-between items-start">
                                 <div>
@@ -199,23 +203,7 @@ export function SlipsView() {
                                 <span className="text-muted-foreground">合計</span>
                                 <span className="text-xl font-bold">¥{slip.total.toLocaleString()}</span>
                             </div>
-                            <div className="flex gap-2">
-                                <Button
-                                    variant="outline"
-                                    className="flex-1"
-                                    onClick={() => handleViewDetail(slip)}
-                                >
-                                    <Receipt className="h-4 w-4 mr-2" />
-                                    詳細
-                                </Button>
-                                <Button
-                                    className="flex-1"
-                                    onClick={() => handlePayment(slip)}
-                                >
-                                    <CreditCard className="h-4 w-4 mr-2" />
-                                    会計
-                                </Button>
-                            </div>
+
                         </CardContent>
                     </Card>
                 ))}

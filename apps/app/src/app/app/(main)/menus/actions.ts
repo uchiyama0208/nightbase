@@ -17,6 +17,10 @@ export interface Menu {
     name: string;
     category_id: string;
     price: number;
+    is_for_guest: boolean;
+    is_for_cast: boolean;
+    is_hidden: boolean;
+    hide_from_slip: boolean;
     created_at: string;
     updated_at: string;
     category?: MenuCategory; // Joined category data
@@ -168,17 +172,25 @@ export async function createMenu(formData: FormData) {
     const name = formData.get("name") as string;
     const categoryId = formData.get("category_id") as string;
     const price = parseInt(formData.get("price") as string);
+    const isForGuest = formData.get("is_for_guest") === "on";
+    const isForCast = formData.get("is_for_cast") === "on";
+    const isHidden = formData.get("is_hidden") === "on";
+    const hideFromSlip = formData.get("hide_from_slip") === "on";
 
     if (!name || !categoryId || isNaN(price)) {
         throw new Error("Invalid input");
     }
 
-    const { error } = await supabase.from("menus").insert({
+    const { data, error } = await supabase.from("menus").insert({
         store_id: profile.store_id,
         name,
         category_id: categoryId,
         price,
-    });
+        is_for_guest: isForGuest,
+        is_for_cast: isForCast,
+        is_hidden: isHidden,
+        hide_from_slip: hideFromSlip,
+    }).select().single();
 
     if (error) {
         console.error("Error creating menu:", error);
@@ -186,7 +198,7 @@ export async function createMenu(formData: FormData) {
     }
 
     revalidatePath("/app/menus");
-    return { success: true };
+    return { success: true, menu: data };
 }
 
 export async function updateMenu(formData: FormData) {
@@ -197,6 +209,10 @@ export async function updateMenu(formData: FormData) {
     const name = formData.get("name") as string;
     const categoryId = formData.get("category_id") as string;
     const price = parseInt(formData.get("price") as string);
+    const isForGuest = formData.get("is_for_guest") === "on";
+    const isForCast = formData.get("is_for_cast") === "on";
+    const isHidden = formData.get("is_hidden") === "on";
+    const hideFromSlip = formData.get("hide_from_slip") === "on";
 
     if (!id || !name || !categoryId || isNaN(price)) {
         throw new Error("Invalid input");
@@ -208,6 +224,10 @@ export async function updateMenu(formData: FormData) {
             name,
             category_id: categoryId,
             price,
+            is_for_guest: isForGuest,
+            is_for_cast: isForCast,
+            is_hidden: isHidden,
+            hide_from_slip: hideFromSlip,
             updated_at: new Date().toISOString(),
         })
         .eq("id", id);

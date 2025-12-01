@@ -18,6 +18,7 @@ interface SeatSelectionModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSeatSelect: (rowIndex: number, colIndex: number) => void;
+    onSkip?: () => void;
     table: Table;
     assignments: any[];
     selectedProfile: {
@@ -69,10 +70,11 @@ function ScalableGridWrapper({
     return (
         <div
             ref={containerRef}
-            className="w-full flex justify-center"
+            className="w-full flex justify-center overflow-hidden"
             style={{
                 height: height ? `${height}px` : 'auto',
-                minHeight: '300px' // Ensure minimum visibility
+                minHeight: '300px',
+                maxHeight: '60vh'
             }}
         >
             <div
@@ -98,6 +100,7 @@ export function SeatSelectionModal({
     isOpen,
     onClose,
     onSeatSelect,
+    onSkip,
     table,
     assignments,
     selectedProfile,
@@ -107,12 +110,18 @@ export function SeatSelectionModal({
         onSeatSelect(rowIndex, colIndex);
     };
 
+    const handleSkip = () => {
+        if (onSkip) {
+            onSkip();
+        }
+    };
+
     const title = mode === "guest" ? "席を選択" : "席を選択";
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader className="mb-3 sm:mb-4 flex flex-row items-center justify-between gap-2 relative">
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-3 sm:p-4 md:p-5">
+                <DialogHeader className="mb-3 sm:mb-4 flex flex-row items-center justify-between gap-2 relative flex-shrink-0">
                     <button
                         type="button"
                         onClick={onClose}
@@ -130,9 +139,9 @@ export function SeatSelectionModal({
                     <div className="h-8 w-8" />
                 </DialogHeader>
 
-                <div className="space-y-4 py-4">
+                <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
                     {/* Selected Profile Info */}
-                    <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800 flex-shrink-0 mb-4">
                         <div className="flex items-center gap-3">
                             <Avatar className="h-10 w-10">
                                 <AvatarImage src={selectedProfile.avatar_url} />
@@ -151,14 +160,29 @@ export function SeatSelectionModal({
                         </div>
                     </div>
 
-                    {/* Grid */}
-                    <div className="w-full flex justify-center p-2">
-                        <ScalableGridWrapper
-                            grid={table.layout_data?.grid || []}
-                            assignments={assignments}
-                            onCellClick={handleCellClick}
-                        />
+                    {/* Grid Container with Scroll */}
+                    <div className="flex-1 min-h-0 overflow-y-auto mb-4">
+                        <div className="w-full flex justify-center p-2">
+                            <ScalableGridWrapper
+                                grid={table.layout_data?.grid || []}
+                                assignments={assignments}
+                                onCellClick={handleCellClick}
+                            />
+                        </div>
                     </div>
+
+                    {/* Skip Button - Always visible at bottom */}
+                    {onSkip && (
+                        <div className="flex-shrink-0 pt-2 border-t">
+                            <Button
+                                variant="outline"
+                                className="w-full"
+                                onClick={handleSkip}
+                            >
+                                スキップ
+                            </Button>
+                        </div>
+                    )}
                 </div>
             </DialogContent>
         </Dialog>

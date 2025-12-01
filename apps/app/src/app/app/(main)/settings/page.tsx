@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Store, Clock, ChevronRight, Upload } from "lucide-react";
+import { Store, Clock, ChevronRight, Upload, LayoutGrid } from "lucide-react";
 import { createServerClient } from "@/lib/supabaseServerClient";
 import { DeleteStoreModal } from "./delete-store-modal";
 
@@ -69,6 +69,16 @@ export default async function SettingsPage() {
                                 <Clock className="h-5 w-5 text-green-600 dark:text-green-400" />
                             </div>
                             <span className="font-medium text-gray-900 dark:text-white">タイムカード設定</span>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-gray-400" />
+                    </Link>
+
+                    <Link href="/app/settings/floor" className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        <div className="flex items-center space-x-4">
+                            <div className="bg-purple-100 dark:bg-purple-900 p-2 rounded-md">
+                                <LayoutGrid className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                            </div>
+                            <span className="font-medium text-gray-900 dark:text-white">フロア設定</span>
                         </div>
                         <ChevronRight className="h-5 w-5 text-gray-400" />
                     </Link>

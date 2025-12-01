@@ -15,7 +15,7 @@ interface NewSessionModalProps {
     isOpen: boolean;
     onClose: () => void;
     tables: Table[];
-    onSessionCreated: () => void;
+    onSessionCreated: (sessionId?: string) => void;
 }
 
 export function NewSessionModal({ isOpen, onClose, tables, onSessionCreated }: NewSessionModalProps) {
@@ -51,9 +51,9 @@ export function NewSessionModal({ isOpen, onClose, tables, onSessionCreated }: N
     const handleCreate = async (tableId?: string | null) => {
         setIsLoading(true);
         try {
-            await createSession(tableId || null, undefined, selectedPricingSystemId || undefined);
+            const session = await createSession(tableId || null, undefined, selectedPricingSystemId || undefined);
             toast({ title: "セッションを開始しました" });
-            onSessionCreated();
+            onSessionCreated(session.id);
             onClose();
             // Reset form
             setSelectedTableId("");
@@ -97,11 +97,10 @@ export function NewSessionModal({ isOpen, onClose, tables, onSessionCreated }: N
                             <button
                                 type="button"
                                 onClick={() => setSelectedTypeId(null)}
-                                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                                    selectedTypeId === null
-                                        ? "bg-blue-500 text-white"
-                                        : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
-                                }`}
+                                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${selectedTypeId === null
+                                    ? "bg-blue-500 text-white"
+                                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+                                    }`}
                             >
                                 すべて
                             </button>
@@ -110,11 +109,10 @@ export function NewSessionModal({ isOpen, onClose, tables, onSessionCreated }: N
                                     key={type.id}
                                     type="button"
                                     onClick={() => setSelectedTypeId(type.id)}
-                                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                                        selectedTypeId === type.id
-                                            ? "bg-blue-500 text-white"
-                                            : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
-                                    }`}
+                                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${selectedTypeId === type.id
+                                        ? "bg-blue-500 text-white"
+                                        : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+                                        }`}
                                 >
                                     {type.name}
                                 </button>
@@ -122,11 +120,10 @@ export function NewSessionModal({ isOpen, onClose, tables, onSessionCreated }: N
                             <button
                                 type="button"
                                 onClick={() => setSelectedTypeId("none")}
-                                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                                    selectedTypeId === "none"
-                                        ? "bg-blue-500 text-white"
-                                        : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
-                                }`}
+                                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${selectedTypeId === "none"
+                                    ? "bg-blue-500 text-white"
+                                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+                                    }`}
                             >
                                 未分類
                             </button>

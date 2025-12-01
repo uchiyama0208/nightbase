@@ -15,7 +15,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             ? {
                 onClick: (event: React.MouseEvent<HTMLInputElement>) => {
                     onClick?.(event);
-                    if (shouldOpenPicker) {
+                    if (shouldOpenPicker && !props.readOnly && !props.disabled) {
                         event.currentTarget.showPicker?.();
                     }
                 },

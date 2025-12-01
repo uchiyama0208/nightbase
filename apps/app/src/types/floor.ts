@@ -109,7 +109,9 @@ export interface PricingSystem {
     extension_fee: number;
     extension_duration_minutes: number;
     nomination_fee: number;
+    nomination_set_duration_minutes: number;
     companion_fee: number;
+    companion_set_duration_minutes: number;
     service_rate: number;
     tax_rate: number;
     is_default: boolean;
