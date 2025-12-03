@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { createClient } from "@/utils/supabase/client";
+import { createBrowserClient } from "@/lib/supabaseClient";
 import { assignCast } from "./actions";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -25,7 +25,7 @@ export function CastAssignmentModal({ sessionId, open, onOpenChange, onAssign }:
     }, [open]);
 
     const loadCasts = async () => {
-        const supabase = createClient();
+        const supabase = createBrowserClient();
         // Fetch active casts (attendance logic needed here, fetching all for now)
         const { data } = await supabase
             .from("profiles")
@@ -43,7 +43,7 @@ export function CastAssignmentModal({ sessionId, open, onOpenChange, onAssign }:
             onOpenChange(false);
             toast({ title: "キャストを指名しました" });
         } catch (error) {
-            toast({ title: "エラーが発生しました", variant: "destructive" });
+            toast({ title: "エラーが発生しました" });
         }
     };
 

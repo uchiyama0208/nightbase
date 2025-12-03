@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Table, TableType } from "@/types/floor";
+import { Table, TableType, PricingSystem } from "@/types/floor";
 import { getTables, createTable, updateTable, deleteTable, getTableTypes } from "./actions";
+import { getPricingSystems } from "@/app/app/(main)/pricing-systems/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,6 +51,7 @@ function GridEditor({ grid, onChange }: { grid: boolean[][]; onChange: (grid: bo
 export default function SeatsEditorPage() {
     const [tables, setTables] = useState<Table[]>([]);
     const [tableTypes, setTableTypes] = useState<TableType[]>([]);
+    const [pricingSystems, setPricingSystems] = useState<PricingSystem[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isTypeModalOpen, setIsTypeModalOpen] = useState(false);
@@ -60,6 +62,7 @@ export default function SeatsEditorPage() {
     const [formData, setFormData] = useState({
         name: "",
         type_id: "" as string | null,
+        pricing_system_id: "" as string | null,
         grid: Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(false)),
     });
 
@@ -68,12 +71,14 @@ export default function SeatsEditorPage() {
     }, []);
 
     const loadData = async () => {
-        const [tablesData, typesData] = await Promise.all([
+        const [tablesData, typesData, pricingSystemsData] = await Promise.all([
             getTables(),
-            getTableTypes()
+            getTableTypes(),
+            getPricingSystems()
         ]);
         setTables(tablesData);
         setTableTypes(typesData as TableType[]);
+        setPricingSystems(pricingSystemsData);
     };
 
     const loadTables = async () => {
@@ -88,13 +93,17 @@ export default function SeatsEditorPage() {
             setFormData({
                 name: table.name,
                 type_id: table.type_id || "",
+                pricing_system_id: table.pricing_system_id || "",
                 grid: grid,
             });
         } else {
             setEditingTable(null);
+            // デフォルトの料金システムを取得
+            const defaultPricingSystem = pricingSystems.find(ps => ps.is_default);
             setFormData({
                 name: "",
                 type_id: "",
+                pricing_system_id: defaultPricingSystem?.id || "",
                 grid: Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(false)),
             });
         }
@@ -113,6 +122,7 @@ export default function SeatsEditorPage() {
                 await updateTable(editingTable.id, {
                     name: formData.name,
                     type_id: formData.type_id || null,
+                    pricing_system_id: formData.pricing_system_id || null,
                     layout_data: layoutData,
                 });
                 toast({ title: "テーブルを更新しました" });
@@ -120,6 +130,7 @@ export default function SeatsEditorPage() {
                 await createTable({
                     name: formData.name,
                     type_id: formData.type_id || null,
+                    pricing_system_id: formData.pricing_system_id || null,
                     x: 100,
                     y: 100,
                     width: 120,
@@ -315,6 +326,31 @@ export default function SeatsEditorPage() {
                                 {tableTypes.map((type) => (
                                     <option key={type.id} value={type.id}>
                                         {type.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <Label>料金システム</Label>
+                                <button
+                                    type="button"
+                                    onClick={() => window.open('/app/pricing-systems', '_blank')}
+                                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                                >
+                                    <Plus className="h-3 w-3" />
+                                    料金システム追加
+                                </button>
+                            </div>
+                            <select
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base"
+                                value={formData.pricing_system_id || ""}
+                                onChange={(e) => setFormData((prev) => ({ ...prev, pricing_system_id: e.target.value || null }))}
+                            >
+                                <option value="">デフォルト</option>
+                                {pricingSystems.map((system) => (
+                                    <option key={system.id} value={system.id}>
+                                        {system.name}
                                     </option>
                                 ))}
                             </select>

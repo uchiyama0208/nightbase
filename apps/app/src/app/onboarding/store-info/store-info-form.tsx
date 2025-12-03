@@ -9,39 +9,42 @@ import { Label } from "@/components/ui/label";
 import {
     Select,
     SelectContent,
+    SelectGroup,
     SelectItem,
+    SelectLabel,
+    SelectSeparator,
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { useRouter } from "next/navigation";
 import { createStoreAndLink } from "../actions";
 
 const INDUSTRIES = [
     "バー",
-    "ガールズバー",
     "スナック",
-    "キャバクラ",
-    "ホストクラブ",
+    "ガールズバー",
     "ラウンジ",
+    "キャバクラ",
     "クラブ",
+    "ホストクラブ",
     "パブ",
     "コンカフェ",
     "メイドカフェ",
-    "セクキャバ",
-    "マッスルバー",
     "ボーイズバー",
     "オカマバー",
+    "セクキャバ",
+    "マッスルバー",
     "その他",
 ];
 
-const PREFECTURES = [
-    "北海道", "青森県", "岩手県", "宮城県", "秋田県", "山形県", "福島県",
-    "茨城県", "栃木県", "群馬県", "埼玉県", "千葉県", "東京都", "神奈川県",
-    "新潟県", "富山県", "石川県", "福井県", "山梨県", "長野県", "岐阜県",
-    "静岡県", "愛知県", "三重県", "滋賀県", "京都府", "大阪府", "兵庫県",
-    "奈良県", "和歌山県", "鳥取県", "島根県", "岡山県", "広島県", "山口県",
-    "徳島県", "香川県", "愛媛県", "高知県", "福岡県", "佐賀県", "長崎県",
-    "熊本県", "大分県", "宮崎県", "鹿児島県", "沖縄県",
+const PREFECTURE_REGIONS = [
+    { region: "北海道", prefectures: ["北海道"] },
+    { region: "東北", prefectures: ["青森県", "岩手県", "宮城県", "秋田県", "山形県", "福島県"] },
+    { region: "関東", prefectures: ["茨城県", "栃木県", "群馬県", "埼玉県", "千葉県", "東京都", "神奈川県"] },
+    { region: "中部", prefectures: ["新潟県", "富山県", "石川県", "福井県", "山梨県", "長野県", "岐阜県", "静岡県", "愛知県"] },
+    { region: "近畿", prefectures: ["三重県", "滋賀県", "京都府", "大阪府", "兵庫県", "奈良県", "和歌山県"] },
+    { region: "中国", prefectures: ["鳥取県", "島根県", "岡山県", "広島県", "山口県"] },
+    { region: "四国", prefectures: ["徳島県", "香川県", "愛媛県", "高知県"] },
+    { region: "九州・沖縄", prefectures: ["福岡県", "佐賀県", "長崎県", "熊本県", "大分県", "宮崎県", "鹿児島県", "沖縄県"] },
 ];
 
 const DAYS_OF_WEEK = [
@@ -67,13 +70,14 @@ const REFERRAL_SOURCES = [
 ];
 
 export function StoreInfoForm() {
-    const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [closedDays, setClosedDays] = useState<string[]>([]);
+    const [error, setError] = useState<string | null>(null);
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setIsSubmitting(true);
+        setError(null);
 
         const storeFormData = new FormData(e.currentTarget);
 
@@ -85,9 +89,10 @@ export function StoreInfoForm() {
         const result = await createStoreAndLink(storeFormData);
 
         if (result.success) {
-            router.push("/app/dashboard");
+            // Use window.location for a full page reload to ensure fresh data
+            window.location.href = "/app/dashboard";
         } else {
-            alert(`エラー: ${result.error}`);
+            setError(result.error || "店舗の作成に失敗しました");
             setIsSubmitting(false);
         }
     };
@@ -144,10 +149,16 @@ export function StoreInfoForm() {
                                     <SelectValue placeholder="都道府県を選択" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {PREFECTURES.map((pref) => (
-                                        <SelectItem key={pref} value={pref}>
-                                            {pref}
-                                        </SelectItem>
+                                    {PREFECTURE_REGIONS.map((group, index) => (
+                                        <SelectGroup key={group.region}>
+                                            {index > 0 && <SelectSeparator className="my-1" />}
+                                            <SelectLabel className="text-xs font-bold text-primary bg-primary/5 py-2 px-3 -mx-1 rounded">{group.region}</SelectLabel>
+                                            {group.prefectures.map((pref) => (
+                                                <SelectItem key={pref} value={pref}>
+                                                    {pref}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectGroup>
                                     ))}
                                 </SelectContent>
                             </Select>
@@ -234,7 +245,12 @@ export function StoreInfoForm() {
                         </div>
                     </div>
 
-                    <div className="pt-4 border-t">
+                    <div className="pt-4 border-t space-y-3">
+                        {error && (
+                            <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+                            </div>
+                        )}
                         <Button type="submit" className="w-full" disabled={isSubmitting}>
                             {isSubmitting ? "処理中..." : "登録完了"}
                         </Button>

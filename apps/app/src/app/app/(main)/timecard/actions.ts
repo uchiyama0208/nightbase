@@ -3,6 +3,16 @@
 import { createServerClient } from "@/lib/supabaseServerClient";
 import { revalidatePath } from "next/cache";
 
+// Helper to get JST date string (YYYY-MM-DD)
+function getJSTDateString(date: Date = new Date()): string {
+    return date.toLocaleDateString("ja-JP", {
+        timeZone: "Asia/Tokyo",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+    }).replace(/\//g, "-");
+}
+
 // Helper function to round time based on settings
 function roundTime(date: Date, method: string, minutes: number): Date {
     const rounded = new Date(date);
@@ -51,8 +61,7 @@ export async function clockIn(pickupRequired?: boolean, pickupDestination?: stri
 
     const now = new Date();
     // Use JST for work_date
-    const jstDate = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-    const workDate = jstDate.toISOString().split("T")[0]; // YYYY-MM-DD
+    const workDate = getJSTDateString(now);
 
     // Calculate scheduled start time
     const store = profile?.stores as any;
@@ -360,9 +369,7 @@ export async function getTimecardData() {
     const showBreakColumns = store ? (store.show_break_columns ?? false) : false;
 
     // Get today's latest time card (use JST)
-    const now = new Date();
-    const jstDate = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-    const today = jstDate.toISOString().split("T")[0];
+    const today = getJSTDateString();
     const latestTimeCard = timeCards?.find((card) => card.work_date === today) || null;
 
     // Fetch pickup history

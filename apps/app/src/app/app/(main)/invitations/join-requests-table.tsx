@@ -11,8 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Search } from "lucide-react";
 import { JoinRequestModal } from "./join-request-modal";
-import { format } from "date-fns";
-import { ja } from "date-fns/locale";
+import { formatJSTDateTime } from "@/lib/utils";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
 
@@ -162,7 +161,7 @@ export function JoinRequestsTable({ requests: initialRequests }: JoinRequestsTab
                                 >
                                     <TableCell className="font-medium text-center w-1/2">{req.real_name}</TableCell>
                                     <TableCell className="text-sm text-gray-500 text-center w-1/2">
-                                        {format(new Date(req.created_at), "yyyy/MM/dd HH:mm", { locale: ja })}
+                                        {formatJSTDateTime(req.created_at)}
                                     </TableCell>
                                 </TableRow>
                             ))

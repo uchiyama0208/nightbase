@@ -19,8 +19,7 @@ import { MenuEditModal } from "@/app/app/(main)/menus/menu-edit-modal";
 import { useToast } from "@/components/ui/use-toast";
 import { TableSession } from "@/types/floor";
 import { Table } from "@/types/floor";
-import { format } from "date-fns";
-import { ja } from "date-fns/locale";
+import { formatTime } from "./utils/format";
 
 interface QuickOrderModalProps {
     session: TableSession;
@@ -187,7 +186,7 @@ export function QuickOrderModal({ session, table, open, onOpenChange, onOrderCom
                 addToCart((order as any).menu_id);
                 toast({ title: "カートに追加しました" });
             } else {
-                toast({ title: "このメニューは現在利用できません", variant: "destructive" });
+                toast({ title: "このメニューは現在利用できません" });
             }
         } else {
             // It's a temporary item
@@ -632,7 +631,7 @@ export function QuickOrderModal({ session, table, open, onOpenChange, onOrderCom
                                                     <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
                                                         <span className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
                                                             <Clock className="h-3 w-3" />
-                                                            {format(new Date(order.created_at), "HH:mm", { locale: ja })}
+                                                            {formatTime(order.created_at)}
                                                         </span>
 
                                                         {order.cast ? (

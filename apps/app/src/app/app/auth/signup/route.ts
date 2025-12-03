@@ -1,5 +1,4 @@
 import { createServerClient } from "@/lib/supabaseServerClient";
-import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -12,54 +11,27 @@ export async function POST(request: Request) {
     // Use email local part as default display name
     const defaultDisplayName = email.split("@")[0];
 
-    // Get Supabase URL and service role key
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!supabaseUrl || !serviceRoleKey) {
-        console.error("Missing Supabase configuration");
-        return NextResponse.redirect(
-            `${requestUrl.origin}/signup?message=${encodeURIComponent("サーバー設定エラーが発生しました。")}`,
-            { status: 301 }
-        );
-    }
-
-    console.log("=== EMAIL SIGNUP DEBUG ===");
-    console.log("Email:", email);
-    console.log("Supabase URL:", supabaseUrl);
-    console.log("=========================");
-
-    // Use Admin API directly to bypass potential client-side issues
-    const createUserResponse = await fetch(`${supabaseUrl}/auth/v1/admin/users`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "apikey": serviceRoleKey,
-            "Authorization": `Bearer ${serviceRoleKey}`,
-        },
-        body: JSON.stringify({
-            email,
-            password,
-            email_confirm: true, // Skip email verification for development
-            user_metadata: {
+    // Use Supabase Auth signUp - this will send confirmation email via Resend SMTP
+    const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+            emailRedirectTo: `${requestUrl.origin}/auth/callback`,
+            data: {
                 display_name: defaultDisplayName,
                 role: "guest",
             },
-        }),
+        },
     });
 
-    if (!createUserResponse.ok) {
-        const errorData = await createUserResponse.json();
+    if (error) {
         console.error("=== EMAIL SIGNUP ERROR ===");
-        console.error("Error message:", errorData.msg || errorData.message);
-        console.error("Error code:", errorData.code);
-        console.error("Status:", createUserResponse.status);
-        console.error("Full error:", JSON.stringify(errorData, null, 2));
-        console.error("Attempted email:", email);
+        console.error("Error message:", error.message);
+        console.error("Error code:", error.code);
         console.error("=========================");
 
         // Check if user already exists
-        if (errorData.msg?.includes("already been registered") || errorData.code === "user_already_exists") {
+        if (error.message?.includes("already registered") || error.code === "user_already_exists") {
             return NextResponse.redirect(
                 `${requestUrl.origin}/signup?message=${encodeURIComponent("このメールアドレスは既に登録されています。")}`,
                 { status: 301 }
@@ -72,15 +44,13 @@ export async function POST(request: Request) {
         );
     }
 
-    const userData = await createUserResponse.json();
-    console.log("User created successfully:", userData.id);
-    console.log("User can login immediately (email_confirm: true)");
+    console.log("User signup initiated:", data.user?.id);
+    console.log("Confirmation email sent to:", email);
 
+    // Redirect to verification page
     return NextResponse.redirect(
-        `${requestUrl.origin}/login?message=${encodeURIComponent("アカウントが作成されました。ログインしてください。")}`,
-        {
-            status: 301,
-        }
+        `${requestUrl.origin}/signup/verify?email=${encodeURIComponent(email)}`,
+        { status: 301 }
     );
 }
 

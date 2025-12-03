@@ -100,16 +100,11 @@ export function RelationshipSelectorModal({
         });
 
     const toggleSelection = (profileId: string) => {
-        setLocalSelectedIds((prev) =>
-            prev.includes(profileId)
-                ? prev.filter((id) => id !== profileId)
-                : [...prev, profileId]
-        );
-    };
-
-    const handleSave = () => {
-        onSelectionChange(localSelectedIds);
-        onClose();
+        const newSelectedIds = localSelectedIds.includes(profileId)
+            ? localSelectedIds.filter((id) => id !== profileId)
+            : [...localSelectedIds, profileId];
+        setLocalSelectedIds(newSelectedIds);
+        onSelectionChange(newSelectedIds);
     };
 
     const handleCancel = () => {
@@ -203,10 +198,9 @@ export function RelationshipSelectorModal({
                                 </div>
                             ) : (
                                 filteredProfiles.map((profile) => (
-                                    <button
+                                    <div
                                         key={profile.id}
-                                        onClick={() => toggleSelection(profile.id)}
-                                        className="w-full flex items-center gap-2.5 p-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                                        className="w-full flex items-center gap-2.5 p-2.5 rounded-lg"
                                     >
                                         <Avatar className="h-8 w-8">
                                             <AvatarImage src={profile.avatar_url || ""} />
@@ -222,19 +216,18 @@ export function RelationshipSelectorModal({
                                                 {roleLabels[profile.role] || profile.role}
                                             </div>
                                         </div>
-                                        <div className="flex-shrink-0">
-                                            <div
-                                                className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${localSelectedIds.includes(profile.id)
-                                                    ? "bg-blue-600 border-blue-600"
-                                                    : "border-gray-300 dark:border-gray-600"
-                                                    }`}
-                                            >
-                                                {localSelectedIds.includes(profile.id) && (
-                                                    <Check className="h-3 w-3 text-white" />
-                                                )}
-                                            </div>
-                                        </div>
-                                    </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => toggleSelection(profile.id)}
+                                            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                                                localSelectedIds.includes(profile.id)
+                                                    ? "bg-blue-600 text-white hover:bg-blue-700"
+                                                    : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                                            }`}
+                                        >
+                                            {localSelectedIds.includes(profile.id) ? "解除" : "追加"}
+                                        </button>
+                                    </div>
                                 ))
                             )}
                         </div>
@@ -242,24 +235,10 @@ export function RelationshipSelectorModal({
                 </div>
 
                 {/* Footer */}
-                <div className="px-3 py-6 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
+                <div className="px-3 py-4 border-t border-gray-200 dark:border-gray-700">
                     <div className="text-sm text-gray-600 dark:text-gray-400 text-center">
                         {localSelectedIds.length}人選択中
                     </div>
-                    <Button
-                        onClick={handleSave}
-                        className="w-full rounded-full"
-                    >
-                        保存する
-                    </Button>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={handleCancel}
-                        className="w-full rounded-full border-gray-300 dark:border-gray-600"
-                    >
-                        キャンセル
-                    </Button>
                 </div>
             </DialogContent>
         </Dialog>

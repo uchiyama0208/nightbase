@@ -2,12 +2,14 @@ import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
 const dateFormatter = new Intl.DateTimeFormat("ja-JP", {
+  timeZone: "Asia/Tokyo",
   year: "numeric",
   month: "long",
   day: "numeric",
 });
 
 const defaultDateTimeOptions: Intl.DateTimeFormatOptions = {
+  timeZone: "Asia/Tokyo",
   year: "numeric",
   month: "short",
   day: "numeric",
@@ -54,7 +56,62 @@ export function toDateTimeLocalInputValue(dateString: string | null | undefined)
   const date = parseDateInput(dateString);
   if (!date) return "";
 
-  const tzOffset = date.getTimezoneOffset() * 60000;
-  const localISO = new Date(date.getTime() - tzOffset).toISOString();
-  return localISO.slice(0, 16);
+  // Format as JST datetime-local input value (YYYY-MM-DDTHH:mm)
+  const jstFormatter = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  return jstFormatter.format(date).replace(" ", "T");
+}
+
+// JST time formatting utilities
+export function formatJSTTime(dateString: string | null | undefined): string {
+  if (!dateString) return "-";
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleTimeString("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+export function formatJSTDate(dateString: string | null | undefined): string {
+  if (!dateString) return "-";
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).replace(/\//g, "/");
+}
+
+export function formatJSTDateTime(dateString: string | null | undefined): string {
+  if (!dateString) return "-";
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleString("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+export function getJSTDateString(date: Date = new Date()): string {
+  return date.toLocaleDateString("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).replace(/\//g, "-");
 }

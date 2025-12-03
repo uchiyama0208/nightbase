@@ -320,20 +320,29 @@ export async function createStoreAndLink(storeData: FormData) {
         return { success: false, error: "デフォルトロールの作成に失敗しました" };
     }
 
-    // Link store and role to profile
-    const { error: profileError } = await supabase
+    // Link store and role to profile using service client to bypass RLS
+    const { data: updatedProfile, error: profileError } = await serviceClient
         .from("profiles")
         .update({
             store_id: store.id,
             role_id: staffRole.id,
         })
-        .eq("id", appUser.current_profile_id);
+        .eq("id", appUser.current_profile_id)
+        .select("id, store_id")
+        .single();
 
     if (profileError) {
         console.error("Profile update error:", profileError);
         // Rollback: delete the store (cascade should handle roles)
-        await supabase.from("stores").delete().eq("id", store.id);
+        await serviceClient.from("stores").delete().eq("id", store.id);
         return { success: false, error: profileError.message };
+    }
+
+    // Verify the update actually happened
+    if (!updatedProfile || updatedProfile.store_id !== store.id) {
+        console.error("Profile update verification failed:", { updatedProfile, expectedStoreId: store.id });
+        await serviceClient.from("stores").delete().eq("id", store.id);
+        return { success: false, error: "プロファイルの更新に失敗しました" };
     }
 
     revalidatePath("/");

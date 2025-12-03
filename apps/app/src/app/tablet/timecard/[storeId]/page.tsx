@@ -22,9 +22,12 @@ type TodayCard = {
 };
 
 function getTodayDate() {
-  const now = new Date();
-  const jstDate = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-  return jstDate.toISOString().split("T")[0];
+  return new Date().toLocaleDateString("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).replace(/\//g, "-");
 }
 
 function parseTimeToMinutes(value: string | null | undefined): number | null {
@@ -44,8 +47,10 @@ function isNowWithinAcceptanceWindow(start: string | null | undefined, end: stri
     return true;
   }
 
+  // Get current time in JST
   const now = new Date();
-  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const jstNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
+  const nowMinutes = jstNow.getHours() * 60 + jstNow.getMinutes();
 
   if (startMinutes === null && endMinutes !== null) {
     return nowMinutes <= endMinutes;

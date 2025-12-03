@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Table, TableSession } from "@/types/floor";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { X } from "lucide-react";
 import { OrderModal } from "./order-modal";
 import { BillModal } from "./bill-modal";

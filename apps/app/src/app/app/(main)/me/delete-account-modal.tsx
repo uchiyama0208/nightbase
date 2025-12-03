@@ -55,7 +55,7 @@ export function DeleteAccountModal() {
                         あなたのアカウント情報は削除されますが、過去の勤怠記録などのプロフィール情報は店舗に残ります。
                     </DialogDescription>
                 </DialogHeader>
-                <DialogFooter>
+                <DialogFooter className="gap-2">
                     <Button variant="outline" onClick={() => setOpen(false)} disabled={loading}>
                         キャンセル
                     </Button>

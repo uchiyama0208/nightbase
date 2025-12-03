@@ -25,10 +25,11 @@ import {
     Receipt,
     Grid3X3,
     CircleDollarSign,
+    Store,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { createBrowserClient } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 
@@ -53,7 +54,11 @@ interface SidebarProps {
 export function AppSidebar({ userRole, profileName, storeName, storeFeatures, open: controlledOpen, onOpenChange }: SidebarProps) {
     const pathname = usePathname();
     const [settingsOpen, setSettingsOpen] = useState(false);
+    const [basicInfoOpen, setBasicInfoOpen] = useState(false);
     const [internalOpen, setInternalOpen] = useState(false);
+
+    const basicInfoContentRef = useRef<HTMLDivElement>(null);
+    const settingsContentRef = useRef<HTMLDivElement>(null);
 
     const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
     const setOpen = onOpenChange || setInternalOpen;
@@ -87,6 +92,21 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
             feature: "timecard" as const,
         },
         {
+            label: "ボトルキープ",
+            icon: Wine,
+            href: "/app/bottles",
+            roles: ["admin", "staff"],
+        },
+        {
+            label: "伝票",
+            icon: Receipt,
+            href: "/app/slips",
+            roles: ["admin", "staff"],
+        },
+    ];
+
+    const basicInfoRoutes = [
+        {
             label: "プロフィール情報",
             icon: Users,
             href: "/app/users",
@@ -101,21 +121,9 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
             feature: "menus" as const,
         },
         {
-            label: "ボトルキープ",
-            icon: Wine,
-            href: "/app/bottles",
-            roles: ["admin", "staff"],
-        },
-        {
             label: "席エディター",
             icon: Armchair,
             href: "/app/seats",
-            roles: ["admin", "staff"],
-        },
-        {
-            label: "伝票",
-            icon: Receipt,
-            href: "/app/slips",
             roles: ["admin", "staff"],
         },
         {
@@ -175,6 +183,7 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
     };
 
     const filteredMainRoutes = filterRoutes(mainRoutes);
+    const filteredBasicInfoRoutes = filterRoutes(basicInfoRoutes);
     const filteredSettingsRoutes = filterRoutes(settingsRoutes);
 
     const handleSignOut = async () => {
@@ -211,6 +220,47 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
                         </Link>
                     ))}
 
+                    {/* Basic Info Group */}
+                    {filteredBasicInfoRoutes.length > 0 && (
+                        <div className="pt-2">
+                            <button
+                                onClick={() => setBasicInfoOpen(!basicInfoOpen)}
+                                className="w-full flex items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-400 transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <Store className="h-5 w-5" />
+                                    <span>基本情報</span>
+                                </div>
+                                <ChevronDown className={cn("h-4 w-4 transition-transform duration-300", basicInfoOpen ? "rotate-180" : "")} />
+                            </button>
+
+                            <div
+                                style={{
+                                    height: basicInfoOpen ? basicInfoContentRef.current?.scrollHeight || 'auto' : 0,
+                                    overflow: 'hidden',
+                                    transition: 'height 0.3s ease-out',
+                                }}
+                            >
+                                <div ref={basicInfoContentRef} className="mt-1 ml-4 space-y-1 border-l-2 border-gray-100 dark:border-gray-700 pl-2">
+                                    {filteredBasicInfoRoutes.map((route) => (
+                                        <Link
+                                            key={route.href}
+                                            href={route.href}
+                                            onClick={() => setOpen(false)}
+                                            className={cn(
+                                                "flex items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white",
+                                                pathname === route.href ? "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400"
+                                            )}
+                                        >
+                                            <route.icon className="h-4 w-4" />
+                                            {route.label}
+                                        </Link>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Settings Group */}
                     {filteredSettingsRoutes.length > 0 && (
                         <div className="pt-2">
@@ -222,11 +272,17 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
                                     <Settings className="h-5 w-5" />
                                     <span>設定</span>
                                 </div>
-                                <ChevronDown className={cn("h-4 w-4 transition-transform", settingsOpen ? "rotate-180" : "")} />
+                                <ChevronDown className={cn("h-4 w-4 transition-transform duration-300", settingsOpen ? "rotate-180" : "")} />
                             </button>
 
-                            {settingsOpen && (
-                                <div className="mt-1 ml-4 space-y-1 border-l-2 border-gray-100 dark:border-gray-700 pl-2">
+                            <div
+                                style={{
+                                    height: settingsOpen ? settingsContentRef.current?.scrollHeight || 'auto' : 0,
+                                    overflow: 'hidden',
+                                    transition: 'height 0.3s ease-out',
+                                }}
+                            >
+                                <div ref={settingsContentRef} className="mt-1 ml-4 space-y-1 border-l-2 border-gray-100 dark:border-gray-700 pl-2">
                                     {filteredSettingsRoutes.map((route) => (
                                         <Link
                                             key={route.href}
@@ -242,7 +298,7 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
                                         </Link>
                                     ))}
                                 </div>
-                            )}
+                            </div>
                         </div>
                     )}
                 </nav>

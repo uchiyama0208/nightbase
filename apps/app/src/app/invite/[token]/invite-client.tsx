@@ -5,8 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { format } from "date-fns";
-import { ja } from "date-fns/locale";
+import { formatJSTDateTime } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
@@ -275,7 +274,7 @@ export function InviteClient({ invitation, userId }: InviteClientProps) {
                         <div className="flex justify-between items-center">
                             <span className="text-sm font-medium text-gray-500 dark:text-gray-400">有効期限</span>
                             <span className="font-medium text-gray-900 dark:text-white">
-                                {format(new Date(invitation.expires_at), "yyyy/MM/dd HH:mm", { locale: ja })}
+                                {formatJSTDateTime(invitation.expires_at)}
                             </span>
                         </div>
                     </div>

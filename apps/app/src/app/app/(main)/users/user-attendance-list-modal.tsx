@@ -5,8 +5,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, Loader2 } from "lucide-react";
 import { getAttendanceRecords } from "@/app/app/(main)/attendance/actions";
-import { format } from "date-fns";
-import { ja } from "date-fns/locale";
 
 interface AttendanceRecord {
     id: string;
@@ -54,7 +52,11 @@ export function UserAttendanceListModal({
 
     const formatTime = (isoString: string | null) => {
         if (!isoString) return "-";
-        return format(new Date(isoString), "HH:mm");
+        return new Date(isoString).toLocaleTimeString("ja-JP", {
+            timeZone: "Asia/Tokyo",
+            hour: "2-digit",
+            minute: "2-digit",
+        });
     };
 
     const filteredRecords = records.filter((record) =>
@@ -115,7 +117,12 @@ export function UserAttendanceListModal({
                                                 className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors"
                                             >
                                                 <td className="px-4 py-3 text-center text-gray-900 dark:text-gray-100">
-                                                    {format(new Date(record.work_date), "M/d (EEE)", { locale: ja })}
+                                                    {new Date(record.work_date + "T00:00:00+09:00").toLocaleDateString("ja-JP", {
+                                                        timeZone: "Asia/Tokyo",
+                                                        month: "numeric",
+                                                        day: "numeric",
+                                                        weekday: "short",
+                                                    })}
                                                 </td>
                                                 <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-300">
                                                     {formatTime(record.clock_in)}

@@ -3,6 +3,11 @@
 import { createServiceRoleClient } from "@/lib/supabaseServiceClient";
 import { NextResponse } from "next/server";
 
+// Helper to get JST date/time components
+function getJSTDate(date: Date = new Date()) {
+    return new Date(date.toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
+}
+
 /**
  * Auto clock-out function to be called at day cutoff time
  * This should be triggered by a cron job or scheduled function
@@ -41,7 +46,8 @@ async function processAutoClockOut() {
     }
 
     const now = new Date();
-    const currentHour = now.getHours();
+    const jstNow = getJSTDate(now);
+    const currentHour = jstNow.getHours();
     const results = [];
 
     for (const store of stores) {
@@ -62,14 +68,15 @@ async function processAutoClockOut() {
             continue;
         }
 
-        // Calculate the cutoff datetime for this store
-        const cutoffDate = new Date(now);
+        // Calculate the cutoff datetime for this store (in JST)
+        const cutoffDate = new Date(jstNow);
         cutoffDate.setHours(cutoffHour, cutoffMinute, 0, 0);
 
         // With an hourly cron, we always process the previous business day
-        const targetDate = new Date(now);
+        const targetDate = new Date(jstNow);
         targetDate.setDate(targetDate.getDate() - 1);
-        const workDate = targetDate.toISOString().split("T")[0];
+        // Format as YYYY-MM-DD in JST
+        const workDate = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, "0")}-${String(targetDate.getDate()).padStart(2, "0")}`;
 
         // Find all time cards that are still clocked in (no clock_out) for this work_date
         const { data: openTimeCards } = await supabase

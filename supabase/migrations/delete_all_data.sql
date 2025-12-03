@@ -6,21 +6,32 @@ SET session_replication_role = 'replica';
 
 -- Delete data from all tables (in reverse dependency order)
 
+-- Floor management system
+DELETE FROM public.orders;
+DELETE FROM public.cast_assignments;
+DELETE FROM public.table_sessions;
+DELETE FROM public.tables;
+DELETE FROM public.table_types;
+DELETE FROM public.pricing_systems;
+DELETE FROM public.bill_settings;
+
 -- Resume system
-DELETE FROM public.resume_answers;
 DELETE FROM public.past_employments;
-DELETE FROM public.resume_questions;
-DELETE FROM public.resumes;
 
 -- Comments and likes
 DELETE FROM public.comment_likes;
 DELETE FROM public.comments;
 
 -- Bottle keeps
+DELETE FROM public.bottle_keep_holders;
 DELETE FROM public.bottle_keeps;
 
--- Menus
+-- Menus and categories
 DELETE FROM public.menus;
+DELETE FROM public.menu_categories;
+
+-- CMS
+DELETE FROM public.cms_entries;
 
 -- Profile relationships
 DELETE FROM public.profile_relationships;
@@ -28,26 +39,22 @@ DELETE FROM public.profile_relationships;
 -- Time cards
 DELETE FROM public.time_cards;
 
--- Profiles (will cascade to many related tables)
+-- Profiles
 DELETE FROM public.profiles;
 
--- Users (will cascade to profiles if configured)
+-- Users
 DELETE FROM public.users;
 
 -- Store roles
 DELETE FROM public.store_roles;
 
--- Stores (will cascade to many related tables)
+-- Stores
 DELETE FROM public.stores;
 
--- Delete authentication users (this will cascade to public.users)
+-- Delete authentication users
 DELETE FROM auth.users;
 
 -- Re-enable triggers
 SET session_replication_role = 'origin';
-
--- Reset sequences (optional - uncomment if needed)
--- This will reset auto-incrementing IDs to 1
--- ALTER SEQUENCE IF EXISTS <sequence_name> RESTART WITH 1;
 
 SELECT 'All data deleted successfully' as result;

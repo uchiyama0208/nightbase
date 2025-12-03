@@ -304,9 +304,16 @@ export async function updateUser(formData: FormData) {
         throw new Error("店舗情報が見つかりません");
     }
 
-    // Check if we are changing the role from Admin to something else
-    if (currentProfile.role === "staff" && role !== "staff") {
-        // Check if this is the last admin
+    // Get the target profile's current role
+    const { data: targetProfile } = await supabase
+        .from("profiles")
+        .select("role, role_id")
+        .eq("id", profileId)
+        .maybeSingle();
+
+    // Check if we are changing the role from staff to something else
+    if (targetProfile?.role === "staff" && role !== "staff") {
+        // Check if this is the last staff
         const { count, error: countError } = await supabase
             .from("profiles")
             .select("*", { count: "exact", head: true })
@@ -314,8 +321,8 @@ export async function updateUser(formData: FormData) {
             .eq("role", "staff");
 
         if (countError) {
-            console.error("Error checking admin count:", countError);
-            throw new Error("管理者数の確認に失敗しました");
+            console.error("Error checking staff count:", countError);
+            throw new Error("スタッフ数の確認に失敗しました");
         }
 
         if (count !== null && count <= 1) {
@@ -323,33 +330,23 @@ export async function updateUser(formData: FormData) {
         }
     }
 
-    // Also check for new role system (role_id)
-    // If currentProfile has a role_id that corresponds to a system admin role
-    if (currentProfile.role_id) {
-        const { data: currentRole } = await supabase
+    // Also check for new role system (role_id) on the target profile
+    if (targetProfile?.role_id) {
+        const { data: targetRole } = await supabase
             .from("store_roles")
             .select("name, is_system_role")
-            .eq("id", currentProfile.role_id)
+            .eq("id", targetProfile.role_id)
             .single();
 
-        if (currentRole?.name === "デフォルトスタッフ" && currentRole?.is_system_role) {
-            // If we are changing the role (assuming role passed here is the string role, but we might need to handle role_id change too if UI supports it)
-            // The current UI seems to pass 'role' string (admin/staff/cast/guest).
-            // If the intention is to change the role, we need to be careful.
-            // However, the current `updateUser` function updates the `role` column, not `role_id`.
-            // We should probably update `role_id` as well based on the selected `role` string if we want to keep them in sync,
-            // OR we need to update the UI to send `roleId`.
-            // Given the current transition state, let's stick to the `role` column check for now as that's what the UI sends.
-            // But wait, if I created a default Admin role, I should probably check that too.
-
-            // Let's check if there are other users with the "管理者" role_id
+        if (targetRole?.name === "デフォルトスタッフ" && targetRole?.is_system_role && role !== "staff") {
+            // Check if there are other users with the same staff role_id
             const { count: roleCount } = await supabase
                 .from("profiles")
                 .select("*", { count: "exact", head: true })
                 .eq("store_id", currentProfile.store_id)
-                .eq("role_id", currentProfile.role_id);
+                .eq("role_id", targetProfile.role_id);
 
-            if (roleCount !== null && roleCount <= 1 && role !== "staff") {
+            if (roleCount !== null && roleCount <= 1) {
                 throw new Error("店舗には少なくとも1人のスタッフが必要です");
             }
         }
@@ -392,6 +389,113 @@ export async function updateUser(formData: FormData) {
     }
 
     revalidatePath("/app/users");
+    return { success: true };
+}
+
+// Auto-save version that doesn't call revalidatePath to prevent modal from closing
+export async function autoSaveUser(formData: FormData) {
+    const supabase = await createServerClient();
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+        throw new Error("Unauthorized");
+    }
+
+    const profileId = formData.get("profileId") as string;
+    if (!profileId) return { success: false };
+
+    const displayName = formData.get("displayName") as string;
+    const displayNameKana = (formData.get("displayNameKana") as string | null)?.trim() || null;
+
+    const lastName = (formData.get("lastName") as string | null)?.trim() || null;
+    const firstName = (formData.get("firstName") as string | null)?.trim() || null;
+    const lastNameKana = (formData.get("lastNameKana") as string | null)?.trim() || null;
+    const firstNameKana = (formData.get("firstNameKana") as string | null)?.trim() || null;
+
+    const realName = (formData.get("realName") as string | null)?.trim() || [lastName, firstName].filter(Boolean).join(" ");
+    const realNameKana = (formData.get("realNameKana") as string | null)?.trim() || [lastNameKana, firstNameKana].filter(Boolean).join(" ");
+
+    const zipCode = (formData.get("zipCode") as string | null)?.trim() || null;
+    const prefecture = (formData.get("prefecture") as string | null)?.trim() || null;
+    const city = (formData.get("city") as string | null)?.trim() || null;
+    const street = (formData.get("street") as string | null)?.trim() || null;
+    const building = (formData.get("building") as string | null)?.trim() || null;
+    const phoneNumber = (formData.get("phoneNumber") as string | null)?.trim() || null;
+
+    const emergencyPhoneNumber = (formData.get("emergencyPhoneNumber") as string | null)?.trim() || null;
+    const nearestStation = (formData.get("nearestStation") as string | null)?.trim() || null;
+    const height = (formData.get("height") as string | null)?.trim() ? parseInt(formData.get("height") as string) : null;
+
+    const desiredCastName = (formData.get("desiredCastName") as string | null)?.trim() || null;
+    const desiredHourlyWage = (formData.get("desiredHourlyWage") as string | null)?.trim() ? parseInt(formData.get("desiredHourlyWage") as string) : null;
+    const desiredShiftDays = (formData.get("desiredShiftDays") as string | null)?.trim() || null;
+
+    const role = formData.get("role") as string;
+    const guestAddressee = (formData.get("guestAddressee") as string | null)?.trim() || null;
+    const guestReceiptTypeRaw = (formData.get("guestReceiptType") as string | null) ?? "none";
+    const guestReceiptType = ["none", "amount_only", "with_date"].includes(guestReceiptTypeRaw)
+        ? guestReceiptTypeRaw
+        : "none";
+
+    const { data: appUser } = await supabase
+        .from("users")
+        .select("current_profile_id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+    if (!appUser?.current_profile_id) {
+        return { success: false };
+    }
+
+    const { data: currentProfile } = await supabase
+        .from("profiles")
+        .select("store_id")
+        .eq("id", appUser.current_profile_id)
+        .maybeSingle();
+
+    if (!currentProfile?.store_id) {
+        return { success: false };
+    }
+
+    const { error } = await supabase
+        .from("profiles")
+        .update({
+            display_name: displayName,
+            display_name_kana: displayNameKana,
+            real_name: realName,
+            real_name_kana: realNameKana,
+            last_name: lastName,
+            first_name: firstName,
+            last_name_kana: lastNameKana,
+            first_name_kana: firstNameKana,
+            zip_code: zipCode,
+            prefecture: prefecture,
+            city: city,
+            street: street,
+            building: building,
+            phone_number: phoneNumber,
+            emergency_phone_number: emergencyPhoneNumber,
+            nearest_station: nearestStation,
+            height: height,
+            desired_cast_name: desiredCastName,
+            desired_hourly_wage: desiredHourlyWage,
+            desired_shift_days: desiredShiftDays,
+            status: role === "cast" ? (formData.get("status") as string || "通常") : null,
+            role,
+            guest_addressee: role === "guest" ? guestAddressee : null,
+            guest_receipt_type: role === "guest" ? guestReceiptType : "none",
+        })
+        .eq("id", profileId)
+        .eq("store_id", currentProfile.store_id);
+
+    if (error) {
+        console.error("Error auto-saving user:", error);
+        return { success: false };
+    }
+
+    // No revalidatePath here to prevent modal from closing
     return { success: true };
 }
 
@@ -516,7 +620,7 @@ export async function getProfileDetails(profileId: string) {
         .from("comments")
         .select(`
             *,
-            author:profiles!author_profile_id (
+            author:profiles!comments_author_profile_id_fkey (
                 id,
                 display_name,
                 avatar_url
@@ -690,14 +794,19 @@ export async function addProfileComment(targetProfileId: string, content: string
 
     if (!currentProfile?.store_id) throw new Error("No store");
 
-    const { error } = await supabase.from("comments").insert({
+    const { data, error } = await supabase.from("comments").insert({
         store_id: currentProfile.store_id,
         target_profile_id: targetProfileId,
         author_profile_id: appUser.current_profile_id,
         content: content,
-    });
+    }).select();
 
-    if (error) throw new Error(error.message);
+    if (error) {
+        console.error("Comment insert error:", error);
+        throw new Error(error.message);
+    }
+
+    console.log("Comment inserted:", data);
 
     revalidatePath("/app/users");
     return { success: true };
@@ -729,11 +838,20 @@ export async function getAllProfiles() {
 
     const { data: profiles } = await supabase
         .from("profiles")
-        .select("id, display_name, real_name, role, avatar_url")
+        .select("id, display_name, real_name, role, avatar_url, user_id")
         .eq("store_id", currentProfile.store_id)
         .order("display_name");
 
-    return profiles || [];
+    // Filter out temp guests (display_name matches "ゲスト\d+" pattern and user_id is null)
+    const filteredProfiles = (profiles || []).filter(profile => {
+        // Exclude temp guests
+        if (profile.user_id === null && profile.display_name?.match(/^ゲスト\d+$/)) {
+            return false;
+        }
+        return true;
+    });
+
+    return filteredProfiles;
 }
 
 export async function getCurrentUserProfileId() {
@@ -751,6 +869,159 @@ export async function getCurrentUserProfileId() {
         .maybeSingle();
 
     return appUser?.current_profile_id || null;
+}
+
+// Combined fetch for user edit modal - single server action to reduce round trips
+export async function getUserEditModalData(targetProfileId: string | null, targetRole: string | null) {
+    const supabase = await createServerClient();
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return null;
+
+    const { data: appUser } = await supabase
+        .from("users")
+        .select("current_profile_id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+    if (!appUser?.current_profile_id) return null;
+
+    const { data: currentProfile } = await supabase
+        .from("profiles")
+        .select("store_id")
+        .eq("id", appUser.current_profile_id)
+        .maybeSingle();
+
+    if (!currentProfile?.store_id) return null;
+
+    // Fetch all profiles for relationship selection
+    const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, display_name, real_name, role, avatar_url, user_id")
+        .eq("store_id", currentProfile.store_id)
+        .order("display_name");
+
+    const filteredProfiles = (profiles || []).filter(profile => {
+        if (profile.user_id === null && profile.display_name?.match(/^ゲスト\d+$/)) {
+            return false;
+        }
+        return true;
+    });
+
+    // If no target profile, return just the basics
+    if (!targetProfileId) {
+        return {
+            currentUserProfileId: appUser.current_profile_id,
+            allProfiles: filteredProfiles,
+            relationships: [],
+            comments: [],
+            bottleKeeps: [],
+            pastEmployments: [],
+        };
+    }
+
+    // Fetch profile details (relationships and comments)
+    const [relationshipsResult, commentsResult] = await Promise.all([
+        supabase
+            .from("profile_relationships")
+            .select("*")
+            .or(`source_profile_id.eq.${targetProfileId},target_profile_id.eq.${targetProfileId}`),
+        supabase
+            .from("comments")
+            .select(`
+                *,
+                author:profiles!comments_author_profile_id_fkey (
+                    id,
+                    display_name,
+                    avatar_url
+                )
+            `)
+            .eq("target_profile_id", targetProfileId)
+            .order("updated_at", { ascending: false })
+    ]);
+
+    let bottleKeeps: any[] = [];
+    let pastEmployments: any[] = [];
+
+    // Fetch role-specific data
+    if (targetRole === "guest") {
+        const { data: holders } = await supabase
+            .from("bottle_keep_holders")
+            .select(`
+                bottle_keep_id,
+                bottle_keeps (
+                    id,
+                    menu_id,
+                    opened_at,
+                    expiration_date,
+                    remaining_amount,
+                    status,
+                    memo,
+                    menus (
+                        name,
+                        price
+                    )
+                )
+            `)
+            .eq("profile_id", targetProfileId);
+
+        bottleKeeps = (holders || [])
+            .map((h: any) => h.bottle_keeps)
+            .filter((b: any) => b && b.status === "active")
+            .map((b: any) => ({
+                ...b,
+                menu_name: b.menus?.name || "不明なボトル",
+                menu_price: b.menus?.price || 0,
+            }));
+    } else if (targetRole === "cast") {
+        const { data } = await supabase
+            .from("past_employments")
+            .select("*")
+            .eq("profile_id", targetProfileId)
+            .order("created_at", { ascending: false });
+        pastEmployments = data || [];
+    }
+
+    // Add like counts to comments
+    const comments = commentsResult.data || [];
+    let commentsWithLikes = comments;
+
+    if (comments.length > 0) {
+        const commentIds = comments.map((c) => c.id);
+        const { data: allLikes } = await supabase
+            .from("comment_likes")
+            .select("comment_id, profile_id")
+            .in("comment_id", commentIds);
+
+        const likesMap = new Map<string, { count: number; userHasLiked: boolean }>();
+        commentIds.forEach((id) => {
+            const commentLikes = allLikes?.filter((like) => like.comment_id === id) || [];
+            likesMap.set(id, {
+                count: commentLikes.length,
+                userHasLiked: commentLikes.some((like) => like.profile_id === appUser.current_profile_id),
+            });
+        });
+
+        commentsWithLikes = comments.map((comment) => {
+            const likeData = likesMap.get(comment.id) || { count: 0, userHasLiked: false };
+            return {
+                ...comment,
+                like_count: likeData.count,
+                user_has_liked: likeData.userHasLiked,
+            };
+        });
+    }
+
+    return {
+        currentUserProfileId: appUser.current_profile_id,
+        allProfiles: filteredProfiles,
+        relationships: relationshipsResult.data || [],
+        comments: commentsWithLikes,
+        bottleKeeps,
+        pastEmployments,
+    };
 }
 
 export async function updateProfileComment(commentId: string, content: string) {
@@ -917,7 +1188,7 @@ export async function getUsersData(roleParam?: string, query?: string) {
 
     let queryBuilder = supabase
         .from("profiles")
-        .select("id, display_name, display_name_kana, real_name, real_name_kana, role, avatar_url, guest_addressee, guest_receipt_type")
+        .select("id, display_name, display_name_kana, real_name, real_name_kana, role, avatar_url, guest_addressee, guest_receipt_type, user_id")
         .eq("store_id", currentProfile.store_id)
         .eq("role", role)
         .order("display_name");
@@ -933,9 +1204,18 @@ export async function getUsersData(roleParam?: string, query?: string) {
         return { data: { users: [] } };
     }
 
+    // Filter out temp guests (display_name matches "ゲスト\d+" pattern and user_id is null)
+    const filteredUsers = (users || []).filter((user: any) => {
+        // Exclude temp guests
+        if (user.user_id === null && user.display_name?.match(/^ゲスト\d+$/)) {
+            return false;
+        }
+        return true;
+    });
+
     return {
         data: {
-            users: users || [],
+            users: filteredUsers || [],
         }
     };
 }
@@ -1173,4 +1453,72 @@ export async function deletePastEmployment(id: string) {
 
     revalidatePath("/app/users");
     return { success: true };
+}
+
+export async function getProfileReportData(profileId: string, role: string) {
+    const supabase = await createServerClient();
+
+    if (role === "guest") {
+        // ゲスト: 来店回数（セッション数）を取得
+        const { data: sessions, error } = await supabase
+            .from("sessions")
+            .select("id, start_time")
+            .eq("guest_id", profileId);
+
+        if (error) {
+            console.error("Error fetching guest sessions:", error);
+            return { visitCount: 0, sessions: [] };
+        }
+
+        // 月別来店回数を集計
+        const monthlyVisits: Record<string, number> = {};
+        sessions?.forEach(session => {
+            const date = new Date(session.start_time);
+            const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            monthlyVisits[key] = (monthlyVisits[key] || 0) + 1;
+        });
+
+        return {
+            visitCount: sessions?.length || 0,
+            monthlyVisits,
+        };
+    } else {
+        // キャスト・スタッフ: 出勤データを取得
+        const { data: attendances, error } = await supabase
+            .from("attendances")
+            .select("id, clock_in, clock_out")
+            .eq("profile_id", profileId)
+            .not("clock_out", "is", null);
+
+        if (error) {
+            console.error("Error fetching attendances:", error);
+            return { attendanceCount: 0, totalWorkMinutes: 0, monthlyData: {} };
+        }
+
+        // 総勤務時間と月別データを計算
+        let totalWorkMinutes = 0;
+        const monthlyData: Record<string, { count: number; minutes: number }> = {};
+
+        attendances?.forEach(attendance => {
+            if (attendance.clock_in && attendance.clock_out) {
+                const clockIn = new Date(attendance.clock_in);
+                const clockOut = new Date(attendance.clock_out);
+                const minutes = Math.round((clockOut.getTime() - clockIn.getTime()) / (1000 * 60));
+                totalWorkMinutes += minutes;
+
+                const key = `${clockIn.getFullYear()}-${String(clockIn.getMonth() + 1).padStart(2, '0')}`;
+                if (!monthlyData[key]) {
+                    monthlyData[key] = { count: 0, minutes: 0 };
+                }
+                monthlyData[key].count += 1;
+                monthlyData[key].minutes += minutes;
+            }
+        });
+
+        return {
+            attendanceCount: attendances?.length || 0,
+            totalWorkMinutes,
+            monthlyData,
+        };
+    }
 }

@@ -11,9 +11,8 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { Plus, Search, Settings } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { MenuEditModal } from "./menu-edit-modal";
-import { CategoryManageModal } from "./category-manage-modal";
 import {
     Select,
     SelectContent,
@@ -34,7 +33,6 @@ export function MenuList({ initialMenus, categories }: MenuListProps) {
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedCategoryId, setSelectedCategoryId] = useState<string>("all");
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
     const [editingMenu, setEditingMenu] = useState<Menu | null>(null);
 
     const activeFilters = [
@@ -62,15 +60,6 @@ export function MenuList({ initialMenus, categories }: MenuListProps) {
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-end gap-2 mb-4">
-                <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-10 rounded-full bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-sm"
-                    onClick={() => setIsCategoryModalOpen(true)}
-                >
-                    <Settings className="h-4 w-4 mr-2" />
-                    カテゴリー管理
-                </Button>
                 <Button
                     size="icon"
                     className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
@@ -167,12 +156,6 @@ export function MenuList({ initialMenus, categories }: MenuListProps) {
                 menu={editingMenu}
                 open={isModalOpen}
                 onOpenChange={setIsModalOpen}
-                categories={categories}
-            />
-
-            <CategoryManageModal
-                open={isCategoryModalOpen}
-                onOpenChange={setIsCategoryModalOpen}
                 categories={categories}
             />
         </div>

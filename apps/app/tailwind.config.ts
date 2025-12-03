@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss';
+import tailwindcssAnimate from 'tailwindcss-animate';
 
 const config: Config = {
     darkMode: ['class'],
@@ -54,6 +55,10 @@ const config: Config = {
                 md: 'calc(var(--radius) - 2px)',
                 sm: 'calc(var(--radius) - 4px)',
             },
+            gridTemplateRows: {
+                '0': '0fr',
+                '1': '1fr',
+            },
             keyframes: {
                 'accordion-down': {
                     from: { opacity: '0', transform: 'translateY(-8px)' },
@@ -63,14 +68,42 @@ const config: Config = {
                     from: { opacity: '1', transform: 'translateY(0)' },
                     to: { opacity: '0', transform: 'translateY(-8px)' },
                 },
+                'slideDown': {
+                    from: { height: '0' },
+                    to: { height: 'var(--radix-collapsible-content-height)' },
+                },
+                'slideUp': {
+                    from: { height: 'var(--radix-collapsible-content-height)' },
+                    to: { height: '0' },
+                },
+                'like-bounce': {
+                    '0%': { transform: 'scale(1)' },
+                    '25%': { transform: 'scale(1.3)' },
+                    '50%': { transform: 'scale(0.9)' },
+                    '75%': { transform: 'scale(1.1)' },
+                    '100%': { transform: 'scale(1)' },
+                },
+                'collapse-down': {
+                    from: { gridTemplateRows: '0fr', opacity: '0' },
+                    to: { gridTemplateRows: '1fr', opacity: '1' },
+                },
+                'collapse-up': {
+                    from: { gridTemplateRows: '1fr', opacity: '1' },
+                    to: { gridTemplateRows: '0fr', opacity: '0' },
+                },
             },
             animation: {
                 'accordion-down': 'accordion-down 0.2s ease-out forwards',
                 'accordion-up': 'accordion-up 0.15s ease-out forwards',
+                'like-bounce': 'like-bounce 0.4s ease-out',
+                'collapse-down': 'collapse-down 0.2s ease-out forwards',
+                'collapse-up': 'collapse-up 0.15s ease-out forwards',
+                'slideDown': 'slideDown 0.3s ease-out',
+                'slideUp': 'slideUp 0.3s ease-out',
             },
         },
     },
-    plugins: [],
+    plugins: [tailwindcssAnimate],
 };
 
 export default config;

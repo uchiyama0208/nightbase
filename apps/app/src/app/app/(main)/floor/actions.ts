@@ -7,11 +7,11 @@ import { revalidatePath } from "next/cache";
 export async function getActiveSessions() {
     const supabase = await createServerClient();
 
-    // まずセッションを取得
+    // まずセッションを取得（statusがcompletedでないもの）
     const { data: sessions, error: sessionsError } = await supabase
         .from("table_sessions")
         .select(`*, orders(*, menus(*), profiles!orders_cast_id_fkey(display_name), created_at)`)
-        .is("end_time", null);
+        .neq("status", "completed");
 
     if (sessionsError) {
         console.error("Error fetching sessions:", sessionsError);
@@ -69,6 +69,105 @@ export async function getActiveSessions() {
     );
 
     return sessionsWithAssignments;
+}
+
+export async function getCompletedSessions() {
+    const supabase = await createServerClient();
+
+    // 終了済みセッションを取得（statusがcompleted）
+    const { data: sessions, error: sessionsError } = await supabase
+        .from("table_sessions")
+        .select(`*, orders(*, menus(*), profiles!orders_cast_id_fkey(display_name), created_at)`)
+        .eq("status", "completed")
+        .order("end_time", { ascending: false });
+
+    if (sessionsError) {
+        console.error("Error fetching completed sessions:", sessionsError);
+        return [];
+    }
+
+    // 各セッションのcast_assignmentsを取得
+    const sessionsWithAssignments = await Promise.all(
+        (sessions || []).map(async (session) => {
+            const { data: assignments, error: assignmentsError } = await supabase
+                .from("cast_assignments")
+                .select("*")
+                .eq("table_session_id", session.id);
+
+            if (assignmentsError) {
+                console.error("Error fetching assignments:", assignmentsError);
+                return { ...session, cast_assignments: [] };
+            }
+
+            // 各assignmentのprofilesを取得
+            const assignmentsWithProfiles = await Promise.all(
+                (assignments || []).map(async (assignment) => {
+                    const { data: castProfile } = await supabase
+                        .from("profiles")
+                        .select("*")
+                        .eq("id", assignment.cast_id)
+                        .single();
+
+                    let guestProfile = null;
+                    if (assignment.guest_id) {
+                        if (assignment.guest_id === assignment.cast_id) {
+                            guestProfile = castProfile;
+                        } else {
+                            const { data } = await supabase
+                                .from("profiles")
+                                .select("*")
+                                .eq("id", assignment.guest_id)
+                                .single();
+                            guestProfile = data;
+                        }
+                    }
+
+                    return {
+                        ...assignment,
+                        profiles: castProfile,
+                        guest_profile: guestProfile
+                    };
+                })
+            );
+
+            return { ...session, cast_assignments: assignmentsWithProfiles };
+        })
+    );
+
+    return sessionsWithAssignments;
+}
+
+export async function getSessionById(sessionId: string) {
+    const supabase = await createServerClient();
+
+    // 単一セッションを取得
+    const { data: session, error: sessionError } = await supabase
+        .from("table_sessions")
+        .select(`*, orders(*, menus(*), profiles!orders_cast_id_fkey(display_name), created_at)`)
+        .eq("id", sessionId)
+        .single();
+
+    if (sessionError || !session) {
+        console.error("Error fetching session:", sessionError);
+        return null;
+    }
+
+    // cast_assignmentsを取得
+    const { data: assignments, error: assignmentsError } = await supabase
+        .from("cast_assignments")
+        .select(`
+            *,
+            profiles:cast_id(*),
+            guest_profile:guest_id(*)
+        `)
+        .eq("table_session_id", sessionId);
+
+    if (assignmentsError) {
+        console.error("Error fetching assignments:", assignmentsError);
+        return { ...session, cast_assignments: [] };
+    }
+
+    return { ...session, cast_assignments: assignments || [] };
 }
 
 export async function createSession(tableId?: string | null, mainGuestId?: string, pricingSystemId?: string) {
@@ -159,6 +258,14 @@ export async function assignCast(
 ) {
     const supabase = await createServerClient();
 
+    // Validate required parameters
+    if (!sessionId || typeof sessionId !== 'string') {
+        throw new Error("Invalid session ID");
+    }
+    if (!castId || typeof castId !== 'string') {
+        throw new Error("Invalid cast ID");
+    }
+
     // Calculate start_time and end_time based on rotation_time if not explicitly provided
     let calculatedStartTime = startTime;
     let calculatedEndTime = endTime;
@@ -245,7 +352,7 @@ export async function assignCast(
 
     if (error) throw error;
 
-    // If this is a guest assignment (castId === guestId), increment guest_count
+    // If this is a guest assignment (castId === guestId), increment guest_count and update set fee quantity
     if (castId === guestId) {
         const { data: session } = await supabase
             .from("table_sessions")
@@ -254,13 +361,24 @@ export async function assignCast(
             .single();
 
         if (session) {
+            const newGuestCount = (session.guest_count || 0) + 1;
+
             await supabase
                 .from("table_sessions")
-                .update({ guest_count: (session.guest_count || 0) + 1 })
+                .update({ guest_count: newGuestCount })
                 .eq("id", sessionId);
+
+            // Update set fee quantity to match guest count
+            await supabase
+                .from("orders")
+                .update({ quantity: newGuestCount })
+                .eq("table_session_id", sessionId)
+                .eq("item_name", "セット料金");
         }
     }
 
+    revalidatePath("/app/floor");
+    revalidatePath("/app/slips");
     return data;
 }
 
@@ -274,7 +392,7 @@ const SPECIAL_FEE_NAMES: Record<string, string> = {
 
 export async function createOrder(
     sessionId: string,
-    items: { menuId: string; quantity: number; amount: number; name?: string }[],
+    items: { menuId: string; quantity: number; amount: number; name?: string; startTime?: string | null; endTime?: string | null }[],
     guestId?: string | null,
     castId?: string | null
 ) {
@@ -295,7 +413,9 @@ export async function createOrder(
             amount: item.amount,
             guest_id: guestId,
             cast_id: castId,
-            status: 'pending'
+            status: 'pending',
+            start_time: item.startTime || null,
+            end_time: item.endTime || null,
         };
     });
 
@@ -305,6 +425,7 @@ export async function createOrder(
 
     if (error) throw error;
     revalidatePath("/app/slips");
+    revalidatePath("/app/floor");
     return { success: true };
 }
 
@@ -314,6 +435,9 @@ export async function updateOrder(
         quantity?: number;
         amount?: number;
         status?: string;
+        castId?: string | null;
+        startTime?: string | null;
+        endTime?: string | null;
     }
 ) {
     const supabase = await createServerClient();
@@ -322,6 +446,9 @@ export async function updateOrder(
     if (updates.quantity !== undefined) dbUpdates.quantity = updates.quantity;
     if (updates.amount !== undefined) dbUpdates.amount = updates.amount;
     if (updates.status !== undefined) dbUpdates.status = updates.status;
+    if (updates.castId !== undefined) dbUpdates.cast_id = updates.castId;
+    if (updates.startTime !== undefined) dbUpdates.start_time = updates.startTime;
+    if (updates.endTime !== undefined) dbUpdates.end_time = updates.endTime;
 
     const { error } = await supabase
         .from("orders")
@@ -330,16 +457,42 @@ export async function updateOrder(
 
     if (error) throw error;
     revalidatePath("/app/slips");
+    revalidatePath("/app/floor");
     return { success: true };
 }
 
 export async function deleteOrder(orderId: string) {
     const supabase = await createServerClient();
 
+    // Validate orderId
+    if (!orderId || typeof orderId !== 'string') {
+        throw new Error("Invalid order ID");
+    }
+
     const { error } = await supabase
         .from("orders")
         .delete()
         .eq("id", orderId);
+
+    if (error) throw error;
+    revalidatePath("/app/slips");
+    revalidatePath("/app/floor");
+    return { success: true };
+}
+
+export async function deleteOrdersByName(sessionId: string, orderName: string) {
+    const supabase = await createServerClient();
+
+    // Validate sessionId
+    if (!sessionId || typeof sessionId !== 'string') {
+        throw new Error("Invalid session ID");
+    }
+
+    const { error } = await supabase
+        .from("orders")
+        .delete()
+        .eq("table_session_id", sessionId)
+        .eq("item_name", orderName);
 
     if (error) throw error;
     revalidatePath("/app/slips");
@@ -358,6 +511,67 @@ export async function endAssignment(assignmentId: string) {
     if (error) throw error;
     revalidatePath("/app/floor");
     return { success: true };
+}
+
+// Helper function to delete temp guests for a session
+async function deleteTempGuestsForSession(supabase: any, sessionId: string) {
+    // Get all guest assignments in this session to identify temp guests
+    const { data: assignments } = await supabase
+        .from("cast_assignments")
+        .select("cast_id, guest_id")
+        .eq("table_session_id", sessionId);
+
+    // Find temp guest profile IDs (where cast_id === guest_id and display_name starts with "ゲスト")
+    const tempGuestIds: string[] = [];
+    if (assignments && assignments.length > 0) {
+        const guestIds = assignments
+            .filter((a: any) => a.cast_id && a.guest_id && a.cast_id === a.guest_id)
+            .map((a: any) => a.cast_id)
+            .filter((id: string, index: number, self: string[]) => self.indexOf(id) === index); // Remove duplicates
+
+        if (guestIds.length > 0) {
+            const { data: guestProfiles } = await supabase
+                .from("profiles")
+                .select("id, display_name, user_id")
+                .in("id", guestIds)
+                .is("user_id", null); // Temp guests don't have user_id
+
+            if (guestProfiles) {
+                for (const guestProfile of guestProfiles) {
+                    // Check if display_name matches "ゲスト" pattern
+                    if (guestProfile.display_name?.match(/^ゲスト\d+$/)) {
+                        tempGuestIds.push(guestProfile.id);
+                    }
+                }
+            }
+        }
+    }
+
+    // Delete temp guest profiles (only if they're not used in other sessions)
+    if (tempGuestIds.length > 0) {
+        for (const tempGuestId of tempGuestIds) {
+            // Check if this temp guest is used in other sessions
+            const { data: otherAssignments } = await supabase
+                .from("cast_assignments")
+                .select("id")
+                .eq("cast_id", tempGuestId)
+                .or(`guest_id.eq.${tempGuestId}`)
+                .limit(1);
+
+            // Only delete if not used in other sessions
+            if (!otherAssignments || otherAssignments.length === 0) {
+                const { error: deleteProfileError } = await supabase
+                    .from("profiles")
+                    .delete()
+                    .eq("id", tempGuestId);
+
+                if (deleteProfileError) {
+                    console.error("Error deleting temp guest profile:", deleteProfileError);
+                    // Don't throw - continue even if temp guest deletion fails
+                }
+            }
+        }
+    }
 }
 
 export async function checkoutSession(sessionId: string) {
@@ -450,6 +664,46 @@ export async function closeSession(sessionId: string) {
     return checkoutSession(sessionId);
 }
 
+export async function deleteSession(sessionId: string) {
+    const supabase = await createServerClient();
+
+    // Validate sessionId
+    if (!sessionId || typeof sessionId !== 'string') {
+        throw new Error("Invalid session ID");
+    }
+
+    // 1. Delete temp guests for this session (before deleting assignments)
+    await deleteTempGuestsForSession(supabase, sessionId);
+
+    // 2. Delete related orders
+    const { error: ordersError } = await supabase
+        .from("orders")
+        .delete()
+        .eq("table_session_id", sessionId);
+
+    if (ordersError) throw ordersError;
+
+    // 3. Delete related cast assignments
+    const { error: assignmentsError } = await supabase
+        .from("cast_assignments")
+        .delete()
+        .eq("table_session_id", sessionId);
+
+    if (assignmentsError) throw assignmentsError;
+
+    // 4. Delete the session itself
+    const { error: sessionError } = await supabase
+        .from("table_sessions")
+        .delete()
+        .eq("id", sessionId);
+
+    if (sessionError) throw sessionError;
+
+    revalidatePath("/app/floor");
+    revalidatePath("/app/slips");
+    return { success: true };
+}
+
 export async function updateSessionTimes(sessionId: string, startTime?: string, endTime?: string | null) {
     const supabase = await createServerClient();
 
@@ -471,6 +725,11 @@ export async function updateSessionTimes(sessionId: string, startTime?: string, 
 export async function removeCastAssignment(assignmentId: string) {
     const supabase = await createServerClient();
 
+    // Validate assignmentId
+    if (!assignmentId || typeof assignmentId !== 'string') {
+        throw new Error("Invalid assignment ID");
+    }
+
     // Get assignment to check if it's a guest entry
     const { data: assignment } = await supabase
         .from("cast_assignments")
@@ -485,7 +744,7 @@ export async function removeCastAssignment(assignmentId: string) {
 
     if (error) throw error;
 
-    // If it was a guest entry, decrement guest_count
+    // If it was a guest entry, decrement guest_count, update set fee quantity, and check if it's a temp guest
     if (assignment && assignment.cast_id === assignment.guest_id && assignment.table_session_id) {
         const { data: session } = await supabase
             .from("table_sessions")
@@ -494,10 +753,52 @@ export async function removeCastAssignment(assignmentId: string) {
             .single();
 
         if (session && session.guest_count > 0) {
+            const newGuestCount = session.guest_count - 1;
+
             await supabase
                 .from("table_sessions")
-                .update({ guest_count: session.guest_count - 1 })
+                .update({ guest_count: newGuestCount })
                 .eq("id", assignment.table_session_id);
+
+            // Update set fee quantity to match guest count
+            await supabase
+                .from("orders")
+                .update({ quantity: newGuestCount })
+                .eq("table_session_id", assignment.table_session_id)
+                .eq("item_name", "セット料金");
+        }
+
+        // Check if this is a temp guest and delete the profile if not used in other sessions
+        const guestId = assignment.cast_id;
+        if (guestId) {
+            const { data: guestProfile } = await supabase
+                .from("profiles")
+                .select("id, display_name, user_id")
+                .eq("id", guestId)
+                .single();
+
+            if (guestProfile && guestProfile.user_id === null && guestProfile.display_name?.match(/^ゲスト\d+$/)) {
+                // This is a temp guest - check if it's used in other sessions
+                const { data: otherAssignments } = await supabase
+                    .from("cast_assignments")
+                    .select("id")
+                    .eq("cast_id", guestId)
+                    .or(`guest_id.eq.${guestId}`)
+                    .limit(1);
+
+                // Only delete if not used in other sessions
+                if (!otherAssignments || otherAssignments.length === 0) {
+                    const { error: deleteProfileError } = await supabase
+                        .from("profiles")
+                        .delete()
+                        .eq("id", guestId);
+
+                    if (deleteProfileError) {
+                        console.error("Error deleting temp guest profile:", deleteProfileError);
+                        // Don't throw - continue even if temp guest deletion fails
+                    }
+                }
+            }
         }
     }
 
@@ -507,6 +808,11 @@ export async function removeCastAssignment(assignmentId: string) {
 
 export async function updateCastAssignmentStatus(assignmentId: string, status: string) {
     const supabase = await createServerClient();
+
+    // Validate assignmentId
+    if (!assignmentId || typeof assignmentId !== 'string') {
+        throw new Error("Invalid assignment ID");
+    }
 
     const { error } = await supabase
         .from("cast_assignments")
@@ -524,6 +830,11 @@ export async function updateCastAssignmentTimes(
     endTime?: string | null
 ) {
     const supabase = await createServerClient();
+
+    // Validate assignmentId
+    if (!assignmentId || typeof assignmentId !== 'string') {
+        throw new Error("Invalid assignment ID");
+    }
 
     const updates: any = {};
     if (startTime !== undefined) updates.start_time = startTime;
@@ -546,6 +857,11 @@ export async function updateCastAssignmentPosition(
     gridY: number | null
 ) {
     const supabase = await createServerClient();
+
+    // Validate assignmentId
+    if (!assignmentId || typeof assignmentId !== 'string') {
+        throw new Error("Invalid assignment ID");
+    }
 
     const { error } = await supabase
         .from("cast_assignments")
@@ -661,6 +977,7 @@ export async function updateSession(
         tableId?: string;
         guestCount?: number;
         startTime?: string;
+        endTime?: string | null;
         pricingSystemId?: string | null;
         mainGuestId?: string | null;
     }
@@ -670,7 +987,8 @@ export async function updateSession(
     const dbUpdates: any = {};
     if (updates.tableId) dbUpdates.table_id = updates.tableId;
     if (updates.guestCount !== undefined) dbUpdates.guest_count = updates.guestCount;
-    if (updates.startTime) dbUpdates.start_time = updates.startTime;
+    if (updates.startTime !== undefined) dbUpdates.start_time = updates.startTime;
+    if (updates.endTime !== undefined) dbUpdates.end_time = updates.endTime;
     if (updates.pricingSystemId !== undefined) dbUpdates.pricing_system_id = updates.pricingSystemId;
     if (updates.mainGuestId !== undefined) dbUpdates.main_guest_id = updates.mainGuestId;
 
@@ -710,7 +1028,16 @@ export async function getCasts() {
         return [];
     }
 
-    return casts;
+    // Filter out temp guests (display_name matches "ゲスト\d+" pattern and user_id is null)
+    const filteredCasts = (casts || []).filter((cast: any) => {
+        // Exclude temp guests (though casts shouldn't be temp guests, but just in case)
+        if (cast.user_id === null && cast.display_name?.match(/^ゲスト\d+$/)) {
+            return false;
+        }
+        return true;
+    });
+
+    return filteredCasts;
 }
 
 export async function getGuests() {
@@ -738,7 +1065,16 @@ export async function getGuests() {
         return [];
     }
 
-    return guests;
+    // Filter out temp guests (display_name matches "ゲスト\d+" pattern and user_id is null)
+    const filteredGuests = (guests || []).filter((guest: any) => {
+        // Exclude temp guests
+        if (guest.user_id === null && guest.display_name?.match(/^ゲスト\d+$/)) {
+            return false;
+        }
+        return true;
+    });
+
+    return filteredGuests;
 }
 
 export async function getSessionGuests(sessionId: string) {
@@ -820,6 +1156,80 @@ export async function addGuestToSession(
     revalidatePath("/app/slips");
 }
 
+export async function createTempGuest(sessionId: string) {
+    const supabase = await createServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not authenticated");
+
+    // Get current user's store
+    const { data: profile } = await supabase
+        .from("profiles")
+        .select("store_id")
+        .eq("user_id", user.id)
+        .single();
+
+    if (!profile?.store_id) throw new Error("No store found");
+
+    // Get existing guest assignments in this session (where cast_id === guest_id)
+    const { data: assignments } = await supabase
+        .from("cast_assignments")
+        .select("cast_id, guest_id")
+        .eq("table_session_id", sessionId);
+
+    // Get all guest profiles that are temp guests (display_name starts with "ゲスト")
+    let tempGuestCount = 0;
+    if (assignments && assignments.length > 0) {
+        // Filter guest entries (where cast_id === guest_id)
+        const guestIds = assignments
+            .filter(a => a.cast_id && a.guest_id && a.cast_id === a.guest_id)
+            .map(a => a.cast_id)
+            .filter((id, index, self) => self.indexOf(id) === index); // Remove duplicates
+
+        if (guestIds.length > 0) {
+            const { data: guestProfiles } = await supabase
+                .from("profiles")
+                .select("display_name")
+                .in("id", guestIds)
+                .like("display_name", "ゲスト%");
+
+            if (guestProfiles) {
+                for (const guestProfile of guestProfiles) {
+                    const match = guestProfile.display_name?.match(/^ゲスト(\d+)$/);
+                    if (match) {
+                        const num = parseInt(match[1]);
+                        if (num > tempGuestCount) {
+                            tempGuestCount = num;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Create new temp guest profile
+    const nextGuestNumber = tempGuestCount + 1;
+    const displayName = `ゲスト${nextGuestNumber}`;
+
+    const { data: newProfile, error: profileError } = await supabase
+        .from("profiles")
+        .insert({
+            display_name: displayName,
+            role: "guest",
+            store_id: profile.store_id,
+            user_id: null, // Temp guests don't have a user_id
+            is_temporary: true,
+        })
+        .select()
+        .single();
+
+    if (profileError) {
+        console.error("Error creating temp guest:", profileError);
+        throw profileError;
+    }
+
+    return newProfile;
+}
+
 export async function removeGuestFromSession(assignmentId: string) {
     const supabase = await createServerClient();
 
@@ -868,6 +1278,39 @@ export async function removeGuestFromSession(assignmentId: string) {
                 throw updateError;
             }
         }
+
+        // Check if this is a temp guest and delete the profile if not used in other sessions
+        const guestId = assignment.cast_id;
+        if (guestId) {
+            const { data: guestProfile } = await supabase
+                .from("profiles")
+                .select("id, display_name, user_id")
+                .eq("id", guestId)
+                .single();
+
+            if (guestProfile && guestProfile.user_id === null && guestProfile.display_name?.match(/^ゲスト\d+$/)) {
+                // This is a temp guest - check if it's used in other sessions
+                const { data: otherAssignments } = await supabase
+                    .from("cast_assignments")
+                    .select("id")
+                    .eq("cast_id", guestId)
+                    .or(`guest_id.eq.${guestId}`)
+                    .limit(1);
+
+                // Only delete if not used in other sessions
+                if (!otherAssignments || otherAssignments.length === 0) {
+                    const { error: deleteProfileError } = await supabase
+                        .from("profiles")
+                        .delete()
+                        .eq("id", guestId);
+
+                    if (deleteProfileError) {
+                        console.error("Error deleting temp guest profile:", deleteProfileError);
+                        // Don't throw - continue even if temp guest deletion fails
+                    }
+                }
+            }
+        }
     }
 
     revalidatePath("/app/floor");
@@ -881,17 +1324,25 @@ export async function getStoreSettings() {
     if (!user) return null;
 
     // Get the store the user belongs to
+    const { data: appUser } = await supabase
+        .from("users")
+        .select("current_profile_id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+    if (!appUser?.current_profile_id) return null;
+
     const { data: profile } = await supabase
         .from("profiles")
         .select("store_id")
-        .eq("id", user.id)
+        .eq("id", appUser.current_profile_id)
         .single();
 
     if (!profile?.store_id) return null;
 
     const { data: store } = await supabase
         .from("stores")
-        .select("day_switch_time")
+        .select("day_switch_time, slip_rounding_enabled, slip_rounding_method, slip_rounding_unit")
         .eq("id", profile.store_id)
         .single();
 

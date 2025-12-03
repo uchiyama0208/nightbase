@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Store, Clock, ChevronRight, Upload, LayoutGrid } from "lucide-react";
+import { Store, Clock, ChevronRight, Upload, LayoutGrid, Receipt } from "lucide-react";
 import { createServerClient } from "@/lib/supabaseServerClient";
 import { DeleteStoreModal } from "./delete-store-modal";
 
@@ -89,6 +89,16 @@ export default async function SettingsPage() {
                                 <Upload className="h-5 w-5 text-slate-600 dark:text-slate-400" />
                             </div>
                             <span className="font-medium text-gray-900 dark:text-white">データインポート（CSV）</span>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-gray-400" />
+                    </Link>
+
+                    <Link href="/app/settings/slip" className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        <div className="flex items-center space-x-4">
+                            <div className="bg-orange-100 dark:bg-orange-900 p-2 rounded-md">
+                                <Receipt className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                            </div>
+                            <span className="font-medium text-gray-900 dark:text-white">伝票設定</span>
                         </div>
                         <ChevronRight className="h-5 w-5 text-gray-400" />
                     </Link>

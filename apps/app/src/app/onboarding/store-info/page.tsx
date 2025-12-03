@@ -33,7 +33,7 @@ export default async function StoreInfoPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
             <div className="max-w-3xl w-full space-y-6">
                 <div className="flex items-center space-x-4">
                     <Link

@@ -1,210 +1,103 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Table, TableSession } from "@/types/floor";
-import { getTables } from "../seats/actions";
-import { getActiveSessions } from "./actions";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState } from "react";
+import { TableSession } from "@/types/floor";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Plus, Clock, Zap, Users } from "lucide-react";
+import { Plus } from "lucide-react";
 import { NewSessionModal } from "./new-session-modal";
 import { SessionDetailModal } from "./session-detail-modal";
 import { QuickOrderModal } from "./quick-order-modal";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SlipDetailModal } from "@/components/slips/slip-detail-modal";
+import { SessionCard } from "./components/session-card";
+import { useFloorData } from "./hooks/use-floor-data";
 
 export default function FloorPage() {
-    const [tables, setTables] = useState<Table[]>([]);
-    const [sessions, setSessions] = useState<TableSession[]>([]);
+    const {
+        tables,
+        sessions,
+        selectedSession,
+        selectedTable,
+        setSelectedSession,
+        setSelectedTable,
+        loadData,
+        showCompleted,
+        setShowCompleted,
+    } = useFloorData();
+
     const [isNewSessionOpen, setIsNewSessionOpen] = useState(false);
-    const [selectedSession, setSelectedSession] = useState<TableSession | null>(null);
-    const [selectedTable, setSelectedTable] = useState<Table | null>(null);
     const [quickOrderSession, setQuickOrderSession] = useState<TableSession | null>(null);
-    const [quickOrderTable, setQuickOrderTable] = useState<Table | null>(null);
+    const [quickOrderTable, setQuickOrderTable] = useState<any>(null);
     const [slipSessionId, setSlipSessionId] = useState<string | null>(null);
 
-    useEffect(() => {
-        loadData();
-        const interval = setInterval(() => loadData(), 30000);
-        return () => clearInterval(interval);
-    }, []);
-
-    const loadData = async (targetSessionId?: string) => {
-        const [tablesData, sessionsData] = await Promise.all([
-            getTables(),
-            getActiveSessions(),
-        ]);
-        setTables(tablesData);
-        setSessions(sessionsData as any);
-
-        // If a target session ID is provided, select it immediately
-        if (targetSessionId) {
-            const session = (sessionsData as any[]).find((s) => s.id === targetSessionId);
-            if (session) {
-                const table = tablesData.find((t) => t.id === session.table_id);
-                if (table) {
-                    setSelectedSession(session as TableSession);
-                    setSelectedTable(table);
-                }
-            }
-            return;
-        }
-
-        // Ensure the currently selected session/table are refreshed with latest data
-        setSelectedSession((prev) => {
-            if (!prev) return prev;
-            const updated = (sessionsData as any[]).find((s) => s.id === prev.id);
-            return (updated as TableSession) || prev;
-        });
-
-        setSelectedTable((prev) => {
-            if (!prev) return prev;
-            const updated = tablesData.find((t) => t.id === prev.id);
-            return updated || prev;
-        });
-    };
-
     const handleSessionClick = (session: TableSession) => {
-        const table = tables.find(t => t.id === session.table_id);
-        if (table) {
-            setSelectedSession(session);
-            setSelectedTable(table);
-        }
+        const table = tables.find(t => t.id === session.table_id) || null;
+        setSelectedSession(session);
+        setSelectedTable(table);
     };
 
-    const formatTime = (dateString: string) => {
-        return new Date(dateString).toLocaleTimeString("ja-JP", {
-            hour: "2-digit",
-            minute: "2-digit",
-            timeZone: "Asia/Tokyo",
-        });
+    const handleQuickOrder = (session: TableSession, table: any) => {
+        setQuickOrderSession(session);
+        setQuickOrderTable(table);
     };
 
     return (
         <div className="h-full flex flex-col space-y-3 p-1 md:p-4">
-            <div className="flex justify-between items-center">
+            <div>
                 <h1 className="text-2xl font-bold">フロア管理</h1>
-                <Button size="icon" onClick={() => setIsNewSessionOpen(true)}>
-                    <Plus className="h-4 w-4" />
+            </div>
+            <div className="flex items-center justify-between">
+                {/* Toggle Button */}
+                <div className="relative inline-flex h-10 items-center rounded-full bg-gray-100 dark:bg-gray-800 p-1">
+                    <div
+                        className="absolute h-8 rounded-full bg-white dark:bg-gray-700 shadow-sm transition-transform duration-300 ease-in-out"
+                        style={{
+                            width: "80px",
+                            left: "4px",
+                            transform: `translateX(calc(${showCompleted ? 1 : 0} * (80px + 0px)))`
+                        }}
+                    />
+                    <button
+                        type="button"
+                        onClick={() => setShowCompleted(false)}
+                        className={`relative z-10 w-20 flex items-center justify-center h-8 rounded-full text-sm font-medium transition-colors duration-200 ${!showCompleted ? "text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
+                    >
+                        進行中
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setShowCompleted(true)}
+                        className={`relative z-10 w-20 flex items-center justify-center h-8 rounded-full text-sm font-medium transition-colors duration-200 ${showCompleted ? "text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
+                    >
+                        終了済み
+                    </button>
+                </div>
+                <Button
+                    size="icon"
+                    className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
+                    onClick={() => setIsNewSessionOpen(true)}
+                >
+                    <Plus className="h-5 w-5" />
                 </Button>
             </div>
 
             <div className="grid grid-cols-2 gap-2 md:gap-4">
                 {sessions.map(session => {
                     const table = tables.find(t => t.id === session.table_id);
-                    const castAssignments = (session as any).cast_assignments || [];
-
-                    // ゲストごとにグループ化
-                    const guestGroups: { guest: any; servingCasts: any[] }[] = [];
-                    const guestIds = new Set<string>();
-
-                    // ゲストを抽出（cast_id === guest_id）
-                    castAssignments
-                        .filter((a: any) => a.cast_id === a.guest_id)
-                        .forEach((a: any) => {
-                            if (!guestIds.has(a.guest_id)) {
-                                guestIds.add(a.guest_id);
-                                // このゲストに接客中のキャストを取得
-                                const servingCasts = castAssignments
-                                    .filter((c: any) =>
-                                        c.guest_id === a.guest_id &&
-                                        c.cast_id !== c.guest_id &&
-                                        c.status === "serving"
-                                    )
-                                    .map((c: any) => c.profiles);
-
-                                guestGroups.push({
-                                    guest: a.profiles,
-                                    servingCasts
-                                });
-                            }
-                        });
-
                     return (
-                        <Card
+                        <SessionCard
                             key={session.id}
-                            className="cursor-pointer hover:shadow-md transition-shadow bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 p-3 flex flex-col"
-                            onClick={() => handleSessionClick(session)}
-                        >
-                            <CardHeader className="p-0 mb-2 space-y-0">
-                                <CardTitle className="text-2xl mb-1 text-slate-900 dark:text-slate-100">{table?.name || "不明"}</CardTitle>
-                                <div className="flex items-center justify-between gap-2">
-                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                        <Clock className="h-3 w-3" />
-                                        <span className="text-xs sm:text-sm">{formatTime(session.start_time)}〜</span>
-                                    </div>
-                                    <Badge variant="secondary" className="text-xs">{session.guest_count}名</Badge>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="p-0 space-y-1.5 flex-1">
-                                {/* ゲストと接客中キャストのペア表示 */}
-                                {guestGroups.slice(0, 3).map((group, i) => (
-                                    <div key={i} className="flex items-center gap-1 text-[11px]">
-                                        {/* ゲスト */}
-                                        <div className="flex items-center gap-1 min-w-0">
-                                            <span className="truncate text-slate-700 dark:text-slate-300">
-                                                {group.guest?.display_name || "不明"}
-                                            </span>
-                                            {/* オンリーバッジ */}
-                                            {group.servingCasts.length === 0 && (
-                                                <span className="text-[10px] text-red-600 dark:text-red-400 font-medium shrink-0">
-                                                    オンリー
-                                                </span>
-                                            )}
-                                        </div>
-
-                                        {group.servingCasts.length > 0 && (
-                                            <div className="flex items-center gap-0.5 text-muted-foreground shrink-0">
-                                                <span className="text-[10px]">←</span>
-                                                {group.servingCasts.slice(0, 2).map((cast: any, j: number) => (
-                                                    <span key={j} className="text-pink-600 dark:text-pink-400 truncate max-w-[3rem]">
-                                                        {cast?.display_name?.slice(0, 3) || "?"}
-                                                    </span>
-                                                ))}
-                                                {group.servingCasts.length > 2 && (
-                                                    <span className="text-muted-foreground">+{group.servingCasts.length - 2}</span>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-                                {guestGroups.length > 3 && (
-                                    <div className="text-[10px] text-muted-foreground">
-                                        他 {guestGroups.length - 3} 組
-                                    </div>
-                                )}
-                                {guestGroups.length === 0 && (
-                                    <div className="text-[10px] text-muted-foreground">
-                                        ゲスト未登録
-                                    </div>
-                                )}
-
-                                {/* クイック注文ボタン */}
-                                <div className="pt-1">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="w-full h-7 text-xs px-2 py-1"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setQuickOrderSession(session);
-                                            setQuickOrderTable(table || null);
-                                        }}
-                                    >
-                                        <Zap className="h-3 w-3 mr-1" />
-                                        クイック注文
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
+                            session={session}
+                            table={table}
+                            onSessionClick={handleSessionClick}
+                            onQuickOrder={handleQuickOrder}
+                        />
                     );
                 })}
                 {sessions.length === 0 && (
                     <div className="col-span-full text-center py-12 text-muted-foreground bg-slate-50 dark:bg-slate-900 rounded-lg border border-dashed">
-                        アクティブなセッションはありません
+                        {showCompleted ? "終了済みのセッションはありません" : "アクティブなセッションはありません"}
                         <br />
-                        右上のボタンから新規セッションを開始してください
+                        {!showCompleted && "右上のボタンから新規セッションを開始してください"}
                     </div>
                 )}
             </div>
@@ -217,17 +110,20 @@ export default function FloorPage() {
             />
 
             {
-                selectedSession && selectedTable && (
+                selectedSession && (
                     <SessionDetailModal
-                        isOpen={!!selectedSession && !slipSessionId}
-                        onClose={() => setSelectedSession(null)}
+                        isOpen={!!selectedSession}
+                        onClose={() => {
+                            setSelectedSession(null);
+                            setSlipSessionId(null);
+                        }}
                         session={selectedSession}
                         table={selectedTable}
                         onUpdate={() => loadData(selectedSession.id)}
                         onOpenSlip={(sessionId) => {
-                            // 伝票モーダルを開く（セッション詳細モーダルは閉じない）
                             setSlipSessionId(sessionId);
                         }}
+                        slipIsOpen={!!slipSessionId}
                     />
                 )
             }
@@ -255,6 +151,9 @@ export default function FloorPage() {
                 sessionId={slipSessionId}
                 onUpdate={loadData}
                 editable={true}
+                initialTables={tables}
+                initialSessions={sessions}
+                preventOutsideClose={true}
             />
         </div >
     );

@@ -13,8 +13,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { UserCircle, MoreHorizontal, Edit2, Trash2, Heart, Send } from "lucide-react";
-import { format } from "date-fns";
-import { cn } from "@/lib/utils";
+import { cn, formatJSTDate } from "@/lib/utils";
 
 interface Comment {
     id: string;
@@ -53,6 +52,8 @@ export function CommentList({
     const [editingCommentText, setEditingCommentText] = useState("");
     const [commentMenuOpen, setCommentMenuOpen] = useState<string | null>(null);
     const [deleteCommentId, setDeleteCommentId] = useState<string | null>(null);
+    const [likeAnimationKey, setLikeAnimationKey] = useState<Record<string, number>>({});
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     // Optimistic state for comments
     const [optimisticComments, addOptimisticComment] = useOptimistic(
@@ -93,15 +94,16 @@ export function CommentList({
     const handleAdd = async () => {
         if (!newComment.trim()) return;
 
+        const contentToAdd = newComment.trim();
         const tempId = Math.random().toString(36).substring(7);
         const tempComment: Comment = {
             id: tempId,
-            content: newComment,
+            content: contentToAdd,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
             author_profile_id: currentUserId || "",
             // We might not have full author details instantly available if we don't pass them in,
-            // but usually the parent component knows the current user details. 
+            // but usually the parent component knows the current user details.
             // For now, we'll rely on the server refresh or just show a placeholder if needed.
             // Ideally, we should pass currentUser details to this component.
             // Assuming currentUserId is enough to identify ownership for now.
@@ -114,12 +116,17 @@ export function CommentList({
             user_has_liked: false,
         };
 
+        // Reset textarea height
+        if (textareaRef.current) {
+            textareaRef.current.style.height = '40px';
+        }
+
         startTransition(() => {
             addOptimisticComment({ type: "add", comment: tempComment });
             setNewComment("");
         });
 
-        const result = await onAddComment(newComment);
+        const result = await onAddComment(contentToAdd);
         if (!result.success) {
             // Revert or show error (optimistic UI usually assumes success, 
             // handling failure gracefully is complex without a full sync mechanism,
@@ -130,42 +137,59 @@ export function CommentList({
         }
     };
 
-    const handleEdit = async (commentId: string) => {
+    const handleEdit = (commentId: string) => {
         if (!editingCommentText.trim()) return;
 
+        const contentToSave = editingCommentText.trim();
+
+        // Close edit mode immediately
+        setEditingCommentId(null);
+        setEditingCommentText("");
+
+        // Optimistically update the comment
         startTransition(() => {
-            addOptimisticComment({ type: "edit", id: commentId, content: editingCommentText });
-            setEditingCommentId(null);
-            setEditingCommentText("");
+            addOptimisticComment({ type: "edit", id: commentId, content: contentToSave });
         });
 
-        const result = await onEditComment(commentId, editingCommentText);
-        if (!result.success) {
-            alert("コメントの更新に失敗しました");
-        }
+        // Save in background
+        onEditComment(commentId, contentToSave).then((result) => {
+            if (!result.success) {
+                alert("コメントの更新に失敗しました");
+            }
+        });
     };
 
-    const handleDelete = async (commentId: string) => {
+    const handleDelete = (commentId: string) => {
+        // Close modal immediately
+        setDeleteCommentId(null);
+
+        // Optimistically remove the comment
         startTransition(() => {
             addOptimisticComment({ type: "delete", id: commentId });
-            setDeleteCommentId(null);
         });
 
-        const result = await onDeleteComment(commentId);
-        if (!result.success) {
-            alert("コメントの削除に失敗しました");
-        }
+        // Delete in background
+        onDeleteComment(commentId).then((result) => {
+            if (!result.success) {
+                alert("コメントの削除に失敗しました");
+            }
+        });
     };
 
-    const handleLike = async (commentId: string) => {
+    const handleLike = (commentId: string) => {
+        // Update animation key to trigger animation
+        setLikeAnimationKey((prev) => ({
+            ...prev,
+            [commentId]: (prev[commentId] || 0) + 1,
+        }));
+
+        // Optimistically toggle the like
         startTransition(() => {
             addOptimisticComment({ type: "toggle_like", id: commentId });
         });
 
-        const result = await onToggleLike(commentId);
-        if (!result.success) {
-            // alert("いいねの更新に失敗しました");
-        }
+        // Fire and forget
+        onToggleLike(commentId);
     };
 
     return (
@@ -185,7 +209,7 @@ export function CommentList({
                                     {comment.author?.display_name || "不明なユーザー"}
                                 </span>
                                 <div className="flex items-center gap-2 flex-shrink-0 text-xs text-gray-500">
-                                    <span>{format(new Date(comment.created_at), "yyyy/MM/dd")}</span>
+                                    <span>{formatJSTDate(comment.created_at)}</span>
                                     {comment.author_profile_id === currentUserId && (
                                         <div className="relative">
                                             <button
@@ -283,7 +307,13 @@ export function CommentList({
                                                 comment.id.length < 30 && "opacity-50 cursor-not-allowed"
                                             )}
                                         >
-                                            <Heart className={cn("h-3.5 w-3.5", comment.user_has_liked && "fill-current")} />
+                                            <Heart
+                                                key={`heart-${comment.id}-${likeAnimationKey[comment.id] || 0}`}
+                                                className={cn(
+                                                    "h-3.5 w-3.5 transition-transform duration-200",
+                                                    comment.user_has_liked && "fill-current animate-like-bounce"
+                                                )}
+                                            />
                                             <span>{comment.like_count || 0 > 0 ? comment.like_count : "いいね"}</span>
                                         </button>
                                     </div>
@@ -297,12 +327,21 @@ export function CommentList({
             <div className="flex gap-2 items-end pt-2">
                 <div className="relative flex-1">
                     <Textarea
+                        ref={textareaRef}
                         value={newComment}
-                        onChange={(e) => setNewComment(e.target.value)}
+                        onChange={(e) => {
+                            setNewComment(e.target.value);
+                            // Auto-resize textarea
+                            const target = e.target;
+                            target.style.height = 'auto';
+                            target.style.height = `${Math.min(target.scrollHeight, 120)}px`;
+                        }}
                         placeholder="コメントを入力..."
-                        className="min-h-[44px] max-h-[120px] py-3 pr-10 resize-none rounded-2xl bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 focus:ring-0"
+                        className="min-h-[40px] max-h-[120px] py-2 pr-10 resize-none rounded-2xl bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 focus:ring-0 overflow-hidden"
+                        rows={1}
+                        style={{ height: '40px' }}
                         onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
+                            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                                 e.preventDefault();
                                 handleAdd();
                             }

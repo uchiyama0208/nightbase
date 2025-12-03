@@ -49,7 +49,7 @@ export default async function LoginPage({
     }
 
     return (
-        <div className="container mx-auto px-4 py-8 pt-24">
+        <div className="min-h-screen flex items-center justify-center px-4 py-8">
             <div className="max-w-2xl mx-auto space-y-6">
                 <div className="text-center space-y-2">
                     <h1 className="text-3xl font-bold text-gray-900 dark:text-white">ログイン</h1>

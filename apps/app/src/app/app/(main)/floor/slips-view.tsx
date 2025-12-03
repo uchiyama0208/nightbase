@@ -274,7 +274,7 @@ export function SlipsView() {
                             </div>
                         </div>
                     )}
-                    <DialogFooter>
+                    <DialogFooter className="gap-2">
                         <Button variant="outline" onClick={() => setIsDetailOpen(false)}>
                             閉じる
                         </Button>

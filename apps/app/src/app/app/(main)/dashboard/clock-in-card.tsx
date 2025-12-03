@@ -3,8 +3,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Clock } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { format } from "date-fns";
-import { ja } from "date-fns/locale";
 
 interface ClockInCardProps {
     lastWorkDate?: string;
@@ -12,15 +10,34 @@ interface ClockInCardProps {
     clockOut?: string;
 }
 
+function formatDateJST(dateString: string): string {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("ja-JP", {
+        timeZone: "Asia/Tokyo",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+    });
+}
+
+function formatTimeJST(dateString: string): string {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString("ja-JP", {
+        timeZone: "Asia/Tokyo",
+        hour: "2-digit",
+        minute: "2-digit",
+    });
+}
+
 export function ClockInCard({ lastWorkDate, clockIn, clockOut }: ClockInCardProps) {
     const router = useRouter();
 
     const formattedDate = lastWorkDate
-        ? format(new Date(lastWorkDate), "yyyy年M月d日", { locale: ja })
+        ? formatDateJST(lastWorkDate)
         : "記録なし";
 
     const formattedTime = clockIn && clockOut
-        ? `${format(new Date(clockIn), "HH:mm")} - ${format(new Date(clockOut), "HH:mm")}`
+        ? `${formatTimeJST(clockIn)} - ${formatTimeJST(clockOut)}`
         : "";
 
     return (

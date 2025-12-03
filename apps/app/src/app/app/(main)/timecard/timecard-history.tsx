@@ -51,6 +51,7 @@ export function TimecardHistory({ timeCards, showBreakColumns }: TimecardHistory
         if (!dateString) return "-";
         const date = new Date(dateString);
         return date.toLocaleString("ja-JP", {
+            timeZone: "Asia/Tokyo",
             hour: "2-digit",
             minute: "2-digit",
         });

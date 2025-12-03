@@ -608,3 +608,92 @@ export async function searchAddressByPostalCode(postalCode: string) {
         return { error: "Request failed" };
     }
 }
+
+export async function updateSlipSettings(formData: FormData) {
+    const supabase = await createServerClient();
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+        redirect("/login");
+    }
+
+    const { data: appUser } = await supabase
+        .from("users")
+        .select("current_profile_id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+    if (!appUser?.current_profile_id) {
+        redirect("/app/me");
+    }
+
+    const { data: profile } = await supabase
+        .from("profiles")
+        .select("store_id, role")
+        .eq("id", appUser.current_profile_id)
+        .maybeSingle();
+
+    if (!profile || !profile.store_id) {
+        redirect("/app/me");
+    }
+
+    if (profile.role !== "staff") {
+        throw new Error(`Unauthorized: Current role is '${profile.role}'`);
+    }
+
+    const slip_rounding_enabled_raw = formData.get("slip_rounding_enabled");
+    const slip_rounding_enabled = slip_rounding_enabled_raw === "on" || slip_rounding_enabled_raw === "true";
+    const slip_rounding_method = formData.get("slip_rounding_method") as string || "round";
+    const slip_rounding_unit_str = formData.get("slip_rounding_unit") as string;
+    const slip_rounding_unit = slip_rounding_unit_str ? parseInt(slip_rounding_unit_str) : 10;
+
+    // Validate rounding method (only if enabled)
+    if (slip_rounding_enabled && !["round", "ceil", "floor"].includes(slip_rounding_method)) {
+        throw new Error("Invalid rounding method");
+    }
+
+    // Validate rounding unit (only if enabled)
+    if (slip_rounding_enabled && ![10, 100, 1000, 10000].includes(slip_rounding_unit)) {
+        throw new Error("Invalid rounding unit");
+    }
+
+    const updateData: any = {
+        slip_rounding_enabled,
+        updated_at: new Date().toISOString(),
+    };
+
+    if (slip_rounding_enabled) {
+        updateData.slip_rounding_method = slip_rounding_method;
+        updateData.slip_rounding_unit = slip_rounding_unit;
+    } else {
+        updateData.slip_rounding_method = null;
+        updateData.slip_rounding_unit = null;
+    }
+
+    console.log("Updating slip settings:", {
+        store_id: profile.store_id,
+        updateData,
+    });
+
+    const { data: updatedStore, error } = await supabase
+        .from("stores")
+        .update(updateData)
+        .eq("id", profile.store_id)
+        .select()
+        .single();
+
+    if (error) {
+        console.error("Error updating slip settings:", error);
+        console.error("Update data:", updateData);
+        console.error("Store ID:", profile.store_id);
+        throw new Error(`伝票設定の更新に失敗しました: ${error.message}`);
+    }
+
+    console.log("Successfully updated slip settings:", updatedStore);
+
+    revalidatePath("/app/settings/slip");
+    revalidatePath("/app/floor");
+    revalidatePath("/app/slips");
+}

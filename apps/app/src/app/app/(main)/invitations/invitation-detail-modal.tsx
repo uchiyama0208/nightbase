@@ -17,8 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Copy, Check, Ban, ChevronLeft } from "lucide-react";
 import { useState, useTransition } from "react";
-import { format } from "date-fns";
-import { ja } from "date-fns/locale";
+import { formatJSTDateTime } from "@/lib/utils";
 
 interface InvitationDetailModalProps {
     invitation: Invitation | null;
@@ -75,7 +74,7 @@ export function InvitationDetailModal({
             return "ー";
         }
 
-        return format(new Date(invitation.expires_at), "yyyy/MM/dd HH:mm", { locale: ja });
+        return formatJSTDateTime(invitation.expires_at);
     };
 
     return (

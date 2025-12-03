@@ -59,7 +59,7 @@ export function DeleteStoreModal() {
                         店舗に関連するすべてのデータ（スタッフ、キャスト、勤怠記録、設定など）が永久に削除されます。
                     </DialogDescription>
                 </DialogHeader>
-                <DialogFooter>
+                <DialogFooter className="gap-2">
                     <Button variant="outline" onClick={() => setOpen(false)} disabled={loading}>
                         キャンセル
                     </Button>

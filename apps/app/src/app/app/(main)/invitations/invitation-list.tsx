@@ -24,8 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Search, Ban, Copy, Check } from "lucide-react";
 import { InvitationModal } from "./invitation-modal";
 import { InvitationDetailModal } from "./invitation-detail-modal";
-import { format } from "date-fns";
-import { ja } from "date-fns/locale";
+import { formatJSTDateTime } from "@/lib/utils";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
 
@@ -267,7 +266,7 @@ export function InvitationList({
                                     <TableCell className="text-sm text-gray-500 text-center w-1/3">
                                         {inv.status === "accepted" || !inv.expires_at
                                             ? "ー"
-                                            : format(new Date(inv.expires_at), "yyyy/MM/dd HH:mm", { locale: ja })}
+                                            : formatJSTDateTime(inv.expires_at)}
                                     </TableCell>
                                 </TableRow>
                             ))

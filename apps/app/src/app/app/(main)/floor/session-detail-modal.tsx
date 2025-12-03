@@ -17,7 +17,7 @@ import { UserPlus, ChevronLeft, MoreHorizontal, Receipt, ChevronDown, ChevronUp,
 import { PlacementModal } from "./placement-modal";
 import { SeatSelectionModal } from "./seat-selection-modal";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { assignCast, closeSession, removeCastAssignment, updateCastAssignmentStatus, updateCastAssignmentPosition, updateCastAssignmentTimes, getStoreSettings, rotateCast } from "./actions";
+import { assignCast, closeSession, deleteSession, removeCastAssignment, updateCastAssignmentStatus, updateCastAssignmentPosition, updateCastAssignmentTimes, getStoreSettings, rotateCast } from "./actions";
 
 const CAST_STATUS_OPTIONS = [
     { value: "waiting", label: "待機", color: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300" },
@@ -35,9 +35,10 @@ interface SessionDetailModalProps {
     isOpen: boolean;
     onClose: () => void;
     session: TableSession;
-    table: Table;
+    table: Table | null;
     onUpdate: () => void;
     onOpenSlip?: (sessionId: string) => void;
+    slipIsOpen?: boolean;
 }
 
 function ScalableGridWrapper({ grid, assignments, onCellClick }: { grid: any[][], assignments: any[], onCellClick?: (r: number, c: number) => void }) {
@@ -102,7 +103,7 @@ function ScalableGridWrapper({ grid, assignments, onCellClick }: { grid: any[][]
     );
 }
 
-export function SessionDetailModal({ isOpen, onClose, session, table, onUpdate, onOpenSlip }: SessionDetailModalProps) {
+export function SessionDetailModal({ isOpen, onClose, session, table, onUpdate, onOpenSlip, slipIsOpen = false }: SessionDetailModalProps) {
     const [daySwitchTime, setDaySwitchTime] = useState<string>("05:00:00");
 
     useEffect(() => {
@@ -206,8 +207,8 @@ export function SessionDetailModal({ isOpen, onClose, session, table, onUpdate, 
     console.log('Guest Groups:', guestGroups);
     console.log('Guests:', guests);
 
-    const handleCloseSession = async () => {
-        await closeSession(session.id);
+    const handleDeleteSession = async () => {
+        await deleteSession(session.id);
         onUpdate();
         onClose();
         setCloseConfirm(false);
@@ -267,6 +268,36 @@ export function SessionDetailModal({ isOpen, onClose, session, table, onUpdate, 
                     return;
                 }
             }
+        }
+
+        // テーブルがない場合は席選択をスキップして直接配置
+        if (!table?.layout_data?.grid) {
+            setIsPlacementOpen(false);
+            if (placementMode === "guest") {
+                try {
+                    await assignCast(session.id, profile.id, "waiting", profile.id, null, null);
+                    await onUpdate();
+                } catch (error) {
+                    console.error("Failed to assign:", error);
+                    alert("配置に失敗しました");
+                }
+            } else {
+                try {
+                    await assignCast(
+                        session.id,
+                        profile.id,
+                        "waiting",
+                        selectedGuestId,
+                        null,
+                        null
+                    );
+                    await onUpdate();
+                } catch (error) {
+                    console.error("Failed to assign:", error);
+                    alert("配置に失敗しました");
+                }
+            }
+            return;
         }
 
         // 1人目のキャストまたはゲストの場合は席選択モーダルを開く
@@ -436,7 +467,11 @@ export function SessionDetailModal({ isOpen, onClose, session, table, onUpdate, 
     return (
         <>
             <Dialog open={isOpen} onOpenChange={onClose}>
-                <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col p-3 sm:p-4 md:p-5">
+                <DialogContent
+                    className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col p-3 sm:p-4 md:p-5"
+                    onPointerDownOutside={slipIsOpen ? (e) => e.preventDefault() : undefined}
+                    onInteractOutside={slipIsOpen ? (e) => e.preventDefault() : undefined}
+                >
                     <DialogHeader className="mb-3 sm:mb-4 flex flex-row items-center justify-between gap-2 relative">
                         <button
                             type="button"
@@ -447,7 +482,7 @@ export function SessionDetailModal({ isOpen, onClose, session, table, onUpdate, 
                             <ChevronLeft className="h-4 w-4" />
                         </button>
                         <DialogTitle className="flex-1 text-center text-xl font-bold flex items-center justify-center gap-2">
-                            {table.name}
+                            {table?.name || "テーブル未設定"}
                             <span className="text-sm font-normal text-muted-foreground">
                                 {session.guest_count}名
                             </span>
@@ -470,13 +505,14 @@ export function SessionDetailModal({ isOpen, onClose, session, table, onUpdate, 
                                 <div className="absolute right-0 top-10 z-50 w-40 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg p-2 flex flex-col gap-1 text-sm animate-in fade-in zoom-in-95 duration-100">
                                     <button
                                         type="button"
-                                        className="w-full text-left px-3 py-2 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                        className="w-full text-left px-3 py-2 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-2"
                                         onClick={() => {
                                             setShowActions(false);
                                             setCloseConfirm(true);
                                         }}
                                     >
-                                        セッション終了
+                                        <Trash2 className="h-4 w-4" />
+                                        削除
                                     </button>
                                 </div>
                             </>
@@ -488,7 +524,7 @@ export function SessionDetailModal({ isOpen, onClose, session, table, onUpdate, 
                         <div className="flex items-center justify-between gap-3 flex-shrink-0 mb-4">
                             <div className="relative flex items-center w-36 bg-slate-100 dark:bg-slate-800 rounded-full p-1 overflow-hidden">
                                 <div
-                                    className={`absolute inset-y-1 w-1/2 rounded-full bg-white dark:bg-slate-900 shadow-sm transition-transform duration-200 ease-out ${viewMode === "table" ? "translate-x-0" : "translate-x-full"
+                                    className={`absolute inset-y-1 w-[calc(50%-4px)] rounded-full bg-white dark:bg-slate-900 shadow-sm transition-all duration-200 ease-out ${viewMode === "table" ? "left-1" : "left-[50%]"
                                         }`}
                                 />
                                 <button
@@ -755,12 +791,9 @@ export function SessionDetailModal({ isOpen, onClose, session, table, onUpdate, 
                                                                 variant="ghost"
                                                                 className="h-9 w-9 p-0 text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                                                                 onClick={() => {
-                                                                    const guestAssignment = guestCasts.find((c: any) => c.cast_id === guest.id);
-                                                                    // If not found in guestCasts (because we filtered it out), find it in original assignments
-                                                                    const originalAssignment = castAssignments.find((a: any) => a.guest_id === guest.id && a.cast_id === guest.id);
-
-                                                                    if (originalAssignment) {
-                                                                        setDeleteConfirm({ id: originalAssignment.id, name: guest.display_name || "不明" });
+                                                                    const guestAssignment = castAssignments.find((a: any) => a.guest_id === guest.id && a.cast_id === guest.id);
+                                                                    if (guestAssignment) {
+                                                                        setDeleteConfirm({ id: guestAssignment.id, name: guest.display_name || "不明" });
                                                                     }
                                                                 }}
                                                             >
@@ -768,7 +801,8 @@ export function SessionDetailModal({ isOpen, onClose, session, table, onUpdate, 
                                                             </Button>
                                                         </div>
                                                     </div>
-                                                )}
+                                                )
+                                                }
                                             </div>
                                         );
                                     })}
@@ -784,16 +818,23 @@ export function SessionDetailModal({ isOpen, onClose, session, table, onUpdate, 
                             {/* Table Grid */}
                             {viewMode === "grid" && (
                                 <div className="w-full space-y-4">
-                                    <div className="w-full flex justify-center p-2">
-                                        <ScalableGridWrapper
-                                            grid={table.layout_data?.grid || []}
-                                            assignments={castAssignments.filter((a: any) =>
-                                                // ゲストは常に表示、キャストは接客中、場内、指名のみ表示
-                                                a.guest_id === a.cast_id ||
-                                                a.status === 'serving' || a.status === 'jonai' || a.status === 'shimei'
-                                            )}
-                                        />
-                                    </div>
+                                    {table?.layout_data?.grid ? (
+                                        <div className="w-full flex justify-center p-2">
+                                            <ScalableGridWrapper
+                                                grid={table.layout_data.grid}
+                                                assignments={castAssignments.filter((a: any) =>
+                                                    // ゲストは常に表示、キャストは接客中、場内、指名のみ表示
+                                                    a.guest_id === a.cast_id ||
+                                                    a.status === 'serving' || a.status === 'jonai' || a.status === 'shimei'
+                                                )}
+                                            />
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground bg-slate-50 dark:bg-slate-900 rounded-xl border border-dashed">
+                                            <p className="text-sm">テーブルが設定されていません</p>
+                                            <p className="text-xs mt-1">グリッドビューを使用するにはテーブルを設定してください</p>
+                                        </div>
+                                    )}
 
                                     {/* Unassigned Items */}
                                     {(() => {
@@ -879,12 +920,13 @@ export function SessionDetailModal({ isOpen, onClose, session, table, onUpdate, 
                     onClose={() => setIsPlacementOpen(false)}
                     mode={placementMode}
                     onProfileSelect={handleProfileSelect}
+                    sessionId={session.id}
                 />
             )
             }
 
             {
-                isSeatSelectionOpen && pendingPlacement && (
+                isSeatSelectionOpen && pendingPlacement && table && (
                     <SeatSelectionModal
                         isOpen={isSeatSelectionOpen}
                         onClose={handleSeatSelectionClose}
@@ -1039,9 +1081,9 @@ export function SessionDetailModal({ isOpen, onClose, session, table, onUpdate, 
             <Dialog open={closeConfirm} onOpenChange={setCloseConfirm}>
                 <DialogContent className="max-w-sm">
                     <DialogHeader>
-                        <DialogTitle>セッション終了</DialogTitle>
+                        <DialogTitle>セッションを削除しますか？</DialogTitle>
                         <DialogDescription>
-                            このセッションを終了しますか?
+                            この操作は取り消せません。関連する伝票やキャストの割り当て情報もすべて削除されます。
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter className="gap-2 sm:gap-0">
@@ -1055,9 +1097,9 @@ export function SessionDetailModal({ isOpen, onClose, session, table, onUpdate, 
                         <Button
                             type="button"
                             variant="destructive"
-                            onClick={handleCloseSession}
+                            onClick={handleDeleteSession}
                         >
-                            終了
+                            削除する
                         </Button>
                     </DialogFooter>
                 </DialogContent>

@@ -20,8 +20,7 @@ import {
 import { Plus, Search, Wine, Trash2, Edit } from "lucide-react";
 import { getBottleKeeps, deleteBottleKeep } from "./actions";
 import { BottleModal } from "./bottle-modal";
-import { format } from "date-fns";
-import { ja } from "date-fns/locale";
+import { formatJSTDate } from "@/lib/utils";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
 
@@ -215,7 +214,7 @@ export function BottleList({ storeId, menus, profiles }: BottleListProps) {
                                     </TableCell>
                                     <TableCell className="hidden md:table-cell text-center">
                                         {bottle.opened_at
-                                            ? format(new Date(bottle.opened_at), "yyyy/MM/dd", { locale: ja })
+                                            ? formatJSTDate(bottle.opened_at)
                                             : "-"}
                                     </TableCell>
                                     <TableCell className="hidden md:table-cell text-center" onClick={(e) => e.stopPropagation()}>

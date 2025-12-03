@@ -14,11 +14,12 @@ import { getAppData } from "../../data-access";
 async function getUsersData(storeId: string, currentProfileId: string) {
     const supabase = await createServerClient();
 
-    // Build query
+    // Build query - exclude temporary guests
     const { data: profiles, error } = await supabase
         .from("profiles")
         .select("*, stores(*)")
         .eq("store_id", storeId)
+        .or("is_temporary.is.null,is_temporary.eq.false")
         .order("created_at", { ascending: false });
 
     if (error) {

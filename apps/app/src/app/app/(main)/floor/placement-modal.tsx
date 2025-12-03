@@ -2,17 +2,22 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { getAllProfiles } from "../users/actions";
 import { ChevronLeft } from "lucide-react";
+import { createTempGuest } from "./actions";
+import { UserEditModal } from "../users/user-edit-modal";
 
 interface PlacementModalProps {
     isOpen: boolean;
     onClose: () => void;
     onProfileSelect: (profile: any) => void;
     mode?: "guest" | "cast";
+    sessionId?: string; // For creating temp guests
 }
 
-export function PlacementModal({ isOpen, onClose, onProfileSelect, mode = "guest" }: PlacementModalProps) {
+export function PlacementModal({ isOpen, onClose, onProfileSelect, mode = "guest", sessionId }: PlacementModalProps) {
     const [allProfiles, setAllProfiles] = useState<any[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
+    const [isCreatingTempGuest, setIsCreatingTempGuest] = useState(false);
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
@@ -28,6 +33,22 @@ export function PlacementModal({ isOpen, onClose, onProfileSelect, mode = "guest
     const handleProfileClick = (profile: any) => {
         onProfileSelect(profile);
         onClose();
+    };
+
+    const handleCreateTempGuest = async () => {
+        if (!sessionId || mode !== "guest") return;
+        
+        setIsCreatingTempGuest(true);
+        try {
+            const tempGuest = await createTempGuest(sessionId);
+            onProfileSelect(tempGuest);
+            onClose();
+        } catch (error) {
+            console.error("Failed to create temp guest:", error);
+            alert("仮ゲストの作成に失敗しました");
+        } finally {
+            setIsCreatingTempGuest(false);
+        }
     };
 
     const filteredProfiles = allProfiles
@@ -60,6 +81,29 @@ export function PlacementModal({ isOpen, onClose, onProfileSelect, mode = "guest
                 </DialogHeader>
 
                 <div className="space-y-4 py-4">
+                    {/* Action Buttons (only for guest mode) */}
+                    {mode === "guest" && (
+                        <div className="mb-2 space-y-2">
+                            {sessionId && (
+                                <button
+                                    type="button"
+                                    onClick={handleCreateTempGuest}
+                                    disabled={isCreatingTempGuest}
+                                    className="w-full px-4 py-3 bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg text-blue-700 dark:text-blue-300 font-medium hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {isCreatingTempGuest ? "作成中..." : "仮ゲストを追加"}
+                                </button>
+                            )}
+                            <button
+                                type="button"
+                                onClick={() => setIsCreateModalOpen(true)}
+                                className="w-full px-4 py-3 bg-green-50 dark:bg-green-900/20 border-2 border-green-200 dark:border-green-800 rounded-lg text-green-700 dark:text-green-300 font-medium hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
+                            >
+                                新規ゲストを作成
+                            </button>
+                        </div>
+                    )}
+
                     {/* Search Input */}
                     <div className="relative">
                         <input
@@ -106,7 +150,10 @@ export function PlacementModal({ isOpen, onClose, onProfileSelect, mode = "guest
                                 filteredProfiles.map((profile) => (
                                     <button
                                         key={profile.id}
-                                        onClick={() => handleProfileClick(profile)}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleProfileClick(profile);
+                                        }}
                                         className="grid grid-cols-2 w-full border-b border-slate-200 dark:border-slate-700 last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                                     >
                                         <div className="px-4 py-4 text-center text-slate-900 dark:text-slate-100">
@@ -122,6 +169,21 @@ export function PlacementModal({ isOpen, onClose, onProfileSelect, mode = "guest
                     </div>
                 </div>
             </DialogContent>
+
+            {/* User Create Modal */}
+            <UserEditModal
+                profile={null}
+                open={isCreateModalOpen}
+                onOpenChange={(open) => {
+                    setIsCreateModalOpen(open);
+                    if (!open) {
+                        // Refresh profiles list after modal closes
+                        loadProfiles();
+                    }
+                }}
+                defaultRole="guest"
+                hidePersonalInfo={true}
+            />
         </Dialog>
     );
 }

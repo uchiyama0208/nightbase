@@ -90,7 +90,7 @@ export function OrderModal({ session, open, onOpenChange, onOrderComplete }: Ord
             onOrderComplete();
             onOpenChange(false);
         } catch (error) {
-            toast({ title: "注文送信に失敗しました", variant: "destructive" });
+            toast({ title: "注文送信に失敗しました" });
         }
     };
 

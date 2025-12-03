@@ -10,7 +10,7 @@ import { createServiceRoleClient } from "@/lib/supabaseServiceClient";
 import { WorkingTimeCard } from "./working-time-card";
 import { ClockInCard } from "./clock-in-card";
 import { getAppData } from "../../data-access";
-import { LineRegistrationPrompt } from "./line-registration-prompt";
+import { LinePrompt } from "./line-prompt";
 
 export const metadata: Metadata = {
     title: "ダッシュボード",
@@ -24,8 +24,13 @@ async function getDashboardData() {
         redirect("/login");
     }
 
-    if (!profile || !profile.store_id) {
-        redirect("/app/me");
+    if (!profile) {
+        redirect("/onboarding/choice");
+    }
+
+    if (!profile.store_id) {
+        // Profile exists but no store - redirect to store creation
+        redirect("/onboarding/store-info");
     }
 
     const store = profile.stores as any;
@@ -40,9 +45,13 @@ async function getDashboardData() {
     const serviceSupabase = createServiceRoleClient();
 
     // Parallelize independent fetches
-    const now = new Date();
-    const jstDate = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-    const today = jstDate.toISOString().split("T")[0];
+    // Get today's date in JST
+    const today = new Date().toLocaleDateString("ja-JP", {
+        timeZone: "Asia/Tokyo",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+    }).replace(/\//g, "-");
 
     // Parallelize all fetches
     const [activeTimeCardsResult, currentUserTimeCardResult, lastClockInResult] = await Promise.all([
@@ -119,8 +128,8 @@ export default async function DashboardPage() {
 
     return (
         <>
-            {/* LINE Registration Prompt */}
-            <LineRegistrationPrompt hasLineId={hasLineId} storeName={storeName || undefined} />
+            {/* LINE Prompt - shows when LINE linked but not a friend of official account */}
+            <LinePrompt hasLineId={hasLineId} />
 
             <div className="space-y-4">
                 <div>

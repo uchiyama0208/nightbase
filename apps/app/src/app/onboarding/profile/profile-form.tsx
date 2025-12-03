@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
 
 interface ProfileFormProps {
     mode: string;
@@ -70,6 +72,15 @@ export function ProfileForm({ mode, initialData }: ProfileFormProps) {
 
     return (
         <div className="space-y-6">
+            {/* Back Button */}
+            <Link
+                href="/onboarding/choice"
+                className="inline-flex items-center text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+            >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                戻る
+            </Link>
+
             {/* Custom Header */}
             <div className="text-center space-y-2">
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
