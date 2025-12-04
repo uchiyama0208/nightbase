@@ -4,6 +4,13 @@
 
 ---
 
+## コミュニケーション
+
+- **必ず日本語で会話すること**
+  - ユーザーへの返答、説明、質問はすべて日本語で行う
+
+---
+
 ## 前提
 
 - フレームワーク: **Next.js App Router**
@@ -110,6 +117,27 @@
 ---
 
 ## コンポーネントルール
+
+### テキスト色の明示的指定（重要）
+
+**shadcn/ui コンポーネントのテキスト色は必ず明示的に指定すること。**
+
+shadcn/ui の `CardTitle`, `CardDescription`, `DialogTitle` などはデフォルトのテキスト色が薄く、白背景で見えにくくなる場合がある。以下のように必ず明示的にテキスト色を指定する：
+
+```tsx
+// ❌ NG - デフォルト色に依存（見えにくくなる可能性）
+<CardTitle>タイトル</CardTitle>
+<CardDescription>説明文</CardDescription>
+
+// ✅ OK - 明示的にテキスト色を指定
+<CardTitle className="text-gray-900 dark:text-white">タイトル</CardTitle>
+<CardDescription className="text-gray-600 dark:text-gray-400">説明文</CardDescription>
+```
+
+**標準テキスト色:**
+- タイトル・見出し: `text-gray-900 dark:text-white`
+- 説明文・補足: `text-gray-600 dark:text-gray-400`
+- ラベル: `text-gray-900 dark:text-white` または `text-gray-700 dark:text-gray-200`
 
 ### ボタン（shadcn Button）
 原則として shadcn/ui の `<Button>` を使う。生の `<button>` を直接スタイルしない。

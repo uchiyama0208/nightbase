@@ -57,6 +57,7 @@ const DAYS_OF_WEEK = [
     { value: "friday", label: "金曜日" },
     { value: "saturday", label: "土曜日" },
     { value: "sunday", label: "日曜日" },
+    { value: "holiday", label: "祝日" },
 ];
 
 interface StoreSettingsFormProps {

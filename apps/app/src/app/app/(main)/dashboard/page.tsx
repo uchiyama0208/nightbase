@@ -104,6 +104,7 @@ async function getDashboardData() {
         currentUserTimeCard,
         lastClockIn,
         hasLineId: !!profile.line_user_id,
+        lineIsFriend: profile.line_is_friend,
     };
 }
 
@@ -124,12 +125,12 @@ function DashboardSkeleton() {
 // Server Component (default export)
 export default async function DashboardPage() {
     const data = await getDashboardData();
-    const { currentProfile, storeName, activeCastCount, activeStaffCount, currentUserTimeCard, lastClockIn, hasLineId } = data;
+    const { currentProfile, storeName, activeCastCount, activeStaffCount, currentUserTimeCard, lastClockIn, hasLineId, lineIsFriend } = data;
 
     return (
         <>
             {/* LINE Prompt - shows when LINE linked but not a friend of official account */}
-            <LinePrompt hasLineId={hasLineId} />
+            <LinePrompt hasLineId={hasLineId} lineIsFriend={lineIsFriend} />
 
             <div className="space-y-4">
                 <div>

@@ -35,6 +35,7 @@ interface Profile {
     guest_receipt_type?: string | null;
     stores?: { name: string } | null;
     avatar_url?: string | null;
+    status?: string | null;
 }
 
 interface UsersTableProps {
@@ -235,6 +236,9 @@ export function UsersTable({ profiles: initialProfiles, roleFilter, hidePersonal
                             {(roleFilter === "cast" || roleFilter === "staff") && (
                                 <TableHead className="px-3 sm:px-4 text-center text-gray-500 dark:text-gray-400">ひらがな</TableHead>
                             )}
+                            {(roleFilter === "cast" || roleFilter === "staff") && (
+                                <TableHead className="px-3 sm:px-4 text-center text-gray-500 dark:text-gray-400">状態</TableHead>
+                            )}
                             {roleFilter === "guest" && (
                                 <TableHead className="px-3 sm:px-4 text-center text-gray-500 dark:text-gray-400">宛名</TableHead>
                             )}
@@ -269,6 +273,11 @@ export function UsersTable({ profiles: initialProfiles, roleFilter, hidePersonal
                                         {profile.display_name_kana || "-"}
                                     </TableCell>
                                 )}
+                                {(roleFilter === "cast" || roleFilter === "staff") && (
+                                    <TableCell className="px-3 sm:px-4 text-center text-sm text-gray-500 dark:text-gray-400 truncate">
+                                        {profile.status || "在籍中"}
+                                    </TableCell>
+                                )}
                                 {roleFilter === "guest" && (
                                     <TableCell className="px-3 sm:px-4 text-center text-sm text-gray-900 dark:text-white truncate">
                                         {profile.guest_addressee || "-"}
@@ -289,7 +298,7 @@ export function UsersTable({ profiles: initialProfiles, roleFilter, hidePersonal
                         ))}
                         {filteredProfiles.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={roleFilter === "guest" ? 3 : 2} className="h-24 text-center text-xs md:text-sm text-gray-500 dark:text-gray-400">
+                                <TableCell colSpan={roleFilter === "guest" ? 3 : 3} className="h-24 text-center text-xs md:text-sm text-gray-500 dark:text-gray-400">
                                     ユーザーが見つかりません
                                 </TableCell>
                             </TableRow>

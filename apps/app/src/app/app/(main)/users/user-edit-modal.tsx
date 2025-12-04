@@ -952,13 +952,13 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                     <Label htmlFor="status">状態</Label>
                                                     <Select
                                                         name="status"
-                                                        defaultValue={(profile as any)?.status || "通常"}
+                                                        defaultValue={(profile as any)?.status || "在籍中"}
                                                     >
                                                         <SelectTrigger id="status" className="rounded-md">
                                                             <SelectValue placeholder="状態を選択" />
                                                         </SelectTrigger>
                                                         <SelectContent>
-                                                            <SelectItem value="通常">通常</SelectItem>
+                                                            <SelectItem value="在籍中">在籍中</SelectItem>
                                                             <SelectItem value="未面接">未面接</SelectItem>
                                                             <SelectItem value="保留">保留</SelectItem>
                                                             <SelectItem value="不合格">不合格</SelectItem>
@@ -988,10 +988,64 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                             </div>
                                             <div>
                                                 <span className="text-xs text-gray-500 dark:text-gray-400">状態</span>
-                                                <p className="text-sm text-gray-900 dark:text-white">{(profile as any)?.status || "通常"}</p>
+                                                <p className="text-sm text-gray-900 dark:text-white">{(profile as any)?.status || "在籍中"}</p>
                                             </div>
                                             <input type="hidden" name="height" value={profile?.height || ""} />
-                                            <input type="hidden" name="status" value={(profile as any)?.status || "通常"} />
+                                            <input type="hidden" name="status" value={(profile as any)?.status || "在籍中"} />
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {(role === "staff" || role === "admin") && (
+                                <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="font-medium text-gray-900 dark:text-white">スタッフ情報</h3>
+                                        {profile && !isEditingSection('staffInfo') && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setEditingSection('staffInfo')}
+                                                className="inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700"
+                                                aria-label="編集"
+                                            >
+                                                <Pencil className="h-3.5 w-3.5" />
+                                            </button>
+                                        )}
+                                    </div>
+                                    {isEditingSection('staffInfo') ? (
+                                        <>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="staffStatus">状態</Label>
+                                                <Select
+                                                    name="status"
+                                                    defaultValue={(profile as any)?.status || "在籍中"}
+                                                >
+                                                    <SelectTrigger id="staffStatus" className="rounded-md">
+                                                        <SelectValue placeholder="状態を選択" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="在籍中">在籍中</SelectItem>
+                                                        <SelectItem value="休職中">休職中</SelectItem>
+                                                        <SelectItem value="退職済み">退職済み</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            {profile && (
+                                                <div className="flex justify-end gap-2 pt-2">
+                                                    <Button type="button" variant="outline" size="sm" onClick={handleSectionCancel}>
+                                                        キャンセル
+                                                    </Button>
+                                                    <Button type="button" size="sm" onClick={() => handleSectionSave('staffInfo')}>
+                                                        保存
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <div>
+                                            <span className="text-xs text-gray-500 dark:text-gray-400">状態</span>
+                                            <p className="text-sm text-gray-900 dark:text-white">{(profile as any)?.status || "在籍中"}</p>
+                                            <input type="hidden" name="status" value={(profile as any)?.status || "在籍中"} />
                                         </div>
                                     )}
                                 </div>

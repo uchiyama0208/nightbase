@@ -1423,7 +1423,7 @@ export function SlipDetailModal({
 
             <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }} modal={!preventOutsideClose}>
                 <DialogContent
-                    className="max-w-md max-h-[90vh] overflow-y-auto p-4"
+                    className="max-w-md max-h-[90vh] flex flex-col p-4"
                     onPointerDownOutside={(e) => {
                         if (preventOutsideClose) {
                             e.preventDefault();
@@ -1438,7 +1438,7 @@ export function SlipDetailModal({
                     }}
                     onClick={(e) => e.stopPropagation()}
                 >
-                    <DialogHeader className="flex flex-row items-center justify-between border-b pb-4 space-y-0 no-print">
+                    <DialogHeader className="flex flex-row items-center justify-between border-b pb-4 space-y-0 no-print flex-shrink-0">
                         <Button variant="ghost" size="icon" className="-ml-2" onClick={(e) => { e.stopPropagation(); onClose(); }}>
                             <ChevronLeft className="h-5 w-5" />
                         </Button>
@@ -1473,11 +1473,11 @@ export function SlipDetailModal({
                     </DialogHeader>
 
                     {loading ? (
-                        <div className="py-8 text-center text-muted-foreground">
+                        <div className="py-8 text-center text-muted-foreground flex-1">
                             読み込み中...
                         </div>
                     ) : (
-                        <div className="space-y-3 pb-4 font-mono text-sm print-content">
+                        <div className="space-y-3 pb-4 font-mono text-sm print-content flex-1 overflow-y-auto min-h-0">
                             {/* Header Info */}
                             <div className="border rounded-lg p-3 bg-muted/30 relative">
                                 {editable && !isEditingHeader && (

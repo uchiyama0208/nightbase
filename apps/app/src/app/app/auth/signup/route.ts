@@ -6,17 +6,24 @@ export async function POST(request: Request) {
     const formData = await request.formData();
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
+    const redirectTo = formData.get("redirect") as string | null;
     const supabase = await createServerClient();
 
     // Use email local part as default display name
     const defaultDisplayName = email.split("@")[0];
+
+    // Build email redirect URL with optional redirect parameter
+    let emailRedirectTo = `${requestUrl.origin}/auth/callback`;
+    if (redirectTo) {
+        emailRedirectTo += `?redirect=${encodeURIComponent(redirectTo)}`;
+    }
 
     // Use Supabase Auth signUp - this will send confirmation email via Resend SMTP
     const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-            emailRedirectTo: `${requestUrl.origin}/auth/callback`,
+            emailRedirectTo,
             data: {
                 display_name: defaultDisplayName,
                 role: "guest",
@@ -30,16 +37,18 @@ export async function POST(request: Request) {
         console.error("Error code:", error.code);
         console.error("=========================");
 
+        const redirectParam = redirectTo ? `&redirect=${encodeURIComponent(redirectTo)}` : "";
+
         // Check if user already exists
         if (error.message?.includes("already registered") || error.code === "user_already_exists") {
             return NextResponse.redirect(
-                `${requestUrl.origin}/signup?message=${encodeURIComponent("このメールアドレスは既に登録されています。")}`,
+                `${requestUrl.origin}/signup?message=${encodeURIComponent("このメールアドレスは既に登録されています。")}${redirectParam}`,
                 { status: 301 }
             );
         }
 
         return NextResponse.redirect(
-            `${requestUrl.origin}/signup?message=${encodeURIComponent("アカウントの作成に失敗しました。もう一度お試しください。")}`,
+            `${requestUrl.origin}/signup?message=${encodeURIComponent("アカウントの作成に失敗しました。もう一度お試しください。")}${redirectParam}`,
             { status: 301 }
         );
     }
@@ -48,8 +57,9 @@ export async function POST(request: Request) {
     console.log("Confirmation email sent to:", email);
 
     // Redirect to verification page
+    const redirectParam = redirectTo ? `&redirect=${encodeURIComponent(redirectTo)}` : "";
     return NextResponse.redirect(
-        `${requestUrl.origin}/signup/verify?email=${encodeURIComponent(email)}`,
+        `${requestUrl.origin}/signup/verify?email=${encodeURIComponent(email)}${redirectParam}`,
         { status: 301 }
     );
 }

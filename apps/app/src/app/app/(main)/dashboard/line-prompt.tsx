@@ -8,11 +8,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 
 interface LinePromptProps {
     hasLineId: boolean;
+    lineIsFriend: boolean | null;
 }
 
 const STORAGE_KEY = "line-prompt-dismissed";
 
-export function LinePrompt({ hasLineId }: LinePromptProps) {
+export function LinePrompt({ hasLineId, lineIsFriend }: LinePromptProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [dontShowAgain, setDontShowAgain] = useState(false);
 
@@ -28,19 +29,24 @@ export function LinePrompt({ hasLineId }: LinePromptProps) {
             return;
         }
 
-        // Check URL for is_friend parameter (LINE linked but not a friend)
-        const params = new URLSearchParams(window.location.search);
-        const isFriend = params.get("is_friend");
+        // Show if lineIsFriend is explicitly false (not friend or blocked)
+        // Don't show if lineIsFriend is null (unknown) or true (is friend)
+        if (lineIsFriend === false) {
+            setIsOpen(true);
+        }
 
-        if (isFriend === "false") {
-            // LINE連携済みだが友だち登録していない - 即座に表示
+        // Also check URL for is_friend parameter (for backward compatibility with login flow)
+        const params = new URLSearchParams(window.location.search);
+        const isFriendParam = params.get("is_friend");
+
+        if (isFriendParam === "false") {
             setIsOpen(true);
             // Remove the parameter from URL
             const url = new URL(window.location.href);
             url.searchParams.delete("is_friend");
             window.history.replaceState({}, "", url.toString());
         }
-    }, [hasLineId]);
+    }, [hasLineId, lineIsFriend]);
 
     const handleClose = () => {
         if (dontShowAgain) {

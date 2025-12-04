@@ -13,7 +13,6 @@ import {
     LogOut,
     Menu,
     Shield,
-    ShoppingBag,
     Utensils,
     Mail,
     UserCircle,
@@ -26,6 +25,9 @@ import {
     Grid3X3,
     CircleDollarSign,
     Store,
+    Banknote,
+    CalendarCheck,
+    CalendarClock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
@@ -55,10 +57,12 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
     const pathname = usePathname();
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [basicInfoOpen, setBasicInfoOpen] = useState(false);
+    const [attendanceOpen, setAttendanceOpen] = useState(false);
     const [internalOpen, setInternalOpen] = useState(false);
 
     const basicInfoContentRef = useRef<HTMLDivElement>(null);
     const settingsContentRef = useRef<HTMLDivElement>(null);
+    const attendanceContentRef = useRef<HTMLDivElement>(null);
 
     const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
     const setOpen = onOpenChange || setInternalOpen;
@@ -78,20 +82,6 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
             roles: ["admin", "staff"],
         },
         {
-            label: "出勤一覧",
-            icon: CalendarDays,
-            href: "/app/attendance",
-            roles: ["admin", "staff"],
-            feature: "attendance" as const,
-        },
-        {
-            label: "タイムカード",
-            icon: Clock,
-            href: "/app/timecard",
-            roles: ["admin", "staff", "cast"],
-            feature: "timecard" as const,
-        },
-        {
             label: "ボトルキープ",
             icon: Wine,
             href: "/app/bottles",
@@ -101,6 +91,35 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
             label: "伝票",
             icon: Receipt,
             href: "/app/slips",
+            roles: ["admin", "staff"],
+        },
+    ];
+
+    const attendanceRoutes = [
+        {
+            label: "タイムカード",
+            icon: Clock,
+            href: "/app/timecard",
+            roles: ["admin", "staff", "cast"],
+            feature: "timecard" as const,
+        },
+        {
+            label: "マイシフト",
+            icon: CalendarClock,
+            href: "/app/my-shifts",
+            roles: ["admin", "staff", "cast"],
+        },
+        {
+            label: "出勤一覧",
+            icon: CalendarDays,
+            href: "/app/attendance",
+            roles: ["admin", "staff"],
+            feature: "attendance" as const,
+        },
+        {
+            label: "シフト管理",
+            icon: CalendarCheck,
+            href: "/app/shifts",
             roles: ["admin", "staff"],
         },
     ];
@@ -132,6 +151,12 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
             href: "/app/pricing-systems",
             roles: ["admin", "staff"],
         },
+        {
+            label: "給与システム",
+            icon: Banknote,
+            href: "/app/salary-systems",
+            roles: ["admin", "staff"],
+        },
     ];
 
     const settingsRoutes = [
@@ -147,12 +172,6 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
             href: "/app/roles",
             roles: ["admin", "staff"],
             feature: "roles" as const,
-        },
-        {
-            label: "機能追加",
-            icon: ShoppingBag,
-            href: "/app/features",
-            roles: ["admin", "staff"],
         },
         {
             label: "招待",
@@ -183,6 +202,7 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
     };
 
     const filteredMainRoutes = filterRoutes(mainRoutes);
+    const filteredAttendanceRoutes = filterRoutes(attendanceRoutes);
     const filteredBasicInfoRoutes = filterRoutes(basicInfoRoutes);
     const filteredSettingsRoutes = filterRoutes(settingsRoutes);
 
@@ -219,6 +239,47 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
                             {route.label}
                         </Link>
                     ))}
+
+                    {/* Attendance Group */}
+                    {filteredAttendanceRoutes.length > 0 && (
+                        <div className="pt-2">
+                            <button
+                                onClick={() => setAttendanceOpen(!attendanceOpen)}
+                                className="w-full flex items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-400 transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <Clock className="h-5 w-5" />
+                                    <span>勤怠</span>
+                                </div>
+                                <ChevronDown className={cn("h-4 w-4 transition-transform duration-300", attendanceOpen ? "rotate-180" : "")} />
+                            </button>
+
+                            <div
+                                style={{
+                                    height: attendanceOpen ? attendanceContentRef.current?.scrollHeight || 'auto' : 0,
+                                    overflow: 'hidden',
+                                    transition: 'height 0.3s ease-out',
+                                }}
+                            >
+                                <div ref={attendanceContentRef} className="mt-1 ml-4 space-y-1 border-l-2 border-gray-100 dark:border-gray-700 pl-2">
+                                    {filteredAttendanceRoutes.map((route) => (
+                                        <Link
+                                            key={route.href}
+                                            href={route.href}
+                                            onClick={() => setOpen(false)}
+                                            className={cn(
+                                                "flex items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white",
+                                                pathname === route.href ? "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400"
+                                            )}
+                                        >
+                                            <route.icon className="h-4 w-4" />
+                                            {route.label}
+                                        </Link>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Basic Info Group */}
                     {filteredBasicInfoRoutes.length > 0 && (

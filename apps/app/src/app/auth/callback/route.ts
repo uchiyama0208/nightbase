@@ -5,6 +5,7 @@ export async function GET(request: Request) {
     const { searchParams, origin } = new URL(request.url);
     const code = searchParams.get("code");
     const next = searchParams.get("next");
+    const redirect = searchParams.get("redirect");
 
     if (code) {
         const supabase = await createServerClient();
@@ -51,6 +52,11 @@ export async function GET(request: Request) {
             // If 'next' parameter is provided, use it
             if (next) {
                 return NextResponse.redirect(`${origin}${next}`);
+            }
+
+            // If 'redirect' parameter is provided (e.g., /join/xxx), use it
+            if (redirect && redirect.startsWith("/")) {
+                return NextResponse.redirect(`${origin}${redirect}`);
             }
 
             // Check if user has a profile and store

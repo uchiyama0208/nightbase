@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -9,7 +10,11 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 
+const MARKETING_URL = process.env.NEXT_PUBLIC_MARKETING_URL || "https://nightbase.jp";
+
 export default function SignupPage() {
+    const searchParams = useSearchParams();
+    const redirectTo = searchParams.get("redirect");
     const [termsAccepted, setTermsAccepted] = useState(false);
     const [privacyAccepted, setPrivacyAccepted] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -27,7 +32,10 @@ export default function SignupPage() {
         setLoading(true);
 
         try {
-            const lineAuthUrl = "/api/line-link?mode=onboarding";
+            let lineAuthUrl = "/api/line-link?mode=onboarding";
+            if (redirectTo) {
+                lineAuthUrl += `&redirect=${encodeURIComponent(redirectTo)}`;
+            }
             window.location.href = lineAuthUrl;
         } catch (error) {
             console.error("LINE login error:", error);
@@ -103,8 +111,9 @@ export default function SignupPage() {
 
                         {signupMethod === "email" && (
                             <form action="/app/auth/signup" method="post" className="space-y-4">
-
-
+                                {redirectTo && (
+                                    <input type="hidden" name="redirect" value={redirectTo} />
+                                )}
                                 <div>
                                     <Label htmlFor="email" className="text-gray-900 dark:text-white">
                                         メールアドレス <span className="text-red-500">*</span>
@@ -190,7 +199,7 @@ export default function SignupPage() {
                                             </div>
                                             <p className="text-xs">
                                                 <Link
-                                                    href="/terms-of-service"
+                                                    href={`${MARKETING_URL}/terms-of-service`}
                                                     target="_blank"
                                                     className="text-blue-600 dark:text-blue-400 underline hover:text-blue-700 dark:hover:text-blue-300"
                                                     onClick={(e) => e.stopPropagation()}
@@ -213,7 +222,7 @@ export default function SignupPage() {
                                             </div>
                                             <p className="text-xs">
                                                 <Link
-                                                    href="/privacy-policy"
+                                                    href={`${MARKETING_URL}/privacy-policy`}
                                                     target="_blank"
                                                     className="text-blue-600 dark:text-blue-400 underline hover:text-blue-700 dark:hover:text-blue-300"
                                                     onClick={(e) => e.stopPropagation()}
@@ -261,7 +270,7 @@ export default function SignupPage() {
                                             </div>
                                             <p className="text-sm">
                                                 <Link
-                                                    href="/terms-of-service"
+                                                    href={`${MARKETING_URL}/terms-of-service`}
                                                     target="_blank"
                                                     className="text-blue-600 dark:text-blue-400 underline hover:text-blue-700 dark:hover:text-blue-300"
                                                     onClick={(e) => e.stopPropagation()}
@@ -284,7 +293,7 @@ export default function SignupPage() {
                                             </div>
                                             <p className="text-sm">
                                                 <Link
-                                                    href="/privacy-policy"
+                                                    href={`${MARKETING_URL}/privacy-policy`}
                                                     target="_blank"
                                                     className="text-blue-600 dark:text-blue-400 underline hover:text-blue-700 dark:hover:text-blue-300"
                                                     onClick={(e) => e.stopPropagation()}
@@ -315,7 +324,7 @@ export default function SignupPage() {
                 </Card>
 
                 <div className="text-center">
-                    <Link href="/login" className="text-sm text-gray-600 dark:text-gray-400 hover:text-primary">
+                    <Link href={redirectTo ? `/login?redirect=${encodeURIComponent(redirectTo)}` : "/login"} className="text-sm text-gray-600 dark:text-gray-400 hover:text-primary">
                         既にアカウントをお持ちの方はこちら
                     </Link>
                 </div>

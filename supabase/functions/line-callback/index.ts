@@ -34,9 +34,9 @@ serve(async (req) => {
         const decodedState = decodeURIComponent(state);
         console.log("Decoded state:", decodedState);
 
-        // Parse state to get mode and optional invite token
-        // Parse state to get mode, optional invite token, and frontendUrl
-        // Format: uuid:mode:extraParam:frontendUrl
+        // Parse state to get mode, optional invite token, frontendUrl, and redirect
+        // Format: uuid:mode:extraParam:frontendUrl:redirect
+        // Note: URLs contain ":" so we need to be careful when parsing
         const stateParts = decodedState.split(":");
         const mode = stateParts[1];
         let extraParam = stateParts[2];
@@ -46,22 +46,33 @@ serve(async (req) => {
             extraParam = null;
         }
 
-        // Get frontendUrl if present (4th part onwards)
-        let frontendUrlFromState = null;
+        // Parse frontendUrl and redirect from remaining parts
+        // The format is: uuid:mode:extraParam:encodedFrontendUrl:encodedRedirect
+        // Since URLs are encoded, they won't contain ":" until decoded
+        let frontendUrlFromState: string | null = null;
+        let redirectFromState: string | null = null;
+
         if (stateParts.length > 3) {
-            // Rejoin the rest of the parts using ":", in case decoding happened and split the URL
-            // e.g. "http://localhost:3001" might have been split into ["http", "//localhost", "3001"]
-            const urlPart = stateParts.slice(3).join(":");
-            if (urlPart) {
+            const frontendUrlPart = stateParts[3];
+            if (frontendUrlPart && frontendUrlPart !== "null") {
                 try {
-                    // Try to decode in case it is still encoded (e.g. "http%3A%2F%2F...")
-                    // If it was already decoded and rejoined (e.g. "http://..."), decodeURIComponent handles it fine usually
-                    // providing it doesn't contain invalid sequences.
-                    frontendUrlFromState = decodeURIComponent(urlPart);
+                    frontendUrlFromState = decodeURIComponent(frontendUrlPart);
                 } catch (e) {
                     console.error("Failed to decode frontendUrl from state:", e);
-                    // Fallback to raw rejoined string
-                    frontendUrlFromState = urlPart;
+                    frontendUrlFromState = frontendUrlPart;
+                }
+            }
+        }
+
+        if (stateParts.length > 4) {
+            // Rejoin the rest in case redirect URL contained ":" after decoding
+            const redirectPart = stateParts.slice(4).join(":");
+            if (redirectPart && redirectPart !== "null") {
+                try {
+                    redirectFromState = decodeURIComponent(redirectPart);
+                } catch (e) {
+                    console.error("Failed to decode redirect from state:", e);
+                    redirectFromState = redirectPart;
                 }
             }
         }
@@ -77,6 +88,7 @@ serve(async (req) => {
         console.log("Invite Token:", inviteToken);
         console.log("Link User ID:", linkUserId);
         console.log("Frontend URL from State:", frontendUrlFromState);
+        console.log("Redirect from State:", redirectFromState);
         console.log("==================");
 
         // Get environment variables
@@ -438,13 +450,15 @@ serve(async (req) => {
                 return new Response("プロフィールのリンクに失敗しました", { status: 500 });
             }
 
-            // Create or update users table record with current_profile_id
+            // Create or update users table record with current_profile_id and LINE info
             const { error: upsertUserError } = await supabase
                 .from("users")
                 .upsert({
                     id: userId,
                     email: email,
-                    current_profile_id: invitedProfileId
+                    current_profile_id: invitedProfileId,
+                    avatar_url: profile.pictureUrl,
+                    display_name: profile.displayName,
                 }, {
                     onConflict: "id"
                 });
@@ -553,6 +567,15 @@ serve(async (req) => {
                     // Fallback to LINE email format
                     loginEmail = `${profile.userId}@line-v2.nightbase.app`;
                 }
+
+                // Update users table with latest LINE avatar and display name
+                await supabase
+                    .from("users")
+                    .update({
+                        avatar_url: profile.pictureUrl,
+                        display_name: profile.displayName,
+                    })
+                    .eq("id", userId);
             } else {
                 // New LINE user
 
@@ -687,12 +710,14 @@ serve(async (req) => {
                     return new Response(`プロフィールの作成に失敗しました: ${profileError.message}`, { status: 500 });
                 }
 
-                // Create users table record
+                // Create users table record with LINE info
                 const { error: upsertUserError } = await supabase
                     .from("users")
                     .upsert({
                         id: userId,
                         email: loginEmail,
+                        avatar_url: profile.pictureUrl,
+                        display_name: profile.displayName,
                         // current_profile_id will be set when they create a store or join one
                     }, {
                         onConflict: "id"
@@ -772,6 +797,9 @@ serve(async (req) => {
         if (inviteToken) {
             // Invitation flow: always go to dashboard after processing
             redirectUrl = `${frontendUrl}/app/dashboard`;
+        } else if (redirectFromState) {
+            // Custom redirect specified (e.g., from join page)
+            redirectUrl = `${frontendUrl}${redirectFromState}`;
         } else if (userProfile && userProfile.real_name && userProfile.store_id) {
             // User has profile and store, go to dashboard
             redirectUrl = `${frontendUrl}/app/dashboard`;
@@ -801,6 +829,18 @@ serve(async (req) => {
             if (friendshipResponse.ok) {
                 const friendshipData = await friendshipResponse.json();
                 isFriend = friendshipData.friendFlag;
+
+                // Save friendship status to database
+                const { error: friendshipUpdateError } = await supabase
+                    .from("profiles")
+                    .update({ line_is_friend: isFriend })
+                    .eq("user_id", userId);
+
+                if (friendshipUpdateError) {
+                    console.error("Failed to save friendship status:", friendshipUpdateError);
+                } else {
+                    console.log("Saved friendship status:", isFriend, "for user:", userId);
+                }
             } else {
                 console.error("Friendship check failed:", await friendshipResponse.text());
             }

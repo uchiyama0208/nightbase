@@ -23,6 +23,7 @@ export function MenuEditModal({ menu, open, onOpenChange, categories }: MenuEdit
     const [selectedCategoryId, setSelectedCategoryId] = useState("");
     const [newCategoryName, setNewCategoryName] = useState("");
     const [showActions, setShowActions] = useState(false);
+    const [targetType, setTargetType] = useState<"guest" | "cast">("guest");
     const router = useRouter();
 
     useEffect(() => {
@@ -31,10 +32,12 @@ export function MenuEditModal({ menu, open, onOpenChange, categories }: MenuEdit
                 setSelectedCategoryId(menu.category_id);
                 setCategoryMode("select");
                 setNewCategoryName("");
+                setTargetType(menu.target_type || "guest");
             } else {
                 setSelectedCategoryId("");
                 setNewCategoryName("");
                 setCategoryMode(categories.length > 0 ? "select" : "create");
+                setTargetType("guest");
             }
         }
     }, [open, menu, categories]);
@@ -227,40 +230,46 @@ export function MenuEditModal({ menu, open, onOpenChange, categories }: MenuEdit
                     <div className="space-y-4 pt-2">
                         <div className="space-y-2">
                             <Label>注文対象</Label>
-                            <div className="flex gap-4">
-                                <div className="flex items-center space-x-2">
-                                    <input
-                                        type="checkbox"
-                                        id="is_for_guest"
-                                        name="is_for_guest"
-                                        defaultChecked={menu ? menu.is_for_guest : true}
-                                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                    />
-                                    <Label htmlFor="is_for_guest" className="font-normal cursor-pointer">ゲスト</Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                    <input
-                                        type="checkbox"
-                                        id="is_for_cast"
-                                        name="is_for_cast"
-                                        defaultChecked={menu ? menu.is_for_cast : true}
-                                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                    />
-                                    <Label htmlFor="is_for_cast" className="font-normal cursor-pointer">キャスト</Label>
-                                </div>
+                            <input type="hidden" name="target_type" value={targetType} />
+                            <div className="inline-flex h-10 items-center rounded-full bg-gray-100 dark:bg-gray-700 p-1 w-full">
+                                <button
+                                    type="button"
+                                    onClick={() => setTargetType("guest")}
+                                    className={`flex-1 h-full flex items-center justify-center rounded-full text-sm font-medium transition-colors ${
+                                        targetType === "guest"
+                                            ? "bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm"
+                                            : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                                    }`}
+                                >
+                                    ゲスト
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setTargetType("cast")}
+                                    className={`flex-1 h-full flex items-center justify-center rounded-full text-sm font-medium transition-colors ${
+                                        targetType === "cast"
+                                            ? "bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm"
+                                            : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                                    }`}
+                                >
+                                    キャスト
+                                </button>
                             </div>
                         </div>
 
-                        <div className="flex items-center space-x-2">
-                            <input
-                                type="checkbox"
-                                id="is_hidden"
-                                name="is_hidden"
-                                defaultChecked={menu ? menu.is_hidden : false}
-                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                            />
-                            <Label htmlFor="is_hidden" className="font-normal cursor-pointer">メニュー一覧で非表示にする</Label>
-                        </div>
+                        {targetType === "cast" && (
+                            <div className="space-y-2">
+                                <Label htmlFor="cast_back_amount">キャストバック金額 (円)</Label>
+                                <Input
+                                    id="cast_back_amount"
+                                    name="cast_back_amount"
+                                    type="number"
+                                    defaultValue={menu?.cast_back_amount || 0}
+                                    placeholder="0"
+                                    min="0"
+                                />
+                            </div>
+                        )}
 
                         <div className="flex items-center space-x-2">
                             <input

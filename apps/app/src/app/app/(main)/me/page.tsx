@@ -1,12 +1,13 @@
 import { createServerClient } from "@/lib/supabaseServerClient";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Building2, Plus, User, LogOut, Check, ChevronRight } from "lucide-react";
+import { Suspense } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { switchProfile, signOut, getUserProfile } from "./actions";
-import { ProfileClient } from "./profile-client";
-import { DeleteAccountModal } from "./delete-account-modal";
+import { User, Settings } from "lucide-react";
+import { StoreActionsModal } from "./store-actions-modal";
+import { StoreSelectorModal } from "./store-selector-modal";
+import { AttendanceCalendar } from "./attendance-calendar";
 
 export const metadata: Metadata = {
     title: "マイページ",
@@ -22,17 +23,17 @@ export default async function MyPage() {
         redirect("/login");
     }
 
-    // Get current user details to know current_profile_id
+    // Get current user details to know current_profile_id, avatar, and display_name
     const { data: appUser } = await supabase
         .from("users")
-        .select("current_profile_id")
+        .select("current_profile_id, avatar_url, display_name")
         .eq("id", user.id)
         .single();
 
     // Fetch all profiles for this user with store details
     const { data: profiles } = await supabase
         .from("profiles")
-        .select("*, stores(*)")
+        .select("id, display_name, avatar_url, role, stores(id, name, icon_url)")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
@@ -43,145 +44,101 @@ export default async function MyPage() {
         redirect("/onboarding/choice");
     }
 
-    // Get user profile for settings
-    const profile = await getUserProfile();
+    // Get current profile
+    const currentProfile = profiles.find(p => p.id === currentProfileId) || profiles[0];
+    const storesData = currentProfile?.stores as unknown;
+    const currentStore = (Array.isArray(storesData) ? storesData[0] : storesData) as { id: string; name: string; icon_url?: string | null } | null;
+
+    // Fetch time cards for all user's profiles
+    const profileIds = profiles.map(p => p.id);
+    const { data: timeCardsRaw } = await supabase
+        .from("time_cards")
+        .select("id, work_date, clock_in, clock_out, user_id")
+        .in("user_id", profileIds)
+        .order("work_date", { ascending: false });
+
+    // Map time cards with store info
+    const timeCards = (timeCardsRaw || []).map(tc => {
+        const profile = profiles.find(p => p.id === tc.user_id);
+        const storeData = profile?.stores as unknown;
+        const store = (Array.isArray(storeData) ? storeData[0] : storeData) as { id: string; name: string; icon_url?: string | null } | null;
+        return {
+            id: tc.id,
+            work_date: tc.work_date,
+            clock_in: tc.clock_in,
+            clock_out: tc.clock_out,
+            store_name: store?.name || "不明",
+            store_icon_url: store?.icon_url || null,
+        };
+    });
 
     return (
-        <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
-            <div className="max-w-2xl mx-auto">
-                {/* Header */}
-                <div className="px-4 pt-6 pb-4">
-                    <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">マイページ</h1>
-                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                        所属店舗の切り替えや設定を管理します。
-                    </p>
-                </div>
+        <div className="max-w-2xl mx-auto -mt-4 -mx-4 sm:mx-auto sm:mt-0">
+            {/* Profile Header - Twitter style */}
+            {(() => {
+                // Use LINE data (users table) if available, otherwise fall back to profile data
+                const avatarUrl = appUser?.avatar_url || currentProfile?.avatar_url;
+                const displayName = appUser?.display_name || currentProfile?.display_name;
 
-                {/* Profile Settings Section */}
-                <ProfileClient
-                    initialEmail={profile.email || ""}
-                    initialName={profile.name}
-                    identities={user.identities || []}
-                    userId={user.id}
-                    lineUserId={profile.lineUserId}
-                />
-
-                {/* Store Profiles Section */}
-                <div className="mt-8">
-                    <div className="px-4 pb-2">
-                        <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">所属店舗</h2>
-                    </div>
-                    <div className="bg-white dark:bg-gray-800 border-y border-gray-200 dark:border-gray-700">
-                        {profiles && profiles.length > 0 ? (
-                            profiles.map((profile, index) => {
-                                const store = profile.stores as any;
-                                const isCurrent = profile.id === currentProfileId;
-                                const isLast = index === profiles.length - 1;
-
-                                return (
-                                    <div key={profile.id}>
-                                        <div className="flex items-center px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 active:bg-gray-100 dark:active:bg-gray-700 transition-colors">
-                                            <div className={`p-2 rounded-lg ${isCurrent ? "bg-blue-100 dark:bg-blue-900/30" : "bg-gray-100 dark:bg-gray-700"}`}>
-                                                <Building2 className={`h-5 w-5 ${isCurrent ? "text-blue-600 dark:text-blue-400" : "text-gray-600 dark:text-gray-400"}`} />
-                                            </div>
-                                            <div className="ml-3 flex-1 min-w-0">
-                                                <div className="flex items-center gap-2">
-                                                    <h3 className="text-base font-medium text-gray-900 dark:text-white truncate">
-                                                        {store?.name || "不明な店舗"}
-                                                    </h3>
-                                                    {isCurrent && (
-                                                        <Check className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-                                                    )}
-                                                </div>
-                                                <div className="flex items-center gap-2 mt-0.5">
-                                                    <span className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                                                        {profile.display_name}
-                                                    </span>
-                                                    <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 flex-shrink-0">
-                                                        {profile.role === 'admin' ? '管理者' : profile.role === 'staff' ? 'スタッフ' : 'キャスト'}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            {!isCurrent && (
-                                                <form action={switchProfile.bind(null, profile.id)} className="ml-3">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-transparent"
-                                                    >
-                                                        切り替え
-                                                    </Button>
-                                                </form>
-                                            )}
-                                        </div>
-                                        {!isLast && <div className="ml-16 border-b border-gray-200 dark:border-gray-700" />}
-                                    </div>
-                                );
-                            })
-                        ) : (
-                            <div className="px-4 py-8 text-center">
-                                <p className="text-sm text-gray-500 dark:text-gray-400">所属店舗がありません</p>
+                return (
+                    <div className="px-4 pt-6 pb-4">
+                        <div className="flex items-center gap-4">
+                            {avatarUrl ? (
+                                <Image
+                                    src={avatarUrl}
+                                    alt={displayName || ""}
+                                    width={64}
+                                    height={64}
+                                    className="rounded-full object-cover"
+                                />
+                            ) : (
+                                <div className="w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                                    <User className="h-8 w-8 text-gray-400 dark:text-gray-500" />
+                                </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                                <h1 className="text-xl font-bold text-gray-900 dark:text-white truncate">
+                                    {displayName || "名前未設定"}
+                                </h1>
                             </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Store Actions */}
-                <div className="mt-8">
-                    <div className="px-4 pb-2">
-                        <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">店舗管理</h2>
-                    </div>
-                    <div className="bg-white dark:bg-gray-800 border-y border-gray-200 dark:border-gray-700">
-                        <Link href="/app/me?mode=create" className="flex items-center px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 active:bg-gray-100 dark:active:bg-gray-700 transition-colors">
-                            <div className="p-2 rounded-lg bg-green-100 dark:bg-green-900/30">
-                                <Plus className="h-5 w-5 text-green-600 dark:text-green-400" />
-                            </div>
-                            <div className="ml-3 flex-1">
-                                <h3 className="text-base font-medium text-gray-900 dark:text-white">新規店舗を作成</h3>
-                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                                    新しい店舗を登録して管理を始めます
-                                </p>
-                            </div>
-                            <ChevronRight className="h-5 w-5 text-gray-400 dark:text-gray-500 flex-shrink-0" />
-                        </Link>
-
-                        <div className="ml-16 border-b border-gray-200 dark:border-gray-700" />
-
-                        <Link href="/app/me?mode=join" className="flex items-center px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 active:bg-gray-100 dark:active:bg-gray-700 transition-colors">
-                            <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
-                                <Building2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                            </div>
-                            <div className="ml-3 flex-1">
-                                <h3 className="text-base font-medium text-gray-900 dark:text-white">店舗に参加</h3>
-                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                                    招待コードを使って既存の店舗に参加します
-                                </p>
-                            </div>
-                            <ChevronRight className="h-5 w-5 text-gray-400 dark:text-gray-500 flex-shrink-0" />
-                        </Link>
-                    </div>
-                </div>
-
-                {/* Logout */}
-                <div className="mt-8">
-                    <div className="bg-white dark:bg-gray-800 border-y border-gray-200 dark:border-gray-700">
-                        <form action={signOut}>
-                            <button
-                                type="submit"
-                                className="w-full flex items-center justify-center px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 active:bg-gray-100 dark:active:bg-gray-700 transition-colors"
+                            <Link
+                                href="/app/me/settings"
+                                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                             >
-                                <LogOut className="h-5 w-5 text-red-600 dark:text-red-400 mr-2" />
-                                <span className="text-base font-medium text-red-600 dark:text-red-400">ログアウト</span>
-                            </button>
-                        </form>
+                                <Settings className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                            </Link>
+                        </div>
+                        {/* Store Selector */}
+                        <div className="mt-3">
+                            <StoreSelectorModal
+                                profiles={profiles.map(p => {
+                                    const s = p.stores as unknown;
+                                    const store = (Array.isArray(s) ? s[0] : s) as { id: string; name: string; icon_url?: string | null } | null;
+                                    return {
+                                        id: p.id,
+                                        display_name: p.display_name,
+                                        role: p.role,
+                                        stores: store,
+                                    };
+                                })}
+                                currentProfileId={currentProfileId || null}
+                                currentStoreName={currentStore?.name || null}
+                                currentStoreIcon={currentStore?.icon_url || null}
+                            />
+                        </div>
                     </div>
-                </div>
+                );
+            })()}
 
-                {/* Delete Account - At the very bottom */}
-                <div className="mt-8 mb-8">
-                    <DeleteAccountModal />
-                </div>
+            {/* Attendance Calendar */}
+            <div className="px-4 mt-4">
+                <AttendanceCalendar timeCards={timeCards} />
             </div>
+
+            {/* Store Actions Modal */}
+            <Suspense fallback={null}>
+                <StoreActionsModal />
+            </Suspense>
         </div>
     );
 }

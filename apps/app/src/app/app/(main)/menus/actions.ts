@@ -17,9 +17,8 @@ export interface Menu {
     name: string;
     category_id: string;
     price: number;
-    is_for_guest: boolean;
-    is_for_cast: boolean;
-    is_hidden: boolean;
+    target_type: "guest" | "cast";
+    cast_back_amount: number;
     hide_from_slip: boolean;
     created_at: string;
     updated_at: string;
@@ -172,9 +171,8 @@ export async function createMenu(formData: FormData) {
     const name = formData.get("name") as string;
     const categoryId = formData.get("category_id") as string;
     const price = parseInt(formData.get("price") as string);
-    const isForGuest = formData.get("is_for_guest") === "on";
-    const isForCast = formData.get("is_for_cast") === "on";
-    const isHidden = formData.get("is_hidden") === "on";
+    const targetType = (formData.get("target_type") as string) || "guest";
+    const castBackAmount = parseInt(formData.get("cast_back_amount") as string) || 0;
     const hideFromSlip = formData.get("hide_from_slip") === "on";
 
     if (!name || !categoryId || isNaN(price)) {
@@ -186,9 +184,8 @@ export async function createMenu(formData: FormData) {
         name,
         category_id: categoryId,
         price,
-        is_for_guest: isForGuest,
-        is_for_cast: isForCast,
-        is_hidden: isHidden,
+        target_type: targetType,
+        cast_back_amount: targetType === "cast" ? castBackAmount : 0,
         hide_from_slip: hideFromSlip,
     }).select().single();
 
@@ -209,9 +206,8 @@ export async function updateMenu(formData: FormData) {
     const name = formData.get("name") as string;
     const categoryId = formData.get("category_id") as string;
     const price = parseInt(formData.get("price") as string);
-    const isForGuest = formData.get("is_for_guest") === "on";
-    const isForCast = formData.get("is_for_cast") === "on";
-    const isHidden = formData.get("is_hidden") === "on";
+    const targetType = (formData.get("target_type") as string) || "guest";
+    const castBackAmount = parseInt(formData.get("cast_back_amount") as string) || 0;
     const hideFromSlip = formData.get("hide_from_slip") === "on";
 
     if (!id || !name || !categoryId || isNaN(price)) {
@@ -224,9 +220,8 @@ export async function updateMenu(formData: FormData) {
             name,
             category_id: categoryId,
             price,
-            is_for_guest: isForGuest,
-            is_for_cast: isForCast,
-            is_hidden: isHidden,
+            target_type: targetType,
+            cast_back_amount: targetType === "cast" ? castBackAmount : 0,
             hide_from_slip: hideFromSlip,
             updated_at: new Date().toISOString(),
         })

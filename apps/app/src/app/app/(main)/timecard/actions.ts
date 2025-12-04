@@ -84,13 +84,13 @@ export async function clockIn(pickupRequired?: boolean, pickupDestination?: stri
         work_date: workDate,
         clock_in: now.toISOString(),
         scheduled_start_time: scheduledStartTime,
-        pickup_required: pickupRequired ? "yes" : "no",
+        pickup_required: pickupRequired ?? false,
         pickup_destination: pickupDestination || null,
     });
 
     if (error) {
-        console.error("Error clocking in:", error);
-        throw new Error("Failed to clock in");
+        console.error("Error clocking in:", JSON.stringify(error, null, 2));
+        throw new Error(`Failed to clock in: ${error.message || error.code}`);
     }
 
     revalidatePath("/app/timecard");

@@ -9,11 +9,12 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { Search } from "lucide-react";
+import { Search, Settings } from "lucide-react";
 import { JoinRequestModal } from "./join-request-modal";
 import { formatJSTDateTime } from "@/lib/utils";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 interface JoinRequest {
     id: string;
@@ -26,9 +27,10 @@ interface JoinRequest {
 
 interface JoinRequestsTableProps {
     requests: JoinRequest[];
+    onSettingsClick?: () => void;
 }
 
-export function JoinRequestsTable({ requests: initialRequests }: JoinRequestsTableProps) {
+export function JoinRequestsTable({ requests: initialRequests, onSettingsClick }: JoinRequestsTableProps) {
     const [requests, setRequests] = useState(initialRequests);
     const [searchQuery, setSearchQuery] = useState("");
     const [roleFilter, setRoleFilter] = useState<string>("all");
@@ -55,8 +57,8 @@ export function JoinRequestsTable({ requests: initialRequests }: JoinRequestsTab
 
     const filteredRequests = requests.filter((req) => {
         const matchesSearch =
-            req.display_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            req.real_name.toLowerCase().includes(searchQuery.toLowerCase());
+            (req.display_name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (req.real_name || "").toLowerCase().includes(searchQuery.toLowerCase());
         const matchesRole = roleFilter === "all" || req.role === roleFilter;
         return matchesSearch && matchesRole;
     });
@@ -73,38 +75,53 @@ export function JoinRequestsTable({ requests: initialRequests }: JoinRequestsTab
 
     return (
         <div className="space-y-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex flex-wrap items-center gap-3">
-                    <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-full">
-                        <button
-                            onClick={() => setRoleFilter("all")}
-                            className={`px-4 py-1.5 text-sm rounded-full transition-all ${roleFilter === "all"
-                                ? "bg-white dark:bg-gray-700 shadow-sm font-medium"
-                                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                                }`}
-                        >
-                            全て
-                        </button>
-                        <button
-                            onClick={() => setRoleFilter("cast")}
-                            className={`px-4 py-1.5 text-sm rounded-full transition-all ${roleFilter === "cast"
-                                ? "bg-white dark:bg-gray-700 shadow-sm font-medium"
-                                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                                }`}
-                        >
-                            キャスト
-                        </button>
-                        <button
-                            onClick={() => setRoleFilter("staff")}
-                            className={`px-4 py-1.5 text-sm rounded-full transition-all ${roleFilter === "staff"
-                                ? "bg-white dark:bg-gray-700 shadow-sm font-medium"
-                                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                                }`}
-                        >
-                            スタッフ
-                        </button>
-                    </div>
-                    <Accordion type="single" collapsible className="w-full sm:w-auto">
+            {/* Role filter toggle and settings button on the same row */}
+            <div className="flex items-center justify-between">
+                <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-full">
+                    <button
+                        onClick={() => setRoleFilter("all")}
+                        className={`px-4 py-1.5 text-sm rounded-full transition-all ${roleFilter === "all"
+                            ? "bg-white dark:bg-gray-700 shadow-sm font-medium"
+                            : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                            }`}
+                    >
+                        全て
+                    </button>
+                    <button
+                        onClick={() => setRoleFilter("cast")}
+                        className={`px-4 py-1.5 text-sm rounded-full transition-all ${roleFilter === "cast"
+                            ? "bg-white dark:bg-gray-700 shadow-sm font-medium"
+                            : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                            }`}
+                    >
+                        キャスト
+                    </button>
+                    <button
+                        onClick={() => setRoleFilter("staff")}
+                        className={`px-4 py-1.5 text-sm rounded-full transition-all ${roleFilter === "staff"
+                            ? "bg-white dark:bg-gray-700 shadow-sm font-medium"
+                            : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                            }`}
+                    >
+                        スタッフ
+                    </button>
+                </div>
+
+                {/* Settings Button - same row as toggle */}
+                {onSettingsClick && (
+                    <Button
+                        size="icon"
+                        className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95 flex-shrink-0"
+                        onClick={onSettingsClick}
+                    >
+                        <Settings className="h-5 w-5" />
+                    </Button>
+                )}
+            </div>
+
+            {/* Filter accordion - separate row */}
+            <div className="flex items-center">
+                <Accordion type="single" collapsible className="w-full sm:w-auto">
                         <AccordionItem
                             value="filters"
                             className="rounded-2xl border border-gray-200 bg-white px-2 dark:border-gray-700 dark:bg-gray-800"
@@ -133,8 +150,7 @@ export function JoinRequestsTable({ requests: initialRequests }: JoinRequestsTab
                                 </div>
                             </AccordionContent>
                         </AccordionItem>
-                    </Accordion>
-                </div>
+                </Accordion>
             </div>
 
             <div className="rounded-3xl border bg-white dark:bg-gray-800">
@@ -159,7 +175,7 @@ export function JoinRequestsTable({ requests: initialRequests }: JoinRequestsTab
                                     className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50"
                                     onClick={() => handleRowClick(req)}
                                 >
-                                    <TableCell className="font-medium text-center w-1/2">{req.real_name}</TableCell>
+                                    <TableCell className="font-medium text-center w-1/2">{req.display_name || req.real_name}</TableCell>
                                     <TableCell className="text-sm text-gray-500 text-center w-1/2">
                                         {formatJSTDateTime(req.created_at)}
                                     </TableCell>

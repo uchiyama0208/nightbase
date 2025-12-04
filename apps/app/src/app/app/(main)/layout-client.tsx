@@ -2,6 +2,7 @@
 
 import { AppSidebar } from "@/components/app-sidebar";
 import { MobileHeader } from "@/components/mobile-header";
+import { AIFab } from "@/components/ai-fab";
 import { useState } from "react";
 
 interface StoreFeatures {
@@ -48,6 +49,9 @@ export function AppLayoutClient({ children, userRole, profileName, avatarUrl, st
           {children}
         </div>
       </main>
+
+      {/* AI Assistant FAB - only for admin/staff */}
+      {(userRole === "admin" || userRole === "staff") && <AIFab />}
     </div>
   );
 }

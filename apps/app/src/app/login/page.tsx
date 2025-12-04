@@ -11,9 +11,9 @@ import { Button } from "@/components/ui/button";
 export default async function LoginPage({
     searchParams,
 }: {
-    searchParams: Promise<{ message?: string }>;
+    searchParams: Promise<{ message?: string; password_reset?: string; redirect?: string }>;
 }) {
-    const { message } = await searchParams;
+    const { message, password_reset, redirect: redirectTo } = await searchParams;
     const supabase = await createServerClient();
     const { data: { session } } = await supabase.auth.getSession();
 
@@ -82,6 +82,9 @@ export default async function LoginPage({
                             </div>
 
                             <form action="/app/auth/login" method="post" className="space-y-4">
+                                {redirectTo && (
+                                    <input type="hidden" name="redirect" value={redirectTo} />
+                                )}
                                 <div>
                                     <Label htmlFor="email" className="text-gray-900 dark:text-white">
                                         メールアドレス
@@ -98,9 +101,17 @@ export default async function LoginPage({
                                 </div>
 
                                 <div>
-                                    <Label htmlFor="password" className="text-gray-900 dark:text-white">
-                                        パスワード
-                                    </Label>
+                                    <div className="flex items-center justify-between">
+                                        <Label htmlFor="password" className="text-gray-900 dark:text-white">
+                                            パスワード
+                                        </Label>
+                                        <a
+                                            href="/forgot-password"
+                                            className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+                                        >
+                                            パスワードを忘れた方
+                                        </a>
+                                    </div>
                                     <div className="mt-1">
                                         <PasswordInput />
                                     </div>
@@ -114,6 +125,14 @@ export default async function LoginPage({
                                     ログイン
                                 </Button>
 
+                                {password_reset === "success" && (
+                                    <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                                        <p className="text-sm text-green-600 dark:text-green-400 text-center">
+                                            パスワードを変更しました。新しいパスワードでログインしてください。
+                                        </p>
+                                    </div>
+                                )}
+
                                 {message && (
                                     <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                                         <p className="text-sm text-red-600 dark:text-red-400 text-center">
@@ -126,7 +145,7 @@ export default async function LoginPage({
 
                         <div className="text-center text-sm text-gray-600 dark:text-gray-400">
                             アカウントをお持ちでないですか？
-                            <a href="/signup" className="ml-1 font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">
+                            <a href={redirectTo ? `/signup?redirect=${encodeURIComponent(redirectTo)}` : "/signup"} className="ml-1 font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">
                                 新規登録
                             </a>
                         </div>

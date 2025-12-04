@@ -1,7 +1,5 @@
 "use client";
 
-import { Label } from "@/components/ui/label";
-import { EyeOff } from "lucide-react";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
@@ -44,15 +42,6 @@ export function FeaturesClient({ initialFlags, updateFeature }: FeaturesClientPr
     };
 
     const features = [
-        {
-            id: "show_dashboard",
-            name: "ダッシュボード",
-            description: "出勤状況のサマリーや今日の稼働状況をひと目で確認できます。",
-            icon: "DB",
-            iconBg: "bg-blue-100 dark:bg-blue-900",
-            iconText: "text-blue-600 dark:text-blue-400",
-            category: "必須機能",
-        },
         {
             id: "show_attendance",
             name: "勤怠",
@@ -105,9 +94,9 @@ export function FeaturesClient({ initialFlags, updateFeature }: FeaturesClientPr
             <div className="max-w-3xl mx-auto pt-6 px-4">
                 <div className="flex items-center justify-between mb-4">
                     <div>
-                        <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">機能追加</h1>
+                        <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">表示ページ</h1>
                         <p className="mt-1 text-xs md:text-sm text-gray-500 dark:text-gray-400">
-                            店舗ごとに利用可能な機能を追加・削除します。インストール済みの機能だけがサイドバーに表示され、アクセス可能になります。
+                            サイドバーに表示するページを設定します。有効にしたページのみがサイドバーに表示されます。
                         </p>
                     </div>
                 </div>
@@ -144,12 +133,9 @@ export function FeaturesClient({ initialFlags, updateFeature }: FeaturesClientPr
                                                 } ${isPending ? "opacity-50 cursor-wait" : "cursor-pointer"}`}
                                         >
                                             {isEnabled ? (
-                                                <>
-                                                    <span>インストール済み</span>
-                                                    <EyeOff className="h-3 w-3 ml-1" />
-                                                </>
+                                                <span>表示中</span>
                                             ) : (
-                                                <span>インストール</span>
+                                                <span>非表示</span>
                                             )}
                                         </button>
                                     </div>

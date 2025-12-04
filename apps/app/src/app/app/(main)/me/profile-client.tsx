@@ -13,7 +13,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { updateUserEmail, updateUserPassword, enableEmailLogin } from "./actions";
+import { updateUserEmail, updateUserPassword, enableEmailLogin, unlinkLine } from "./actions";
 
 interface ProfileClientProps {
     initialEmail: string;
@@ -47,6 +47,9 @@ export function ProfileClient({ initialEmail, initialName, identities, userId, l
     const [showErrorModal, setShowErrorModal] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
 
+    // State for LINE unlink confirmation
+    const [showUnlinkConfirm, setShowUnlinkConfirm] = useState(false);
+
     // Debug logging
     console.log("ProfileClient - lineUserId:", lineUserId);
     console.log("ProfileClient - identities:", identities);
@@ -70,6 +73,23 @@ export function ProfileClient({ initialEmail, initialName, identities, userId, l
         const apiUrl = `/api/line-link?mode=link&userId=${userId}`;
         console.log("Navigating to:", apiUrl);
         window.location.href = apiUrl;
+    };
+
+    const handleLineUnlink = async () => {
+        setLoading(true);
+        const result = await unlinkLine();
+        setLoading(false);
+        setShowUnlinkConfirm(false);
+
+        if (result.success) {
+            setSuccessMessage("LINE連携を解除しました。");
+            setShowSuccessModal(true);
+            // Reload the page to update the UI
+            window.location.reload();
+        } else {
+            setErrorMessage(result.error || "エラーが発生しました");
+            setShowErrorModal(true);
+        }
     };
 
     const handleEnableEmailLogin = async () => {
@@ -223,14 +243,26 @@ export function ProfileClient({ initialEmail, initialName, identities, userId, l
                                         LINE連携する
                                     </Button>
                                 ) : (
-                                    <Button
-                                        onClick={handleLineLink}
-                                        variant="outline"
-                                        className="mt-2 h-8 text-xs"
-                                        size="sm"
-                                    >
-                                        別のLINEアカウントで再連携
-                                    </Button>
+                                    <div className="flex gap-2 mt-2">
+                                        <Button
+                                            onClick={handleLineLink}
+                                            variant="outline"
+                                            className="h-8 text-xs"
+                                            size="sm"
+                                        >
+                                            別のLINEで再連携
+                                        </Button>
+                                        {!isLinePlaceholderEmail && (
+                                            <Button
+                                                onClick={() => setShowUnlinkConfirm(true)}
+                                                variant="outline"
+                                                className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
+                                                size="sm"
+                                            >
+                                                連携解除
+                                            </Button>
+                                        )}
+                                    </div>
                                 )}
                             </div>
                         </div>
@@ -542,6 +574,40 @@ export function ProfileClient({ initialEmail, initialName, identities, userId, l
                             onClick={() => setShowErrorModal(false)}
                         >
                             閉じる
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* LINE Unlink Confirmation Modal */}
+            <Dialog open={showUnlinkConfirm} onOpenChange={setShowUnlinkConfirm}>
+                <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                            <MessageCircle className="h-5 w-5 text-[#00B900]" />
+                            LINE連携を解除しますか？
+                        </DialogTitle>
+                        <DialogDescription className="pt-2 text-gray-600 dark:text-gray-400">
+                            LINE連携を解除すると、LINEアカウントでのログインができなくなります。
+                            メールアドレスとパスワードでログインしてください。
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setShowUnlinkConfirm(false)}
+                            disabled={loading}
+                        >
+                            キャンセル
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="destructive"
+                            onClick={handleLineUnlink}
+                            disabled={loading}
+                        >
+                            {loading ? "解除中..." : "解除する"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

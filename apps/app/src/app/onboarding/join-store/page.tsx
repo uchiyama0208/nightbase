@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 
+const MARKETING_URL = process.env.NEXT_PUBLIC_MARKETING_URL || "https://nightbase.jp";
+
 export default function JoinStorePage() {
     const [termsAccepted, setTermsAccepted] = useState(false);
     const [privacyAccepted, setPrivacyAccepted] = useState(false);
@@ -65,7 +67,7 @@ export default function JoinStorePage() {
                                     </Label>
                                     <p className="text-sm text-muted-foreground">
                                         <Link
-                                            href="/terms-of-service"
+                                            href={`${MARKETING_URL}/terms-of-service`}
                                             target="_blank"
                                             className="text-primary hover:underline"
                                         >
@@ -87,7 +89,7 @@ export default function JoinStorePage() {
                                     </Label>
                                     <p className="text-sm text-muted-foreground">
                                         <Link
-                                            href="/privacy-policy"
+                                            href={`${MARKETING_URL}/privacy-policy`}
                                             target="_blank"
                                             className="text-primary hover:underline"
                                         >

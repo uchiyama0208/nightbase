@@ -4,6 +4,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const userId = searchParams.get("userId");
     const mode = searchParams.get("mode") || "link";
+    const redirect = searchParams.get("redirect");
 
     // userId is required for linking, but optional for login
     if (mode === "link" && !userId) {
@@ -22,6 +23,11 @@ export async function GET(request: NextRequest) {
     // Only add userId if it exists
     if (userId) {
         edgeFunctionUrl.searchParams.set("userId", userId);
+    }
+
+    // Pass redirect parameter if it exists
+    if (redirect) {
+        edgeFunctionUrl.searchParams.set("redirect", redirect);
     }
 
     // Pass the current origin as frontend_url

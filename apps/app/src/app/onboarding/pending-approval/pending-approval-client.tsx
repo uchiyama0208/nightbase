@@ -59,8 +59,8 @@ export function PendingApprovalClient({ status: initialStatus, storeName }: Pend
                     <div className="flex items-center gap-3">
                         <Clock className="h-8 w-8 text-blue-600 dark:text-blue-400 animate-pulse" />
                         <div>
-                            <CardTitle>承認待ち</CardTitle>
-                            <CardDescription>
+                            <CardTitle className="text-gray-900 dark:text-white">承認待ち</CardTitle>
+                            <CardDescription className="text-gray-600 dark:text-gray-400">
                                 管理者による承認をお待ちください
                             </CardDescription>
                         </div>
@@ -102,8 +102,8 @@ export function PendingApprovalClient({ status: initialStatus, storeName }: Pend
                 <div className="flex items-center gap-3">
                     <XCircle className="h-8 w-8 text-red-600 dark:text-red-400" />
                     <div>
-                        <CardTitle>申請が拒否されました</CardTitle>
-                        <CardDescription>
+                        <CardTitle className="text-gray-900 dark:text-white">申請が拒否されました</CardTitle>
+                        <CardDescription className="text-gray-600 dark:text-gray-400">
                             管理者により申請が拒否されました
                         </CardDescription>
                     </div>

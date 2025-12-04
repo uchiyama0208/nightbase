@@ -462,16 +462,77 @@ export async function getJoinRequestsData() {
         return { redirect: "/app/timecard" };
     }
 
-    const { data: joinRequests } = await supabase
-        .from("profiles")
-        .select("id, display_name, real_name, role, created_at, approval_status")
-        .eq("store_id", currentProfile.store_id)
-        .eq("approval_status", "pending")
-        .order("created_at", { ascending: false });
+    // Fetch store settings and join requests in parallel
+    const [storeResult, joinRequestsResult] = await Promise.all([
+        supabase
+            .from("stores")
+            .select("id, allow_join_requests, allow_join_by_code, allow_join_by_url")
+            .eq("id", currentProfile.store_id)
+            .single(),
+        supabase
+            .from("profiles")
+            .select("id, display_name, real_name, role, created_at, approval_status")
+            .eq("store_id", currentProfile.store_id)
+            .eq("approval_status", "pending")
+            .order("created_at", { ascending: false })
+    ]);
 
     return {
         data: {
-            joinRequests: joinRequests || [],
+            joinRequests: joinRequestsResult.data || [],
+            store: storeResult.data,
         }
     };
+}
+
+export async function updateJoinRequestSettings(settings: {
+    allowJoinRequests: boolean;
+    allowJoinByCode: boolean;
+    allowJoinByUrl: boolean;
+}) {
+    const supabase = await createServerClient();
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { success: false, error: "Unauthorized" };
+    }
+
+    const { data: appUser } = await supabase
+        .from("users")
+        .select("current_profile_id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+    if (!appUser?.current_profile_id) {
+        return { success: false, error: "Profile not found" };
+    }
+
+    const { data: currentProfile } = await supabase
+        .from("profiles")
+        .select("store_id, role")
+        .eq("id", appUser.current_profile_id)
+        .maybeSingle();
+
+    if (!currentProfile || !currentProfile.store_id || currentProfile.role !== "staff") {
+        return { success: false, error: "Permission denied" };
+    }
+
+    const { error } = await supabase
+        .from("stores")
+        .update({
+            allow_join_requests: settings.allowJoinRequests,
+            allow_join_by_code: settings.allowJoinByCode,
+            allow_join_by_url: settings.allowJoinByUrl,
+        })
+        .eq("id", currentProfile.store_id);
+
+    if (error) {
+        console.error("Error updating join request settings:", error);
+        return { success: false, error: "Failed to update settings" };
+    }
+
+    revalidatePath("/app/settings/join-requests");
+    return { success: true };
 }

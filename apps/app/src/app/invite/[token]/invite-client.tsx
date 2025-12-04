@@ -20,6 +20,8 @@ import {
 import { acceptInvitation } from "../../app/(main)/invitations/actions";
 import { useRouter } from "next/navigation";
 
+const MARKETING_URL = process.env.NEXT_PUBLIC_MARKETING_URL || "https://nightbase.jp";
+
 interface InviteClientProps {
     invitation: {
         id: string;
@@ -420,7 +422,7 @@ export function InviteClient({ invitation, userId }: InviteClientProps) {
                                 </div>
                                 <p className="text-xs">
                                     <Link
-                                        href="/terms-of-service"
+                                        href={`${MARKETING_URL}/terms-of-service`}
                                         target="_blank"
                                         className="text-blue-600 dark:text-blue-400 underline hover:text-blue-700 dark:hover:text-blue-300"
                                         onClick={(e) => e.stopPropagation()}
@@ -443,7 +445,7 @@ export function InviteClient({ invitation, userId }: InviteClientProps) {
                                 </div>
                                 <p className="text-xs">
                                     <Link
-                                        href="/privacy-policy"
+                                        href={`${MARKETING_URL}/privacy-policy`}
                                         target="_blank"
                                         className="text-blue-600 dark:text-blue-400 underline hover:text-blue-700 dark:hover:text-blue-300"
                                         onClick={(e) => e.stopPropagation()}

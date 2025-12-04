@@ -169,6 +169,52 @@ export async function deleteAccount() {
 
 import { createServiceRoleClient } from "@/lib/supabaseServiceClient";
 
+export async function unlinkLine() {
+    const supabase = await createServerClient();
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+        return { success: false, error: "Unauthorized" };
+    }
+
+    // Check if user has a primary_email (meaning they have email login set up)
+    // Or if their auth email is not a LINE placeholder
+    const { data: userData } = await supabase
+        .from("users")
+        .select("primary_email, current_profile_id")
+        .eq("id", user.id)
+        .single();
+
+    // Get current auth user email
+    const isLinePlaceholderEmail = user.email?.endsWith("@line.nightbase.app") ||
+                                     user.email?.endsWith("@line-v2.nightbase.app");
+
+    // If user only has LINE login (no email/password set up), prevent unlinking
+    if (isLinePlaceholderEmail && !userData?.primary_email) {
+        return {
+            success: false,
+            error: "LINE連携を解除するには、先にメールアドレスとパスワードでのログインを設定してください。"
+        };
+    }
+
+    // Clear line_user_id and line_is_friend from all profiles for this user
+    const { error: updateError } = await supabase
+        .from("profiles")
+        .update({
+            line_user_id: null,
+            line_is_friend: null
+        })
+        .eq("user_id", user.id);
+
+    if (updateError) {
+        console.error("Error unlinking LINE:", updateError);
+        return { success: false, error: "LINE連携の解除に失敗しました" };
+    }
+
+    revalidatePath("/app/me");
+    return { success: true };
+}
+
 export async function enableEmailLogin(email: string, password: string) {
     const supabase = await createServerClient();
     const { data: { user }, error: userError } = await supabase.auth.getUser();

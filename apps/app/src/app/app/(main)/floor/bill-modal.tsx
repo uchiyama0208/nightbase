@@ -78,7 +78,7 @@ export function BillModal({ session, open, onOpenChange }: BillModalProps) {
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-md max-h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>お会計詳細</DialogTitle>
                 </DialogHeader>
@@ -86,7 +86,7 @@ export function BillModal({ session, open, onOpenChange }: BillModalProps) {
                 {loading ? (
                     <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>
                 ) : breakdown ? (
-                    <div className="space-y-4">
+                    <div className="space-y-4 overflow-y-auto flex-1">
                         <div className="bg-muted/30 p-4 rounded-lg space-y-2 text-sm">
                             <div className="flex justify-between">
                                 <span className="text-muted-foreground">滞在時間</span>
