@@ -21,7 +21,7 @@ function SignupVerifyContent() {
         setResendMessage(null);
 
         try {
-            const supabase = createBrowserClient();
+            const supabase = createBrowserClient() as any;
             const { error } = await supabase.auth.resend({
                 type: "signup",
                 email,

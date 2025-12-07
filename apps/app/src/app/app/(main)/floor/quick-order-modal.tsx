@@ -231,8 +231,8 @@ export function QuickOrderModal({ session, table, open, onOpenChange, onOrderCom
 
         setIsSubmitting(true);
         try {
-            let guestId = null;
-            let castId = null;
+            let guestId: string | null = null;
+            let castId: string | null = null;
 
             if (selectedTarget.startsWith('guest:')) {
                 guestId = selectedTarget.replace('guest:', '');

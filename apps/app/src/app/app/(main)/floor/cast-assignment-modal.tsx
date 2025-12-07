@@ -25,7 +25,7 @@ export function CastAssignmentModal({ sessionId, open, onOpenChange, onAssign }:
     }, [open]);
 
     const loadCasts = async () => {
-        const supabase = createBrowserClient();
+        const supabase = createBrowserClient() as any;
         // Fetch active casts (attendance logic needed here, fetching all for now)
         const { data } = await supabase
             .from("profiles")

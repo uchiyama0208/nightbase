@@ -20,6 +20,7 @@ import { getTables } from "../seats/actions";
 import { getActiveSessions, getCompletedSessions } from "../floor/actions";
 import { NewSessionModal } from "../floor/new-session-modal";
 import { SlipDetailModal } from "@/components/slips/slip-detail-modal";
+import { PageTitle } from "@/components/page-title";
 
 interface OrderItem {
     id: string;
@@ -170,13 +171,11 @@ export default function SlipsPage() {
 
     return (
         <div className="space-y-4">
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">伝票</h1>
-                <p className="mt-2 text-sm text-muted-foreground dark:text-gray-400">
-                    進行中および終了済みの伝票を管理します。
-                </p>
-            </div>
-
+            <PageTitle
+                title="伝票"
+                description="進行中および終了済みの伝票を管理します。"
+                backTab="floor"
+            />
             <div className="flex items-center justify-between">
                 <div className="relative inline-flex h-10 items-center rounded-full bg-gray-100 dark:bg-gray-800 p-1">
                     <div

@@ -39,7 +39,7 @@ export async function POST(request: Request) {
             }
         }
 
-        const supabase = await createServerClient();
+        const supabase = await createServerClient() as any;
 
         // If isLogin flag is set, try to sign in existing user
         if (isLogin) {

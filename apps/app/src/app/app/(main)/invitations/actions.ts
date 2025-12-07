@@ -26,7 +26,7 @@ export interface Invitation {
 }
 
 export async function getInvitations(filters?: { status?: string; search?: string; role?: string }, storeId?: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     if (!storeId) {
         const {
@@ -134,7 +134,7 @@ export async function getInvitations(filters?: { status?: string; search?: strin
 }
 
 export async function acceptInvitation(token: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -193,7 +193,7 @@ export async function createInvitation(data: {
     expiresInDays: number;
     password?: string;
 }) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -220,7 +220,7 @@ export async function createInvitation(data: {
     expiresAt.setDate(expiresAt.getDate() + data.expiresInDays);
 
     // Simple password hashing (SHA-256) if password provided
-    let passwordHash = null;
+    let passwordHash: string | null = null;
     if (data.password) {
         passwordHash = crypto.createHash("sha256").update(data.password).digest("hex");
     }
@@ -268,7 +268,7 @@ export async function createInvitation(data: {
 }
 
 export async function cancelInvitation(id: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // 'id' here is the profile_id (since we use profile_id as invitation_id)
     const { error } = await supabase
@@ -291,7 +291,7 @@ export async function cancelInvitation(id: string) {
 
 // Public action to get invitation details
 export async function getInvitationByToken(token: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // Use the new RPC function to bypass RLS securely using ID
     // 'token' is now the profile ID
@@ -322,7 +322,7 @@ export async function getInvitationByToken(token: string) {
 }
 
 export async function getUninvitedProfiles(storeId?: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     if (!storeId) {
         const {
@@ -364,7 +364,7 @@ export async function getUninvitedProfiles(storeId?: string) {
 }
 
 export async function getInvitationsData() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -429,7 +429,7 @@ export async function getInvitationsData() {
 }
 
 export async function getJoinRequestsData() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -490,7 +490,7 @@ export async function updateJoinRequestSettings(settings: {
     allowJoinByCode: boolean;
     allowJoinByUrl: boolean;
 }) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();

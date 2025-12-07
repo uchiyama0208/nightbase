@@ -14,7 +14,7 @@ export default async function LoginPage({
     searchParams: Promise<{ message?: string; password_reset?: string; redirect?: string }>;
 }) {
     const { message, password_reset, redirect: redirectTo } = await searchParams;
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { session } } = await supabase.auth.getSession();
 
     // Allow users to access login page even if authenticated

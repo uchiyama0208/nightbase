@@ -360,8 +360,8 @@ export function SlipDetailModal({
             const baseDate = new Date(session.start_time);
             const baseDateStr = baseDate.toISOString().slice(0, 10);
 
-            let newStartIso = undefined;
-            let newEndIso = null;
+            let newStartIso: string | undefined = undefined;
+            let newEndIso: string | null = null;
 
             if (startTime) {
                 newStartIso = new Date(`${baseDateStr}T${startTime}`).toISOString();

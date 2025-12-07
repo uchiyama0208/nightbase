@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 };
 
 async function checkSettingsAccess() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -46,7 +46,7 @@ async function checkSettingsAccess() {
 
 export default async function FloorSettingsPage() {
     const storeId = await checkSettingsAccess();
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { data: store } = await supabase
         .from("stores")

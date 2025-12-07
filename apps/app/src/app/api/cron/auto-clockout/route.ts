@@ -30,7 +30,7 @@ export async function GET() {
 }
 
 async function processAutoClockOut() {
-    const supabase = createServiceRoleClient();
+    const supabase = createServiceRoleClient() as any;
 
     // Get all stores with auto clock-out enabled
     const { data } = await supabase
@@ -48,7 +48,7 @@ async function processAutoClockOut() {
     const now = new Date();
     const jstNow = getJSTDate(now);
     const currentHour = jstNow.getHours();
-    const results = [];
+    const results: any[] = [];
 
     for (const store of stores) {
         // Get the cutoff time for this store (day_switch_time from stores table)

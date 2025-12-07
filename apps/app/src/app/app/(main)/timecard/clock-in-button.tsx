@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { clockIn, startBreak, endBreak } from "./actions";
 import { MapPin, CheckCircle2, XCircle, RefreshCw, Loader2 } from "lucide-react";
@@ -50,6 +51,7 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 }
 
 export function ClockButtons({ latestTimeCard, storeSettings, showBreakButtons = true, pickupHistory, autoOpenModal = false, autoClockOut = false }: ClockButtonsProps) {
+    const router = useRouter();
     const [currentTime, setCurrentTime] = useState<Date | null>(null);
     const [isPending, setIsPending] = useState(false);
 
@@ -169,9 +171,7 @@ export function ClockButtons({ latestTimeCard, storeSettings, showBreakButtons =
         try {
             await clockIn(pickupRequired === true, pickupDestination);
             setIsModalOpen(false);
-            // Force immediate UI update by setting a temporary clocked-in state
-            // This prevents double-clicking before page refresh
-            window.location.reload();
+            router.refresh();
         } catch (error) {
             console.error("Clock in failed:", error);
             alert("出勤打刻に失敗しました。もう一度お試しください。");

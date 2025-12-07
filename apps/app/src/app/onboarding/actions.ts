@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function searchStore(storeId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { data: store, error } = await supabase
         .from("stores")
@@ -25,7 +25,7 @@ export async function searchStore(storeId: string) {
 }
 
 export async function createPendingProfile(formData: FormData) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
     if (userError || !user) {
@@ -71,7 +71,7 @@ export async function createPendingProfile(formData: FormData) {
 }
 
 export async function checkApprovalStatus() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
     if (userError || !user) {
@@ -106,7 +106,7 @@ export async function checkApprovalStatus() {
 }
 
 export async function createProfileOnly(formData: FormData) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
     if (userError || !user) {
@@ -150,7 +150,7 @@ export async function createProfileOnly(formData: FormData) {
 }
 
 export async function upsertOwnerProfile(formData: FormData) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
     if (userError || !user) {
@@ -221,7 +221,7 @@ export async function upsertOwnerProfile(formData: FormData) {
 }
 
 export async function createStoreAndLink(storeData: FormData) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
     if (userError || !user) {
@@ -350,7 +350,7 @@ export async function createStoreAndLink(storeData: FormData) {
 }
 
 export async function getOnboardingStatus() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
     if (userError || !user) {
@@ -381,7 +381,7 @@ export async function getOnboardingStatus() {
 }
 
 export async function saveProfileData(formData: FormData) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
     if (userError || !user) {

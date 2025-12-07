@@ -3,7 +3,7 @@
 import { createServerClient } from "@/lib/supabaseServerClient";
 
 export async function updateLineFriendshipPreference(hidePrompt: boolean) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -11,7 +11,7 @@ export async function updateLineFriendshipPreference(hidePrompt: boolean) {
         throw new Error("User not authenticated");
     }
 
-    const { error } = await supabase
+    const { error } = await (supabase as any)
         .from("users")
         .update({ hide_line_friendship_prompt: hidePrompt })
         .eq("id", user.id);
@@ -25,7 +25,7 @@ export async function updateLineFriendshipPreference(hidePrompt: boolean) {
 }
 
 export async function getLineFriendshipPreference() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -33,7 +33,7 @@ export async function getLineFriendshipPreference() {
         return { hidePrompt: false };
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
         .from("users")
         .select("hide_line_friendship_prompt")
         .eq("id", user.id)

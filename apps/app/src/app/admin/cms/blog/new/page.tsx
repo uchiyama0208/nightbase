@@ -1,14 +1,14 @@
 "use client";
 
-import { AdminProtected } from "@/components/admin/AdminProtected";
-import { BlogEditor } from "@/components/admin/cms/BlogEditor";
+import { CmsEditor } from "../../components/cms-editor";
 
-export default function AdminBlogCreatePage() {
-  return (
-    <AdminProtected>
-      {({ supabase }) => <BlogEditor supabaseClient={supabase} />}
-    </AdminProtected>
-  );
+export default function NewBlogPage() {
+    return (
+        <CmsEditor
+            entry={null}
+            type="blog"
+            typeLabel="ブログ記事"
+            backUrl="/admin/cms/blog"
+        />
+    );
 }
-
-export const dynamic = 'force-dynamic';

@@ -4,7 +4,7 @@ import { createServerClient } from "@/lib/supabaseServerClient";
 import { revalidatePath } from "next/cache";
 
 export async function updateSingleFeature(feature: string, value: boolean) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -42,7 +42,7 @@ export async function updateSingleFeature(feature: string, value: boolean) {
 }
 
 export async function getFeaturesData() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();

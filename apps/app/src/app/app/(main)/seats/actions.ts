@@ -5,7 +5,7 @@ import { Table } from "@/types/floor";
 import { revalidatePath } from "next/cache";
 
 export async function getTables() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // Get current user's store_id
     const { data: { user } } = await supabase.auth.getUser();
@@ -34,7 +34,7 @@ export async function getTables() {
 }
 
 export async function saveTable(tableData: Partial<Table>) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // Get current user's store_id
     const { data: { user } } = await supabase.auth.getUser();
@@ -70,7 +70,7 @@ export async function saveTable(tableData: Partial<Table>) {
 }
 
 export async function deleteTable(id: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { error } = await supabase
         .from("tables")
         .delete()
@@ -86,7 +86,7 @@ export async function deleteTable(id: string) {
 }
 
 export async function createTable(tableData: Omit<Table, "id" | "store_id" | "created_at" | "updated_at" | "layout_data">) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Not authenticated");
@@ -119,7 +119,7 @@ export async function createTable(tableData: Omit<Table, "id" | "store_id" | "cr
 }
 
 export async function updateTable(id: string, tableData: Partial<Table>) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { data, error } = await supabase
         .from("tables")
@@ -143,7 +143,7 @@ export async function updateTable(id: string, tableData: Partial<Table>) {
 // Table Type Management Functions
 
 export async function getTableTypes() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return [];
@@ -171,7 +171,7 @@ export async function getTableTypes() {
 }
 
 export async function createTableType(name: string, sortOrder: number = 0) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Not authenticated");
@@ -204,7 +204,7 @@ export async function createTableType(name: string, sortOrder: number = 0) {
 }
 
 export async function updateTableType(id: string, name: string, sortOrder: number) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { data, error } = await supabase
         .from("table_types")
@@ -227,7 +227,7 @@ export async function updateTableType(id: string, name: string, sortOrder: numbe
 }
 
 export async function deleteTableType(id: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { error } = await supabase
         .from("table_types")
@@ -244,7 +244,7 @@ export async function deleteTableType(id: string) {
 }
 
 export async function updateTableTypeSortOrders(updates: { id: string; sort_order: number }[]) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     for (const update of updates) {
         const { error } = await supabase

@@ -20,7 +20,7 @@ export function OnboardingChoiceAuth() {
             setProcessing(true);
 
             try {
-                const supabase = createBrowserClient();
+                const supabase = createBrowserClient() as any;
                 const { error } = await supabase.auth.setSession({
                     access_token: accessToken,
                     refresh_token: refreshToken,

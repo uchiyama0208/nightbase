@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Copy, Check, Ban, ChevronLeft } from "lucide-react";
-import { useState, useTransition } from "react";
+import { useState, useTransition, useCallback } from "react";
 import { formatJSTDateTime } from "@/lib/utils";
 
 interface InvitationDetailModalProps {
@@ -34,6 +34,7 @@ export function InvitationDetailModal({
 }: InvitationDetailModalProps) {
     const [copied, setCopied] = useState(false);
     const [isPending, startTransition] = useTransition();
+    const [isCancelConfirmOpen, setIsCancelConfirmOpen] = useState(false);
 
     if (!invitation) return null;
 
@@ -47,16 +48,19 @@ export function InvitationDetailModal({
         setTimeout(() => setCopied(false), 2000);
     };
 
-    const handleCancelInvitation = async () => {
-        if (!confirm("本当にこの招待をキャンセルしますか？")) return;
+    const handleCancelClick = () => {
+        setIsCancelConfirmOpen(true);
+    };
 
+    const handleConfirmCancel = () => {
         startTransition(async () => {
             try {
                 await cancelInvitation(invitation.id);
                 if (onCancel) onCancel();
+                setIsCancelConfirmOpen(false);
                 onOpenChange(false);
-            } catch (error) {
-                alert("キャンセルに失敗しました");
+            } catch {
+                setIsCancelConfirmOpen(false);
             }
         });
     };
@@ -88,7 +92,7 @@ export function InvitationDetailModal({
                         >
                             <ChevronLeft className="h-5 w-5 text-gray-500" />
                         </button>
-                        <DialogTitle className="text-black dark:text-white">招待詳細</DialogTitle>
+                        <DialogTitle className="text-gray-900 dark:text-white">招待詳細</DialogTitle>
                     </div>
                     <DialogDescription>
                         招待のステータスや詳細を確認できます。
@@ -172,7 +176,7 @@ export function InvitationDetailModal({
                                     <Button
                                         type="button"
                                         variant="destructive"
-                                        onClick={handleCancelInvitation}
+                                        onClick={handleCancelClick}
                                         disabled={isPending}
                                         className="w-full"
                                     >
@@ -189,6 +193,35 @@ export function InvitationDetailModal({
                     </Button>
                 </div>
             </DialogContent>
+
+            {/* キャンセル確認ダイアログ */}
+            <Dialog open={isCancelConfirmOpen} onOpenChange={setIsCancelConfirmOpen}>
+                <DialogContent className="max-w-md rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+                    <DialogHeader>
+                        <DialogTitle className="text-gray-900 dark:text-white">招待のキャンセル</DialogTitle>
+                        <DialogDescription className="text-gray-600 dark:text-gray-400">
+                            本当にこの招待をキャンセルしますか？この操作は取り消せません。
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="mt-4 flex justify-end gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsCancelConfirmOpen(false)}
+                            className="rounded-lg"
+                        >
+                            戻る
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={handleConfirmCancel}
+                            disabled={isPending}
+                            className="rounded-lg"
+                        >
+                            {isPending ? "キャンセル中..." : "キャンセルする"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </Dialog>
     );
 }

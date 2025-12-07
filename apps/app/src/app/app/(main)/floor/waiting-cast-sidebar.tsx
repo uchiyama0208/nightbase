@@ -18,7 +18,7 @@ export function WaitingCastSidebar({ onDragStart }: WaitingCastSidebarProps) {
     }, []);
 
     const loadCasts = async () => {
-        const supabase = createBrowserClient();
+        const supabase = createBrowserClient() as any;
         // In a real app, filter by attendance status
         const { data } = await supabase
             .from("profiles")

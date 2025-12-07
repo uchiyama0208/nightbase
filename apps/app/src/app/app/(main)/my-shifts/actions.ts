@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 
 // 自分宛のシフト募集を取得
 export async function getMyShiftRequests(profileId: string, storeId: string, role: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // 募集を取得（自分のロールが対象か、profile_idsに自分が含まれているか）
     const { data, error } = await supabase
@@ -44,7 +44,7 @@ export async function getMyShiftRequests(profileId: string, storeId: string, rol
 
 // 自分の提出を取得
 export async function getMySubmissions(profileId: string, requestId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { data, error } = await supabase
         .from("shift_submissions")
@@ -72,7 +72,7 @@ export async function submitShiftPreferences(
         note?: string;
     }[]
 ) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // 既存の提出を削除
     await supabase
@@ -107,7 +107,7 @@ export async function submitShiftPreferences(
 
 // 店舗のデフォルト出退勤時間を取得
 export async function getStoreDefaults(storeId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { data, error } = await supabase
         .from("stores")

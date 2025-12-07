@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import {
     Table,
     TableBody,
@@ -38,7 +38,7 @@ interface Profile {
 }
 
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Car } from "lucide-react";
 
 import { AttendanceModal } from "./attendance-modal";
 import { UserEditModal } from "../users/user-edit-modal";
@@ -69,10 +69,18 @@ export function AttendanceTable({ attendanceRecords, profiles, roleFilter: initi
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
     const [profileForEdit, setProfileForEdit] = useState<Profile | null>(null);
 
-    const tableProfiles = profiles.filter((p) => {
+    const profileMap = useMemo(() => {
+        const map: Record<string, Profile> = {};
+        for (const p of profiles) {
+            map[p.id] = p;
+        }
+        return map;
+    }, [profiles]);
+
+    const tableProfiles = useMemo(() => profiles.filter((p) => {
         if (roleFilter === "cast") return p.role === "cast";
         return p.role === "staff" || p.role === "admin";
-    });
+    }), [profiles, roleFilter]);
 
     const nameSuggestions = useMemo(
         () =>
@@ -85,11 +93,6 @@ export function AttendanceTable({ attendanceRecords, profiles, roleFilter: initi
             ),
         [tableProfiles],
     );
-
-    const profileMap: Record<string, Profile> = {};
-    for (const p of profiles) {
-        profileMap[p.id] = p;
-    }
 
     const handleOpenProfileEdit = (profileId: string) => {
         const profile = profileMap[profileId];
@@ -109,7 +112,7 @@ export function AttendanceTable({ attendanceRecords, profiles, roleFilter: initi
         setNameQuery(name);
     };
 
-    const filteredRecords = attendanceRecords.filter((record) => {
+    const filteredRecords = useMemo(() => attendanceRecords.filter((record) => {
         if (!record.user_id) return false;
         const profile = profileMap[record.user_id];
         if (!profile) return false;
@@ -132,18 +135,18 @@ export function AttendanceTable({ attendanceRecords, profiles, roleFilter: initi
         if (dateQuery && record.date !== dateQuery) return false;
         if (workingOnly && record.status !== "working") return false;
         return true;
-    });
+    }), [attendanceRecords, profileMap, roleFilter, nameQuery, dateQuery, workingOnly]);
 
-    const formatTime = (timeString: string | null) => {
+    const formatTime = useCallback((timeString: string | null) => {
         if (!timeString) return "-";
         const match = /^\d{2}:\d{2}(?::\d{2})?$/.test(timeString);
         if (match) return timeString.slice(0, 5);
         const date = new Date(timeString);
         if (isNaN(date.getTime())) return "-";
         return date.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Tokyo" });
-    };
+    }, []);
 
-    const formatDate = (dateString: string) => {
+    const formatDate = useCallback((dateString: string) => {
         const d = new Date(dateString);
         if (isNaN(d.getTime())) return dateString;
         return (
@@ -165,23 +168,24 @@ export function AttendanceTable({ attendanceRecords, profiles, roleFilter: initi
                 </span>
             </>
         );
+    }, []);
+
+    const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
+        scheduled: { label: "予定", color: "bg-blue-100 text-blue-800" },
+        working: { label: "出勤中", color: "bg-green-100 text-green-800" },
+        finished: { label: "完了", color: "bg-gray-100 text-gray-800" },
+        absent: { label: "欠勤", color: "bg-red-100 text-red-800" },
+        forgot_clockout: { label: "退勤忘れ", color: "bg-yellow-100 text-yellow-800" },
     };
 
-    const getStatusBadge = (status: string) => {
-        const statusConfig: Record<string, { label: string; color: string }> = {
-            scheduled: { label: "予定", color: "bg-blue-100 text-blue-800" },
-            working: { label: "出勤中", color: "bg-green-100 text-green-800" },
-            finished: { label: "完了", color: "bg-gray-100 text-gray-800" },
-            absent: { label: "欠勤", color: "bg-red-100 text-red-800" },
-            forgot_clockout: { label: "退勤忘れ", color: "bg-yellow-100 text-yellow-800" },
-        };
-        const config = statusConfig[status] ?? { label: status, color: "bg-gray-100 text-gray-800" };
+    const getStatusBadge = useCallback((status: string) => {
+        const config = STATUS_CONFIG[status] ?? { label: status, color: "bg-gray-100 text-gray-800" };
         return (
             <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${config.color} whitespace-nowrap`}>
                 {config.label}
             </span>
         );
-    };
+    }, []);
 
     const handleModalOpen = (options: { initialData?: any; record?: AttendanceRecord } = {}) => {
         setModalInitialData(options.initialData || null);
@@ -195,11 +199,11 @@ export function AttendanceTable({ attendanceRecords, profiles, roleFilter: initi
         setEditingRecord(null);
     };
 
-    const activeFilters = [
+    const activeFilters = useMemo(() => [
         nameQuery.trim() && "名前",
         dateQuery && "日付",
         workingOnly && "出勤中のみ",
-    ].filter(Boolean) as string[];
+    ].filter(Boolean) as string[], [nameQuery, dateQuery, workingOnly]);
     const hasFilters = activeFilters.length > 0;
 
     const roleIndex = roleFilter === "cast" ? 0 : 1;
@@ -232,13 +236,24 @@ export function AttendanceTable({ attendanceRecords, profiles, roleFilter: initi
                     </button>
                 </div>
 
-                <Button
-                    size="icon"
-                    className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
-                    onClick={() => handleModalOpen()}
-                >
-                    <Plus className="h-5 w-5" />
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Link href="/app/pickup">
+                        <Button
+                            size="icon"
+                            variant="outline"
+                            className="h-10 w-10 rounded-full bg-white text-blue-600 border-blue-600 hover:bg-blue-50 dark:bg-gray-900 dark:text-blue-400 dark:border-blue-400 dark:hover:bg-blue-950 shadow-sm transition-all hover:scale-105 active:scale-95"
+                        >
+                            <Car className="h-5 w-5" />
+                        </Button>
+                    </Link>
+                    <Button
+                        size="icon"
+                        className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
+                        onClick={() => handleModalOpen()}
+                    >
+                        <Plus className="h-5 w-5" />
+                    </Button>
+                </div>
             </div>
 
             <Accordion type="single" collapsible className="w-full mb-4">

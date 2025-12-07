@@ -50,7 +50,7 @@ export function createClient(): SupabaseClient<Database> {
 
 import { createBrowserClient as createSupabaseBrowserClient } from "@supabase/ssr";
 
-export function createBrowserClient() {
+export function createBrowserClient(): SupabaseClient<Database> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -63,8 +63,8 @@ export function createBrowserClient() {
       );
     }
     // Return dummy client for build
-    return createSupabaseBrowserClient<Database>('https://placeholder.supabase.co', 'placeholder');
+    return createSupabaseBrowserClient<Database>('https://placeholder.supabase.co', 'placeholder') as SupabaseClient<Database>;
   }
 
-  return createSupabaseBrowserClient<Database>(supabaseUrl, supabaseAnonKey);
+  return createSupabaseBrowserClient<Database>(supabaseUrl, supabaseAnonKey) as SupabaseClient<Database>;
 }

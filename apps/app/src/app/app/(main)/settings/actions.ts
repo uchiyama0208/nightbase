@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 export async function createStore(formData: FormData) {
     const storeName = formData.get("storeName") as string;
     const profileDisplayName = (formData.get("profileDisplayName") as string | null) ?? null;
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const {
         data: { user },
@@ -83,7 +83,7 @@ export async function createStore(formData: FormData) {
 }
 
 export async function signOut() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     await supabase.auth.signOut();
     redirect("/login");
 }
@@ -110,7 +110,7 @@ export async function updateTimecardSettings(formData: FormData) {
     // Auto clock-out settings
     const autoClockoutEnabled = formData.get("autoClockoutEnabled") === "on";
 
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -177,7 +177,7 @@ export async function updateFeatureSettings(formData: FormData) {
     const showUsers = formData.get("show_users") === "on";
     const showRoles = formData.get("show_roles") === "on";
 
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -228,7 +228,7 @@ export async function updateFeatureSettings(formData: FormData) {
 }
 
 export async function updateStore(formData: FormData) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -298,7 +298,7 @@ export async function updateStore(formData: FormData) {
 }
 
 export async function updateTheme(theme: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -331,7 +331,7 @@ export async function updateTheme(theme: string) {
 }
 
 export async function getSettingsData() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -369,7 +369,7 @@ export async function getSettingsData() {
 }
 
 export async function deleteStore() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -426,7 +426,7 @@ export async function deleteStore() {
 }
 
 export async function uploadStoreIcon(formData: FormData) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -481,7 +481,7 @@ export async function uploadStoreIcon(formData: FormData) {
 }
 
 export async function deleteStoreIcon() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -610,7 +610,7 @@ export async function searchAddressByPostalCode(postalCode: string) {
 }
 
 export async function updateSlipSettings(formData: FormData) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();

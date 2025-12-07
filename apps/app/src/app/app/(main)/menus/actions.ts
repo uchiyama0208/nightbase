@@ -2,6 +2,13 @@
 
 import { createServerClient } from "@/lib/supabaseServerClient";
 import { revalidatePath } from "next/cache";
+import OpenAI from "openai";
+import {
+    getAuthContext,
+    getAuthContextForPage,
+    getAuthUser,
+    logQueryError,
+} from "@/lib/auth-helpers";
 
 export interface MenuCategory {
     id: string;
@@ -20,153 +27,68 @@ export interface Menu {
     target_type: "guest" | "cast";
     cast_back_amount: number;
     hide_from_slip: boolean;
+    image_url: string | null;
     created_at: string;
     updated_at: string;
-    category?: MenuCategory; // Joined category data
+    category?: MenuCategory;
 }
 
 export async function getMenus() {
-    const supabase = await createServerClient();
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
+    try {
+        const { supabase, storeId } = await getAuthContext();
 
-    if (!user) return [];
+        const { data: menus, error } = await supabase
+            .from("menus")
+            .select(`*, category:menu_categories(*)`)
+            .eq("store_id", storeId)
+            .order("name", { ascending: true });
 
-    // Get current user's store
-    const { data: appUser } = await supabase
-        .from("users")
-        .select("current_profile_id")
-        .eq("id", user.id)
-        .maybeSingle();
+        if (error) {
+            logQueryError(error, "fetching menus");
+            return [];
+        }
 
-    if (!appUser?.current_profile_id) return [];
+        // Sort by category sort_order
+        const sortedMenus = (menus as Menu[]).sort((a, b) => {
+            const orderA = a.category?.sort_order ?? 0;
+            const orderB = b.category?.sort_order ?? 0;
+            if (orderA !== orderB) return orderA - orderB;
+            return a.name.localeCompare(b.name);
+        });
 
-    const { data: currentProfile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("id", appUser.current_profile_id)
-        .maybeSingle();
-
-    if (!currentProfile?.store_id) return [];
-
-    const { data: menus, error } = await supabase
-        .from("menus")
-        .select(`
-            *,
-            category:menu_categories(*)
-        `)
-        .eq("store_id", currentProfile.store_id)
-        .order("name", { ascending: true });
-
-    if (error) {
-        console.error("Error fetching menus:", error);
+        return sortedMenus;
+    } catch {
         return [];
     }
-
-    // Sort by category sort_order manually since we can't easily sort by joined table column in simple query without RPC or complex syntax
-    // actually we can sort by foreign table column in supabase js: .order('sort_order', { foreignTable: 'category', ascending: true })
-    // But let's do it in JS for simplicity if needed, or try the foreign table sort.
-    // Let's try JS sort for reliability.
-    const sortedMenus = (menus as any[]).sort((a, b) => {
-        const orderA = a.category?.sort_order ?? 0;
-        const orderB = b.category?.sort_order ?? 0;
-        if (orderA !== orderB) return orderA - orderB;
-        return a.name.localeCompare(b.name);
-    });
-
-    return sortedMenus as Menu[];
 }
 
 export async function getMenuCategories() {
-    const supabase = await createServerClient();
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
+    try {
+        const { supabase, storeId } = await getAuthContext();
 
-    if (!user) return [];
+        const { data: categories, error } = await supabase
+            .from("menu_categories")
+            .select("*")
+            .eq("store_id", storeId)
+            .order("sort_order", { ascending: true });
 
-    const { data: appUser } = await supabase
-        .from("users")
-        .select("current_profile_id")
-        .eq("id", user.id)
-        .maybeSingle();
+        if (error) {
+            logQueryError(error, "fetching menu categories");
+            return [];
+        }
 
-    if (!appUser?.current_profile_id) return [];
-
-    const { data: currentProfile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("id", appUser.current_profile_id)
-        .maybeSingle();
-
-    if (!currentProfile?.store_id) return [];
-
-    const { data: categories, error } = await supabase
-        .from("menu_categories")
-        .select("*")
-        .eq("store_id", currentProfile.store_id)
-        .order("sort_order", { ascending: true });
-
-    if (error) {
-        console.error("Error fetching menu categories:", error);
+        return categories as MenuCategory[];
+    } catch {
         return [];
     }
-
-    return categories as MenuCategory[];
 }
 
 async function checkMenuPermission() {
-    const supabase = await createServerClient();
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) throw new Error("Unauthorized");
-
-    const { data: appUser } = await supabase
-        .from("users")
-        .select("current_profile_id")
-        .eq("id", user.id)
-        .maybeSingle();
-
-    if (!appUser?.current_profile_id) throw new Error("No profile found");
-
-    const { data: profile } = await supabase
-        .from("profiles")
-        .select("store_id, role_id, role")
-        .eq("id", appUser.current_profile_id)
-        .maybeSingle();
-
-    if (!profile?.store_id) throw new Error("No store found");
-
-    // Check permissions
-    if (profile.role_id) {
-        const { data: role } = await supabase
-            .from("store_roles")
-            .select("permissions")
-            .eq("id", profile.role_id)
-            .single();
-
-        if (!role?.permissions?.can_manage_menus) {
-            // Fallback: if store_role doesn't have the permission, check the base role
-            if (profile.role !== "staff") {
-                throw new Error("Insufficient permissions");
-            }
-        }
-    } else {
-        // Fallback for legacy roles: only staff can manage menus if no granular role assigned
-        if (profile.role !== "staff") {
-            throw new Error("Insufficient permissions");
-        }
-    }
-
-    return profile;
+    return getAuthContext({ permission: "can_manage_menus" });
 }
 
 export async function createMenu(formData: FormData) {
-    const supabase = await createServerClient();
-    const profile = await checkMenuPermission();
+    const { supabase, storeId } = await checkMenuPermission();
 
     const name = formData.get("name") as string;
     const categoryId = formData.get("category_id") as string;
@@ -174,19 +96,21 @@ export async function createMenu(formData: FormData) {
     const targetType = (formData.get("target_type") as string) || "guest";
     const castBackAmount = parseInt(formData.get("cast_back_amount") as string) || 0;
     const hideFromSlip = formData.get("hide_from_slip") === "on";
+    const imageUrl = formData.get("image_url") as string | null;
 
     if (!name || !categoryId || isNaN(price)) {
         throw new Error("Invalid input");
     }
 
     const { data, error } = await supabase.from("menus").insert({
-        store_id: profile.store_id,
+        store_id: storeId,
         name,
         category_id: categoryId,
         price,
         target_type: targetType,
         cast_back_amount: targetType === "cast" ? castBackAmount : 0,
         hide_from_slip: hideFromSlip,
+        image_url: imageUrl || null,
     }).select().single();
 
     if (error) {
@@ -199,8 +123,7 @@ export async function createMenu(formData: FormData) {
 }
 
 export async function updateMenu(formData: FormData) {
-    const supabase = await createServerClient();
-    await checkMenuPermission();
+    const { supabase } = await checkMenuPermission();
 
     const id = formData.get("id") as string;
     const name = formData.get("name") as string;
@@ -209,6 +132,7 @@ export async function updateMenu(formData: FormData) {
     const targetType = (formData.get("target_type") as string) || "guest";
     const castBackAmount = parseInt(formData.get("cast_back_amount") as string) || 0;
     const hideFromSlip = formData.get("hide_from_slip") === "on";
+    const imageUrl = formData.get("image_url") as string | null;
 
     if (!id || !name || !categoryId || isNaN(price)) {
         throw new Error("Invalid input");
@@ -223,6 +147,7 @@ export async function updateMenu(formData: FormData) {
             target_type: targetType,
             cast_back_amount: targetType === "cast" ? castBackAmount : 0,
             hide_from_slip: hideFromSlip,
+            image_url: imageUrl || null,
             updated_at: new Date().toISOString(),
         })
         .eq("id", id);
@@ -237,8 +162,7 @@ export async function updateMenu(formData: FormData) {
 }
 
 export async function deleteMenu(id: string) {
-    const supabase = await createServerClient();
-    await checkMenuPermission();
+    const { supabase } = await checkMenuPermission();
 
     const { error } = await supabase.from("menus").delete().eq("id", id);
 
@@ -254,14 +178,13 @@ export async function deleteMenu(id: string) {
 // Category Management Actions
 
 export async function createMenuCategory(name: string) {
-    const supabase = await createServerClient();
-    const profile = await checkMenuPermission();
+    const { supabase, storeId } = await checkMenuPermission();
 
     // Get max sort order
     const { data: maxOrderData } = await supabase
         .from("menu_categories")
         .select("sort_order")
-        .eq("store_id", profile.store_id)
+        .eq("store_id", storeId)
         .order("sort_order", { ascending: false })
         .limit(1)
         .single();
@@ -271,7 +194,7 @@ export async function createMenuCategory(name: string) {
     const { data, error } = await supabase
         .from("menu_categories")
         .insert({
-            store_id: profile.store_id,
+            store_id: storeId,
             name,
             sort_order: nextOrder
         })
@@ -288,8 +211,7 @@ export async function createMenuCategory(name: string) {
 }
 
 export async function updateMenuCategory(id: string, name: string) {
-    const supabase = await createServerClient();
-    await checkMenuPermission();
+    const { supabase } = await checkMenuPermission();
 
     const { error } = await supabase
         .from("menu_categories")
@@ -306,8 +228,7 @@ export async function updateMenuCategory(id: string, name: string) {
 }
 
 export async function deleteMenuCategory(id: string) {
-    const supabase = await createServerClient();
-    await checkMenuPermission();
+    const { supabase } = await checkMenuPermission();
 
     const { error } = await supabase
         .from("menu_categories")
@@ -324,8 +245,7 @@ export async function deleteMenuCategory(id: string) {
 }
 
 export async function reorderMenuCategories(items: { id: string; sort_order: number }[]) {
-    const supabase = await createServerClient();
-    await checkMenuPermission();
+    const { supabase } = await checkMenuPermission();
 
     // Upsert sort orders
     // Since we can't easily do bulk update with different values in one query without RPC,
@@ -345,43 +265,16 @@ export async function reorderMenuCategories(items: { id: string; sort_order: num
 }
 
 export async function getMenusData() {
-    const supabase = await createServerClient();
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
+    const result = await getAuthContextForPage({ requireStaff: true });
 
-    if (!user) {
-        return { redirect: "/login" };
+    if ("redirect" in result) {
+        return result;
     }
 
-    // Resolve current profile via users.current_profile_id
-    const { data: appUser } = await supabase
-        .from("users")
-        .select("current_profile_id")
-        .eq("id", user.id)
-        .maybeSingle();
-
-    if (!appUser?.current_profile_id) {
-        return { redirect: "/app/me" };
-    }
-
-    const { data: currentProfile } = await supabase
-        .from("profiles")
-        .select("*, stores(*)")
-        .eq("id", appUser.current_profile_id)
-        .maybeSingle();
-
-    if (!currentProfile || !currentProfile.store_id) {
-        return { redirect: "/app/me" };
-    }
-
-    // Role check
-    if (currentProfile.role !== "staff") {
-        return { redirect: "/app/timecard" };
-    }
-
-    const menus = await getMenus();
-    const categories = await getMenuCategories();
+    const [menus, categories] = await Promise.all([
+        getMenus(),
+        getMenuCategories(),
+    ]);
 
     return {
         data: {
@@ -392,8 +285,7 @@ export async function getMenusData() {
 }
 
 export async function importMenusFromCsv(formData: FormData) {
-    const supabase = await createServerClient();
-    const profile = await checkMenuPermission();
+    const { supabase, storeId } = await checkMenuPermission();
 
     const file = formData.get("file") as File;
     const categoryId = formData.get("categoryId") as string;
@@ -419,7 +311,7 @@ export async function importMenusFromCsv(formData: FormData) {
     }
 
     // Parse data rows
-    const menusToInsert = [];
+    const menusToInsert: any[] = [];
     for (let i = 1; i < lines.length; i++) {
         const values = lines[i].split(",").map(v => v.trim());
         const name = values[nameIdx];
@@ -431,7 +323,7 @@ export async function importMenusFromCsv(formData: FormData) {
         if (isNaN(price)) continue;
 
         menusToInsert.push({
-            store_id: profile.store_id,
+            store_id: storeId,
             name,
             category_id: categoryId,
             price,
@@ -453,4 +345,207 @@ export async function importMenusFromCsv(formData: FormData) {
     revalidatePath("/app/menus");
     revalidatePath("/app/settings/import");
     return { success: true, count: menusToInsert.length };
+}
+
+// AI読み取り用のメニューアイテム型
+export interface ExtractedMenuItem {
+    name: string;
+    price: number;
+}
+
+// 画像からメニューを読み取るAIアクション
+export async function extractMenusFromImage(base64Image: string): Promise<ExtractedMenuItem[]> {
+    await getAuthUser(); // 認証チェックのみ
+
+    const openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+    });
+
+    const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+            {
+                role: "system",
+                content: `あなたはメニュー表の画像からメニュー情報を抽出するアシスタントです。
+
+画像に含まれるメニュー項目を読み取り、以下の形式のJSONで返してください：
+
+{
+  "items": [
+    { "name": "メニュー名", "price": 1000 },
+    ...
+  ]
+}
+
+注意点：
+- nameはメニュー名（商品名）です
+- priceは数値（円単位、整数）で返してください
+- 価格が読み取れない場合は0としてください
+- 飲食店のメニュー表を想定しています（ドリンク、フード、ボトルなど）
+
+必ずJSON形式で返答してください。`
+            },
+            {
+                role: "user",
+                content: [
+                    {
+                        type: "text",
+                        text: "この画像からメニュー名と価格を読み取ってください。"
+                    },
+                    {
+                        type: "image_url",
+                        image_url: {
+                            url: base64Image,
+                        }
+                    }
+                ]
+            }
+        ],
+        response_format: { type: "json_object" },
+        max_tokens: 4096,
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+        throw new Error("AIからの応答がありません");
+    }
+
+    try {
+        const parsed = JSON.parse(content) as { items: ExtractedMenuItem[] };
+        return parsed.items || [];
+    } catch (e) {
+        console.error("Failed to parse AI response:", content);
+        throw new Error("AIの応答を解析できませんでした");
+    }
+}
+
+// 抽出したメニューを一括追加するアクション
+export async function bulkCreateMenus(
+    items: { name: string; price: number; categoryId: string }[]
+) {
+    const { supabase, storeId } = await checkMenuPermission();
+
+    if (items.length === 0) {
+        throw new Error("追加するメニューがありません");
+    }
+
+    const menusToInsert = items.map(item => ({
+        store_id: storeId,
+        name: item.name,
+        category_id: item.categoryId,
+        price: item.price,
+        target_type: "guest" as const,
+        cast_back_amount: 0,
+        hide_from_slip: false,
+    }));
+
+    const { error } = await supabase.from("menus").insert(menusToInsert);
+
+    if (error) {
+        console.error("Error bulk creating menus:", error);
+        throw new Error("メニューの追加に失敗しました");
+    }
+
+    revalidatePath("/app/menus");
+    return { success: true, count: items.length };
+}
+
+// メニュー画像をアップロード
+export async function uploadMenuImage(formData: FormData): Promise<string> {
+    const { supabase } = await getAuthUser();
+
+    const file = formData.get("file") as File;
+    if (!file) {
+        throw new Error("ファイルが選択されていません");
+    }
+
+    // Upload to Supabase Storage
+    const fileExt = file.name.split(".").pop();
+    const fileName = `menu-${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
+    const filePath = `menu-images/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(filePath, file);
+
+    if (uploadError) {
+        console.error("Upload error:", uploadError);
+        throw new Error(`アップロードに失敗しました: ${uploadError.message}`);
+    }
+
+    // Get Public URL
+    const {
+        data: { publicUrl },
+    } = supabase.storage.from("avatars").getPublicUrl(filePath);
+
+    return publicUrl;
+}
+
+// メニュー画像を削除
+export async function deleteMenuImage(imageUrl: string): Promise<void> {
+    const { supabase } = await getAuthUser();
+
+    // Extract file path from URL
+    const urlParts = imageUrl.split("/avatars/");
+    if (urlParts.length < 2) {
+        return; // Not a valid storage URL, skip deletion
+    }
+
+    const filePath = urlParts[1];
+
+    const { error } = await supabase.storage
+        .from("avatars")
+        .remove([filePath]);
+
+    if (error) {
+        console.error("Delete error:", error);
+    }
+}
+
+// AIでメニュー画像を生成
+export async function generateMenuImage(menuName: string): Promise<string> {
+    const { supabase } = await getAuthUser();
+
+    const openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+    });
+
+    // DALL-E 3で画像を生成
+    const response = await openai.images.generate({
+        model: "dall-e-3",
+        prompt: `A clean product photo of "${menuName}" on a bar counter. The item is very large, centered, and fills 70% of the frame. Simple blurred bar background with subtle warm ambient lighting. Minimal composition. The product is the sole focus. Sharp focus on the item, extremely blurred background. Professional bar photography style.`,
+        n: 1,
+        size: "1024x1024",
+        quality: "standard",
+    });
+
+    const generatedUrl = response.data?.[0]?.url;
+    if (!generatedUrl) {
+        throw new Error("画像の生成に失敗しました");
+    }
+
+    // 生成された画像をダウンロードしてSupabase Storageに保存
+    const imageResponse = await fetch(generatedUrl);
+    const imageBlob = await imageResponse.blob();
+
+    const fileName = `menu-ai-${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
+    const filePath = `menu-images/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(filePath, imageBlob, {
+            contentType: "image/png",
+        });
+
+    if (uploadError) {
+        console.error("Upload error:", uploadError);
+        throw new Error(`画像の保存に失敗しました: ${uploadError.message}`);
+    }
+
+    // Get Public URL
+    const {
+        data: { publicUrl },
+    } = supabase.storage.from("avatars").getPublicUrl(filePath);
+
+    return publicUrl;
 }

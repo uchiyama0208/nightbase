@@ -3,13 +3,14 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabaseServerClient";
 import { RolesPageClient } from "./roles-client";
+import { PageTitle } from "@/components/page-title";
 
 export const metadata: Metadata = {
     title: "権限",
 };
 
 async function getRolesData() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -71,9 +72,15 @@ export default async function RolesPage() {
     const data = await getRolesData();
 
     return (
-        <Suspense fallback={<RolesSkeleton />}>
-            <RolesPageClient roles={data.roles} profiles={data.profiles} currentProfileId={data.currentProfileId} />
-        </Suspense>
+        <div className="space-y-4">
+            <PageTitle
+                title="権限"
+                backTab="user"
+            />
+            <Suspense fallback={<RolesSkeleton />}>
+                <RolesPageClient roles={data.roles} profiles={data.profiles} currentProfileId={data.currentProfileId} />
+            </Suspense>
+        </div>
     );
 }
 

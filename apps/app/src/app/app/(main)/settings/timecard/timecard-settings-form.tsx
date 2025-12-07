@@ -96,7 +96,7 @@ export function TimecardSettingsForm({ store }: TimecardSettingsFormProps) {
         formData.append("tabletAcceptanceStartTime", updates.tabletAcceptanceStartTime ?? tabletAcceptanceStartTime);
         formData.append("tabletAcceptanceEndTime", updates.tabletAcceptanceEndTime ?? tabletAcceptanceEndTime);
 
-        const roles = [];
+        const roles: string[] = [];
         if (updates.tabletAllowedStaff ?? tabletAllowedStaff) roles.push("staff");
         if (updates.tabletAllowedCast ?? tabletAllowedCast) roles.push("cast");
         roles.forEach(role => formData.append("tabletAllowedRoles", role));

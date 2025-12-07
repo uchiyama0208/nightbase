@@ -32,7 +32,7 @@ function roundTime(date: Date, method: string, minutes: number): Date {
 }
 
 export async function clockIn(pickupRequired?: boolean, pickupDestination?: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -98,7 +98,7 @@ export async function clockIn(pickupRequired?: boolean, pickupDestination?: stri
 }
 
 export async function clockOut(timeCardId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // Get the time card to find the user and apply rounding settings
     const { data: timeCard } = await supabase
@@ -149,7 +149,7 @@ export async function clockOut(timeCardId: string) {
 }
 
 export async function startBreak(timeCardId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const now = new Date();
 
     const { error } = await supabase
@@ -166,7 +166,7 @@ export async function startBreak(timeCardId: string) {
 }
 
 export async function endBreak(timeCardId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const now = new Date();
 
     const { error } = await supabase
@@ -188,7 +188,7 @@ export async function importTimecardsFromCsv(formData: FormData) {
         throw new Error("CSVファイルが指定されていません");
     }
 
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -325,7 +325,7 @@ export async function importTimecardsFromCsv(formData: FormData) {
 }
 
 export async function getTimecardData() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {

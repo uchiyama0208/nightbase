@@ -7,7 +7,7 @@ export async function POST(request: Request) {
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
     const redirectTo = formData.get("redirect") as string | null;
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // Use email local part as default display name
     const defaultDisplayName = email.split("@")[0];

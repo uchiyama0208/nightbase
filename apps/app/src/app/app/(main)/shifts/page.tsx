@@ -5,13 +5,14 @@ import { createServerClient } from "@/lib/supabaseServerClient";
 import { getAppData } from "../../data-access";
 import { ShiftsClient } from "./shifts-client";
 import { getShiftRequests, getCalendarData, getStoreShiftDefaults, getExistingRequestDates } from "./actions";
+import { PageTitle } from "@/components/page-title";
 
 export const metadata: Metadata = {
     title: "シフト管理",
 };
 
 async function getProfiles(storeId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { data } = await supabase
         .from("profiles")
@@ -24,7 +25,7 @@ async function getProfiles(storeId: string) {
 }
 
 async function getStoreInfo(storeId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { data } = await supabase
         .from("stores")
@@ -79,15 +80,11 @@ export default async function ShiftsPage() {
 
     return (
         <div className="space-y-4">
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-                    シフト管理
-                </h1>
-                <p className="mt-2 text-sm text-muted-foreground dark:text-gray-400">
-                    シフト募集の作成と提出状況の管理ができます。
-                </p>
-            </div>
-
+            <PageTitle
+                title="シフト管理"
+                description="シフト募集の作成と提出状況の管理ができます。"
+                backTab="shift"
+            />
             <Suspense fallback={<ShiftsSkeleton />}>
                 <ShiftsClient
                     shiftRequests={shiftRequests}

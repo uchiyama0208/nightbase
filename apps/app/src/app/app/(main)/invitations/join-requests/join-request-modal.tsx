@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
     Dialog,
     DialogContent,
     DialogDescription,
+    DialogFooter,
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
@@ -32,38 +33,36 @@ interface JoinRequestModalProps {
 export function JoinRequestModal({ request, isOpen, onClose, onRequestProcessed }: JoinRequestModalProps) {
     const [selectedRole, setSelectedRole] = useState(request.role);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [isRejectConfirmOpen, setIsRejectConfirmOpen] = useState(false);
 
-    const handleApprove = async () => {
+    const handleApprove = useCallback(async () => {
         setIsProcessing(true);
         const result = await approveJoinRequest(request.id, selectedRole);
         if (result.success) {
             onRequestProcessed(request.id);
-        } else {
-            alert(`エラー: ${result.error}`);
         }
         setIsProcessing(false);
-    };
+    }, [request.id, selectedRole, onRequestProcessed]);
 
-    const handleReject = async () => {
-        if (!confirm("この申請を拒否してもよろしいですか?")) {
-            return;
-        }
+    const handleRejectClick = useCallback(() => {
+        setIsRejectConfirmOpen(true);
+    }, []);
 
+    const handleConfirmReject = useCallback(async () => {
         setIsProcessing(true);
         const result = await rejectJoinRequest(request.id);
         if (result.success) {
             onRequestProcessed(request.id);
-        } else {
-            alert(`エラー: ${result.error}`);
         }
         setIsProcessing(false);
-    };
+        setIsRejectConfirmOpen(false);
+    }, [request.id, onRequestProcessed]);
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
-                    <DialogTitle>参加申請の確認</DialogTitle>
+                    <DialogTitle className="text-gray-900 dark:text-white">参加申請の確認</DialogTitle>
                     <DialogDescription>
                         申請者の情報を確認し、承認または拒否してください
                     </DialogDescription>
@@ -126,7 +125,7 @@ export function JoinRequestModal({ request, isOpen, onClose, onRequestProcessed 
                             {isProcessing ? "処理中..." : "許可する"}
                         </Button>
                         <Button
-                            onClick={handleReject}
+                            onClick={handleRejectClick}
                             disabled={isProcessing}
                             variant="destructive"
                             className="flex-1"
@@ -137,6 +136,35 @@ export function JoinRequestModal({ request, isOpen, onClose, onRequestProcessed 
                     </div>
                 </div>
             </DialogContent>
+
+            {/* 拒否確認ダイアログ */}
+            <Dialog open={isRejectConfirmOpen} onOpenChange={setIsRejectConfirmOpen}>
+                <DialogContent className="max-w-md rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+                    <DialogHeader>
+                        <DialogTitle className="text-gray-900 dark:text-white">申請の拒否</DialogTitle>
+                        <DialogDescription className="text-gray-600 dark:text-gray-400">
+                            この申請を拒否してもよろしいですか？この操作は取り消せません。
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="mt-4 flex justify-end gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsRejectConfirmOpen(false)}
+                            className="rounded-lg"
+                        >
+                            戻る
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={handleConfirmReject}
+                            disabled={isProcessing}
+                            className="rounded-lg"
+                        >
+                            {isProcessing ? "処理中..." : "拒否する"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </Dialog>
     );
 }

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useChat, type Message } from "ai/react";
-import { X, Send, Trash2, Sparkles, Loader2 } from "lucide-react";
+import { X, Send, Sparkles, Loader2, Mic, MicOff } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -19,8 +19,12 @@ interface AIChatModalProps {
 
 export function AIChatModal({ isOpen, onClose }: AIChatModalProps) {
     const [initialLoading, setInitialLoading] = useState(true);
+    const [isRecording, setIsRecording] = useState(false);
+    const [isTranscribing, setIsTranscribing] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const audioChunksRef = useRef<Blob[]>([]);
 
     const {
         messages,
@@ -29,9 +33,104 @@ export function AIChatModal({ isOpen, onClose }: AIChatModalProps) {
         handleSubmit,
         isLoading,
         setMessages,
+        append,
     } = useChat({
         api: "/api/ai/chat",
     });
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+                mediaRecorderRef.current.stop();
+            }
+        };
+    }, []);
+
+    const startRecording = useCallback(async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const mediaRecorder = new MediaRecorder(stream, {
+                mimeType: MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/mp4",
+            });
+
+            audioChunksRef.current = [];
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    audioChunksRef.current.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = async () => {
+                // Stop all tracks
+                stream.getTracks().forEach(track => track.stop());
+
+                if (audioChunksRef.current.length === 0) return;
+
+                const audioBlob = new Blob(audioChunksRef.current, {
+                    type: mediaRecorder.mimeType,
+                });
+
+                // Send to transcription API
+                await transcribeAudio(audioBlob);
+            };
+
+            mediaRecorderRef.current = mediaRecorder;
+            mediaRecorder.start();
+            setIsRecording(true);
+        } catch (error) {
+            console.error("Failed to start recording:", error);
+            alert("マイクへのアクセスが許可されていません");
+        }
+    }, []);
+
+    const stopRecording = useCallback(() => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+            mediaRecorderRef.current.stop();
+            setIsRecording(false);
+        }
+    }, []);
+
+    const toggleRecording = useCallback(() => {
+        if (isRecording) {
+            stopRecording();
+        } else {
+            startRecording();
+        }
+    }, [isRecording, startRecording, stopRecording]);
+
+    const transcribeAudio = async (audioBlob: Blob) => {
+        setIsTranscribing(true);
+        try {
+            const formData = new FormData();
+            const extension = audioBlob.type.includes("webm") ? "webm" : "mp4";
+            formData.append("audio", audioBlob, `recording.${extension}`);
+
+            const response = await fetch("/api/ai/transcribe", {
+                method: "POST",
+                body: formData,
+            });
+
+            if (!response.ok) {
+                throw new Error("Transcription failed");
+            }
+
+            const { text } = await response.json();
+            if (text) {
+                // 自動送信
+                append({
+                    role: "user",
+                    content: text,
+                });
+            }
+        } catch (error) {
+            console.error("Transcription error:", error);
+            alert("音声認識に失敗しました");
+        } finally {
+            setIsTranscribing(false);
+        }
+    };
 
     // Load chat history on open
     useEffect(() => {
@@ -118,27 +217,14 @@ export function AIChatModal({ isOpen, onClose }: AIChatModalProps) {
                             AIアシスタント
                         </DialogTitle>
                     </div>
-                    <div className="flex items-center gap-2">
-                        {messages.length > 0 && (
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-gray-500 hover:text-red-500"
-                                onClick={clearHistory}
-                                title="履歴をクリア"
-                            >
-                                <Trash2 className="h-4 w-4" />
-                            </Button>
-                        )}
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={onClose}
-                        >
-                            <X className="h-4 w-4" />
-                        </Button>
-                    </div>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={onClose}
+                    >
+                        <X className="h-4 w-4" />
+                    </Button>
                 </DialogHeader>
 
                 {/* Messages Area */}
@@ -183,7 +269,9 @@ export function AIChatModal({ isOpen, onClose }: AIChatModalProps) {
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            {messages.map((message: Message) => (
+                            {messages
+                                .filter((message: Message) => message.content && message.content.trim() !== "")
+                                .map((message: Message) => (
                                 <div
                                     key={message.id}
                                     className={cn(
@@ -227,15 +315,36 @@ export function AIChatModal({ isOpen, onClose }: AIChatModalProps) {
 
                 {/* Input Area */}
                 <div className="border-t px-4 py-3 flex-shrink-0">
-                    <form onSubmit={handleSubmit} className="flex items-center gap-3">
+                    <form onSubmit={handleSubmit} className="flex items-center gap-2">
+                        <Button
+                            type="button"
+                            size="icon"
+                            onClick={toggleRecording}
+                            disabled={isLoading || isTranscribing}
+                            className={cn(
+                                "h-12 w-12 flex-shrink-0 rounded-full transition-all",
+                                isRecording
+                                    ? "bg-red-500 hover:bg-red-600 text-white animate-pulse"
+                                    : "bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                            )}
+                        >
+                            {isTranscribing ? (
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                            ) : isRecording ? (
+                                <MicOff className="h-5 w-5" />
+                            ) : (
+                                <Mic className="h-5 w-5" />
+                            )}
+                        </Button>
                         <textarea
                             ref={inputRef}
                             value={input}
                             onChange={handleInputChange}
                             onKeyDown={handleKeyDown}
-                            placeholder="質問を入力..."
+                            placeholder={isRecording ? "録音中..." : isTranscribing ? "変換中..." : "質問を入力..."}
                             rows={1}
-                            className="flex-1 resize-none rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            disabled={isRecording || isTranscribing}
+                            className="flex-1 resize-none rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
                             style={{
                                 minHeight: "48px",
                                 maxHeight: "120px",
@@ -244,7 +353,7 @@ export function AIChatModal({ isOpen, onClose }: AIChatModalProps) {
                         <Button
                             type="submit"
                             size="icon"
-                            disabled={!input.trim() || isLoading}
+                            disabled={!input.trim() || isLoading || isRecording || isTranscribing}
                             className="h-12 w-12 flex-shrink-0 rounded-full bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
                         >
                             {isLoading ? (

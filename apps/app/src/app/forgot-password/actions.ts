@@ -8,7 +8,7 @@ export async function requestPasswordReset(email: string) {
         return { success: false, error: "メールアドレスを入力してください" };
     }
 
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // Get the origin from the request headers for proper redirect
     const headersList = await headers();

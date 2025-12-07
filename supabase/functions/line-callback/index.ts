@@ -30,14 +30,15 @@ serve(async (req) => {
             return new Response("Missing code or state", { status: 400 });
         }
 
-        // Decode state just in case it's URL encoded
-        const decodedState = decodeURIComponent(state);
-        console.log("Decoded state:", decodedState);
+        // Note: searchParams.get() already decodes the value once
+        // So we should NOT call decodeURIComponent again on the whole state
+        // The frontendUrl inside state is still encoded and will be decoded separately
+        console.log("Raw state from searchParams:", state);
 
         // Parse state to get mode, optional invite token, frontendUrl, and redirect
-        // Format: uuid:mode:extraParam:frontendUrl:redirect
-        // Note: URLs contain ":" so we need to be careful when parsing
-        const stateParts = decodedState.split(":");
+        // Format: uuid:mode:extraParam:encodedFrontendUrl:encodedRedirect
+        // Since frontendUrl is encoded, its ":" becomes "%3A" and won't be split
+        const stateParts = state.split(":");
         const mode = stateParts[1];
         let extraParam = stateParts[2];
 

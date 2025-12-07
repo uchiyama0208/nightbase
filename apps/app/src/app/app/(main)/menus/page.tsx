@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { MenuList } from "./menu-list";
 import { getMenusData } from "./actions";
+import { PageTitle } from "@/components/page-title";
 
 export const metadata: Metadata = {
     title: "メニュー管理",
@@ -34,13 +35,11 @@ export default async function MenusPage() {
 
     return (
         <div className="space-y-4">
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">メニュー管理</h1>
-                <p className="mt-2 text-sm text-muted-foreground dark:text-gray-400">
-                    お店のメニューの登録・編集・削除ができます。
-                </p>
-            </div>
-
+            <PageTitle
+                title="メニュー管理"
+                description="お店のメニューの登録・編集・削除ができます。"
+                backTab="floor"
+            />
             <Suspense fallback={<MenusSkeleton />}>
                 <MenuList initialMenus={menus} categories={categories} />
             </Suspense>

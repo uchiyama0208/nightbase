@@ -10,7 +10,7 @@ interface JoinPageProps {
 
 export default async function JoinPage({ params }: JoinPageProps) {
     const { storeId } = await params;
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // Check if store exists and accepts URL joins
     const storeResult = await getStoreForJoin(storeId);

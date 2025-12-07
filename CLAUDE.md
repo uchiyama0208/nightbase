@@ -116,6 +116,66 @@
 
 ---
 
+## アイコンルール
+
+### 戻るボタン
+- **必ず `ChevronLeft` を使用する**（`ArrowLeft` は使用禁止）
+- サイズ: `h-5 w-5`
+- 色: `text-gray-600 dark:text-gray-400`
+
+```tsx
+import { ChevronLeft } from "lucide-react";
+
+// ✅ OK
+<ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+
+// ❌ NG - ArrowLeftは使用禁止
+<ArrowLeft className="h-5 w-5" />
+```
+
+### その他のアイコン
+- サイズ: 通常 `h-5 w-5`、小さい場合 `h-4 w-4`
+- ボタン内アイコン: `h-5 w-5`
+
+---
+
+## 文字サイズルール
+
+### ページタイトル
+- サイズ: `text-xl`
+- ウェイト: `font-bold`
+- 色: `text-gray-900 dark:text-white`
+
+```tsx
+<h1 className="text-xl font-bold text-gray-900 dark:text-white">
+    ページタイトル
+</h1>
+```
+
+### セクションタイトル
+- サイズ: `text-lg` または `text-base`
+- ウェイト: `font-semibold`
+- 色: `text-gray-900 dark:text-white`
+
+### 説明文
+- サイズ: `text-sm`
+- 色: `text-gray-600 dark:text-gray-400`
+
+### ラベル
+- サイズ: `text-sm`
+- ウェイト: `font-medium`
+- 色: `text-gray-700 dark:text-gray-200`
+
+### 本文テキスト
+- サイズ: `text-sm` または `text-base`
+- 色: `text-gray-900 dark:text-white`
+
+### 補足・注釈
+- サイズ: `text-xs`
+- 色: `text-gray-500 dark:text-gray-400`
+
+---
+
 ## コンポーネントルール
 
 ### テキスト色の明示的指定（重要）
@@ -305,6 +365,15 @@ const [activeIndex, setActiveIndex] = useState(0);
   - 独自の `bg-` を多用しない
   - `rounded-none`, `border-0` でフラットにしない
   - 影を強くしすぎない（`shadow-lg` 以上は禁止）
+
+---
+
+## Supabase Storage ルール
+
+- **RLSポリシー作成時に「Verify JWT with legacy secret」をオンにしない**
+  - このオプションがオンになっているとアップロードが失敗する
+  - SQLでポリシーを作成する場合はデフォルトでオフなので問題ない
+  - Supabaseダッシュボードから手動で作成する場合は注意
 
 ---
 

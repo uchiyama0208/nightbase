@@ -5,7 +5,7 @@ import { PricingSystem } from "@/types/floor";
 import { revalidatePath } from "next/cache";
 
 export async function getPricingSystems() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return [];
@@ -33,7 +33,7 @@ export async function getPricingSystems() {
 }
 
 export async function createPricingSystem(data: Omit<PricingSystem, "id" | "store_id" | "created_at" | "updated_at">) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Not authenticated");
@@ -73,7 +73,7 @@ export async function createPricingSystem(data: Omit<PricingSystem, "id" | "stor
 }
 
 export async function updatePricingSystem(id: string, data: Partial<PricingSystem>) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Not authenticated");
@@ -114,7 +114,7 @@ export async function updatePricingSystem(id: string, data: Partial<PricingSyste
 }
 
 export async function deletePricingSystem(id: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { error } = await supabase
         .from("pricing_systems")
@@ -131,7 +131,7 @@ export async function deletePricingSystem(id: string) {
 }
 
 export async function setDefaultPricingSystem(id: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Not authenticated");

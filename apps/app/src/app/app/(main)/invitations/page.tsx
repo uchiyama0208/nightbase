@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { InvitationList } from "./invitation-list";
 import { getInvitationsData } from "./actions";
+import { PageTitle } from "@/components/page-title";
 
 function InvitationsSkeleton() {
     return (
@@ -28,20 +29,16 @@ export default async function InvitationsPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col gap-2">
-                <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">招待</h1>
-                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                    スタッフやキャストを招待し、参加申請を管理します。
-                </p>
-            </div>
-
-            <div className="mt-6">
-                <InvitationList
-                    initialInvitations={invitations}
-                    uninvitedProfiles={uninvitedProfiles}
-                    roles={roles}
-                />
-            </div>
+            <PageTitle
+                title="招待"
+                description="スタッフやキャストを招待し、参加申請を管理します。"
+                backTab="user"
+            />
+            <InvitationList
+                initialInvitations={invitations}
+                uninvitedProfiles={uninvitedProfiles}
+                roles={roles}
+            />
         </div>
     );
 }

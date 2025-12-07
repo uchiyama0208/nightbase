@@ -18,7 +18,7 @@ export type RoleFormData = {
 };
 
 async function getStoreId() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -45,7 +45,7 @@ async function getStoreId() {
 }
 
 export async function createRole(data: RoleFormData) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const storeId = await getStoreId();
 
     const { error } = await supabase.from("store_roles").insert({
@@ -60,7 +60,7 @@ export async function createRole(data: RoleFormData) {
 }
 
 export async function updateRole(id: string, data: RoleFormData) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const storeId = await getStoreId();
 
     // Check if role is a system role
@@ -103,7 +103,7 @@ export async function updateRole(id: string, data: RoleFormData) {
 }
 
 export async function deleteRole(id: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const storeId = await getStoreId();
 
     // Check if role is a system role
@@ -132,7 +132,7 @@ export async function deleteRole(id: string) {
 }
 
 export async function assignRole(profileId: string, roleId: string | null) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const storeId = await getStoreId();
     
     console.log('assignRole called with:', { profileId, roleId, storeId });
@@ -171,7 +171,7 @@ export async function assignRole(profileId: string, roleId: string | null) {
 }
 
 export async function getRoles(storeId?: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     if (!storeId) {
         storeId = await getStoreId();
@@ -192,7 +192,7 @@ export async function getRoles(storeId?: string) {
 }
 
 export async function getRolesData() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();

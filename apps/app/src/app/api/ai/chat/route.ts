@@ -1,12 +1,14 @@
 import { openai } from "@ai-sdk/openai";
 import { streamText } from "ai";
 import { createServerClient } from "@/lib/supabaseServerClient";
+import { createServiceRoleClient } from "@/lib/supabaseServiceClient";
+import { createAITools } from "@/lib/ai-tools";
 
 export const maxDuration = 60;
 
 // Get store context data for AI
 async function getStoreContext(storeId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // Fetch all relevant store data in parallel
     const [
@@ -49,25 +51,25 @@ async function getStoreContext(storeId: string) {
     ]);
 
     const store = storeResult.data;
-    const profiles = profilesResult.data || [];
-    const menus = menusResult.data || [];
-    const seats = seatsResult.data || [];
-    const slips = slipsResult.data || [];
-    const attendance = attendanceResult.data || [];
-    const bottles = bottlesResult.data || [];
+    const profiles: any[] = profilesResult.data || [];
+    const menus: any[] = menusResult.data || [];
+    const seats: any[] = seatsResult.data || [];
+    const slips: any[] = slipsResult.data || [];
+    const attendance: any[] = attendanceResult.data || [];
+    const bottles: any[] = bottlesResult.data || [];
 
     // Calculate statistics
-    const castCount = profiles.filter(p => p.role === "cast").length;
-    const staffCount = profiles.filter(p => p.role === "staff" || p.role === "admin").length;
+    const castCount = profiles.filter((p: any) => p.role === "cast").length;
+    const staffCount = profiles.filter((p: any) => p.role === "staff" || p.role === "admin").length;
     const totalSeats = seats.length;
-    const activeSeats = seats.filter(s => s.status === "occupied").length;
+    const activeSeats = seats.filter((s: any) => s.status === "occupied").length;
 
     const totalRevenue = slips
-        .filter(s => s.status === "paid")
-        .reduce((sum, s) => sum + (s.total_amount || 0), 0);
-    const avgSlipAmount = slips.length > 0 ? totalRevenue / slips.filter(s => s.status === "paid").length : 0;
+        .filter((s: any) => s.status === "paid")
+        .reduce((sum: number, s: any) => sum + (s.total_amount || 0), 0);
+    const avgSlipAmount = slips.length > 0 ? totalRevenue / slips.filter((s: any) => s.status === "paid").length : 0;
 
-    const todayAttendance = attendance.filter(a => a.status === "working" || a.status === "checked_in");
+    const todayAttendance = attendance.filter((a: any) => a.status === "working" || a.status === "checked_in");
 
     return `
 ## 店舗情報
@@ -77,16 +79,16 @@ async function getStoreContext(storeId: string) {
 ## スタッフ情報
 - キャスト数: ${castCount}名
 - スタッフ数: ${staffCount}名
-- プロフィール一覧: ${profiles.map(p => `${p.display_name}(${p.role})`).join(", ")}
+- プロフィール一覧: ${profiles.map((p: any) => `${p.display_name}(${p.role})`).join(", ")}
 
 ## 本日の出勤状況
 - 出勤中: ${todayAttendance.length}名
-${attendance.map(a => `- ${(a.profiles as any)?.display_name || "不明"}: ${a.status}`).join("\n")}
+${attendance.map((a: any) => `- ${(a.profiles as any)?.display_name || "不明"}: ${a.status}`).join("\n")}
 
 ## メニュー情報
 - メニュー数: ${menus.length}件
-- カテゴリ: ${[...new Set(menus.map(m => m.category))].filter(Boolean).join(", ")}
-- 主なメニュー: ${menus.slice(0, 10).map(m => `${m.name}(¥${m.price?.toLocaleString()})`).join(", ")}
+- カテゴリ: ${[...new Set(menus.map((m: any) => m.category))].filter(Boolean).join(", ")}
+- 主なメニュー: ${menus.slice(0, 10).map((m: any) => `${m.name}(¥${m.price?.toLocaleString()})`).join(", ")}
 
 ## 席情報
 - 総席数: ${totalSeats}席
@@ -100,13 +102,13 @@ ${attendance.map(a => `- ${(a.profiles as any)?.display_name || "不明"}: ${a.s
 
 ## ボトルキープ
 - アクティブなボトルキープ: ${bottles.length}件
-${bottles.slice(0, 5).map(b => `- ${b.customer_name}: ${b.bottle_name}`).join("\n")}
+${bottles.slice(0, 5).map((b: any) => `- ${b.customer_name}: ${b.bottle_name}`).join("\n")}
 `;
 }
 
 export async function POST(req: Request) {
     try {
-        const supabase = await createServerClient();
+        const supabase = await createServerClient() as any;
 
         // Get current user
         const { data: { user } } = await supabase.auth.getUser();
@@ -167,7 +169,7 @@ export async function POST(req: Request) {
                 await supabase
                     .from("ai_chat_messages")
                     .delete()
-                    .in("id", oldMessages.map(m => m.id));
+                    .in("id", oldMessages.map((m: any) => m.id));
             }
         }
 
@@ -178,29 +180,44 @@ export async function POST(req: Request) {
 - データに基づいた分析やアドバイスを提供する
 - 売上、出勤、在庫などの状況を説明する
 - 業務効率化の提案をする
+- ユーザーからの指示に基づいて操作を実行する
+
+## 実行できる操作
+- キャスト/スタッフ/ゲストの登録（例: 「さつきをキャスト登録して」「田中をスタッフ登録して」「山田さんをゲスト登録して」）
+- 出勤/退勤の登録（例: 「ゆりを出勤にして」「ゆりを18:00に出勤にして」「太郎を23:30に退勤にして」「ゆりを新宿駅で出勤にして」）
+- 送迎の管理（例: 「あやかの送迎先を渋谷駅にして」「送迎希望者は？」「まりの送迎をキャンセル」）
+- 卓のオープン/クローズ（例: 「A卓を開けて」「VIP1の会計をして」）
+- 注文の登録（例: 「A卓にビール3本」「B卓にシャンパン、あやか付きで」）
+- ボトルキープの登録（例: 「山田さんのウイスキーをキープして」）
 
 ## 現在の店舗データ
 ${storeContext}
 
 ## 注意事項
 - 日本語で回答してください
-- データに基づいて具体的に回答してください
-- 分からないことは正直に分からないと言ってください
-- 簡潔で分かりやすい回答を心がけてください
+- 操作を実行したら、結果を簡潔に報告してください
+- 名前が曖昧な場合は確認してください
 - 金額は日本円で表示してください`;
 
+        // Create tools with service role client for write operations
+        const serviceSupabase = createServiceRoleClient() as any;
+        const tools = createAITools(serviceSupabase, profile.store_id);
+
         const result = await streamText({
-            model: openai("gpt-4o-mini"),
+            model: openai("gpt-4o-mini") as any,
             system: systemPrompt,
             messages,
+            tools,
             onFinish: async ({ text }) => {
                 // Save assistant response to database
-                await supabase.from("ai_chat_messages").insert({
-                    store_id: profile.store_id,
-                    profile_id: profile.id,
-                    role: "assistant",
-                    content: text,
-                });
+                if (text) {
+                    await supabase.from("ai_chat_messages").insert({
+                        store_id: profile.store_id,
+                        profile_id: profile.id,
+                        role: "assistant",
+                        content: text,
+                    });
+                }
             },
         });
 

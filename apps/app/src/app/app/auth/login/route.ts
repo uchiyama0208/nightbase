@@ -8,7 +8,7 @@ export async function POST(request: Request) {
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
     const redirectTo = formData.get("redirect") as string | null;
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { error } = await supabase.auth.signInWithPassword({
         email,

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getAppData } from "../../data-access";
 import { MyShiftsClient } from "./my-shifts-client";
 import { getMyShiftRequests, getStoreDefaults } from "./actions";
+import { PageTitle } from "@/components/page-title";
 
 export const metadata: Metadata = {
     title: "マイシフト",
@@ -37,15 +38,11 @@ export default async function MyShiftsPage() {
 
     return (
         <div className="space-y-4">
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-                    マイシフト
-                </h1>
-                <p className="mt-2 text-sm text-muted-foreground dark:text-gray-400">
-                    シフト希望を提出できます。
-                </p>
-            </div>
-
+            <PageTitle
+                title="マイシフト"
+                description="シフト希望を提出できます。"
+                backTab="shift"
+            />
             <Suspense fallback={<MyShiftsSkeleton />}>
                 <MyShiftsClient
                     shiftRequests={shiftRequests}

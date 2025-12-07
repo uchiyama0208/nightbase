@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function switchProfile(profileId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -42,13 +42,13 @@ export async function switchProfile(profileId: string) {
 }
 
 export async function signOut() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     await supabase.auth.signOut();
     redirect("/login");
 }
 
 export async function getUserProfile() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user }, error } = await supabase.auth.getUser();
 
     if (error || !user) {
@@ -92,7 +92,7 @@ export async function getUserProfile() {
 }
 
 export async function updateUserEmail(newEmail: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
     if (userError || !user) {
@@ -100,7 +100,7 @@ export async function updateUserEmail(newEmail: string) {
     }
 
     // Use admin client to bypass email confirmation
-    const supabaseAdmin = createServiceRoleClient();
+    const supabaseAdmin = createServiceRoleClient() as any;
 
     const { error } = await supabaseAdmin.auth.admin.updateUserById(
         user.id,
@@ -119,7 +119,7 @@ export async function updateUserEmail(newEmail: string) {
 }
 
 export async function updateUserPassword(newPassword: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
     if (userError || !user) {
@@ -143,7 +143,7 @@ export async function updateUserPassword(newPassword: string) {
 }
 
 export async function deleteAccount() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -170,7 +170,7 @@ export async function deleteAccount() {
 import { createServiceRoleClient } from "@/lib/supabaseServiceClient";
 
 export async function unlinkLine() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
     if (userError || !user) {
@@ -216,7 +216,7 @@ export async function unlinkLine() {
 }
 
 export async function enableEmailLogin(email: string, password: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
     if (userError || !user) {
@@ -225,7 +225,7 @@ export async function enableEmailLogin(email: string, password: string) {
 
     // Use admin client to bypass secure email change flow (which requires verifying old email)
     // This is safe because the user is already authenticated via LINE
-    const supabaseAdmin = createServiceRoleClient();
+    const supabaseAdmin = createServiceRoleClient() as any;
 
     const { error } = await supabaseAdmin.auth.admin.updateUserById(
         user.id,

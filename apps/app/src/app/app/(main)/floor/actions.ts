@@ -5,7 +5,7 @@ import { TableSession, CastAssignment, Order } from "@/types/floor";
 import { revalidatePath } from "next/cache";
 
 export async function getActiveSessions() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // まずセッションを取得（statusがcompletedでないもの）
     const { data: sessions, error: sessionsError } = await supabase
@@ -20,7 +20,7 @@ export async function getActiveSessions() {
 
     // 各セッションのcast_assignmentsを取得
     const sessionsWithAssignments = await Promise.all(
-        (sessions || []).map(async (session) => {
+        (sessions || []).map(async (session: any) => {
             const { data: assignments, error: assignmentsError } = await supabase
                 .from("cast_assignments")
                 .select("*")
@@ -33,7 +33,7 @@ export async function getActiveSessions() {
 
             // 各assignmentのprofilesを取得
             const assignmentsWithProfiles = await Promise.all(
-                (assignments || []).map(async (assignment) => {
+                (assignments || []).map(async (assignment: any) => {
                     const { data: castProfile } = await supabase
                         .from("profiles")
                         .select("*")
@@ -72,7 +72,7 @@ export async function getActiveSessions() {
 }
 
 export async function getCompletedSessions() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // 終了済みセッションを取得（statusがcompleted）
     const { data: sessions, error: sessionsError } = await supabase
@@ -88,7 +88,7 @@ export async function getCompletedSessions() {
 
     // 各セッションのcast_assignmentsを取得
     const sessionsWithAssignments = await Promise.all(
-        (sessions || []).map(async (session) => {
+        (sessions || []).map(async (session: any) => {
             const { data: assignments, error: assignmentsError } = await supabase
                 .from("cast_assignments")
                 .select("*")
@@ -101,7 +101,7 @@ export async function getCompletedSessions() {
 
             // 各assignmentのprofilesを取得
             const assignmentsWithProfiles = await Promise.all(
-                (assignments || []).map(async (assignment) => {
+                (assignments || []).map(async (assignment: any) => {
                     const { data: castProfile } = await supabase
                         .from("profiles")
                         .select("*")
@@ -138,7 +138,7 @@ export async function getCompletedSessions() {
 }
 
 export async function getSessionById(sessionId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // 単一セッションを取得
     const { data: session, error: sessionError } = await supabase
@@ -171,7 +171,7 @@ export async function getSessionById(sessionId: string) {
 }
 
 export async function createSession(tableId?: string | null, mainGuestId?: string, pricingSystemId?: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Not authenticated");
 
@@ -256,7 +256,7 @@ export async function assignCast(
     startTime?: string,
     endTime?: string | null
 ) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // Validate required parameters
     if (!sessionId || typeof sessionId !== 'string') {
@@ -396,7 +396,7 @@ export async function createOrder(
     guestId?: string | null,
     castId?: string | null
 ) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const orders = items.map(item => {
         const isSpecialFee = SPECIAL_FEE_NAMES[item.menuId];
@@ -440,7 +440,7 @@ export async function updateOrder(
         endTime?: string | null;
     }
 ) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const dbUpdates: any = {};
     if (updates.quantity !== undefined) dbUpdates.quantity = updates.quantity;
@@ -462,7 +462,7 @@ export async function updateOrder(
 }
 
 export async function deleteOrder(orderId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // Validate orderId
     if (!orderId || typeof orderId !== 'string') {
@@ -481,7 +481,7 @@ export async function deleteOrder(orderId: string) {
 }
 
 export async function deleteOrdersByName(sessionId: string, orderName: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // Validate sessionId
     if (!sessionId || typeof sessionId !== 'string') {
@@ -501,7 +501,7 @@ export async function deleteOrdersByName(sessionId: string, orderName: string) {
 }
 
 export async function endAssignment(assignmentId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { error } = await supabase
         .from("cast_assignments")
@@ -575,7 +575,7 @@ async function deleteTempGuestsForSession(supabase: any, sessionId: string) {
 }
 
 export async function checkoutSession(sessionId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // Get current session data
     const { data: session } = await supabase
@@ -619,7 +619,7 @@ export async function checkoutSession(sessionId: string) {
 }
 
 export async function getSessionOrders(sessionId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // Get special fee names to filter out
     const specialFeeNames = Object.values(SPECIAL_FEE_NAMES);
@@ -665,7 +665,7 @@ export async function closeSession(sessionId: string) {
 }
 
 export async function deleteSession(sessionId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // Validate sessionId
     if (!sessionId || typeof sessionId !== 'string') {
@@ -705,7 +705,7 @@ export async function deleteSession(sessionId: string) {
 }
 
 export async function updateSessionTimes(sessionId: string, startTime?: string, endTime?: string | null) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const updates: any = {};
     if (startTime !== undefined) updates.start_time = startTime;
@@ -723,7 +723,7 @@ export async function updateSessionTimes(sessionId: string, startTime?: string, 
 }
 
 export async function removeCastAssignment(assignmentId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // Validate assignmentId
     if (!assignmentId || typeof assignmentId !== 'string') {
@@ -807,7 +807,7 @@ export async function removeCastAssignment(assignmentId: string) {
 }
 
 export async function updateCastAssignmentStatus(assignmentId: string, status: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // Validate assignmentId
     if (!assignmentId || typeof assignmentId !== 'string') {
@@ -829,7 +829,7 @@ export async function updateCastAssignmentTimes(
     startTime?: string,
     endTime?: string | null
 ) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // Validate assignmentId
     if (!assignmentId || typeof assignmentId !== 'string') {
@@ -856,7 +856,7 @@ export async function updateCastAssignmentPosition(
     gridX: number | null,
     gridY: number | null
 ) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // Validate assignmentId
     if (!assignmentId || typeof assignmentId !== 'string') {
@@ -878,7 +878,7 @@ export async function updateCastAssignmentPosition(
 }
 
 export async function getMenus() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return [];
@@ -906,7 +906,7 @@ export async function getMenus() {
 }
 
 export async function getMenuCategories() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return [];
@@ -934,7 +934,7 @@ export async function getMenuCategories() {
 }
 
 export async function getWaitingCasts() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // Get current user's store_id
     const { data: { user } } = await supabase.auth.getUser();
@@ -982,7 +982,7 @@ export async function updateSession(
         mainGuestId?: string | null;
     }
 ) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const dbUpdates: any = {};
     if (updates.tableId) dbUpdates.table_id = updates.tableId;
@@ -1004,7 +1004,7 @@ export async function updateSession(
 }
 
 export async function getCasts() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return [];
 
@@ -1041,7 +1041,7 @@ export async function getCasts() {
 }
 
 export async function getGuests() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return [];
 
@@ -1078,7 +1078,7 @@ export async function getGuests() {
 }
 
 export async function getSessionGuests(sessionId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // Get all assignments for this session
     const { data: assignments, error } = await supabase
@@ -1114,7 +1114,7 @@ export async function addGuestToSession(
     gridX: number = 0,
     gridY: number = 0
 ) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // Create a guest entry in cast_assignments (cast_id === guest_id)
     const { error: assignmentError } = await supabase
@@ -1157,7 +1157,7 @@ export async function addGuestToSession(
 }
 
 export async function createTempGuest(sessionId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Not authenticated");
 
@@ -1231,7 +1231,7 @@ export async function createTempGuest(sessionId: string) {
 }
 
 export async function removeGuestFromSession(assignmentId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // Get assignment to find session_id and check if it's a guest entry
     const { data: assignment, error: fetchError } = await supabase
@@ -1319,7 +1319,7 @@ export async function removeGuestFromSession(assignmentId: string) {
 
 
 export async function getStoreSettings() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
 
@@ -1350,7 +1350,7 @@ export async function getStoreSettings() {
 }
 
 export async function rotateCast(currentAssignmentId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // 1. Get current assignment
     const { data: currentAssignment, error: fetchError } = await supabase

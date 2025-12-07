@@ -74,7 +74,7 @@ export default async function TabletTimecardPage(props: PageProps) {
   const params = await props.params;
   const storeId = params.storeId;
 
-  const supabase = createServiceRoleClient();
+  const supabase = createServiceRoleClient() as any;
 
   // Fetch store settings
   const { data: storeRow } = await supabase

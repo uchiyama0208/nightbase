@@ -1,9 +1,10 @@
 import { createServerClient } from "@/lib/supabaseServerClient";
 import { redirect } from "next/navigation";
 import { JoinRequestsList } from "./join-requests-list";
+import { PageTitle } from "@/components/page-title";
 
 export default async function JoinRequestsPage() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -44,13 +45,11 @@ export default async function JoinRequestsPage() {
 
     return (
         <div className="space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">参加申請</h1>
-                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                    店舗への参加申請を管理します
-                </p>
-            </div>
-
+            <PageTitle
+                title="参加申請"
+                description="店舗への参加申請を管理します"
+                backTab="user"
+            />
             <JoinRequestsList requests={joinRequests || []} />
         </div>
     );

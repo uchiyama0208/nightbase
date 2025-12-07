@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
     try {
-        const supabase = await createServerClient();
+        const supabase = await createServerClient() as any;
 
         // Get current user
         const { data: { user } } = await supabase.auth.getUser();
@@ -60,7 +60,7 @@ export async function GET() {
 // Clear chat history
 export async function DELETE() {
     try {
-        const supabase = await createServerClient();
+        const supabase = await createServerClient() as any;
 
         // Get current user
         const { data: { user } } = await supabase.auth.getUser();

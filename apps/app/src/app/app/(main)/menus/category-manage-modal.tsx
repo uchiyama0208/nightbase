@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { useState, useCallback } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +20,8 @@ export function CategoryManageModal({ open, onOpenChange, categories }: Category
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editName, setEditName] = useState("");
     const [newCategoryName, setNewCategoryName] = useState("");
+    const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const router = useRouter();
 
     const handleCreate = async () => {
@@ -53,19 +55,25 @@ export function CategoryManageModal({ open, onOpenChange, categories }: Category
         }
     };
 
-    const handleDelete = async (id: string) => {
-        if (!confirm("このカテゴリを削除しますか？\n紐づいているメニューはカテゴリなしになります。")) return;
+    const handleDeleteClick = useCallback((id: string) => {
+        setDeleteTargetId(id);
+        setIsDeleteDialogOpen(true);
+    }, []);
+
+    const handleConfirmDelete = useCallback(async () => {
+        if (!deleteTargetId) return;
         setIsSubmitting(true);
         try {
-            await deleteMenuCategory(id);
+            await deleteMenuCategory(deleteTargetId);
             router.refresh();
         } catch (error) {
             console.error(error);
-            alert("カテゴリの削除に失敗しました");
         } finally {
             setIsSubmitting(false);
+            setIsDeleteDialogOpen(false);
+            setDeleteTargetId(null);
         }
-    };
+    }, [deleteTargetId, router]);
 
     const handleMove = async (index: number, direction: "up" | "down") => {
         if (direction === "up" && index === 0) return;
@@ -202,7 +210,7 @@ export function CategoryManageModal({ open, onOpenChange, categories }: Category
                                             size="icon"
                                             variant="ghost"
                                             className="h-8 w-8 text-gray-500 hover:text-red-600"
-                                            onClick={() => handleDelete(category.id)}
+                                            onClick={() => handleDeleteClick(category.id)}
                                             disabled={isSubmitting}
                                         >
                                             <Trash2 className="h-4 w-4" />
@@ -225,6 +233,35 @@ export function CategoryManageModal({ open, onOpenChange, categories }: Category
                     </Button>
                 </DialogFooter>
             </DialogContent>
+
+            {/* 削除確認ダイアログ */}
+            <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <DialogContent className="max-w-md rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+                    <DialogHeader>
+                        <DialogTitle className="text-gray-900 dark:text-white">カテゴリの削除</DialogTitle>
+                        <DialogDescription className="text-gray-600 dark:text-gray-400">
+                            このカテゴリを削除しますか？紐づいているメニューはカテゴリなしになります。
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="mt-4 flex justify-end gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsDeleteDialogOpen(false)}
+                            className="rounded-lg"
+                        >
+                            キャンセル
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={handleConfirmDelete}
+                            disabled={isSubmitting}
+                            className="rounded-lg"
+                        >
+                            {isSubmitting ? "削除中..." : "削除する"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </Dialog>
     );
 }

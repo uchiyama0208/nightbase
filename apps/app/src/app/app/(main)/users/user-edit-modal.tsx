@@ -236,7 +236,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
         const updateSlider = () => {
             if (!roleToggleRef.current) return;
             const buttons = roleToggleRef.current.querySelectorAll('button');
-            const roleIndex = role === "cast" ? 0 : role === "staff" ? 1 : 2;
+            const roleIndex = role === "cast" ? 0 : role === "staff" ? 1 : role === "guest" ? 2 : 3;
             const button = buttons[roleIndex] as HTMLButtonElement;
             if (button) {
                 setSliderStyle({
@@ -711,6 +711,16 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                         >
                                             ゲスト
                                         </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setRole("partner")}
+                                            className={`relative z-10 px-4 h-full flex items-center justify-center rounded-full font-medium whitespace-nowrap transition-colors duration-300 ${role === "partner"
+                                                ? "text-gray-900 dark:text-white"
+                                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                                                }`}
+                                        >
+                                            パートナー
+                                        </button>
                                     </div>
                                 </div>
                             )}
@@ -1046,6 +1056,130 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                             <span className="text-xs text-gray-500 dark:text-gray-400">状態</span>
                                             <p className="text-sm text-gray-900 dark:text-white">{(profile as any)?.status || "在籍中"}</p>
                                             <input type="hidden" name="status" value={(profile as any)?.status || "在籍中"} />
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {role === "partner" && (
+                                <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="font-medium text-gray-900 dark:text-white">パートナー情報</h3>
+                                        {profile && !isEditingSection('partnerInfo') && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setEditingSection('partnerInfo')}
+                                                className="inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700"
+                                                aria-label="編集"
+                                            >
+                                                <Pencil className="h-3.5 w-3.5" />
+                                            </button>
+                                        )}
+                                    </div>
+                                    {isEditingSection('partnerInfo') ? (
+                                        <>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="partnerPhoneNumber">電話番号</Label>
+                                                <Input
+                                                    id="partnerPhoneNumber"
+                                                    name="phoneNumber"
+                                                    defaultValue={profile?.phone_number || ""}
+                                                    placeholder="090-1234-5678"
+                                                    className="rounded-md"
+                                                />
+                                            </div>
+                                            <div className="space-y-4">
+                                                <span className="text-sm text-gray-500 font-medium">住所</span>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="partnerZipCode" className="text-xs text-gray-500">郵便番号</Label>
+                                                        <Input
+                                                            id="partnerZipCode"
+                                                            name="zipCode"
+                                                            value={addressState.zipCode}
+                                                            onChange={handleZipCodeChange}
+                                                            placeholder="1234567"
+                                                            className="rounded-md"
+                                                            maxLength={7}
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="partnerPrefecture" className="text-xs text-gray-500">都道府県</Label>
+                                                        <Input
+                                                            id="partnerPrefecture"
+                                                            name="prefecture"
+                                                            value={addressState.prefecture}
+                                                            onChange={handleAddressChange("prefecture")}
+                                                            placeholder="東京都"
+                                                            className="rounded-md"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="partnerCity" className="text-xs text-gray-500">市区町村</Label>
+                                                    <Input
+                                                        id="partnerCity"
+                                                        name="city"
+                                                        value={addressState.city}
+                                                        onChange={handleAddressChange("city")}
+                                                        placeholder="渋谷区"
+                                                        className="rounded-md"
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="partnerStreet" className="text-xs text-gray-500">番地</Label>
+                                                    <Input
+                                                        id="partnerStreet"
+                                                        name="street"
+                                                        value={addressState.street}
+                                                        onChange={handleAddressChange("street")}
+                                                        placeholder="道玄坂1-1-1"
+                                                        className="rounded-md"
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="partnerBuilding" className="text-xs text-gray-500">建物名</Label>
+                                                    <Input
+                                                        id="partnerBuilding"
+                                                        name="building"
+                                                        value={addressState.building}
+                                                        onChange={handleAddressChange("building")}
+                                                        placeholder="渋谷ビル 101"
+                                                        className="rounded-md"
+                                                    />
+                                                </div>
+                                            </div>
+                                            {profile && (
+                                                <div className="flex justify-end gap-2 pt-2">
+                                                    <Button type="button" variant="outline" size="sm" onClick={handleSectionCancel}>
+                                                        キャンセル
+                                                    </Button>
+                                                    <Button type="button" size="sm" onClick={() => handleSectionSave('partnerInfo')}>
+                                                        保存
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            <div>
+                                                <span className="text-xs text-gray-500 dark:text-gray-400">電話番号</span>
+                                                <p className="text-sm text-gray-900 dark:text-white">{profile?.phone_number || "-"}</p>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <span className="text-xs text-gray-500 dark:text-gray-400">住所</span>
+                                                <p className="text-sm text-gray-900 dark:text-white">
+                                                    {profile?.prefecture || profile?.city || profile?.street
+                                                        ? `${profile?.zip_code ? `〒${profile.zip_code} ` : ""}${profile?.prefecture || ""}${profile?.city || ""}${profile?.street || ""}${profile?.building ? ` ${profile.building}` : ""}`
+                                                        : "-"}
+                                                </p>
+                                            </div>
+                                            <input type="hidden" name="phoneNumber" value={profile?.phone_number || ""} />
+                                            <input type="hidden" name="zipCode" value={profile?.zip_code || ""} />
+                                            <input type="hidden" name="prefecture" value={profile?.prefecture || ""} />
+                                            <input type="hidden" name="city" value={profile?.city || ""} />
+                                            <input type="hidden" name="street" value={profile?.street || ""} />
+                                            <input type="hidden" name="building" value={profile?.building || ""} />
                                         </div>
                                     )}
                                 </div>

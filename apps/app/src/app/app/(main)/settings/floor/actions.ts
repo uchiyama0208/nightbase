@@ -4,7 +4,7 @@ import { createServerClient } from "@/lib/supabaseServerClient";
 import { revalidatePath } from "next/cache";
 
 export async function updateFloorSettings(formData: FormData) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {

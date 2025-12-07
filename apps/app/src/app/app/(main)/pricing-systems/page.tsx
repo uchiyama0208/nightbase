@@ -17,6 +17,7 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { Plus, Edit2, Trash2, Star, Check, ChevronLeft, MoreHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { PageTitle } from "@/components/page-title";
 
 interface PricingSystemFormData {
     name: string;
@@ -178,7 +179,10 @@ export default function PricingSystemsPage() {
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-bold">料金システム</h1>
+                <PageTitle
+                    title="料金体系"
+                    backTab="salary"
+                />
                 <Button onClick={() => handleOpenModal()}>
                     <Plus className="h-4 w-4 mr-2" />
                     新規作成

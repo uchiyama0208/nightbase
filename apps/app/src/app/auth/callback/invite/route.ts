@@ -10,7 +10,7 @@ export async function GET(request: Request) {
         return NextResponse.redirect(`${origin}/login?message=Invalid invitation link`);
     }
 
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { error: authError } = await supabase.auth.exchangeCodeForSession(code);
 
     if (authError) {

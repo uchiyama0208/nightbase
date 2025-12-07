@@ -24,7 +24,7 @@ export default function ResetPasswordPage() {
     useEffect(() => {
         // Check if we have a valid recovery session
         const checkSession = async () => {
-            const supabase = createBrowserClient();
+            const supabase = createBrowserClient() as any;
 
             // Supabase redirects with hash parameters for recovery
             // The client will automatically pick these up
@@ -91,7 +91,7 @@ export default function ResetPasswordPage() {
 
         setIsSubmitting(true);
 
-        const supabase = createBrowserClient();
+        const supabase = createBrowserClient() as any;
 
         const { error: updateError } = await supabase.auth.updateUser({
             password: password,

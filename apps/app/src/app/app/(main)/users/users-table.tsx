@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -36,6 +36,10 @@ interface Profile {
     stores?: { name: string } | null;
     avatar_url?: string | null;
     status?: string | null;
+    phone_number?: string | null;
+    prefecture?: string | null;
+    city?: string | null;
+    street?: string | null;
 }
 
 interface UsersTableProps {
@@ -57,30 +61,30 @@ export function UsersTable({ profiles: initialProfiles, roleFilter, hidePersonal
         setProfiles(initialProfiles);
     }, [initialProfiles]);
 
-    const handleDeleteProfile = (profileId: string) => {
+    const handleDeleteProfile = useCallback((profileId: string) => {
         // Optimistically remove from list
         setProfiles(prev => prev.filter(p => p.id !== profileId));
-    };
+    }, []);
 
-    const handleUpdateProfile = (updatedProfile: Partial<Profile> & { id: string }) => {
+    const handleUpdateProfile = useCallback((updatedProfile: Partial<Profile> & { id: string }) => {
         // Optimistically update in list
-        setProfiles(prev => prev.map(p => 
+        setProfiles(prev => prev.map(p =>
             p.id === updatedProfile.id ? { ...p, ...updatedProfile } : p
         ));
-    };
+    }, []);
 
     useEffect(() => {
         setOptimisticRole(roleFilter);
     }, [roleFilter]);
 
-    const handleRoleChange = (role: string) => {
+    const handleRoleChange = useCallback((role: string) => {
         setOptimisticRole(role);
         router.push(`/app/users?role=${role}`);
-    };
+    }, [router]);
 
-    const activeFilters = [nameQuery.trim() && "名前"]
+    const activeFilters = useMemo(() => [nameQuery.trim() && "名前"]
         .filter(Boolean)
-        .map(String);
+        .map(String), [nameQuery]);
     const hasFilters = activeFilters.length > 0;
 
     const nameSuggestions = useMemo(
@@ -109,7 +113,7 @@ export function UsersTable({ profiles: initialProfiles, roleFilter, hidePersonal
         [profiles, optimisticRole],
     );
 
-    const filteredProfiles = profiles
+    const filteredProfiles = useMemo(() => profiles
         .filter((profile) => {
             // Role filtering
             let roleMatch = false;
@@ -139,58 +143,66 @@ export function UsersTable({ profiles: initialProfiles, roleFilter, hidePersonal
             const aKana = (a.display_name_kana || a.display_name || "").toLowerCase();
             const bKana = (b.display_name_kana || b.display_name || "").toLowerCase();
             return aKana.localeCompare(bKana, "ja");
-        });
+        }), [profiles, optimisticRole, nameQuery]);
 
-    const handleRowClick = (profile: Profile) => {
+    const handleRowClick = useCallback((profile: Profile) => {
         setSelectedProfile(profile);
         setIsModalOpen(true);
-    };
+    }, []);
 
     const roleIndex = useMemo(() => {
         if (optimisticRole === "cast") return 0;
         if (optimisticRole === "staff") return 1;
         if (optimisticRole === "guest") return 2;
+        if (optimisticRole === "partner") return 3;
         return 0;
     }, [optimisticRole]);
 
     return (
         <>
             <div className="flex items-center justify-between mb-4">
-                <div className="relative inline-flex h-10 items-center rounded-full bg-gray-100 dark:bg-gray-800 p-1">
+                <div className="relative inline-flex h-9 items-center rounded-full bg-gray-100 dark:bg-gray-800 p-1">
                     <div
-                        className="absolute h-8 rounded-full bg-white dark:bg-gray-700 shadow-sm transition-transform duration-300 ease-in-out"
+                        className="absolute h-7 rounded-full bg-white dark:bg-gray-700 shadow-sm transition-transform duration-300 ease-in-out"
                         style={{
-                            width: "80px",
+                            width: "64px",
                             left: "4px",
-                            transform: `translateX(calc(${roleIndex} * (80px + 0px)))`
+                            transform: `translateX(calc(${roleIndex} * 64px))`
                         }}
                     />
                     <button
                         type="button"
                         onClick={() => handleRoleChange("cast")}
-                        className={`relative z-10 w-20 flex items-center justify-center h-8 rounded-full text-sm font-medium transition-colors duration-200 ${optimisticRole === "cast" ? "text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
+                        className={`relative z-10 w-16 flex items-center justify-center h-7 rounded-full text-xs font-medium transition-colors duration-200 ${optimisticRole === "cast" ? "text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
                     >
                         キャスト
                     </button>
                     <button
                         type="button"
                         onClick={() => handleRoleChange("staff")}
-                        className={`relative z-10 w-20 flex items-center justify-center h-8 rounded-full text-sm font-medium transition-colors duration-200 ${optimisticRole === "staff" ? "text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
+                        className={`relative z-10 w-16 flex items-center justify-center h-7 rounded-full text-xs font-medium transition-colors duration-200 ${optimisticRole === "staff" ? "text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
                     >
                         スタッフ
                     </button>
                     <button
                         type="button"
                         onClick={() => handleRoleChange("guest")}
-                        className={`relative z-10 w-20 flex items-center justify-center h-8 rounded-full text-sm font-medium transition-colors duration-200 ${optimisticRole === "guest" ? "text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
+                        className={`relative z-10 w-16 flex items-center justify-center h-7 rounded-full text-xs font-medium transition-colors duration-200 ${optimisticRole === "guest" ? "text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
                     >
                         ゲスト
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => handleRoleChange("partner")}
+                        className={`relative z-10 w-16 flex items-center justify-center h-7 rounded-full text-xs font-medium transition-colors duration-200 ${optimisticRole === "partner" ? "text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
+                    >
+                        パートナー
                     </button>
                 </div>
 
                 <Button
                     size="icon"
-                    className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
+                    className="h-10 w-10 shrink-0 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
                     onClick={() => {
                         setSelectedProfile(null);
                         setIsModalOpen(true);
@@ -239,6 +251,12 @@ export function UsersTable({ profiles: initialProfiles, roleFilter, hidePersonal
                             {(roleFilter === "cast" || roleFilter === "staff") && (
                                 <TableHead className="px-3 sm:px-4 text-center text-gray-500 dark:text-gray-400">状態</TableHead>
                             )}
+                            {roleFilter === "partner" && (
+                                <TableHead className="px-3 sm:px-4 text-center text-gray-500 dark:text-gray-400">電話番号</TableHead>
+                            )}
+                            {roleFilter === "partner" && (
+                                <TableHead className="px-3 sm:px-4 text-center text-gray-500 dark:text-gray-400">住所</TableHead>
+                            )}
                             {roleFilter === "guest" && (
                                 <TableHead className="px-3 sm:px-4 text-center text-gray-500 dark:text-gray-400">宛名</TableHead>
                             )}
@@ -276,6 +294,18 @@ export function UsersTable({ profiles: initialProfiles, roleFilter, hidePersonal
                                 {(roleFilter === "cast" || roleFilter === "staff") && (
                                     <TableCell className="px-3 sm:px-4 text-center text-sm text-gray-500 dark:text-gray-400 truncate">
                                         {profile.status || "在籍中"}
+                                    </TableCell>
+                                )}
+                                {roleFilter === "partner" && (
+                                    <TableCell className="px-3 sm:px-4 text-center text-sm text-gray-500 dark:text-gray-400 truncate">
+                                        {profile.phone_number || "-"}
+                                    </TableCell>
+                                )}
+                                {roleFilter === "partner" && (
+                                    <TableCell className="px-3 sm:px-4 text-center text-sm text-gray-500 dark:text-gray-400 truncate">
+                                        {profile.prefecture || profile.city || profile.street
+                                            ? `${profile.prefecture || ""}${profile.city || ""}${profile.street || ""}`
+                                            : "-"}
                                     </TableCell>
                                 )}
                                 {roleFilter === "guest" && (

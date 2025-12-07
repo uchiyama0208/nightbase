@@ -23,6 +23,14 @@ import { BottleModal } from "./bottle-modal";
 import { formatJSTDate } from "@/lib/utils";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 
 interface BottleListProps {
     storeId: string;
@@ -37,11 +45,13 @@ export function BottleList({ storeId, menus, profiles }: BottleListProps) {
     const [remainingFilter, setRemainingFilter] = useState("all");
     const [searchQuery, setSearchQuery] = useState("");
     const [isPending, startTransition] = useTransition();
+    const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
-    const activeFilters = [
+    const activeFilters = useMemo(() => [
         searchQuery.trim() && "検索",
         remainingFilter !== "all" && "残量",
-    ].filter(Boolean) as string[];
+    ].filter(Boolean) as string[], [searchQuery, remainingFilter]);
     const hasFilters = activeFilters.length > 0;
 
     const fetchBottles = useCallback(async () => {
@@ -67,39 +77,46 @@ export function BottleList({ storeId, menus, profiles }: BottleListProps) {
         [bottles],
     );
 
-    const handleCreateNew = () => {
+    const handleCreateNew = useCallback(() => {
         setEditingBottle(null);
         setIsModalOpen(true);
-    };
+    }, []);
 
-    const handleEdit = (bottle: any) => {
+    const handleEdit = useCallback((bottle: any) => {
         setEditingBottle(bottle);
         setIsModalOpen(true);
-    };
+    }, []);
 
-    const handleDelete = async (id: string) => {
-        if (confirm("このボトルキープを削除しますか？")) {
-            await deleteBottleKeep(id);
+    const handleDeleteClick = useCallback((id: string) => {
+        setDeleteTargetId(id);
+        setIsDeleteDialogOpen(true);
+    }, []);
+
+    const handleConfirmDelete = useCallback(async () => {
+        if (deleteTargetId) {
+            await deleteBottleKeep(deleteTargetId);
             fetchBottles();
         }
-    };
+        setIsDeleteDialogOpen(false);
+        setDeleteTargetId(null);
+    }, [deleteTargetId, fetchBottles]);
 
-    const handleModalClose = (shouldRefresh = false) => {
+    const handleModalClose = useCallback((shouldRefresh = false) => {
         setIsModalOpen(false);
         setEditingBottle(null);
         if (shouldRefresh) {
             fetchBottles();
         }
-    };
+    }, [fetchBottles]);
 
-    const getRemainingAmountText = (amount: number) => {
+    const getRemainingAmountText = useCallback((amount: number) => {
         if (amount === 100) return "未開封";
         if (amount === 75) return "多め";
         if (amount === 50) return "半分";
         if (amount === 25) return "少なめ";
         if (amount === 0) return "無し";
         return `${amount}%`;
-    };
+    }, []);
 
 
 
@@ -229,7 +246,7 @@ export function BottleList({ storeId, menus, profiles }: BottleListProps) {
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
-                                                onClick={() => handleDelete(bottle.id)}
+                                                onClick={() => handleDeleteClick(bottle.id)}
                                             >
                                                 <Trash2 className="h-4 w-4 text-red-500" />
                                             </Button>
@@ -250,6 +267,34 @@ export function BottleList({ storeId, menus, profiles }: BottleListProps) {
                 menus={menus}
                 profiles={profiles}
             />
+
+            {/* 削除確認ダイアログ */}
+            <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <DialogContent className="max-w-md rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+                    <DialogHeader>
+                        <DialogTitle className="text-gray-900 dark:text-white">削除の確認</DialogTitle>
+                        <DialogDescription className="text-gray-600 dark:text-gray-400">
+                            このボトルキープを削除しますか？この操作は取り消せません。
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="mt-4 flex justify-end gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsDeleteDialogOpen(false)}
+                            className="rounded-lg"
+                        >
+                            キャンセル
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={handleConfirmDelete}
+                            className="rounded-lg"
+                        >
+                            削除する
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

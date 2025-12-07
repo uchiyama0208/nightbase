@@ -4,7 +4,7 @@ import { createServerClient } from "@/lib/supabaseServerClient";
 import { revalidatePath } from "next/cache";
 
 export async function searchStoreByCode(storeCode: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { data: store, error } = await supabase
         .from("stores")
@@ -29,7 +29,7 @@ export async function submitJoinRequestFromMe(data: {
     displayName: string;
     displayNameKana: string;
 }) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
     if (userError || !user) {
@@ -116,7 +116,7 @@ export async function createNewStore(data: {
     ownerDisplayName: string;
     ownerDisplayNameKana: string;
 }) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
     if (userError || !user) {

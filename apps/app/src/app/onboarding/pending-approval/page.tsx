@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { PendingApprovalClient } from "./pending-approval-client";
 
 export default async function PendingApprovalPage() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {

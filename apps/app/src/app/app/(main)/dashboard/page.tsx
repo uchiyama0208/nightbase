@@ -1,23 +1,16 @@
-
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { Users, UserCog } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import Link from "next/link";
-import { createServerClient } from "@/lib/supabaseServerClient";
-import { createServiceRoleClient } from "@/lib/supabaseServiceClient";
-import { WorkingTimeCard } from "./working-time-card";
-import { ClockInCard } from "./clock-in-card";
 import { getAppData } from "../../data-access";
-import { LinePrompt } from "./line-prompt";
+import { TabMenuCards } from "./tab-menu-cards";
+import { getDashboardData } from "./actions";
 
 export const metadata: Metadata = {
     title: "ダッシュボード",
 };
 
-// Server Component - データをサーバー側で取得
-async function getDashboardData() {
+// Server Component (default export)
+export default async function DashboardPage() {
     const { user, profile } = await getAppData();
 
     if (!user) {
@@ -29,170 +22,152 @@ async function getDashboardData() {
     }
 
     if (!profile.store_id) {
-        // Profile exists but no store - redirect to store creation
         redirect("/onboarding/store-info");
     }
 
-    const store = profile.stores as any;
-    if (store && store.show_dashboard === false) {
+    const store = profile.stores;
+    if (store?.show_dashboard === false) {
         redirect("/app/timecard");
     }
 
-    const storeName = store ? store.name : null;
-    const storeId = profile.store_id;
+    // タイムカード情報を取得
+    const dashboardResult = await getDashboardData();
 
-    // 集計には service role クライアントを使用
-    const serviceSupabase = createServiceRoleClient();
-
-    // Parallelize independent fetches
-    // Get today's date in JST
-    const today = new Date().toLocaleDateString("ja-JP", {
-        timeZone: "Asia/Tokyo",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-    }).replace(/\//g, "-");
-
-    // Parallelize all fetches
-    const [activeTimeCardsResult, currentUserTimeCardResult, lastClockInResult] = await Promise.all([
-        // Fetch active timecards with roles in one go
-        serviceSupabase
-            .from("time_cards")
-            .select("user_id, profiles!inner(role)")
-            .eq("profiles.store_id", storeId)
-            .eq("work_date", today)
-            .is("clock_out", null)
-            .returns<{ user_id: string; profiles: { role: string } }[]>(),
-
-        // Check if current user is clocked in
-        serviceSupabase
-            .from("time_cards")
-            .select("clock_in")
-            .eq("user_id", profile.id)
-            .eq("work_date", today)
-            .is("clock_out", null)
-            .maybeSingle()
-            .returns<{ clock_in: string } | null>(),
-
-        // Get last completed clock-in
-        serviceSupabase
-            .from("time_cards")
-            .select("work_date, clock_in, clock_out")
-            .eq("user_id", profile.id)
-            .not("clock_out", "is", null)
-            .order("work_date", { ascending: false })
-            .order("clock_in", { ascending: false })
-            .limit(1)
-            .maybeSingle()
-            .returns<{ work_date: string; clock_in: string; clock_out: string } | null>()
-    ]);
-
-    const activeTimeCards = activeTimeCardsResult.data || [];
-
-    // Count based on returned roles
-    const activeCastCount = activeTimeCards.filter(tc => tc.profiles.role === 'cast').length;
-    const activeStaffCount = activeTimeCards.filter(tc => ['staff', 'admin'].includes(tc.profiles.role)).length;
-
-    const currentUserTimeCard = currentUserTimeCardResult.data;
-    const lastClockIn = lastClockInResult.data;
-
-    return {
-        currentProfile: profile,
-        storeName,
-        activeCastCount,
-        activeStaffCount,
-        currentUserTimeCard,
-        lastClockIn,
-        hasLineId: !!profile.line_user_id,
-        lineIsFriend: profile.line_is_friend,
+    const timecardInfo = dashboardResult.data ? {
+        isWorking: !!dashboardResult.data.currentUserTimeCard,
+        clockInTime: dashboardResult.data.currentUserTimeCard?.clock_in || null,
+        lastWorkDate: dashboardResult.data.lastClockIn?.work_date || null,
+    } : {
+        isWorking: false,
+        clockInTime: null,
+        lastWorkDate: null,
     };
-}
 
+    const attendanceInfo = dashboardResult.data ? {
+        castCount: dashboardResult.data.activeCastCount,
+        staffCount: dashboardResult.data.activeStaffCount,
+    } : {
+        castCount: 0,
+        staffCount: 0,
+    };
 
-// Skeleton for cards
-function DashboardSkeleton() {
+    const shiftInfo = dashboardResult.data ? {
+        scheduledCastCount: dashboardResult.data.scheduledCastCount,
+        scheduledStaffCount: dashboardResult.data.scheduledStaffCount,
+    } : {
+        scheduledCastCount: 0,
+        scheduledStaffCount: 0,
+    };
+
+    const myShiftInfo = dashboardResult.data ? {
+        nextShiftDate: dashboardResult.data.nextShiftDate,
+        unsubmittedCount: dashboardResult.data.unsubmittedShiftRequestCount,
+    } : {
+        nextShiftDate: null,
+        unsubmittedCount: 0,
+    };
+
+    const pickupInfo = dashboardResult.data ? {
+        requestCount: dashboardResult.data.pickupRequestCount,
+        unassignedCount: dashboardResult.data.unassignedPickupCount,
+    } : {
+        requestCount: 0,
+        unassignedCount: 0,
+    };
+
+    // User tab
+    const userInfo = dashboardResult.data ? {
+        castCount: dashboardResult.data.castCount,
+        staffCount: dashboardResult.data.staffCount,
+        guestCount: dashboardResult.data.guestCount,
+        partnerCount: dashboardResult.data.partnerCount,
+    } : { castCount: 0, staffCount: 0, guestCount: 0, partnerCount: 0 };
+
+    const rolesInfo = dashboardResult.data ? {
+        count: dashboardResult.data.rolesCount,
+    } : { count: 0 };
+
+    const invitationsInfo = dashboardResult.data ? {
+        pendingCount: dashboardResult.data.pendingInvitationsCount,
+    } : { pendingCount: 0 };
+
+    const joinRequestsInfo = dashboardResult.data ? {
+        pendingCount: dashboardResult.data.pendingJoinRequestsCount,
+    } : { pendingCount: 0 };
+
+    // Floor tab
+    const floorInfo = dashboardResult.data ? {
+        activeTableCount: dashboardResult.data.activeTableCount,
+        activeGuestCount: dashboardResult.data.activeGuestCount,
+    } : { activeTableCount: 0, activeGuestCount: 0 };
+
+    const seatsInfo = dashboardResult.data ? {
+        count: dashboardResult.data.tablesCount,
+    } : { count: 0 };
+
+    const slipsInfo = dashboardResult.data ? {
+        unpaidCount: dashboardResult.data.unpaidSlipsCount,
+    } : { unpaidCount: 0 };
+
+    const menusInfo = dashboardResult.data ? {
+        count: dashboardResult.data.menusCount,
+    } : { count: 0 };
+
+    const bottlesInfo = dashboardResult.data ? {
+        activeCount: dashboardResult.data.activeBottleKeepsCount,
+    } : { activeCount: 0 };
+
+    // Salary tab
+    const pricingInfo = dashboardResult.data ? {
+        count: dashboardResult.data.pricingSystemsCount,
+    } : { count: 0 };
+
+    const salaryInfo = dashboardResult.data ? {
+        count: dashboardResult.data.salarySystemsCount,
+    } : { count: 0 };
+
+    // Community tab
+    const boardInfo = dashboardResult.data ? {
+        postsCount: dashboardResult.data.postsCount,
+        manualsCount: dashboardResult.data.manualsCount,
+        unreadPostsCount: dashboardResult.data.unreadPostsCount,
+        unreadManualsCount: dashboardResult.data.unreadManualsCount,
+    } : { postsCount: 0, manualsCount: 0, unreadPostsCount: 0, unreadManualsCount: 0 };
+
+    const snsInfo = dashboardResult.data ? {
+        todayCount: dashboardResult.data.todaySnsPostsCount,
+        scheduledCount: dashboardResult.data.scheduledSnsPostsCount,
+    } : { todayCount: 0, scheduledCount: 0 };
+
+    const featuresInfo = dashboardResult.data ? {
+        enabledCount: dashboardResult.data.enabledFeaturesCount,
+        disabledCount: dashboardResult.data.disabledFeaturesCount,
+    } : { enabledCount: 0, disabledCount: 0 };
+
     return (
-        <div className="space-y-4 animate-pulse">
-            <div className="h-8 w-1/3 bg-gray-200 dark:bg-gray-700 rounded"></div>
-            <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded"></div>
-            </div>
-        </div>
-    );
-}
-
-// Server Component (default export)
-export default async function DashboardPage() {
-    const data = await getDashboardData();
-    const { currentProfile, storeName, activeCastCount, activeStaffCount, currentUserTimeCard, lastClockIn, hasLineId, lineIsFriend } = data;
-
-    return (
-        <>
-            {/* LINE Prompt - shows when LINE linked but not a friend of official account */}
-            <LinePrompt hasLineId={hasLineId} lineIsFriend={lineIsFriend} />
-
-            <div className="space-y-4">
-                <div>
-                    <h1 className="text-xl md:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-                        ようこそ、{currentProfile?.display_name || "ゲスト"}さん
-                    </h1>
-                    <p className="mt-2 text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                        {storeName ? `${storeName} - ` : ""}現在の出勤状況を確認できます。
-                    </p>
-                </div>
-
-                {/* Clock-In Card - Only shown when user is NOT clocked in */}
-                {!currentUserTimeCard?.clock_in && (
-                    <Suspense fallback={<div className="h-32 bg-gray-100 dark:bg-gray-800 rounded-xl animate-pulse"></div>}>
-                        <ClockInCard
-                            lastWorkDate={lastClockIn?.work_date}
-                            clockIn={lastClockIn?.clock_in}
-                            clockOut={lastClockIn?.clock_out}
-                        />
-                    </Suspense>
-                )}
-
-                {/* Working Time Card - Only shown when user is clocked in */}
-                {currentUserTimeCard?.clock_in && (
-                    <Suspense fallback={<div className="h-32 bg-gray-100 dark:bg-gray-800 rounded-xl animate-pulse"></div>}>
-                        <WorkingTimeCard clockInTime={currentUserTimeCard.clock_in} />
-                    </Suspense>
-                )}
-
-                <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                    <Link href="/app/attendance?role=cast" className="block">
-                        <Card className="shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer h-full">
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium text-gray-500">
-                                    出勤中のキャスト
-                                </CardTitle>
-                                <Users className="h-4 w-4 text-gray-400" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold text-gray-900 dark:text-white">{activeCastCount}名</div>
-                                <p className="text-xs text-gray-500 mt-1">現在稼働中</p>
-                            </CardContent>
-                        </Card>
-                    </Link>
-
-                    <Link href="/app/attendance?role=staff" className="block">
-                        <Card className="shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer h-full">
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium text-gray-500">
-                                    出勤中のスタッフ
-                                </CardTitle>
-                                <UserCog className="h-4 w-4 text-gray-400" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold text-gray-900 dark:text-white">{activeStaffCount}名</div>
-                                <p className="text-xs text-gray-500 mt-1">現在稼働中</p>
-                            </CardContent>
-                        </Card>
-                    </Link>
-                </div>
-            </div>
-        </>
+        <Suspense fallback={<div className="h-40 bg-gray-100 dark:bg-gray-800 rounded-xl animate-pulse"></div>}>
+            <TabMenuCards
+                timecardInfo={timecardInfo}
+                attendanceInfo={attendanceInfo}
+                shiftInfo={shiftInfo}
+                myShiftInfo={myShiftInfo}
+                pickupInfo={pickupInfo}
+                userInfo={userInfo}
+                rolesInfo={rolesInfo}
+                invitationsInfo={invitationsInfo}
+                joinRequestsInfo={joinRequestsInfo}
+                floorInfo={floorInfo}
+                seatsInfo={seatsInfo}
+                slipsInfo={slipsInfo}
+                menusInfo={menusInfo}
+                bottlesInfo={bottlesInfo}
+                pricingInfo={pricingInfo}
+                salaryInfo={salaryInfo}
+                boardInfo={boardInfo}
+                snsInfo={snsInfo}
+                featuresInfo={featuresInfo}
+            />
+        </Suspense>
     );
 }
 

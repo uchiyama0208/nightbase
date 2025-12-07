@@ -43,7 +43,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: "入力内容を確認してください" }, { status: 400 });
     }
 
-    const adminClient = createServiceRoleClient();
+    const adminClient = createServiceRoleClient() as any;
 
     const redirectTo = process.env.NEXT_PUBLIC_SITE_URL
       ? `${process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "")}/admin`

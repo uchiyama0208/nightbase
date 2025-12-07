@@ -4,13 +4,14 @@ import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabaseServerClient";
 import { SalarySystemsList } from "./salary-systems-list";
 import { getSalarySystems } from "./actions";
+import { PageTitle } from "@/components/page-title";
 
 export const metadata: Metadata = {
     title: "給与システム",
 };
 
 async function checkAccess() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -69,13 +70,11 @@ export default async function SalarySystemsPage({
 
     return (
         <div className="space-y-4">
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">給与システム</h1>
-                <p className="mt-2 text-sm text-muted-foreground dark:text-gray-400">
-                    キャスト・スタッフの給与計算システムを管理します。
-                </p>
-            </div>
-
+            <PageTitle
+                title="給与体系"
+                description="キャスト・スタッフの給与計算システムを管理します。"
+                backTab="salary"
+            />
             <Suspense fallback={<SalarySystemsSkeleton />}>
                 <SalarySystemsList initialSystems={salarySystems} typeFilter={typeFilter} />
             </Suspense>

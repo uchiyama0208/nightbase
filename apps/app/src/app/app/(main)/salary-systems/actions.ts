@@ -69,7 +69,7 @@ export interface SalarySystemInput {
 
 // Get current store ID helper
 async function getCurrentStoreId() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) return null;
@@ -93,7 +93,7 @@ async function getCurrentStoreId() {
 
 // Get all salary systems for current store
 export async function getSalarySystems(): Promise<SalarySystem[]> {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const storeId = await getCurrentStoreId();
 
     if (!storeId) return [];
@@ -130,7 +130,7 @@ export async function getSalarySystems(): Promise<SalarySystem[]> {
 
 // Get single salary system
 export async function getSalarySystem(id: string): Promise<SalarySystem | null> {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { data, error } = await supabase
         .from("salary_systems")
@@ -158,7 +158,7 @@ export async function getSalarySystem(id: string): Promise<SalarySystem | null> 
 
 // Create salary system
 export async function createSalarySystem(input: SalarySystemInput): Promise<{ success: boolean; error?: string; data?: SalarySystem }> {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const storeId = await getCurrentStoreId();
 
     if (!storeId) {
@@ -193,7 +193,7 @@ export async function createSalarySystem(input: SalarySystemInput): Promise<{ su
 
 // Update salary system
 export async function updateSalarySystem(id: string, input: SalarySystemInput): Promise<{ success: boolean; error?: string }> {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { error } = await supabase
         .from("salary_systems")
@@ -221,7 +221,7 @@ export async function updateSalarySystem(id: string, input: SalarySystemInput): 
 
 // Delete salary system
 export async function deleteSalarySystem(id: string): Promise<{ success: boolean; error?: string }> {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { error } = await supabase
         .from("salary_systems")
@@ -239,7 +239,7 @@ export async function deleteSalarySystem(id: string): Promise<{ success: boolean
 
 // Assign salary system to profile
 export async function assignSalarySystemToProfile(profileId: string, salarySystemId: string): Promise<{ success: boolean; error?: string }> {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { error } = await supabase
         .from("profile_salary_systems")
@@ -259,7 +259,7 @@ export async function assignSalarySystemToProfile(profileId: string, salarySyste
 
 // Remove salary system from profile
 export async function removeSalarySystemFromProfile(profileId: string, salarySystemId: string): Promise<{ success: boolean; error?: string }> {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { error } = await supabase
         .from("profile_salary_systems")

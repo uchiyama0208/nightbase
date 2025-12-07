@@ -358,18 +358,36 @@ export type Database = {
             email: string | null;
             created_at: string;
             updated_at: string;
+            current_profile_id: string | null;
+            primary_email: string | null;
+            hide_line_friendship_prompt: boolean;
+            avatar_url: string | null;
+            display_name: string | null;
+            is_admin: boolean;
           };
           Insert: {
             id: string;
             email?: string | null;
             created_at?: string;
             updated_at?: string;
+            current_profile_id?: string | null;
+            primary_email?: string | null;
+            hide_line_friendship_prompt?: boolean;
+            avatar_url?: string | null;
+            display_name?: string | null;
+            is_admin?: boolean;
           };
           Update: {
             id?: string;
             email?: string | null;
             created_at?: string;
             updated_at?: string;
+            current_profile_id?: string | null;
+            primary_email?: string | null;
+            hide_line_friendship_prompt?: boolean;
+            avatar_url?: string | null;
+            display_name?: string | null;
+            is_admin?: boolean;
           };
           Relationships: [
             {
@@ -380,6 +398,92 @@ export type Database = {
             }
           ];
         };
+      };
+      pickup_routes: {
+        Row: {
+          id: string;
+          store_id: string;
+          date: string;
+          driver_profile_id: string | null;
+          round_trips: number;
+          capacity: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          store_id: string;
+          date: string;
+          driver_profile_id?: string | null;
+          round_trips?: number;
+          capacity?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          store_id?: string;
+          date?: string;
+          driver_profile_id?: string | null;
+          round_trips?: number;
+          capacity?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "pickup_routes_store_id_fkey";
+            columns: ["store_id"];
+            referencedRelation: "stores";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "pickup_routes_driver_profile_id_fkey";
+            columns: ["driver_profile_id"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      pickup_passengers: {
+        Row: {
+          id: string;
+          route_id: string;
+          cast_profile_id: string;
+          trip_number: number;
+          order_index: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          route_id: string;
+          cast_profile_id: string;
+          trip_number?: number;
+          order_index?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          route_id?: string;
+          cast_profile_id?: string;
+          trip_number?: number;
+          order_index?: number;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "pickup_passengers_route_id_fkey";
+            columns: ["route_id"];
+            referencedRelation: "pickup_routes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "pickup_passengers_cast_profile_id_fkey";
+            columns: ["cast_profile_id"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          }
+        ];
       };
       Views: Record<string, never>;
       Functions: Record<string, never>;

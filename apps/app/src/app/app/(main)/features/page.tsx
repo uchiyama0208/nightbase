@@ -3,9 +3,10 @@ import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabaseServerClient";
 import { FeaturesClient } from "./features-client";
 import { updateSingleFeature } from "./actions";
+import { PageTitle } from "@/components/page-title";
 
 async function getFeaturesData() {
-  const supabase = await createServerClient();
+  const supabase = await createServerClient() as any;
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
@@ -76,9 +77,15 @@ export default async function FeatureSettingsPage() {
   const data = await getFeaturesData();
 
   return (
-    <Suspense fallback={<FeaturesSkeleton />}>
-      <FeaturesClient initialFlags={data.initialFlags} updateFeature={updateSingleFeature} />
-    </Suspense>
+    <div className="space-y-4">
+      <PageTitle
+        title="機能追加"
+        backTab="community"
+      />
+      <Suspense fallback={<FeaturesSkeleton />}>
+        <FeaturesClient initialFlags={data.initialFlags} updateFeature={updateSingleFeature} />
+      </Suspense>
+    </div>
   );
 }
 

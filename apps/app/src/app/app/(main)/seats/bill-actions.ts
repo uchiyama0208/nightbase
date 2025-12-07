@@ -5,7 +5,7 @@ import { BillSettings } from "@/types/floor";
 import { revalidatePath } from "next/cache";
 
 export async function getBillSettings(): Promise<BillSettings | null> {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
@@ -33,7 +33,7 @@ export async function getBillSettings(): Promise<BillSettings | null> {
 }
 
 export async function saveBillSettings(settings: Partial<BillSettings>) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Not authenticated");

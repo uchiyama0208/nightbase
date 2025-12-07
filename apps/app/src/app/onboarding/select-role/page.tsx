@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { SelectRoleForm } from "./select-role-form";
 
 export default async function SelectRolePage() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {

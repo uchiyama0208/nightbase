@@ -51,8 +51,8 @@ export default async function AppLayout({
     const avatarUrl = profile?.avatar_url
         ? `${profile.avatar_url}${profile.avatar_url.includes("?") ? "&" : "?"}t=${Date.now()}`
         : undefined;
-    const store = profile?.stores as any;
-    const storeName = store ? store.name : undefined;
+    const store = profile?.stores;
+    const storeName = store?.name;
     const storeFeatures = store
         ? {
             show_dashboard: store.show_dashboard ?? true,

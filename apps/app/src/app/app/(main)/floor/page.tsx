@@ -10,6 +10,7 @@ import { QuickOrderModal } from "./quick-order-modal";
 import { SlipDetailModal } from "@/components/slips/slip-detail-modal";
 import { SessionCard } from "./components/session-card";
 import { useFloorData } from "./hooks/use-floor-data";
+import { PageTitle } from "@/components/page-title";
 
 export default function FloorPage() {
     const {
@@ -42,9 +43,10 @@ export default function FloorPage() {
 
     return (
         <div className="h-full flex flex-col space-y-3 p-1 md:p-4">
-            <div>
-                <h1 className="text-2xl font-bold">フロア管理</h1>
-            </div>
+            <PageTitle
+                title="フロア管理"
+                backTab="floor"
+            />
             <div className="flex items-center justify-between">
                 {/* Toggle Button */}
                 <div className="relative inline-flex h-10 items-center rounded-full bg-gray-100 dark:bg-gray-800 p-1">

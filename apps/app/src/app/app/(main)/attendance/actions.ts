@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import { createServiceRoleClient } from "@/lib/supabaseServiceClient";
 
 export async function createAttendance(formData: FormData) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -118,7 +118,7 @@ export async function createAttendance(formData: FormData) {
 }
 
 export async function updateAttendance(formData: FormData) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -243,7 +243,7 @@ export async function importAttendanceFromCsv(formData: FormData) {
 
     const roleFilter = (formData.get("attendanceRole") as string | null) ?? null; // "cast" | "staff"
 
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -385,7 +385,7 @@ export async function importAttendanceFromCsv(formData: FormData) {
 }
 
 export async function getAttendanceRecords(profileId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // Basic auth check
     const {
@@ -413,7 +413,7 @@ export async function getAttendanceRecords(profileId: string) {
 }
 
 export async function getAttendanceData(roleParam?: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -477,7 +477,7 @@ export async function getAttendanceData(roleParam?: string) {
     }
 
     // Fetch time_cards for the last 30 days
-    const serviceSupabase = createServiceRoleClient();
+    const serviceSupabase = createServiceRoleClient() as any;
     const today = new Date();
     const from = new Date();
     from.setDate(today.getDate() - 30);
@@ -554,7 +554,7 @@ export async function getAttendanceData(roleParam?: string) {
 }
 
 export async function deleteAttendance(id: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();

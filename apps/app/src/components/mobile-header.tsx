@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { useDashboardTab } from "@/contexts/dashboard-tab-context";
 
 interface MobileHeaderProps {
     onMenuClick: () => void;
@@ -13,9 +14,22 @@ interface MobileHeaderProps {
     hasSidebar?: boolean;
 }
 
-const getPageTitle = (pathname: string): string => {
-    if (pathname.includes("/dashboard")) return "ダッシュボード";
+const tabTitles: Record<string, string> = {
+    shift: "シフト",
+    user: "ユーザー",
+    floor: "フロア",
+    salary: "料金給与",
+    community: "コミュニティ",
+};
+
+const getPageTitle = (pathname: string, activeTab: string | null): string => {
+    // ダッシュボードでタブがある場合はタブ名を表示
+    if (pathname.includes("/dashboard") && activeTab && tabTitles[activeTab]) {
+        return tabTitles[activeTab];
+    }
+    if (pathname.includes("/dashboard")) return "シフト";
     if (pathname.includes("/timecard")) return "タイムカード";
+    if (pathname.includes("/pickup")) return "送迎管理";
     if (pathname.includes("/attendance")) return "出勤管理";
     if (pathname.includes("/users")) return "プロフィール情報";
     if (pathname.includes("/invitations")) return "招待";
@@ -28,12 +42,22 @@ const getPageTitle = (pathname: string): string => {
     if (pathname.includes("/assignments")) return "付け回し";
     if (pathname.includes("/orders")) return "注文";
     if (pathname.includes("/slips")) return "伝票";
-    return "ダッシュボード";
+    if (pathname.includes("/bottles")) return "ボトル";
+    if (pathname.includes("/menus")) return "メニュー";
+    if (pathname.includes("/pricing-systems")) return "料金体系";
+    if (pathname.includes("/salary-systems")) return "給与体系";
+    if (pathname.includes("/my-shifts")) return "マイシフト";
+    if (pathname.includes("/shifts")) return "シフト";
+    if (pathname.includes("/board")) return "掲示板";
+    if (pathname.includes("/sns")) return "SNS";
+    return "シフト";
 };
 
 export function MobileHeader({ onMenuClick, profileName, avatarUrl, hasSidebar }: MobileHeaderProps) {
     const pathname = usePathname();
-    const pageTitle = getPageTitle(pathname);
+    const dashboardTab = useDashboardTab();
+    const activeTab = dashboardTab?.activeTab ?? null;
+    const pageTitle = getPageTitle(pathname, activeTab);
 
     return (
         <header

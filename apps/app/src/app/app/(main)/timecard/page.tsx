@@ -5,6 +5,9 @@ import { createServerClient } from "@/lib/supabaseServerClient";
 import { ClockButtons } from "./clock-in-button";
 import { getTimecardData } from "./actions";
 import { TimecardHistory } from "./timecard-history";
+import { PageTitle } from "@/components/page-title";
+import Link from "next/link";
+import { Settings } from "lucide-react";
 
 export const metadata: Metadata = {
     title: "タイムカード",
@@ -43,13 +46,18 @@ export default async function TimecardPage({
 
     return (
         <div className="space-y-4">
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-                    タイムカード
-                </h1>
-                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                    出勤・退勤の打刻と勤務履歴を確認できます。
-                </p>
+            <div className="flex items-start justify-between">
+                <PageTitle
+                    title="タイムカード"
+                    description="出勤・退勤の打刻と勤務履歴を確認できます。"
+                    backTab="shift"
+                />
+                <Link
+                    href="/app/settings/timecard"
+                    className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                >
+                    <Settings className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                </Link>
             </div>
 
             <Suspense fallback={<div className="h-48 bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse"></div>}>

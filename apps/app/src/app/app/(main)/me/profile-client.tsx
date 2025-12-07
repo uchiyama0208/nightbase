@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useTheme } from "@/components/theme-provider";
 import { Sun, Moon, Mail, Lock, MessageCircle, AlertCircle, ChevronRight, Check, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ interface ProfileClientProps {
 }
 
 export function ProfileClient({ initialEmail, initialName, identities, userId, lineUserId }: ProfileClientProps) {
+    const router = useRouter();
     const { theme, setTheme } = useTheme();
 
     const [email, setEmail] = useState(initialEmail);
@@ -84,8 +86,7 @@ export function ProfileClient({ initialEmail, initialName, identities, userId, l
         if (result.success) {
             setSuccessMessage("LINE連携を解除しました。");
             setShowSuccessModal(true);
-            // Reload the page to update the UI
-            window.location.reload();
+            router.refresh();
         } else {
             setErrorMessage(result.error || "エラーが発生しました");
             setShowErrorModal(true);

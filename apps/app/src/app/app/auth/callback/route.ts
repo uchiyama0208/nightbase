@@ -7,7 +7,7 @@ export async function GET(request: Request) {
     const next = searchParams.get("next") ?? "/onboarding/choice";
 
     if (code) {
-        const supabase = await createServerClient();
+        const supabase = await createServerClient() as any;
         const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
         if (!error && data.user) {

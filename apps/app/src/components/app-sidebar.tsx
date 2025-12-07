@@ -5,35 +5,36 @@ import { usePathname } from "next/navigation";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import {
-    LayoutDashboard,
     CalendarDays,
     Clock,
     Users,
     Settings,
     LogOut,
-    Menu,
     Shield,
     Utensils,
     Mail,
-    UserCircle,
     ChevronDown,
     UserPlus,
     Wine,
-    FileText,
     Armchair,
     Receipt,
     Grid3X3,
     CircleDollarSign,
-    Store,
     Banknote,
     CalendarCheck,
     CalendarClock,
+    MessageSquare,
+    Share2,
+    Sparkles,
+    Calendar,
+    Car,
+    LayoutGrid,
+    Coins,
+    Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { useState, useRef, useEffect } from "react";
-import { createBrowserClient } from "@/lib/supabaseClient";
-import { useRouter } from "next/navigation";
+import { useState, useRef } from "react";
 
 interface StoreFeatures {
     show_dashboard?: boolean;
@@ -55,47 +56,39 @@ interface SidebarProps {
 
 export function AppSidebar({ userRole, profileName, storeName, storeFeatures, open: controlledOpen, onOpenChange }: SidebarProps) {
     const pathname = usePathname();
+    const [shiftOpen, setShiftOpen] = useState(false);
+    const [userOpen, setUserOpen] = useState(false);
+    const [floorOpen, setFloorOpen] = useState(false);
+    const [salaryOpen, setSalaryOpen] = useState(false);
+    const [communityOpen, setCommunityOpen] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
-    const [basicInfoOpen, setBasicInfoOpen] = useState(false);
-    const [attendanceOpen, setAttendanceOpen] = useState(false);
     const [internalOpen, setInternalOpen] = useState(false);
 
-    const basicInfoContentRef = useRef<HTMLDivElement>(null);
+    const shiftContentRef = useRef<HTMLDivElement>(null);
+    const userContentRef = useRef<HTMLDivElement>(null);
+    const floorContentRef = useRef<HTMLDivElement>(null);
+    const salaryContentRef = useRef<HTMLDivElement>(null);
+    const communityContentRef = useRef<HTMLDivElement>(null);
     const settingsContentRef = useRef<HTMLDivElement>(null);
-    const attendanceContentRef = useRef<HTMLDivElement>(null);
 
     const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
     const setOpen = onOpenChange || setInternalOpen;
 
-    const mainRoutes = [
+    // シフト
+    const shiftRoutes = [
         {
-            label: "ダッシュボード",
-            icon: LayoutDashboard,
-            href: "/app/dashboard",
+            label: "出勤管理",
+            icon: Calendar,
+            href: "/app/attendance",
             roles: ["admin", "staff"],
-            feature: "dashboard" as const,
+            feature: "attendance" as const,
         },
         {
-            label: "フロア管理",
-            icon: Grid3X3,
-            href: "/app/floor",
+            label: "送迎管理",
+            icon: Car,
+            href: "/app/pickup",
             roles: ["admin", "staff"],
         },
-        {
-            label: "ボトルキープ",
-            icon: Wine,
-            href: "/app/bottles",
-            roles: ["admin", "staff"],
-        },
-        {
-            label: "伝票",
-            icon: Receipt,
-            href: "/app/slips",
-            roles: ["admin", "staff"],
-        },
-    ];
-
-    const attendanceRoutes = [
         {
             label: "タイムカード",
             icon: Clock,
@@ -104,33 +97,68 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
             feature: "timecard" as const,
         },
         {
-            label: "マイシフト",
-            icon: CalendarClock,
-            href: "/app/my-shifts",
-            roles: ["admin", "staff", "cast"],
-        },
-        {
-            label: "出勤一覧",
-            icon: CalendarDays,
-            href: "/app/attendance",
-            roles: ["admin", "staff"],
-            feature: "attendance" as const,
-        },
-        {
             label: "シフト管理",
             icon: CalendarCheck,
             href: "/app/shifts",
             roles: ["admin", "staff"],
         },
+        {
+            label: "マイシフト",
+            icon: CalendarClock,
+            href: "/app/my-shifts",
+            roles: ["admin", "staff", "cast"],
+        },
     ];
 
-    const basicInfoRoutes = [
+    // ユーザー
+    const userRoutes = [
         {
             label: "プロフィール情報",
             icon: Users,
             href: "/app/users",
             roles: ["admin", "staff"],
             feature: "users" as const,
+        },
+        {
+            label: "権限",
+            icon: Shield,
+            href: "/app/roles",
+            roles: ["admin", "staff"],
+            feature: "roles" as const,
+        },
+        {
+            label: "招待",
+            icon: Mail,
+            href: "/app/invitations",
+            roles: ["admin", "staff"],
+        },
+        {
+            label: "参加申請",
+            icon: UserPlus,
+            href: "/app/invitations/join-requests",
+            roles: ["admin", "staff"],
+        },
+    ];
+
+    // フロア
+    const floorRoutes = [
+        {
+            label: "フロア管理",
+            icon: LayoutGrid,
+            href: "/app/floor",
+            roles: ["admin", "staff"],
+        },
+        {
+            label: "席エディター",
+            icon: Armchair,
+            href: "/app/seats",
+            roles: ["admin", "staff"],
+        },
+        {
+            label: "伝票",
+            icon: Receipt,
+            href: "/app/slips",
+            roles: ["admin", "staff"],
         },
         {
             label: "メニュー",
@@ -140,25 +168,52 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
             feature: "menus" as const,
         },
         {
-            label: "席エディター",
-            icon: Armchair,
-            href: "/app/seats",
+            label: "ボトルキープ",
+            icon: Wine,
+            href: "/app/bottles",
             roles: ["admin", "staff"],
         },
+    ];
+
+    // 料金給与
+    const salaryRoutes = [
         {
-            label: "料金システム",
-            icon: CircleDollarSign,
+            label: "料金体系",
+            icon: Coins,
             href: "/app/pricing-systems",
             roles: ["admin", "staff"],
         },
         {
-            label: "給与システム",
-            icon: Banknote,
+            label: "給与体系",
+            icon: Wallet,
             href: "/app/salary-systems",
             roles: ["admin", "staff"],
         },
     ];
 
+    // コミュニティ
+    const communityRoutes = [
+        {
+            label: "掲示板",
+            icon: MessageSquare,
+            href: "/app/board",
+            roles: ["admin", "staff", "cast"],
+        },
+        {
+            label: "SNS",
+            icon: Share2,
+            href: "/app/sns",
+            roles: ["admin", "staff"],
+        },
+        {
+            label: "機能追加",
+            icon: Sparkles,
+            href: "/app/features",
+            roles: ["admin", "staff"],
+        },
+    ];
+
+    // 設定
     const settingsRoutes = [
         {
             label: "店舗設定",
@@ -182,7 +237,7 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
         {
             label: "参加申請",
             icon: UserPlus,
-            href: "/app/settings/join-requests",
+            href: "/app/invitations/join-requests",
             roles: ["admin", "staff"],
         },
     ];
@@ -191,7 +246,6 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
         return routes.filter((route) => {
             if (!userRole || !route.roles.includes(userRole)) return false;
             if (!storeFeatures) return true;
-            if (route.feature === "dashboard" && storeFeatures.show_dashboard === false) return false;
             if (route.feature === "attendance" && storeFeatures.show_attendance === false) return false;
             if (route.feature === "timecard" && storeFeatures.show_timecard === false) return false;
             if (route.feature === "users" && storeFeatures.show_users === false) return false;
@@ -201,14 +255,67 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
         });
     };
 
-    const filteredMainRoutes = filterRoutes(mainRoutes);
-    const filteredAttendanceRoutes = filterRoutes(attendanceRoutes);
-    const filteredBasicInfoRoutes = filterRoutes(basicInfoRoutes);
+    const filteredShiftRoutes = filterRoutes(shiftRoutes);
+    const filteredUserRoutes = filterRoutes(userRoutes);
+    const filteredFloorRoutes = filterRoutes(floorRoutes);
+    const filteredSalaryRoutes = filterRoutes(salaryRoutes);
+    const filteredCommunityRoutes = filterRoutes(communityRoutes);
     const filteredSettingsRoutes = filterRoutes(settingsRoutes);
 
     const handleSignOut = async () => {
         const { signOut } = await import("@/app/app/(main)/settings/actions");
         await signOut();
+    };
+
+    const renderAccordion = (
+        label: string,
+        icon: any,
+        isOpen: boolean,
+        setIsOpen: (open: boolean) => void,
+        contentRef: React.RefObject<HTMLDivElement | null>,
+        routes: any[]
+    ) => {
+        if (routes.length === 0) return null;
+        const Icon = icon;
+        return (
+            <div>
+                <button
+                    onClick={() => setIsOpen(!isOpen)}
+                    className="w-full flex items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-400 transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+                >
+                    <div className="flex items-center gap-3">
+                        <Icon className="h-5 w-5" />
+                        <span>{label}</span>
+                    </div>
+                    <ChevronDown className={cn("h-4 w-4 transition-transform duration-300", isOpen ? "rotate-180" : "")} />
+                </button>
+
+                <div
+                    style={{
+                        height: isOpen ? contentRef.current?.scrollHeight || 'auto' : 0,
+                        overflow: 'hidden',
+                        transition: 'height 0.3s ease-out',
+                    }}
+                >
+                    <div ref={contentRef} className="mt-1 ml-4 space-y-1 border-l-2 border-gray-100 dark:border-gray-700 pl-2">
+                        {routes.map((route) => (
+                            <Link
+                                key={route.href}
+                                href={route.href}
+                                onClick={() => setOpen(false)}
+                                className={cn(
+                                    "flex items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white",
+                                    pathname === route.href ? "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400"
+                                )}
+                            >
+                                <route.icon className="h-4 w-4" />
+                                {route.label}
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        );
     };
 
     const SidebarContent = ({ isMobile = false }: { isMobile?: boolean }) => (
@@ -225,143 +332,23 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
             </div>
             <div className="flex-1 px-3 py-3 overflow-y-auto">
                 <nav className="space-y-1.5">
-                    {filteredMainRoutes.map((route) => (
-                        <Link
-                            key={route.href}
-                            href={route.href}
-                            onClick={() => setOpen(false)}
-                            className={cn(
-                                "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white",
-                                pathname === route.href ? "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400"
-                            )}
-                        >
-                            <route.icon className="h-5 w-5" />
-                            {route.label}
-                        </Link>
-                    ))}
+                    {/* シフト */}
+                    {renderAccordion("シフト", Calendar, shiftOpen, setShiftOpen, shiftContentRef, filteredShiftRoutes)}
 
-                    {/* Attendance Group */}
-                    {filteredAttendanceRoutes.length > 0 && (
-                        <div className="pt-2">
-                            <button
-                                onClick={() => setAttendanceOpen(!attendanceOpen)}
-                                className="w-full flex items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-400 transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <Clock className="h-5 w-5" />
-                                    <span>勤怠</span>
-                                </div>
-                                <ChevronDown className={cn("h-4 w-4 transition-transform duration-300", attendanceOpen ? "rotate-180" : "")} />
-                            </button>
+                    {/* ユーザー */}
+                    {renderAccordion("ユーザー", Users, userOpen, setUserOpen, userContentRef, filteredUserRoutes)}
 
-                            <div
-                                style={{
-                                    height: attendanceOpen ? attendanceContentRef.current?.scrollHeight || 'auto' : 0,
-                                    overflow: 'hidden',
-                                    transition: 'height 0.3s ease-out',
-                                }}
-                            >
-                                <div ref={attendanceContentRef} className="mt-1 ml-4 space-y-1 border-l-2 border-gray-100 dark:border-gray-700 pl-2">
-                                    {filteredAttendanceRoutes.map((route) => (
-                                        <Link
-                                            key={route.href}
-                                            href={route.href}
-                                            onClick={() => setOpen(false)}
-                                            className={cn(
-                                                "flex items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white",
-                                                pathname === route.href ? "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400"
-                                            )}
-                                        >
-                                            <route.icon className="h-4 w-4" />
-                                            {route.label}
-                                        </Link>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    )}
+                    {/* フロア */}
+                    {renderAccordion("フロア", LayoutGrid, floorOpen, setFloorOpen, floorContentRef, filteredFloorRoutes)}
 
-                    {/* Basic Info Group */}
-                    {filteredBasicInfoRoutes.length > 0 && (
-                        <div className="pt-2">
-                            <button
-                                onClick={() => setBasicInfoOpen(!basicInfoOpen)}
-                                className="w-full flex items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-400 transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <Store className="h-5 w-5" />
-                                    <span>基本情報</span>
-                                </div>
-                                <ChevronDown className={cn("h-4 w-4 transition-transform duration-300", basicInfoOpen ? "rotate-180" : "")} />
-                            </button>
+                    {/* 料金給与 */}
+                    {renderAccordion("料金給与", Coins, salaryOpen, setSalaryOpen, salaryContentRef, filteredSalaryRoutes)}
 
-                            <div
-                                style={{
-                                    height: basicInfoOpen ? basicInfoContentRef.current?.scrollHeight || 'auto' : 0,
-                                    overflow: 'hidden',
-                                    transition: 'height 0.3s ease-out',
-                                }}
-                            >
-                                <div ref={basicInfoContentRef} className="mt-1 ml-4 space-y-1 border-l-2 border-gray-100 dark:border-gray-700 pl-2">
-                                    {filteredBasicInfoRoutes.map((route) => (
-                                        <Link
-                                            key={route.href}
-                                            href={route.href}
-                                            onClick={() => setOpen(false)}
-                                            className={cn(
-                                                "flex items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white",
-                                                pathname === route.href ? "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400"
-                                            )}
-                                        >
-                                            <route.icon className="h-4 w-4" />
-                                            {route.label}
-                                        </Link>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    )}
+                    {/* コミュニティ */}
+                    {renderAccordion("コミュニティ", MessageSquare, communityOpen, setCommunityOpen, communityContentRef, filteredCommunityRoutes)}
 
-                    {/* Settings Group */}
-                    {filteredSettingsRoutes.length > 0 && (
-                        <div className="pt-2">
-                            <button
-                                onClick={() => setSettingsOpen(!settingsOpen)}
-                                className="w-full flex items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-400 transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <Settings className="h-5 w-5" />
-                                    <span>設定</span>
-                                </div>
-                                <ChevronDown className={cn("h-4 w-4 transition-transform duration-300", settingsOpen ? "rotate-180" : "")} />
-                            </button>
-
-                            <div
-                                style={{
-                                    height: settingsOpen ? settingsContentRef.current?.scrollHeight || 'auto' : 0,
-                                    overflow: 'hidden',
-                                    transition: 'height 0.3s ease-out',
-                                }}
-                            >
-                                <div ref={settingsContentRef} className="mt-1 ml-4 space-y-1 border-l-2 border-gray-100 dark:border-gray-700 pl-2">
-                                    {filteredSettingsRoutes.map((route) => (
-                                        <Link
-                                            key={route.href}
-                                            href={route.href}
-                                            onClick={() => setOpen(false)}
-                                            className={cn(
-                                                "flex items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white",
-                                                pathname === route.href ? "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400"
-                                            )}
-                                        >
-                                            <route.icon className="h-4 w-4" />
-                                            {route.label}
-                                        </Link>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    )}
+                    {/* 設定 */}
+                    {renderAccordion("設定", Settings, settingsOpen, setSettingsOpen, settingsContentRef, filteredSettingsRoutes)}
                 </nav>
             </div>
             {!isMobile && (

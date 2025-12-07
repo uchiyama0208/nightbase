@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 
 export default async function StoreInfoPage() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {

@@ -4,13 +4,14 @@ import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabaseServerClient";
 import { BottleList } from "./bottle-list";
 import { getMenus } from "../menus/actions";
+import { PageTitle } from "@/components/page-title";
 
 export const metadata: Metadata = {
     title: "ボトルキープ管理",
 };
 
 async function getBottlesPageData() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -69,13 +70,11 @@ export default async function BottlesPage() {
 
     return (
         <div className="space-y-4">
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">ボトルキープ管理</h1>
-                <p className="mt-2 text-sm text-muted-foreground dark:text-gray-400">
-                    お客様のボトルキープを管理します。
-                </p>
-            </div>
-
+            <PageTitle
+                title="ボトルキープ管理"
+                description="お客様のボトルキープを管理します。"
+                backTab="floor"
+            />
             <Suspense fallback={<BottlesSkeleton />}>
                 <BottleList
                     storeId={data.storeId}

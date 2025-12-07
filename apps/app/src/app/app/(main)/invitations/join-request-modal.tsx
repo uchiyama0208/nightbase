@@ -69,7 +69,7 @@ export function JoinRequestModal({ request, isOpen, onClose, onRequestProcessed 
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="max-w-[calc(100vw-32px)] max-h-[calc(100vh-32px)] sm:max-w-[500px] bg-white dark:bg-gray-800 text-gray-900 dark:text-white !p-4 sm:!p-6 my-4">
                 <DialogHeader>
-                    <DialogTitle>参加申請の確認</DialogTitle>
+                    <DialogTitle className="text-gray-900 dark:text-white">参加申請の確認</DialogTitle>
                     <DialogDescription>
                         申請者の情報を確認し、承認または拒否してください
                     </DialogDescription>

@@ -10,7 +10,7 @@ const SYNC_EVENTS = new Set([
 
 export async function POST(request: Request) {
   const { event, session } = await request.json();
-  const supabase = await createServerClient();
+  const supabase = await createServerClient() as any;
 
   try {
     if (event === "SIGNED_OUT") {

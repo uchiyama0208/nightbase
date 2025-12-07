@@ -12,6 +12,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { Plus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { TableTypeManageModal } from "./table-type-manage-modal";
+import { PageTitle } from "@/components/page-title";
 
 const GRID_SIZE = 8;
 
@@ -197,8 +198,11 @@ export default function SeatsEditorPage() {
     return (
         <div className="h-full flex flex-col bg-background">
             {/* Header */}
-            <div className="p-4 border-b flex justify-between items-center">
-                <h1 className="text-xl font-bold">席エディター</h1>
+            <div className="flex justify-between items-center mb-4">
+                <PageTitle
+                    title="席エディター"
+                    backTab="floor"
+                />
                 <Button onClick={() => handleOpenModal()} size="icon">
                     <Plus className="h-5 w-5" />
                 </Button>

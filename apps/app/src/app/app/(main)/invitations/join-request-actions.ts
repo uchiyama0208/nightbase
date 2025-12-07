@@ -4,7 +4,7 @@ import { createServerClient } from "@/lib/supabaseServerClient";
 import { revalidatePath } from "next/cache";
 
 export async function approveJoinRequest(profileId: string, role: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -30,7 +30,7 @@ export async function approveJoinRequest(profileId: string, role: string) {
 }
 
 export async function rejectJoinRequest(profileId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {

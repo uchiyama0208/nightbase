@@ -60,7 +60,7 @@ export interface ShiftRequestWithDates extends ShiftRequest {
 
 // シフト募集一覧を取得
 export async function getShiftRequests(storeId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { data, error } = await supabase
         .from("shift_requests")
@@ -81,7 +81,7 @@ export async function getShiftRequests(storeId: string) {
 
 // 特定のシフト募集を取得
 export async function getShiftRequest(requestId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { data, error } = await supabase
         .from("shift_requests")
@@ -102,7 +102,7 @@ export async function getShiftRequest(requestId: string) {
 
 // 既存の募集日付を取得（openステータスのもの）
 export async function getExistingRequestDates(storeId: string): Promise<string[]> {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { data, error } = await supabase
         .from("shift_request_dates")
@@ -132,7 +132,7 @@ export async function createShiftRequest(data: {
     targetProfileIds?: string[];
     dates: { date: string; startTime: string; endTime: string }[];
 }) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // 募集を作成
     const { data: request, error: requestError } = await supabase
@@ -179,7 +179,7 @@ export async function createShiftRequest(data: {
 
 // シフト募集をクローズ
 export async function closeShiftRequest(requestId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { error } = await supabase
         .from("shift_requests")
@@ -197,7 +197,7 @@ export async function closeShiftRequest(requestId: string) {
 
 // シフト募集を削除
 export async function deleteShiftRequest(requestId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { error } = await supabase
         .from("shift_requests")
@@ -215,7 +215,7 @@ export async function deleteShiftRequest(requestId: string) {
 
 // 提出状況を取得
 export async function getSubmissionStatus(requestId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // 募集情報を取得
     const { data: request } = await supabase
@@ -257,7 +257,7 @@ export async function getSubmissionStatus(requestId: string) {
 
 // 日付ごとの提出・確定シフトを取得
 export async function getDateSubmissions(requestDateId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { data, error } = await supabase
         .from("shift_submissions")
@@ -280,7 +280,7 @@ export async function approveSubmission(
     startTime?: string,
     endTime?: string
 ) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { error } = await supabase
         .from("shift_submissions")
@@ -305,7 +305,7 @@ export async function approveSubmission(
 
 // 希望シフトを却下
 export async function rejectSubmission(submissionId: string, approvedBy: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { error } = await supabase
         .from("shift_submissions")
@@ -331,7 +331,7 @@ export async function approveAllSubmissions(
     requestDateId: string,
     approvedBy: string
 ) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { error } = await supabase
         .from("shift_submissions")
@@ -356,7 +356,7 @@ export async function approveAllSubmissions(
 
 // 店舗のデフォルト出退勤時間を取得
 export async function getStoreShiftDefaults(storeId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { data, error } = await supabase
         .from("stores")
@@ -382,7 +382,7 @@ export async function updateStoreShiftDefaults(
         default_staff_end_time: string;
     }
 ) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { error } = await supabase
         .from("stores")
@@ -403,7 +403,7 @@ export async function updateStoreShiftDefaults(
 
 // カレンダー用: 日付ごとの確定シフト人数を取得
 export async function getCalendarData(storeId: string, year: number, month: number) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // 月の最初と最後の日を計算
     const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
@@ -486,7 +486,7 @@ export async function getCalendarData(storeId: string, year: number, month: numb
 
 // 自動化設定を取得
 export async function getAutomationSettings(storeId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { data, error } = await supabase
         .from("shift_automation_settings")
@@ -516,7 +516,7 @@ export async function updateAutomationSettings(
         reminder_hour: number;
     }
 ) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // upsert（存在すれば更新、なければ作成）
     const { error } = await supabase
@@ -545,7 +545,7 @@ export async function getLineTargetProfiles(
     targetRoles: string[],
     targetProfileIds?: string[]
 ) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     let query = supabase
         .from("profiles")
@@ -587,7 +587,7 @@ export async function sendLineNotification(
     requestId: string,
     storeName: string
 ) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // 募集情報を取得
     const { data: request, error: requestError } = await supabase
@@ -707,7 +707,7 @@ export async function checkExistingRequestConflicts(
     profileIds: string[],
     dates: string[]
 ) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // 指定した日付で開いている募集の対象者を取得
     const { data: existingRequests, error } = await supabase

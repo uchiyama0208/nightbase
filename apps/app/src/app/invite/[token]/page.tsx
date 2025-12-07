@@ -17,7 +17,7 @@ export async function generateMetadata({ params }: InvitePageProps) {
 
 export default async function InvitePage({ params }: InvitePageProps) {
     const { token } = await params;
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();

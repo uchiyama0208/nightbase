@@ -141,7 +141,7 @@ export function InvitationModal({
             <Dialog open={open && !showCreateProfile} onOpenChange={handleClose}>
                 <DialogContent className="max-w-[calc(100vw-32px)] max-h-[calc(100vh-32px)] overflow-y-auto sm:max-w-[500px] bg-white dark:bg-gray-800 text-gray-900 dark:text-white !p-4 sm:!p-6 my-4">
                     <DialogHeader>
-                        <DialogTitle className="text-black dark:text-white">{step === "form" ? "ユーザーを招待" : "招待リンクを作成しました"}</DialogTitle>
+                        <DialogTitle className="text-gray-900 dark:text-white">{step === "form" ? "ユーザーを招待" : "招待リンクを作成しました"}</DialogTitle>
                         <DialogDescription>
                             {step === "form"
                                 ? "招待するプロフィールと条件を設定してください。"

@@ -5,8 +5,6 @@ import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 
 import { createBrowserClient } from "@/lib/supabaseClient";
 
-const CMS_ROLES = new Set(["admin", "editor"]);
-
 export type AdminAuthState = "loading" | "unauthenticated" | "authorized" | "unauthorized";
 
 export function useAdminAuthState() {
@@ -49,28 +47,28 @@ export function useAdminAuthState() {
 
     const session = data.session;
     await syncServerSession("INITIAL_SESSION", session);
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role, email, display_name")
-      .eq("user_id", session.user.id)
+
+    // usersテーブルからis_adminをチェック
+    const { data: user, error: userError } = await supabase
+      .from("users")
+      .select("is_admin, display_name, email")
+      .eq("id", session.user.id)
       .maybeSingle();
 
     if (!isActiveRef.current) {
       return;
     }
 
-    if (profileError) {
-      console.error("プロフィールの取得に失敗しました", profileError);
+    if (userError) {
+      console.error("ユーザー情報の取得に失敗しました", userError);
       setAuthState("unauthorized");
       setUserEmail(session.user.email ?? null);
       return;
     }
 
-    const isAllowed = profile && CMS_ROLES.has(profile.role);
-
-    if (isAllowed) {
+    if (user?.is_admin) {
       setAuthState("authorized");
-      setUserEmail(profile.display_name ?? profile.email ?? session.user.email ?? null);
+      setUserEmail(user.display_name ?? user.email ?? session.user.email ?? null);
     } else {
       setAuthState("unauthorized");
       setUserEmail(session.user.email ?? null);

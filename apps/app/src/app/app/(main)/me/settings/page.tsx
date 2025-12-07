@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 };
 
 export default async function SettingsPage() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();

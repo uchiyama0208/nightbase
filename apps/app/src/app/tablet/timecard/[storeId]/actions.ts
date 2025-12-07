@@ -60,7 +60,7 @@ export async function tabletClockIn(formData: FormData) {
   const workDate = getTodayDate();
 
   // Calculate scheduled start time if rounding is enabled
-  let scheduledStartTime = null;
+  let scheduledStartTime: string | null = null;
   if (storeData?.time_rounding_enabled) {
     const rounded = roundTime(
       now,
@@ -136,7 +136,7 @@ export async function tabletClockOut(formData: FormData) {
   const now = new Date();
 
   // Calculate scheduled end time if rounding is enabled
-  let scheduledEndTime = null;
+  let scheduledEndTime: string | null = null;
   if (storeData?.time_rounding_enabled) {
     const rounded = roundTime(
       now,

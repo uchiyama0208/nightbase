@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabaseServerClient";
 import { AttendanceTable } from "./AttendanceTable";
 import { getAppData } from "../../data-access";
+import { PageTitle } from "@/components/page-title";
 
 export const metadata: Metadata = {
 	title: "勤怠",
@@ -22,7 +23,7 @@ async function getAttendanceData(roleParam?: string) {
 
 	const storeId = profile.store_id;
 
-	const supabase = await createServerClient();
+	const supabase = await createServerClient() as any;
 
 	const [rawRecordsResult, allProfilesResult] = await Promise.all([
 		supabase
@@ -100,13 +101,11 @@ export default async function AttendancePage({
 
 	return (
 		<div className="space-y-4">
-                        <div>
-                                <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">勤怠</h1>
-                                <p className="mt-2 text-sm text-muted-foreground dark:text-gray-400">
-                                        シフトの確認と出勤状況を管理します。
-                                </p>
-                        </div>
-
+			<PageTitle
+				title="出勤管理"
+				description="シフトの確認と出勤状況を管理します。"
+				backTab="shift"
+			/>
 			<AttendanceTable attendanceRecords={allRecords} profiles={allProfiles} roleFilter={roleFilter} />
 		</div>
 	);

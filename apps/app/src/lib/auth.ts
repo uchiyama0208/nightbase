@@ -35,7 +35,7 @@ function assertCmsAccess(user: User | null, profile: ProfileRow | null) {
 }
 
 export async function getCurrentUserProfile() {
-  const supabase = await createServerClient();
+  const supabase = await createServerClient() as any;
   const { data, error } = await supabase.auth.getUser();
 
   if (error) {
@@ -55,7 +55,7 @@ export async function getCurrentUserProfile() {
 }
 
 export async function requireAdminUser() {
-  const supabase = await createServerClient();
+  const supabase = await createServerClient() as any;
   const { data, error } = await supabase.auth.getUser();
 
   if (error) {
@@ -78,7 +78,7 @@ export async function requireAdminUser() {
 }
 
 export async function createAdminServerClient() {
-  const supabase = await createServerClient();
+  const supabase = await createServerClient() as any;
   const { data, error } = await supabase.auth.getUser();
 
   if (error) {

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition, useCallback } from "react";
 import { Invitation, cancelInvitation } from "./actions";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +27,14 @@ import { InvitationDetailModal } from "./invitation-detail-modal";
 import { formatJSTDateTime } from "@/lib/utils";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 
 interface InvitationListProps {
     initialInvitations: Invitation[];
@@ -48,12 +56,14 @@ export function InvitationList({
     const [copiedId, setCopiedId] = useState<string | null>(null);
     const [selectedInvitation, setSelectedInvitation] = useState<Invitation | null>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    const [cancelTargetId, setCancelTargetId] = useState<string | null>(null);
+    const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
 
-    const activeFilters = [
+    const activeFilters = useMemo(() => [
         searchQuery.trim() && "検索",
         statusFilter !== "all" && "ステータス",
         roleFilter !== "all" && (roleFilter === "cast" ? "キャスト" : "スタッフ"),
-    ].filter(Boolean) as string[];
+    ].filter(Boolean) as string[], [searchQuery, statusFilter, roleFilter]);
     const hasFilters = activeFilters.length > 0;
 
     const suggestionItems = useMemo(
@@ -68,54 +78,61 @@ export function InvitationList({
         [initialInvitations],
     );
 
-    const filteredInvitations = invitations.filter((inv) => {
+    const filteredInvitations = useMemo(() => invitations.filter((inv) => {
         const matchesSearch = (inv.profile?.display_name || inv.profile?.real_name || "")
             .toLowerCase()
             .includes(searchQuery.toLowerCase());
         const matchesStatus = statusFilter === "all" || inv.status === statusFilter;
         const matchesRole = roleFilter === "all" || inv.profile?.role === roleFilter;
         return matchesSearch && matchesStatus && matchesRole;
-    });
+    }), [invitations, searchQuery, statusFilter, roleFilter]);
 
-    const handleCancel = async (id: string) => {
-        if (!confirm("本当にこの招待をキャンセルしますか？")) return;
+    const handleCancelClick = useCallback((id: string) => {
+        setCancelTargetId(id);
+        setIsCancelDialogOpen(true);
+    }, []);
+
+    const handleConfirmCancel = useCallback(() => {
+        if (!cancelTargetId) return;
 
         startTransition(async () => {
             try {
-                await cancelInvitation(id);
+                await cancelInvitation(cancelTargetId);
                 setInvitations((prev) =>
-                    prev.map((inv) => (inv.id === id ? { ...inv, status: "canceled" } : inv))
+                    prev.map((inv) => (inv.id === cancelTargetId ? { ...inv, status: "canceled" } : inv))
                 );
                 // Also update selected invitation if it's the one being canceled
-                if (selectedInvitation?.id === id) {
+                if (selectedInvitation?.id === cancelTargetId) {
                     setSelectedInvitation((prev) => prev ? { ...prev, status: "canceled" } : null);
                 }
-            } catch (error) {
-                alert("キャンセルに失敗しました");
+            } catch {
+                // Error is handled by the dialog closing
             }
+            setIsCancelDialogOpen(false);
+            setCancelTargetId(null);
         });
-    };
+    }, [cancelTargetId, selectedInvitation?.id]);
 
-    const handleCopyUrl = (token: string, id: string) => {
+    const handleCopyUrl = useCallback((token: string, id: string) => {
         const url = `${window.location.origin}/invite/${token}`;
         navigator.clipboard.writeText(url);
         setCopiedId(id);
         setTimeout(() => setCopiedId(null), 2000);
-    };
+    }, []);
 
-    const getStatusBadge = (status: string, expiresAt: string) => {
+    const getStatusBadge = useCallback((status: string, expiresAt: string) => {
         const isExpired = new Date(expiresAt) < new Date() && status === "pending";
 
         if (status === "canceled") return <Badge variant="destructive">キャンセル</Badge>;
         if (status === "accepted") return <Badge className="bg-green-500">参加済み</Badge>;
         if (isExpired) return <Badge variant="secondary">期限切れ</Badge>;
         return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">招待中</Badge>;
-    };
+    }, []);
 
-    const handleRowClick = (invitation: Invitation) => {
+    const handleRowClick = useCallback((invitation: Invitation) => {
         setSelectedInvitation(invitation);
         setIsDetailModalOpen(true);
-    };
+    }, []);
 
     const roleIndex = useMemo(() => {
         if (roleFilter === "all") return 0;
@@ -221,7 +238,7 @@ export function InvitationList({
                 </AccordionItem>
             </Accordion>
 
-            <div className="rounded-3xl border bg-white dark:bg-gray-800">
+            <div className="rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -295,6 +312,35 @@ export function InvitationList({
                     }
                 }}
             />
+
+            {/* キャンセル確認ダイアログ */}
+            <Dialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
+                <DialogContent className="max-w-md rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+                    <DialogHeader>
+                        <DialogTitle className="text-gray-900 dark:text-white">招待のキャンセル</DialogTitle>
+                        <DialogDescription className="text-gray-600 dark:text-gray-400">
+                            本当にこの招待をキャンセルしますか？この操作は取り消せません。
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="mt-4 flex justify-end gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsCancelDialogOpen(false)}
+                            className="rounded-lg"
+                        >
+                            戻る
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={handleConfirmCancel}
+                            disabled={isPending}
+                            className="rounded-lg"
+                        >
+                            {isPending ? "キャンセル中..." : "キャンセルする"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

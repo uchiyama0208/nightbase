@@ -7,7 +7,7 @@ export async function getBottleKeeps(filters?: {
     remainingAmount?: string;
     search?: string;
 }) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -81,7 +81,7 @@ export async function getBottleKeeps(filters?: {
 }
 
 export async function createBottleKeep(formData: FormData) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -157,7 +157,7 @@ export async function createBottleKeep(formData: FormData) {
 }
 
 export async function updateBottleKeep(id: string, formData: FormData) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -214,7 +214,7 @@ export async function updateBottleKeep(id: string, formData: FormData) {
 }
 
 export async function deleteBottleKeep(id: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -237,7 +237,7 @@ export async function deleteBottleKeep(id: string) {
 
 // Comment-related actions (using generalized comments table)
 export async function getBottleKeepComments(bottleKeepId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return [];
@@ -273,7 +273,7 @@ export async function getBottleKeepComments(bottleKeepId: string) {
     }
 
     // Get all comment IDs
-    const commentIds = comments.map((c) => c.id);
+    const commentIds = comments.map((c: any) => c.id);
 
     // Fetch all likes for these comments in one query
     const { data: allLikes } = await supabase
@@ -284,16 +284,16 @@ export async function getBottleKeepComments(bottleKeepId: string) {
     // Create a map of comment_id -> like count and user's like status
     const likesMap = new Map<string, { count: number; userHasLiked: boolean }>();
 
-    commentIds.forEach((id) => {
-        const commentLikes = allLikes?.filter((like) => like.comment_id === id) || [];
+    commentIds.forEach((id: any) => {
+        const commentLikes = allLikes?.filter((like: any) => like.comment_id === id) || [];
         likesMap.set(id, {
             count: commentLikes.length,
-            userHasLiked: commentLikes.some((like) => like.profile_id === currentProfileId),
+            userHasLiked: commentLikes.some((like: any) => like.profile_id === currentProfileId),
         });
     });
 
     // Add like data to comments
-    const commentsWithLikes = comments.map((comment) => {
+    const commentsWithLikes = comments.map((comment: any) => {
         const likeData = likesMap.get(comment.id) || { count: 0, userHasLiked: false };
         return {
             ...comment,
@@ -306,7 +306,7 @@ export async function getBottleKeepComments(bottleKeepId: string) {
 }
 
 export async function addBottleKeepComment(bottleKeepId: string, content: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) throw new Error("Unauthorized");
@@ -342,7 +342,7 @@ export async function addBottleKeepComment(bottleKeepId: string, content: string
 }
 
 export async function updateBottleKeepComment(commentId: string, content: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) throw new Error("Unauthorized");
@@ -378,7 +378,7 @@ export async function updateBottleKeepComment(commentId: string, content: string
 }
 
 export async function deleteBottleKeepComment(commentId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) throw new Error("Unauthorized");
@@ -414,7 +414,7 @@ export async function deleteBottleKeepComment(commentId: string) {
 }
 
 export async function getCurrentUserProfileId() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) return null;

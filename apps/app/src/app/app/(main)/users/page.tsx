@@ -3,16 +3,16 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabaseServerClient";
 import { UsersTable } from "./users-table";
+import { PageTitle } from "@/components/page-title";
+import { getAppData } from "../../data-access";
 
 export const metadata: Metadata = {
     title: "プロフィール情報",
 };
 
-import { getAppData } from "../../data-access";
-
 // Server-side data fetching
 async function getUsersData(storeId: string, currentProfileId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // Build query - exclude temporary guests
     const { data: profiles, error } = await supabase
@@ -73,13 +73,11 @@ export default async function UsersPage({
 
     return (
         <div className="space-y-4">
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">プロフィール情報</h1>
-                <p className="mt-2 text-sm text-muted-foreground dark:text-gray-400">
-                    キャスト・スタッフ・ゲストのプロフィールを管理します。
-                </p>
-            </div>
-
+            <PageTitle
+                title="プロフィール情報"
+                description="キャスト・スタッフ・ゲスト・パートナーのプロフィールを管理します。"
+                backTab="user"
+            />
             <Suspense fallback={<UsersSkeleton />}>
                 <UsersTable profiles={profiles} roleFilter={roleParam} hidePersonalInfo={hidePersonalInfo} />
             </Suspense>

@@ -45,7 +45,7 @@ export default function AuthCodeErrorPage() {
 
             if (accessToken && refreshToken) {
                 try {
-                    const supabase = createBrowserClient();
+                    const supabase = createBrowserClient() as any;
                     const { error: sessionError } = await supabase.auth.setSession({
                         access_token: accessToken,
                         refresh_token: refreshToken,

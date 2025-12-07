@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 export async function createUser(formData: FormData) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -122,7 +122,7 @@ export async function importUsersFromCsv(formData: FormData) {
 
     const roleOverride = (formData.get("userRole") as string | null) ?? null;
 
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -237,7 +237,7 @@ export async function importUsersFromCsv(formData: FormData) {
 }
 
 export async function updateUser(formData: FormData) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -394,7 +394,7 @@ export async function updateUser(formData: FormData) {
 
 // Auto-save version that doesn't call revalidatePath to prevent modal from closing
 export async function autoSaveUser(formData: FormData) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -500,7 +500,7 @@ export async function autoSaveUser(formData: FormData) {
 }
 
 export async function deleteUser(profileId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -588,7 +588,7 @@ export async function deleteUser(profileId: string) {
 }
 
 export async function getProfileDetails(profileId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -682,7 +682,7 @@ export async function updateProfileRelationships(
     type: string,
     targetProfileIds: string[]
 ) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -715,13 +715,13 @@ export async function updateProfileRelationships(
 
     if (fetchError) throw new Error(fetchError.message);
 
-    const existingIds = new Set(
-        existing?.map((r) =>
+    const existingIds = new Set<string>(
+        existing?.map((r: any) =>
             r.source_profile_id === profileId ? r.target_profile_id : r.source_profile_id
         )
     );
 
-    const newIds = new Set(targetProfileIds);
+    const newIds = new Set<string>(targetProfileIds);
 
     // 2. Determine additions and removals
     const toAdd = targetProfileIds.filter((id) => !existingIds.has(id));
@@ -771,7 +771,7 @@ export async function updateProfileRelationships(
 }
 
 export async function addProfileComment(targetProfileId: string, content: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -813,7 +813,7 @@ export async function addProfileComment(targetProfileId: string, content: string
 }
 
 export async function getAllProfiles() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -855,7 +855,7 @@ export async function getAllProfiles() {
 }
 
 export async function getCurrentUserProfileId() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -873,7 +873,7 @@ export async function getCurrentUserProfileId() {
 
 // Combined fetch for user edit modal - single server action to reduce round trips
 export async function getUserEditModalData(targetProfileId: string | null, targetRole: string | null) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -1025,7 +1025,7 @@ export async function getUserEditModalData(targetProfileId: string | null, targe
 }
 
 export async function updateProfileComment(commentId: string, content: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -1063,7 +1063,7 @@ export async function updateProfileComment(commentId: string, content: string) {
 }
 
 export async function deleteProfileComment(commentId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -1101,7 +1101,7 @@ export async function deleteProfileComment(commentId: string) {
 }
 
 export async function toggleCommentLike(commentId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -1149,7 +1149,7 @@ export async function toggleCommentLike(commentId: string) {
 }
 
 export async function getUsersData(roleParam?: string, query?: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -1221,7 +1221,7 @@ export async function getUsersData(roleParam?: string, query?: string) {
 }
 
 export async function getUserBottleKeeps(profileId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -1295,7 +1295,7 @@ export async function getUserBottleKeeps(profileId: string) {
 }
 
 export async function uploadProfileAvatar(profileId: string, formData: FormData) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const file = formData.get("file") as File;
 
     if (!file) {
@@ -1337,7 +1337,7 @@ export async function uploadProfileAvatar(profileId: string, formData: FormData)
 }
 
 export async function deleteProfileAvatar(profileId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // Get current avatar url to delete file (optional, but good practice)
     const { data: profile } = await supabase
@@ -1370,7 +1370,7 @@ export async function deleteProfileAvatar(profileId: string) {
 
 // Past Employment Management
 export async function getPastEmployments(profileId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data, error } = await supabase
         .from("past_employments")
         .select("*")
@@ -1386,7 +1386,7 @@ export async function getPastEmployments(profileId: string) {
 }
 
 export async function createPastEmployment(formData: FormData) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const profileId = formData.get("profileId") as string;
     const storeName = formData.get("storeName") as string;
@@ -1414,7 +1414,7 @@ export async function createPastEmployment(formData: FormData) {
 }
 
 export async function updatePastEmployment(id: string, formData: FormData) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const storeName = formData.get("storeName") as string;
     const period = formData.get("period") as string;
@@ -1443,7 +1443,7 @@ export async function updatePastEmployment(id: string, formData: FormData) {
 }
 
 export async function deletePastEmployment(id: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { error } = await supabase.from("past_employments").delete().eq("id", id);
 
     if (error) {
@@ -1456,7 +1456,7 @@ export async function deletePastEmployment(id: string) {
 }
 
 export async function getProfileReportData(profileId: string, role: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     if (role === "guest") {
         // ゲスト: 来店回数（セッション数）を取得

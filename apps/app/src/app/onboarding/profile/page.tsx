@@ -10,7 +10,7 @@ export default async function ProfilePage({
     const params = await searchParams;
     const mode = params.mode || "join";
 
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     // If access_token is provided, set the session
     if (params.access_token && params.refresh_token) {
@@ -38,7 +38,7 @@ export default async function ProfilePage({
         .eq("id", user.id)
         .maybeSingle();
 
-    let initialData = null;
+    let initialData: any = null;
 
     if (appUser?.current_profile_id) {
         // User already has a profile

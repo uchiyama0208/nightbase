@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { MoreHorizontal, ChevronLeft, Trash2 } from "lucide-react";
+import { MoreHorizontal, ChevronLeft, Trash2, Camera, Upload, Sparkles, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { createMenu, updateMenu, deleteMenu, Menu, MenuCategory, createMenuCategory } from "./actions";
+import { createMenu, updateMenu, deleteMenu, Menu, MenuCategory, createMenuCategory, uploadMenuImage, deleteMenuImage, generateMenuImage } from "./actions";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 interface MenuEditModalProps {
     menu: Menu | null;
@@ -24,6 +25,11 @@ export function MenuEditModal({ menu, open, onOpenChange, categories }: MenuEdit
     const [newCategoryName, setNewCategoryName] = useState("");
     const [showActions, setShowActions] = useState(false);
     const [targetType, setTargetType] = useState<"guest" | "cast">("guest");
+    const [imageUrl, setImageUrl] = useState<string | null>(null);
+    const [isUploadingImage, setIsUploadingImage] = useState(false);
+    const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const cameraInputRef = useRef<HTMLInputElement>(null);
     const router = useRouter();
 
     useEffect(() => {
@@ -33,14 +39,68 @@ export function MenuEditModal({ menu, open, onOpenChange, categories }: MenuEdit
                 setCategoryMode("select");
                 setNewCategoryName("");
                 setTargetType(menu.target_type || "guest");
+                setImageUrl(menu.image_url || null);
             } else {
                 setSelectedCategoryId("");
                 setNewCategoryName("");
                 setCategoryMode(categories.length > 0 ? "select" : "create");
                 setTargetType("guest");
+                setImageUrl(null);
             }
         }
     }, [open, menu, categories]);
+
+    const handleImageUpload = async (file: File) => {
+        setIsUploadingImage(true);
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+            const url = await uploadMenuImage(formData);
+            setImageUrl(url);
+        } catch (error) {
+            console.error("Failed to upload image:", error);
+            alert("画像のアップロードに失敗しました");
+        } finally {
+            setIsUploadingImage(false);
+        }
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            handleImageUpload(file);
+        }
+        e.target.value = "";
+    };
+
+    const handleDeleteImage = async () => {
+        if (!imageUrl) return;
+        try {
+            await deleteMenuImage(imageUrl);
+            setImageUrl(null);
+        } catch (error) {
+            console.error("Failed to delete image:", error);
+        }
+    };
+
+    const handleGenerateImage = async () => {
+        const nameInput = document.getElementById("name") as HTMLInputElement;
+        const menuName = nameInput?.value;
+        if (!menuName?.trim()) {
+            alert("メニュー名を入力してください");
+            return;
+        }
+        setIsGeneratingImage(true);
+        try {
+            const url = await generateMenuImage(menuName);
+            setImageUrl(url);
+        } catch (error) {
+            console.error("Failed to generate image:", error);
+            alert("画像の生成に失敗しました");
+        } finally {
+            setIsGeneratingImage(false);
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -74,6 +134,7 @@ export function MenuEditModal({ menu, open, onOpenChange, categories }: MenuEdit
                 return;
             }
             formData.set("category_id", categoryId);
+            formData.set("image_url", imageUrl || "");
 
             if (menu) {
                 formData.append("id", menu.id);
@@ -225,6 +286,98 @@ export function MenuEditModal({ menu, open, onOpenChange, categories }: MenuEdit
                             required
                             min="0"
                         />
+                    </div>
+
+                    {/* 画像セクション */}
+                    <div className="space-y-2">
+                        <Label>メニュー画像</Label>
+                        {imageUrl ? (
+                            <div className="relative rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+                                <div className="relative aspect-square w-full max-w-[200px] mx-auto">
+                                    <Image
+                                        src={imageUrl}
+                                        alt="メニュー画像"
+                                        fill
+                                        className="object-cover"
+                                    />
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={handleDeleteImage}
+                                    className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+                                >
+                                    <X className="h-4 w-4" />
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col gap-2">
+                                <div className="flex gap-2">
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        onChange={handleFileChange}
+                                        accept="image/*"
+                                        className="hidden"
+                                    />
+                                    <input
+                                        type="file"
+                                        ref={cameraInputRef}
+                                        onChange={handleFileChange}
+                                        accept="image/*"
+                                        capture="environment"
+                                        className="hidden"
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => cameraInputRef.current?.click()}
+                                        disabled={isUploadingImage || isGeneratingImage}
+                                        className="flex-1 gap-1.5"
+                                    >
+                                        <Camera className="h-4 w-4" />
+                                        撮影
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        disabled={isUploadingImage || isGeneratingImage}
+                                        className="flex-1 gap-1.5"
+                                    >
+                                        <Upload className="h-4 w-4" />
+                                        選択
+                                    </Button>
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleGenerateImage}
+                                    disabled={isUploadingImage || isGeneratingImage}
+                                    className="w-full gap-1.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white border-none hover:from-purple-600 hover:to-pink-600 hover:text-white"
+                                >
+                                    {isGeneratingImage ? (
+                                        <>
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                            生成中...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Sparkles className="h-4 w-4" />
+                                            AIで画像を生成
+                                        </>
+                                    )}
+                                </Button>
+                                {isUploadingImage && (
+                                    <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        アップロード中...
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     <div className="space-y-4 pt-2">

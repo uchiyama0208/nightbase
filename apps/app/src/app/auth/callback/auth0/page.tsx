@@ -10,7 +10,7 @@ export default function Auth0CallbackPage() {
     const router = useRouter();
     const [status, setStatus] = useState("認証処理中...");
     const [debugInfo, setDebugInfo] = useState<string>("");
-    const supabase = createBrowserClient();
+    const supabase = createBrowserClient() as any;
     const processedRef = useRef(false);
 
     useEffect(() => {

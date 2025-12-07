@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import {
     Table,
     TableBody,
@@ -37,10 +37,10 @@ export function JoinRequestsTable({ requests: initialRequests, onSettingsClick }
     const [selectedRequest, setSelectedRequest] = useState<JoinRequest | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
-    const activeFilters = [
+    const activeFilters = useMemo(() => [
         searchQuery.trim() && "検索",
         roleFilter !== "all" && (roleFilter === "cast" ? "キャスト" : "スタッフ"),
-    ].filter(Boolean) as string[];
+    ].filter(Boolean) as string[], [searchQuery, roleFilter]);
     const hasFilters = activeFilters.length > 0;
 
     const suggestionItems = useMemo(
@@ -55,53 +55,68 @@ export function JoinRequestsTable({ requests: initialRequests, onSettingsClick }
         [initialRequests],
     );
 
-    const filteredRequests = requests.filter((req) => {
+    const filteredRequests = useMemo(() => requests.filter((req) => {
         const matchesSearch =
             (req.display_name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
             (req.real_name || "").toLowerCase().includes(searchQuery.toLowerCase());
         const matchesRole = roleFilter === "all" || req.role === roleFilter;
         return matchesSearch && matchesRole;
-    });
+    }), [requests, searchQuery, roleFilter]);
 
-    const handleRowClick = (request: JoinRequest) => {
+    const handleRowClick = useCallback((request: JoinRequest) => {
         setSelectedRequest(request);
         setIsModalOpen(true);
-    };
+    }, []);
 
-    const handleRequestProcessed = (requestId: string) => {
-        setRequests(requests.filter(r => r.id !== requestId));
+    const handleRequestProcessed = useCallback((requestId: string) => {
+        setRequests(prev => prev.filter(r => r.id !== requestId));
         setIsModalOpen(false);
-    };
+    }, []);
+
+    const roleIndex = useMemo(() => {
+        if (roleFilter === "all") return 0;
+        if (roleFilter === "cast") return 1;
+        if (roleFilter === "staff") return 2;
+        return 0;
+    }, [roleFilter]);
 
     return (
         <div className="space-y-4">
             {/* Role filter toggle and settings button on the same row */}
             <div className="flex items-center justify-between">
-                <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-full">
+                <div className="relative inline-flex h-10 items-center rounded-full bg-gray-100 dark:bg-gray-800 p-1">
+                    <div
+                        className="absolute h-8 rounded-full bg-white dark:bg-gray-700 shadow-sm transition-transform duration-300 ease-in-out"
+                        style={{
+                            width: "80px",
+                            left: "4px",
+                            transform: `translateX(calc(${roleIndex} * (80px + 0px)))`,
+                        }}
+                    />
                     <button
+                        type="button"
                         onClick={() => setRoleFilter("all")}
-                        className={`px-4 py-1.5 text-sm rounded-full transition-all ${roleFilter === "all"
-                            ? "bg-white dark:bg-gray-700 shadow-sm font-medium"
-                            : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                            }`}
+                        className={`relative z-10 w-20 flex items-center justify-center h-8 rounded-full text-sm font-medium transition-colors duration-200 ${roleFilter === "all"
+                            ? "text-gray-900 dark:text-white"
+                            : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
                     >
                         全て
                     </button>
                     <button
+                        type="button"
                         onClick={() => setRoleFilter("cast")}
-                        className={`px-4 py-1.5 text-sm rounded-full transition-all ${roleFilter === "cast"
-                            ? "bg-white dark:bg-gray-700 shadow-sm font-medium"
-                            : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                            }`}
+                        className={`relative z-10 w-20 flex items-center justify-center h-8 rounded-full text-sm font-medium transition-colors duration-200 ${roleFilter === "cast"
+                            ? "text-gray-900 dark:text-white"
+                            : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
                     >
                         キャスト
                     </button>
                     <button
+                        type="button"
                         onClick={() => setRoleFilter("staff")}
-                        className={`px-4 py-1.5 text-sm rounded-full transition-all ${roleFilter === "staff"
-                            ? "bg-white dark:bg-gray-700 shadow-sm font-medium"
-                            : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                            }`}
+                        className={`relative z-10 w-20 flex items-center justify-center h-8 rounded-full text-sm font-medium transition-colors duration-200 ${roleFilter === "staff"
+                            ? "text-gray-900 dark:text-white"
+                            : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
                     >
                         スタッフ
                     </button>
@@ -153,7 +168,7 @@ export function JoinRequestsTable({ requests: initialRequests, onSettingsClick }
                 </Accordion>
             </div>
 
-            <div className="rounded-3xl border bg-white dark:bg-gray-800">
+            <div className="rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
                 <Table>
                     <TableHeader>
                         <TableRow>

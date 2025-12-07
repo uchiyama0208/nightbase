@@ -1,24 +1,14 @@
 "use client";
 
-import { AdminProtected } from "@/components/admin/AdminProtected";
-import { BlogEditor } from "@/components/admin/cms/BlogEditor";
+import { CmsEditor } from "../../components/cms-editor";
 
-export default function AdminManualCreatePage() {
-  return (
-    <AdminProtected>
-      {({ supabase }) => (
-        <BlogEditor
-          supabaseClient={supabase}
-          entryType="manual"
-          entityLabel="マニュアル"
-          newTitle="新規マニュアルを作成"
-          editTitle="マニュアルを編集"
-          redirectPath="/admin/cms/manuals"
-          storageFolder="manuals"
+export default function NewManualPage() {
+    return (
+        <CmsEditor
+            entry={null}
+            type="manual"
+            typeLabel="マニュアル"
+            backUrl="/admin/cms/manuals"
         />
-      )}
-    </AdminProtected>
-  );
+    );
 }
-
-export const dynamic = 'force-dynamic';

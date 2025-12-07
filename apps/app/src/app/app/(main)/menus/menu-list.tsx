@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Menu, MenuCategory } from "./actions";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,8 +12,9 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Sparkles } from "lucide-react";
 import { MenuEditModal } from "./menu-edit-modal";
+import { MenuAIModal } from "./menu-ai-modal";
 import {
     Select,
     SelectContent,
@@ -29,23 +31,24 @@ interface MenuListProps {
 }
 
 export function MenuList({ initialMenus, categories }: MenuListProps) {
-    const [menus, setMenus] = useState(initialMenus);
+    const router = useRouter();
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedCategoryId, setSelectedCategoryId] = useState<string>("all");
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingMenu, setEditingMenu] = useState<Menu | null>(null);
+    const [isAIModalOpen, setIsAIModalOpen] = useState(false);
 
-    const activeFilters = [
+    const activeFilters = useMemo(() => [
         searchQuery.trim() && "検索",
         selectedCategoryId !== "all" && "カテゴリー",
-    ].filter(Boolean) as string[];
+    ].filter(Boolean) as string[], [searchQuery, selectedCategoryId]);
     const hasFilters = activeFilters.length > 0;
 
-    const filteredMenus = initialMenus.filter((menu) => {
+    const filteredMenus = useMemo(() => initialMenus.filter((menu) => {
         const matchesSearch = menu.name.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesCategory = selectedCategoryId === "all" || menu.category_id === selectedCategoryId;
         return matchesSearch && matchesCategory;
-    });
+    }), [initialMenus, searchQuery, selectedCategoryId]);
 
     const handleEdit = (menu: Menu) => {
         setEditingMenu(menu);
@@ -60,6 +63,15 @@ export function MenuList({ initialMenus, categories }: MenuListProps) {
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-end gap-2 mb-4">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-lg gap-1.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white border-none hover:from-purple-600 hover:to-pink-600 hover:text-white"
+                    onClick={() => setIsAIModalOpen(true)}
+                >
+                    <Sparkles className="h-4 w-4" />
+                    AI読取
+                </Button>
                 <Button
                     size="icon"
                     className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
@@ -157,6 +169,15 @@ export function MenuList({ initialMenus, categories }: MenuListProps) {
                 open={isModalOpen}
                 onOpenChange={setIsModalOpen}
                 categories={categories}
+            />
+
+            <MenuAIModal
+                isOpen={isAIModalOpen}
+                onClose={() => setIsAIModalOpen(false)}
+                categories={categories}
+                onSuccess={() => {
+                    router.refresh();
+                }}
             />
         </div>
     );

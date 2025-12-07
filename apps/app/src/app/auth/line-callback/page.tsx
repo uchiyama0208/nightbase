@@ -25,7 +25,7 @@ export default function LineCallbackPage() {
 function LineCallbackContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const supabase = createBrowserClient();
+    const supabase = createBrowserClient() as any;
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {

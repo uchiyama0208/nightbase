@@ -4,7 +4,7 @@ import { createServerClient } from "@/lib/supabaseServerClient";
 import { revalidatePath } from "next/cache";
 
 export async function getStoreForJoin(storeId: string) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const { data: store, error } = await supabase
         .from("stores")
@@ -24,7 +24,7 @@ export async function getStoreForJoin(storeId: string) {
 }
 
 export async function submitJoinRequest(formData: FormData) {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
     if (userError || !user) {

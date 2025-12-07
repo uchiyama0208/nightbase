@@ -1,7 +1,23 @@
 import { createServerClient } from "@/lib/supabaseServerClient";
+import type { Store } from "@/types/common";
+
+export interface ProfileWithStoreData {
+    id: string;
+    display_name: string | null;
+    display_name_kana?: string | null;
+    real_name?: string | null;
+    real_name_kana?: string | null;
+    role: string;
+    role_id: string | null;
+    store_id: string;
+    avatar_url?: string | null;
+    theme?: string | null;
+    approval_status?: string | null;
+    stores: Store | null;
+}
 
 export async function getAppData() {
-    const supabase = await createServerClient();
+    const supabase = await createServerClient() as any;
 
     const {
         data: { user },
@@ -32,11 +48,14 @@ export async function getAppData() {
         return { user, profile: null, storeId: undefined, theme: "light" as const };
     }
 
-    const { data: profile } = await supabase
+    const { data: profileData } = await supabase
         .from("profiles")
         .select("*, stores(*)")
         .eq("id", appUser.current_profile_id)
         .maybeSingle();
+
+    // Type assertion for the joined data
+    const profile = profileData as ProfileWithStoreData | null;
 
     const theme = (profile?.theme as "light" | "dark") || "light";
     const storeId = profile?.store_id;
