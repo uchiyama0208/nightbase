@@ -1,13 +1,12 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { createServerClient } from "@/lib/supabaseServerClient";
 import { ClockButtons } from "./clock-in-button";
 import { getTimecardData } from "./actions";
 import { TimecardHistory } from "./timecard-history";
-import { PageTitle } from "@/components/page-title";
 import Link from "next/link";
 import { Settings } from "lucide-react";
+import { getAppDataWithPermissionCheck, getAccessDeniedRedirectUrl } from "../../data-access";
 
 export const metadata: Metadata = {
     title: "タイムカード",
@@ -28,6 +27,20 @@ export default async function TimecardPage({
 }: {
     searchParams: Promise<{ openModal?: string; clockOut?: string }>;
 }) {
+    const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("timecard", "view");
+
+    if (!user) {
+        redirect("/login");
+    }
+
+    if (!profile || !profile.store_id) {
+        redirect("/app/me");
+    }
+
+    if (!hasAccess) {
+        redirect(getAccessDeniedRedirectUrl("timecard"));
+    }
+
     const params = await searchParams;
     const result = await getTimecardData();
 
@@ -40,26 +53,12 @@ export default async function TimecardPage({
         redirect('/app/me');
     }
 
-    const { timeCards, profile, storeSettings, showBreakColumns, latestTimeCard, pickupHistory } = result.data!;
+    const { timeCards, profile: timecardProfile, storeSettings, showBreakColumns, latestTimeCard, pickupHistory } = result.data!;
     const autoOpenModal = params.openModal === "true";
     const autoClockOut = params.clockOut === "true";
 
     return (
         <div className="space-y-4">
-            <div className="flex items-start justify-between">
-                <PageTitle
-                    title="タイムカード"
-                    description="出勤・退勤の打刻と勤務履歴を確認できます。"
-                    backTab="shift"
-                />
-                <Link
-                    href="/app/settings/timecard"
-                    className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                >
-                    <Settings className="h-5 w-5 text-gray-500 dark:text-gray-400" />
-                </Link>
-            </div>
-
             <Suspense fallback={<div className="h-48 bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse"></div>}>
                 <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 md:p-6 lg:p-8 shadow-sm">
                     <ClockButtons
@@ -73,10 +72,7 @@ export default async function TimecardPage({
                 </div>
             </Suspense>
 
-            <div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">勤務履歴</h2>
-                <TimecardHistory timeCards={timeCards} showBreakColumns={showBreakColumns} />
-            </div>
+            <TimecardHistory timeCards={timeCards} showBreakColumns={showBreakColumns} />
         </div>
     );
 }

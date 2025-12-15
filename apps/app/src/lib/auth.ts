@@ -4,8 +4,10 @@ import type { User } from "@supabase/supabase-js";
 
 import { createServerClient } from "@/lib/supabaseServerClient";
 import type { Database } from "@/types/supabase";
+import type { PageKey, PermissionLevel } from "@/app/app/(main)/roles/constants";
 
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
+type PagePermissions = { [key in PageKey]?: PermissionLevel };
 
 const CMS_ROLES = new Set(["admin", "editor"]);
 
@@ -98,4 +100,83 @@ export async function createAdminServerClient() {
   }
 
   return { supabase, user, profile: profile! };
+}
+
+/**
+ * Get auth context for server actions with page permission check
+ * Use this in server actions that modify data
+ */
+export async function getAuthContextWithPermission(
+  pageKey: PageKey,
+  requiredLevel: "view" | "edit" = "edit"
+) {
+  const supabase = await createServerClient() as any;
+  const { data, error } = await supabase.auth.getUser();
+
+  if (error || !data.user) {
+    throw new Error("認証されていません");
+  }
+
+  const user = data.user;
+
+  // Get current profile ID from users table
+  const { data: appUser } = await supabase
+    .from("users")
+    .select("current_profile_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (!appUser?.current_profile_id) {
+    throw new Error("プロフィールが見つかりません");
+  }
+
+  // Get profile with permissions
+  const { data: profileData } = await supabase
+    .from("profiles")
+    .select("*, store_roles(permissions)")
+    .eq("id", appUser.current_profile_id)
+    .maybeSingle();
+
+  if (!profileData) {
+    throw new Error("プロフィールが見つかりません");
+  }
+
+  const profile = profileData as ProfileRow & { store_roles?: { permissions: PagePermissions } | null };
+  const permissions = profile.store_roles?.permissions || null;
+
+  // Check permission
+  const hasPermission = checkPagePermission(pageKey, requiredLevel, profile, permissions);
+
+  if (!hasPermission) {
+    const levelText = requiredLevel === "edit" ? "編集" : "閲覧";
+    throw new Error(`このページの${levelText}権限がありません`);
+  }
+
+  return { supabase, user, profile, storeId: profile.store_id };
+}
+
+/**
+ * Check if user has permission to access a page
+ */
+function checkPagePermission(
+  pageKey: PageKey,
+  requiredLevel: "view" | "edit",
+  profile: ProfileRow,
+  permissions: PagePermissions | null
+): boolean {
+  // admin always has full access
+  if (profile.role === "admin") return true;
+
+  // If no role_id is set, deny by default
+  if (!profile.role_id || !permissions) {
+    return false;
+  }
+
+  const permission = permissions[pageKey];
+
+  if (!permission || permission === "none") return false;
+  if (requiredLevel === "view") return permission === "view" || permission === "edit";
+  if (requiredLevel === "edit") return permission === "edit";
+
+  return false;
 }

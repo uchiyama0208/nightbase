@@ -60,7 +60,7 @@ const DAYS_OF_WEEK = [
 
 const REFERRAL_SOURCES = [
     "知人・友人からの紹介",
-    "グーグル検索",
+    "ウェブ検索",
     "AI検索",
     "X(Twitter)",
     "Instagram",
@@ -173,7 +173,7 @@ export function StoreInfoForm() {
                                 type="time"
                                 id="business_start_time"
                                 name="business_start_time"
-                                defaultValue="18:00"
+                                defaultValue="20:00"
                                 step={60}
                             />
                         </div>
@@ -184,14 +184,14 @@ export function StoreInfoForm() {
                                 type="time"
                                 id="business_end_time"
                                 name="business_end_time"
-                                defaultValue="03:00"
+                                defaultValue="01:00"
                                 step={60}
                             />
                         </div>
 
                         <div className="space-y-2">
                             <Label htmlFor="day_switch_time">日にち切り替え時間</Label>
-                            <Select name="day_switch_time" defaultValue="05:00">
+                            <Select name="day_switch_time" defaultValue="06:00">
                                 <SelectTrigger className="text-gray-900 dark:text-white">
                                     <SelectValue placeholder="選択" />
                                 </SelectTrigger>
@@ -213,7 +213,7 @@ export function StoreInfoForm() {
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="referral_source">Nightbaseを知った場所 *</Label>
+                        <Label htmlFor="referral_source">Nightbaseを知ったきっかけ *</Label>
                         <Select name="referral_source" required>
                             <SelectTrigger className="text-gray-900 dark:text-white">
                                 <SelectValue placeholder="選択してください" />

@@ -21,6 +21,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
+import { cn } from "@/lib/utils";
 import {
     SalarySystem,
     SalarySystemInput,
@@ -40,6 +41,10 @@ interface SalarySystemModalProps {
     targetType: 'cast' | 'staff';
     onSaved: (system: SalarySystem) => void;
     onDeleted: (id: string) => void;
+    storeShowBreakColumns: boolean;
+    storeTimeRoundingEnabled: boolean;
+    storeTimeRoundingMinutes: number;
+    className?: string;
 }
 
 const RESET_PERIODS = [
@@ -67,6 +72,327 @@ const SHARED_COUNT_OPTIONS = [
     { value: 'jounai_shimei_douhan', label: '場内・指名・同伴すべて共通' },
 ];
 
+function getDefaultBackSettings(): BackSettings {
+    return {
+        calculation_type: 'subtotal_percent',
+        percentage: undefined,
+        fixed_amount: undefined,
+        rounding_type: 'round',
+        rounding_unit: 100,
+        variable_type: 'none',
+        reset_period: '1month',
+        tiers: [],
+    };
+}
+
+// Back settings editor component - defined outside to prevent re-renders
+function BackSettingsEditor({
+    settings,
+    onChange,
+    showVariable = true,
+}: {
+    settings: BackSettings;
+    onChange: (settings: BackSettings) => void;
+    showVariable?: boolean;
+}) {
+    const variableType = settings.variable_type || 'none';
+
+    const addTier = () => {
+        const newTier: BackTier = variableType === 'count' ? {
+            min_count: (settings.tiers?.length || 0) + 1,
+            percentage: settings.calculation_type === 'fixed' ? undefined : undefined,
+            fixed_amount: settings.calculation_type === 'fixed' ? undefined : undefined,
+        } : {
+            min_amount: (settings.tiers?.length || 0) * 10000 + 10000,
+            percentage: settings.calculation_type === 'fixed' ? undefined : undefined,
+            fixed_amount: settings.calculation_type === 'fixed' ? undefined : undefined,
+        };
+        onChange({ ...settings, tiers: [...(settings.tiers || []), newTier] });
+    };
+
+    const updateTier = (index: number, updates: Partial<BackTier>) => {
+        const newTiers = [...(settings.tiers || [])];
+        newTiers[index] = { ...newTiers[index], ...updates };
+        onChange({ ...settings, tiers: newTiers });
+    };
+
+    const removeTier = (index: number) => {
+        onChange({ ...settings, tiers: settings.tiers?.filter((_, i) => i !== index) || [] });
+    };
+
+    const handleVariableTypeChange = (newType: 'none' | 'count' | 'amount') => {
+        // 変動タイプを変更時、tiersをクリア
+        onChange({ ...settings, variable_type: newType, tiers: [] });
+    };
+
+    return (
+        <div className="space-y-4">
+            <div className="space-y-2">
+                <Label className="text-gray-700 dark:text-gray-200">計算方法</Label>
+                <Select
+                    value={settings.calculation_type}
+                    onValueChange={(value: 'total_percent' | 'subtotal_percent' | 'fixed') =>
+                        onChange({ ...settings, calculation_type: value })
+                    }
+                >
+                    <SelectTrigger className="h-11">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="total_percent">合計からパーセント</SelectItem>
+                        <SelectItem value="subtotal_percent">小計からパーセント</SelectItem>
+                        <SelectItem value="fixed">固定金額</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+
+            {settings.calculation_type !== 'fixed' ? (
+                <>
+                    <div className="space-y-2">
+                        <Label className="text-gray-700 dark:text-gray-200">パーセント (%)</Label>
+                        <Input
+                            type="number"
+                            value={settings.percentage ?? ""}
+                            onChange={(e) => onChange({ ...settings, percentage: e.target.value === "" ? undefined : Number(e.target.value) })}
+                            className="h-11"
+                            placeholder="10"
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                            <Label className="text-gray-700 dark:text-gray-200">端数処理</Label>
+                            <Select
+                                value={settings.rounding_type || 'round'}
+                                onValueChange={(value: 'round' | 'up' | 'down') =>
+                                    onChange({ ...settings, rounding_type: value })
+                                }
+                            >
+                                <SelectTrigger className="h-11">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="round">四捨五入</SelectItem>
+                                    <SelectItem value="up">切り上げ</SelectItem>
+                                    <SelectItem value="down">切り下げ</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label className="text-gray-700 dark:text-gray-200">端数単位</Label>
+                            <Select
+                                value={String(settings.rounding_unit || 100)}
+                                onValueChange={(value) =>
+                                    onChange({ ...settings, rounding_unit: Number(value) as 10 | 100 | 1000 | 10000 })
+                                }
+                            >
+                                <SelectTrigger className="h-11">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {ROUNDING_UNITS.map(unit => (
+                                        <SelectItem key={unit.value} value={String(unit.value)}>
+                                            {unit.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                </>
+            ) : (
+                <div className="space-y-2">
+                    <Label className="text-gray-700 dark:text-gray-200">固定金額 (円)</Label>
+                    <Input
+                        type="number"
+                        value={settings.fixed_amount ?? ""}
+                        onChange={(e) => onChange({ ...settings, fixed_amount: e.target.value === "" ? undefined : Number(e.target.value) })}
+                        className="h-11"
+                        placeholder="1000"
+                    />
+                </div>
+            )}
+
+            {showVariable && (
+                <>
+                    <div className="space-y-2 pt-2">
+                        <Label className="text-gray-700 dark:text-gray-200">変動設定</Label>
+                        <Select
+                            value={variableType}
+                            onValueChange={(value: 'none' | 'count' | 'amount') => handleVariableTypeChange(value)}
+                        >
+                            <SelectTrigger className="h-11">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="none">なし</SelectItem>
+                                <SelectItem value="count">回数で変動</SelectItem>
+                                <SelectItem value="amount">金額で変動</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    {variableType === 'count' && (
+                        <div className="space-y-4 pl-4 border-l-2 border-blue-200 dark:border-blue-800">
+                            <div className="space-y-2">
+                                <Label className="text-gray-700 dark:text-gray-200">リセット期間</Label>
+                                <Select
+                                    value={settings.reset_period || '1month'}
+                                    onValueChange={(value) => onChange({ ...settings, reset_period: value as any })}
+                                >
+                                    <SelectTrigger className="h-11">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {RESET_PERIODS.map(period => (
+                                            <SelectItem key={period.value} value={period.value}>
+                                                {period.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-gray-700 dark:text-gray-200">回数別設定</Label>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={addTier}
+                                    >
+                                        <Plus className="h-4 w-4 mr-1" />
+                                        追加
+                                    </Button>
+                                </div>
+
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    通常のバック率は上で設定したものが適用されます。以下は回数が増えた時の変動設定です。
+                                </p>
+
+                                {settings.tiers?.map((tier, index) => (
+                                    <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                        <Input
+                                            type="number"
+                                            value={tier.min_count ?? ""}
+                                            onChange={(e) => updateTier(index, { min_count: e.target.value === "" ? undefined : Number(e.target.value) })}
+                                            className="h-9 w-20"
+                                            placeholder="回数"
+                                        />
+                                        <span className="text-sm text-gray-500 whitespace-nowrap">回以上</span>
+                                        {settings.calculation_type !== 'fixed' ? (
+                                            <>
+                                                <Input
+                                                    type="number"
+                                                    value={tier.percentage ?? ""}
+                                                    onChange={(e) => updateTier(index, { percentage: e.target.value === "" ? undefined : Number(e.target.value) })}
+                                                    className="h-9 w-20"
+                                                    placeholder="%"
+                                                />
+                                                <span className="text-sm text-gray-500">%</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Input
+                                                    type="number"
+                                                    value={tier.fixed_amount ?? ""}
+                                                    onChange={(e) => updateTier(index, { fixed_amount: e.target.value === "" ? undefined : Number(e.target.value) })}
+                                                    className="h-9 w-24"
+                                                    placeholder="金額"
+                                                />
+                                                <span className="text-sm text-gray-500">円</span>
+                                            </>
+                                        )}
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                                            onClick={() => removeTier(index)}
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {variableType === 'amount' && (
+                        <div className="space-y-4 pl-4 border-l-2 border-green-200 dark:border-green-800">
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-gray-700 dark:text-gray-200">金額別設定</Label>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={addTier}
+                                    >
+                                        <Plus className="h-4 w-4 mr-1" />
+                                        追加
+                                    </Button>
+                                </div>
+
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    通常のバック率は上で設定したものが適用されます。以下は金額が増えた時の変動設定です。
+                                </p>
+
+                                {settings.tiers?.map((tier, index) => (
+                                    <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                        <Input
+                                            type="number"
+                                            value={tier.min_amount ?? ""}
+                                            onChange={(e) => updateTier(index, { min_amount: e.target.value === "" ? undefined : Number(e.target.value) })}
+                                            className="h-9 w-28"
+                                            placeholder="金額"
+                                        />
+                                        <span className="text-sm text-gray-500 whitespace-nowrap">円以上</span>
+                                        {settings.calculation_type !== 'fixed' ? (
+                                            <>
+                                                <Input
+                                                    type="number"
+                                                    value={tier.percentage ?? ""}
+                                                    onChange={(e) => updateTier(index, { percentage: e.target.value === "" ? undefined : Number(e.target.value) })}
+                                                    className="h-9 w-20"
+                                                    placeholder="%"
+                                                />
+                                                <span className="text-sm text-gray-500">%</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Input
+                                                    type="number"
+                                                    value={tier.fixed_amount ?? ""}
+                                                    onChange={(e) => updateTier(index, { fixed_amount: e.target.value === "" ? undefined : Number(e.target.value) })}
+                                                    className="h-9 w-24"
+                                                    placeholder="金額"
+                                                />
+                                                <span className="text-sm text-gray-500">円</span>
+                                            </>
+                                        )}
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                                            onClick={() => removeTier(index)}
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </>
+            )}
+        </div>
+    );
+}
+
 export function SalarySystemModal({
     isOpen,
     onClose,
@@ -74,6 +400,10 @@ export function SalarySystemModal({
     targetType,
     onSaved,
     onDeleted,
+    storeShowBreakColumns,
+    storeTimeRoundingEnabled,
+    storeTimeRoundingMinutes,
+    className,
 }: SalarySystemModalProps) {
     const { toast } = useToast();
     const [saving, setSaving] = useState(false);
@@ -88,8 +418,10 @@ export function SalarySystemModal({
     const [isMonthly, setIsMonthly] = useState(false);
     const [hourlyAmount, setHourlyAmount] = useState(0);
     const [timeUnitMinutes, setTimeUnitMinutes] = useState(60);
-    const [duringServiceOnly, setDuringServiceOnly] = useState(true);
+    const [timeRoundingType, setTimeRoundingType] = useState<'round' | 'up' | 'down'>('round');
+    const [duringServiceOnly, setDuringServiceOnly] = useState(false);
     const [includesBreak, setIncludesBreak] = useState(false);
+    const [syncWithStoreTimeRounding, setSyncWithStoreTimeRounding] = useState(false);
 
     // Back settings
     const [enableStoreBack, setEnableStoreBack] = useState(false);
@@ -109,19 +441,6 @@ export function SalarySystemModal({
     // Deductions
     const [deductions, setDeductions] = useState<Deduction[]>([]);
 
-    function getDefaultBackSettings(): BackSettings {
-        return {
-            calculation_type: 'total_percent',
-            percentage: 10,
-            fixed_amount: 1000,
-            rounding_type: 'round',
-            rounding_unit: 100,
-            variable_type: 'none',
-            reset_period: '1month',
-            tiers: [],
-        };
-    }
-
     // Initialize form when system changes
     useEffect(() => {
         if (system) {
@@ -132,16 +451,22 @@ export function SalarySystemModal({
                 setEnableHourly(true);
                 setIsMonthly(system.hourly_settings.is_monthly);
                 setHourlyAmount(system.hourly_settings.amount);
-                setTimeUnitMinutes(system.hourly_settings.time_unit_minutes || 60);
-                setDuringServiceOnly(system.hourly_settings.during_service_only ?? true);
+                const savedTimeUnit = system.hourly_settings.time_unit_minutes || 60;
+                setTimeUnitMinutes(savedTimeUnit);
+                setTimeRoundingType(system.hourly_settings.time_rounding_type || 'round');
+                setDuringServiceOnly(system.hourly_settings.during_service_only ?? false);
                 setIncludesBreak(system.hourly_settings.includes_break ?? false);
+                // Check if it was synced with store time rounding
+                setSyncWithStoreTimeRounding(savedTimeUnit === storeTimeRoundingMinutes);
             } else {
                 setEnableHourly(false);
                 setIsMonthly(false);
                 setHourlyAmount(0);
                 setTimeUnitMinutes(60);
-                setDuringServiceOnly(true);
+                setTimeRoundingType('round');
+                setDuringServiceOnly(false);
                 setIncludesBreak(false);
+                setSyncWithStoreTimeRounding(false);
             }
 
             // Store back
@@ -189,8 +514,9 @@ export function SalarySystemModal({
             setIsMonthly(false);
             setHourlyAmount(0);
             setTimeUnitMinutes(60);
-            setDuringServiceOnly(true);
+            setDuringServiceOnly(false);
             setIncludesBreak(false);
+            setSyncWithStoreTimeRounding(false);
             setEnableStoreBack(false);
             setStoreBackSettings(getDefaultBackSettings());
             setEnableJounaiBack(false);
@@ -202,7 +528,14 @@ export function SalarySystemModal({
             setSharedCountType('none');
             setDeductions([]);
         }
-    }, [system, isOpen]);
+    }, [system, isOpen, storeTimeRoundingMinutes]);
+
+    // Sync time unit with store time rounding when checkbox is checked
+    useEffect(() => {
+        if (syncWithStoreTimeRounding) {
+            setTimeUnitMinutes(storeTimeRoundingMinutes);
+        }
+    }, [syncWithStoreTimeRounding, storeTimeRoundingMinutes]);
 
     const handleSave = async () => {
         if (!name.trim()) {
@@ -219,6 +552,7 @@ export function SalarySystemModal({
                     is_monthly: isMonthly,
                     amount: hourlyAmount,
                     time_unit_minutes: isMonthly ? undefined : timeUnitMinutes,
+                    time_rounding_type: isMonthly ? undefined : timeRoundingType,
                     during_service_only: isMonthly ? undefined : duringServiceOnly,
                     includes_break: isMonthly ? undefined : includesBreak,
                 } : null,
@@ -312,330 +646,32 @@ export function SalarySystemModal({
         setDeductions(newDeductions.map((d, i) => ({ ...d, order: i })));
     };
 
-    // Back settings editor component
-    const BackSettingsEditor = ({
-        settings,
-        onChange,
-        showVariable = true,
-    }: {
-        settings: BackSettings;
-        onChange: (settings: BackSettings) => void;
-        showVariable?: boolean;
-    }) => {
-        const variableType = settings.variable_type || 'none';
-
-        const addTier = () => {
-            const newTier: BackTier = variableType === 'count' ? {
-                min_count: (settings.tiers?.length || 0) + 1,
-                percentage: settings.calculation_type === 'fixed' ? undefined : 10,
-                fixed_amount: settings.calculation_type === 'fixed' ? 1000 : undefined,
-            } : {
-                min_amount: (settings.tiers?.length || 0) * 10000 + 10000,
-                percentage: settings.calculation_type === 'fixed' ? undefined : 10,
-                fixed_amount: settings.calculation_type === 'fixed' ? 1000 : undefined,
-            };
-            onChange({ ...settings, tiers: [...(settings.tiers || []), newTier] });
-        };
-
-        const updateTier = (index: number, updates: Partial<BackTier>) => {
-            const newTiers = [...(settings.tiers || [])];
-            newTiers[index] = { ...newTiers[index], ...updates };
-            onChange({ ...settings, tiers: newTiers });
-        };
-
-        const removeTier = (index: number) => {
-            onChange({ ...settings, tiers: settings.tiers?.filter((_, i) => i !== index) || [] });
-        };
-
-        const handleVariableTypeChange = (newType: 'none' | 'count' | 'amount') => {
-            // 変動タイプを変更時、tiersをクリア
-            onChange({ ...settings, variable_type: newType, tiers: [] });
-        };
-
-        return (
-            <div className="space-y-4">
-                <div className="space-y-2">
-                    <Label className="text-gray-700 dark:text-gray-200">計算方法</Label>
-                    <Select
-                        value={settings.calculation_type}
-                        onValueChange={(value: 'total_percent' | 'subtotal_percent' | 'fixed') =>
-                            onChange({ ...settings, calculation_type: value })
-                        }
-                    >
-                        <SelectTrigger className="h-11">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="total_percent">合計からパーセント</SelectItem>
-                            <SelectItem value="subtotal_percent">小計からパーセント</SelectItem>
-                            <SelectItem value="fixed">固定金額</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-
-                {settings.calculation_type !== 'fixed' ? (
-                    <>
-                        <div className="space-y-2">
-                            <Label className="text-gray-700 dark:text-gray-200">パーセント (%)</Label>
-                            <Input
-                                type="number"
-                                value={settings.percentage || 0}
-                                onChange={(e) => onChange({ ...settings, percentage: Number(e.target.value) })}
-                                className="h-11"
-                            />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-2">
-                                <Label className="text-gray-700 dark:text-gray-200">端数処理</Label>
-                                <Select
-                                    value={settings.rounding_type || 'round'}
-                                    onValueChange={(value: 'round' | 'up' | 'down') =>
-                                        onChange({ ...settings, rounding_type: value })
-                                    }
-                                >
-                                    <SelectTrigger className="h-11">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="round">四捨五入</SelectItem>
-                                        <SelectItem value="up">切り上げ</SelectItem>
-                                        <SelectItem value="down">切り下げ</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label className="text-gray-700 dark:text-gray-200">端数単位</Label>
-                                <Select
-                                    value={String(settings.rounding_unit || 100)}
-                                    onValueChange={(value) =>
-                                        onChange({ ...settings, rounding_unit: Number(value) as 10 | 100 | 1000 | 10000 })
-                                    }
-                                >
-                                    <SelectTrigger className="h-11">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {ROUNDING_UNITS.map(unit => (
-                                            <SelectItem key={unit.value} value={String(unit.value)}>
-                                                {unit.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-                    </>
-                ) : (
-                    <div className="space-y-2">
-                        <Label className="text-gray-700 dark:text-gray-200">固定金額 (円)</Label>
-                        <Input
-                            type="number"
-                            value={settings.fixed_amount || 0}
-                            onChange={(e) => onChange({ ...settings, fixed_amount: Number(e.target.value) })}
-                            className="h-11"
-                        />
-                    </div>
-                )}
-
-                {showVariable && (
-                    <>
-                        <div className="space-y-2 pt-2">
-                            <Label className="text-gray-700 dark:text-gray-200">変動設定</Label>
-                            <Select
-                                value={variableType}
-                                onValueChange={(value: 'none' | 'count' | 'amount') => handleVariableTypeChange(value)}
-                            >
-                                <SelectTrigger className="h-11">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="none">なし</SelectItem>
-                                    <SelectItem value="count">回数で変動</SelectItem>
-                                    <SelectItem value="amount">金額で変動</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        {variableType === 'count' && (
-                            <div className="space-y-4 pl-4 border-l-2 border-blue-200 dark:border-blue-800">
-                                <div className="space-y-2">
-                                    <Label className="text-gray-700 dark:text-gray-200">リセット期間</Label>
-                                    <Select
-                                        value={settings.reset_period || '1month'}
-                                        onValueChange={(value) => onChange({ ...settings, reset_period: value as any })}
-                                    >
-                                        <SelectTrigger className="h-11">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {RESET_PERIODS.map(period => (
-                                                <SelectItem key={period.value} value={period.value}>
-                                                    {period.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <div className="flex items-center justify-between">
-                                        <Label className="text-gray-700 dark:text-gray-200">回数別設定</Label>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={addTier}
-                                        >
-                                            <Plus className="h-4 w-4 mr-1" />
-                                            追加
-                                        </Button>
-                                    </div>
-
-                                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                                        通常のバック率は上で設定したものが適用されます。以下は回数が増えた時の変動設定です。
-                                    </p>
-
-                                    {settings.tiers?.map((tier, index) => (
-                                        <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                            <Input
-                                                type="number"
-                                                value={tier.min_count || 0}
-                                                onChange={(e) => updateTier(index, { min_count: Number(e.target.value) })}
-                                                className="h-9 w-20"
-                                                placeholder="回数"
-                                            />
-                                            <span className="text-sm text-gray-500 whitespace-nowrap">回以上</span>
-                                            {settings.calculation_type !== 'fixed' ? (
-                                                <>
-                                                    <Input
-                                                        type="number"
-                                                        value={tier.percentage || 0}
-                                                        onChange={(e) => updateTier(index, { percentage: Number(e.target.value) })}
-                                                        className="h-9 w-20"
-                                                    />
-                                                    <span className="text-sm text-gray-500">%</span>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Input
-                                                        type="number"
-                                                        value={tier.fixed_amount || 0}
-                                                        onChange={(e) => updateTier(index, { fixed_amount: Number(e.target.value) })}
-                                                        className="h-9 w-24"
-                                                    />
-                                                    <span className="text-sm text-gray-500">円</span>
-                                                </>
-                                            )}
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
-                                                onClick={() => removeTier(index)}
-                                            >
-                                                <X className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {variableType === 'amount' && (
-                            <div className="space-y-4 pl-4 border-l-2 border-green-200 dark:border-green-800">
-                                <div className="space-y-2">
-                                    <div className="flex items-center justify-between">
-                                        <Label className="text-gray-700 dark:text-gray-200">金額別設定</Label>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={addTier}
-                                        >
-                                            <Plus className="h-4 w-4 mr-1" />
-                                            追加
-                                        </Button>
-                                    </div>
-
-                                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                                        通常のバック率は上で設定したものが適用されます。以下は金額が増えた時の変動設定です。
-                                    </p>
-
-                                    {settings.tiers?.map((tier, index) => (
-                                        <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                            <Input
-                                                type="number"
-                                                value={tier.min_amount || 0}
-                                                onChange={(e) => updateTier(index, { min_amount: Number(e.target.value) })}
-                                                className="h-9 w-28"
-                                                placeholder="金額"
-                                            />
-                                            <span className="text-sm text-gray-500 whitespace-nowrap">円以上</span>
-                                            {settings.calculation_type !== 'fixed' ? (
-                                                <>
-                                                    <Input
-                                                        type="number"
-                                                        value={tier.percentage || 0}
-                                                        onChange={(e) => updateTier(index, { percentage: Number(e.target.value) })}
-                                                        className="h-9 w-20"
-                                                    />
-                                                    <span className="text-sm text-gray-500">%</span>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Input
-                                                        type="number"
-                                                        value={tier.fixed_amount || 0}
-                                                        onChange={(e) => updateTier(index, { fixed_amount: Number(e.target.value) })}
-                                                        className="h-9 w-24"
-                                                    />
-                                                    <span className="text-sm text-gray-500">円</span>
-                                                </>
-                                            )}
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
-                                                onClick={() => removeTier(index)}
-                                            >
-                                                <X className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </>
-                )}
-            </div>
-        );
-    };
-
     return (
         <>
             <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-                <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
-                    <DialogHeader className="flex flex-row items-center justify-between border-b px-4 py-3 flex-shrink-0">
-                        <Button variant="ghost" size="icon" className="-ml-2" onClick={onClose}>
-                            <ChevronLeft className="h-5 w-5" />
-                        </Button>
-                        <DialogTitle className="text-lg font-semibold text-gray-900 dark:text-white">
-                            {system ? "給与システム編集" : "給与システム作成"}
-                        </DialogTitle>
-                        {system && (
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="-mr-2 text-red-500 hover:text-red-600 hover:bg-red-50"
-                                onClick={() => setShowDeleteConfirm(true)}
+                <DialogContent className={cn("max-w-[calc(100vw-32px)] sm:max-w-[500px] max-h-[calc(100vh-32px)] flex flex-col p-0 rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900", className)}>
+                    <DialogHeader className="flex-shrink-0 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                        <div className="relative flex items-center justify-center">
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                className="absolute left-0 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                             >
-                                <Trash2 className="h-5 w-5" />
-                            </Button>
-                        )}
-                        {!system && <div className="w-10" />}
+                                <ChevronLeft className="h-5 w-5 text-gray-500" />
+                            </button>
+                            <DialogTitle className="text-gray-900 dark:text-white">
+                                {system ? "給与システム編集" : "給与システム作成"}
+                            </DialogTitle>
+                            {system && (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowDeleteConfirm(true)}
+                                    className="absolute right-0 p-1 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                >
+                                    <Trash2 className="h-5 w-5 text-red-500" />
+                                </button>
+                            )}
+                        </div>
                     </DialogHeader>
 
                     <div className="flex-1 overflow-y-auto px-4 py-4 min-h-0">
@@ -674,29 +710,73 @@ export function SalarySystemModal({
                                                 </Label>
                                                 <Input
                                                     type="number"
-                                                    value={hourlyAmount}
-                                                    onChange={(e) => setHourlyAmount(Number(e.target.value))}
+                                                    value={hourlyAmount === 0 ? "" : hourlyAmount}
+                                                    onChange={(e) => setHourlyAmount(e.target.value === "" ? 0 : Number(e.target.value))}
                                                     className="h-11"
+                                                    placeholder={isMonthly ? "300000" : "1500"}
                                                 />
                                             </div>
 
                                             {!isMonthly && (
                                                 <>
                                                     <div className="space-y-2">
-                                                        <Label className="text-gray-700 dark:text-gray-200">時給発生単位 (分)</Label>
+                                                        <div className="flex items-center justify-between">
+                                                            <Label className="text-gray-700 dark:text-gray-200">時給発生単位 (分)</Label>
+                                                            {storeTimeRoundingEnabled && (
+                                                                <label className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={syncWithStoreTimeRounding}
+                                                                        onChange={(e) => setSyncWithStoreTimeRounding(e.target.checked)}
+                                                                        className="h-3.5 w-3.5 rounded border-gray-300"
+                                                                    />
+                                                                    打刻修正単位に合わせる
+                                                                </label>
+                                                            )}
+                                                        </div>
                                                         <Select
                                                             value={String(timeUnitMinutes)}
                                                             onValueChange={(v) => setTimeUnitMinutes(Number(v))}
+                                                            disabled={syncWithStoreTimeRounding}
+                                                        >
+                                                            <SelectTrigger className={`h-11 ${syncWithStoreTimeRounding ? "opacity-60 cursor-not-allowed" : ""}`}>
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="1">1分</SelectItem>
+                                                                <SelectItem value="5">5分</SelectItem>
+                                                                <SelectItem value="10">10分</SelectItem>
+                                                                <SelectItem value="15">15分</SelectItem>
+                                                                <SelectItem value="20">20分</SelectItem>
+                                                                <SelectItem value="30">30分</SelectItem>
+                                                                <SelectItem value="60">60分</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                        {syncWithStoreTimeRounding && (
+                                                            <p className="text-xs text-gray-400 dark:text-gray-500">
+                                                                タイムカード設定の打刻修正単位（{storeTimeRoundingMinutes}分）に連動しています
+                                                            </p>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="space-y-2">
+                                                        <Label className="text-gray-700 dark:text-gray-200">時間の丸め方</Label>
+                                                        <Select
+                                                            value={timeRoundingType}
+                                                            onValueChange={(v) => setTimeRoundingType(v as 'round' | 'up' | 'down')}
                                                         >
                                                             <SelectTrigger className="h-11">
                                                                 <SelectValue />
                                                             </SelectTrigger>
                                                             <SelectContent>
-                                                                <SelectItem value="15">15分</SelectItem>
-                                                                <SelectItem value="30">30分</SelectItem>
-                                                                <SelectItem value="60">60分</SelectItem>
+                                                                <SelectItem value="round">四捨五入</SelectItem>
+                                                                <SelectItem value="down">繰り下げ（切り捨て）</SelectItem>
+                                                                <SelectItem value="up">繰り上げ（切り上げ）</SelectItem>
                                                             </SelectContent>
                                                         </Select>
+                                                        <p className="text-xs text-gray-400 dark:text-gray-500">
+                                                            勤務時間を時給発生単位で丸める方法
+                                                        </p>
                                                     </div>
 
                                                     <div className="flex items-center justify-between">
@@ -707,13 +787,15 @@ export function SalarySystemModal({
                                                         />
                                                     </div>
 
-                                                    <div className="flex items-center justify-between">
-                                                        <Label className="text-gray-700 dark:text-gray-200">休憩中も時給発生</Label>
-                                                        <Switch
-                                                            checked={includesBreak}
-                                                            onCheckedChange={setIncludesBreak}
-                                                        />
-                                                    </div>
+                                                    {storeShowBreakColumns && (
+                                                        <div className="flex items-center justify-between">
+                                                            <Label className="text-gray-700 dark:text-gray-200">休憩中も時給発生</Label>
+                                                            <Switch
+                                                                checked={includesBreak}
+                                                                onCheckedChange={setIncludesBreak}
+                                                            />
+                                                        </div>
+                                                    )}
                                                 </>
                                             )}
                                         </div>
@@ -831,76 +913,83 @@ export function SalarySystemModal({
                                             {deductions.map((deduction, index) => (
                                                 <div
                                                     key={deduction.id}
-                                                    className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                                                    className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
                                                 >
-                                                    <div className="flex flex-col gap-1">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <div className="flex items-center gap-1">
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-7 w-7"
+                                                                onClick={() => moveDeduction(deduction.id, 'up')}
+                                                                disabled={index === 0}
+                                                            >
+                                                                <ChevronLeft className="h-4 w-4 rotate-90" />
+                                                            </Button>
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-7 w-7"
+                                                                onClick={() => moveDeduction(deduction.id, 'down')}
+                                                                disabled={index === deductions.length - 1}
+                                                            >
+                                                                <ChevronLeft className="h-4 w-4 -rotate-90" />
+                                                            </Button>
+                                                            <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
+                                                                {index + 1}
+                                                            </span>
+                                                        </div>
                                                         <Button
                                                             type="button"
                                                             variant="ghost"
                                                             size="icon"
-                                                            className="h-6 w-6"
-                                                            onClick={() => moveDeduction(deduction.id, 'up')}
-                                                            disabled={index === 0}
+                                                            className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
+                                                            onClick={() => removeDeduction(deduction.id)}
                                                         >
-                                                            <ChevronLeft className="h-4 w-4 rotate-90" />
-                                                        </Button>
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="h-6 w-6"
-                                                            onClick={() => moveDeduction(deduction.id, 'down')}
-                                                            disabled={index === deductions.length - 1}
-                                                        >
-                                                            <ChevronLeft className="h-4 w-4 -rotate-90" />
+                                                            <X className="h-4 w-4" />
                                                         </Button>
                                                     </div>
 
-                                                    <div className="flex-1 grid grid-cols-3 gap-2">
+                                                    <div className="space-y-2">
                                                         <Input
                                                             value={deduction.name}
                                                             onChange={(e) => updateDeduction(deduction.id, { name: e.target.value })}
                                                             placeholder="項目名"
-                                                            className="h-9"
+                                                            className="h-10"
                                                         />
-                                                        <Select
-                                                            value={deduction.type}
-                                                            onValueChange={(v: 'percent' | 'fixed') =>
-                                                                updateDeduction(deduction.id, { type: v })
-                                                            }
-                                                        >
-                                                            <SelectTrigger className="h-9">
-                                                                <SelectValue />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                <SelectItem value="percent">パーセント</SelectItem>
-                                                                <SelectItem value="fixed">固定金額</SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
-                                                        <div className="flex items-center gap-1">
-                                                            <Input
-                                                                type="number"
-                                                                value={deduction.amount}
-                                                                onChange={(e) =>
-                                                                    updateDeduction(deduction.id, { amount: Number(e.target.value) })
+                                                        <div className="flex gap-2">
+                                                            <Select
+                                                                value={deduction.type}
+                                                                onValueChange={(v: 'percent' | 'fixed') =>
+                                                                    updateDeduction(deduction.id, { type: v })
                                                                 }
-                                                                className="h-9"
-                                                            />
-                                                            <span className="text-sm text-gray-500 w-6">
-                                                                {deduction.type === 'percent' ? '%' : '円'}
-                                                            </span>
+                                                            >
+                                                                <SelectTrigger className="h-10 w-32">
+                                                                    <SelectValue />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    <SelectItem value="percent">パーセント</SelectItem>
+                                                                    <SelectItem value="fixed">固定金額</SelectItem>
+                                                                </SelectContent>
+                                                            </Select>
+                                                            <div className="flex-1 flex items-center gap-2">
+                                                                <Input
+                                                                    type="number"
+                                                                    value={deduction.amount === 0 ? "" : deduction.amount}
+                                                                    onChange={(e) =>
+                                                                        updateDeduction(deduction.id, { amount: e.target.value === "" ? 0 : Number(e.target.value) })
+                                                                    }
+                                                                    className="h-10"
+                                                                    placeholder={deduction.type === 'percent' ? "10" : "1000"}
+                                                                />
+                                                                <span className="text-sm text-gray-500 dark:text-gray-400 w-6 shrink-0">
+                                                                    {deduction.type === 'percent' ? '%' : '円'}
+                                                                </span>
+                                                            </div>
                                                         </div>
                                                     </div>
-
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
-                                                        onClick={() => removeDeduction(deduction.id)}
-                                                    >
-                                                        <X className="h-4 w-4" />
-                                                    </Button>
                                                 </div>
                                             ))}
 
@@ -919,11 +1008,12 @@ export function SalarySystemModal({
                         </div>
                     </div>
 
-                    <DialogFooter className="border-t px-4 py-3 flex-shrink-0 gap-2">
-                        <Button variant="outline" onClick={onClose} disabled={saving}>
-                            キャンセル
-                        </Button>
-                        <Button onClick={handleSave} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white">
+                    <DialogFooter className="border-t border-gray-200 dark:border-gray-700 px-4 py-3 flex-shrink-0">
+                        <Button
+                            onClick={handleSave}
+                            disabled={saving}
+                            className="w-full h-11 rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
+                        >
                             {saving ? "保存中..." : "保存"}
                         </Button>
                     </DialogFooter>
@@ -932,19 +1022,29 @@ export function SalarySystemModal({
 
             {/* Delete Confirmation Dialog */}
             <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-                <DialogContent className="max-w-sm">
+                <DialogContent className="max-w-[calc(100vw-32px)] sm:max-w-[360px] rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
                     <DialogHeader>
                         <DialogTitle className="text-gray-900 dark:text-white">削除の確認</DialogTitle>
                     </DialogHeader>
-                    <p className="text-gray-600 dark:text-gray-400">
+                    <p className="text-gray-600 dark:text-gray-400 py-2">
                         この給与システムを削除しますか？この操作は取り消せません。
                     </p>
-                    <DialogFooter className="gap-2">
-                        <Button variant="outline" onClick={() => setShowDeleteConfirm(false)} disabled={deleting}>
-                            キャンセル
-                        </Button>
-                        <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+                    <DialogFooter className="flex flex-col gap-2">
+                        <Button
+                            variant="destructive"
+                            onClick={handleDelete}
+                            disabled={deleting}
+                            className="w-full h-11 rounded-lg"
+                        >
                             {deleting ? "削除中..." : "削除"}
+                        </Button>
+                        <Button
+                            variant="outline"
+                            onClick={() => setShowDeleteConfirm(false)}
+                            disabled={deleting}
+                            className="w-full h-11 rounded-lg"
+                        >
+                            キャンセル
                         </Button>
                     </DialogFooter>
                 </DialogContent>

@@ -18,19 +18,33 @@ export default async function SelectStorePage() {
         .maybeSingle();
 
     if (appUser?.current_profile_id) {
-        // User already has a profile, check approval status
+        // User already has a profile, check status
         const { data: profile } = await supabase
             .from("profiles")
-            .select("approval_status")
+            .select("id, role")
             .eq("id", appUser.current_profile_id)
             .maybeSingle();
 
-        if (profile?.approval_status === "pending") {
-            redirect("/onboarding/pending-approval");
-        } else if (profile?.approval_status === "approved") {
+        // If profile has an approved role (cast or staff), they are approved
+        // "guest" role means pending/unapproved
+        if (profile?.role && profile.role !== "guest") {
             redirect("/app/dashboard");
         }
-        // If rejected, allow to continue and select new store
+
+        // Check join_requests table for pending status
+        if (profile) {
+            const { data: joinRequest } = await supabase
+                .from("join_requests")
+                .select("status")
+                .eq("profile_id", profile.id)
+                .eq("status", "pending")
+                .maybeSingle();
+
+            if (joinRequest) {
+                redirect("/onboarding/pending-approval");
+            }
+        }
+        // If no pending request (rejected or none), allow to continue and select new store
     }
 
     return (

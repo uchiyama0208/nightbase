@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { ChevronLeft, ChevronRight, Users } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { getCalendarData } from "./actions";
 
 interface CalendarData {
@@ -148,7 +148,7 @@ export function ShiftsCalendar({ initialData, storeId, onDateClick }: ShiftsCale
                         return (
                             <div
                                 key={`empty-${index}`}
-                                className="min-h-[80px] border-b border-r border-gray-100 dark:border-gray-800 last:border-r-0"
+                                className="min-h-[56px] border-b border-r border-gray-100 dark:border-gray-800 last:border-r-0"
                             />
                         );
                     }
@@ -162,50 +162,46 @@ export function ShiftsCalendar({ initialData, storeId, onDateClick }: ShiftsCale
 
                     return (
                         <button
-                            key={day}
+                            key={dateKey}
                             type="button"
                             onClick={() => onDateClick(dateKey, data?.requestDateId)}
                             disabled={isLoading}
-                            className={`min-h-[80px] p-1.5 border-b border-r border-gray-100 dark:border-gray-800 last:border-r-0 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50 disabled:pointer-events-none ${
+                            className={`min-h-[56px] p-1 border-b border-r border-gray-100 dark:border-gray-800 last:border-r-0 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50 disabled:pointer-events-none relative ${
                                 isToday(day) ? "bg-blue-50 dark:bg-blue-900/20" : ""
                             }`}
                         >
-                            {/* Day Number */}
-                            <div
-                                className={`text-xs font-medium mb-1 ${
-                                    isToday(day)
-                                        ? "text-blue-600 dark:text-blue-400"
-                                        : isSunday
-                                        ? "text-red-500"
-                                        : isSaturday
-                                        ? "text-blue-500"
-                                        : "text-gray-700 dark:text-gray-300"
-                                }`}
-                            >
-                                {day}
+                            {/* Day Number - 左上固定 */}
+                            <div className="absolute top-1 left-1.5 flex items-center gap-1">
+                                <span
+                                    className={`text-xs font-medium ${
+                                        isToday(day)
+                                            ? "text-blue-600 dark:text-blue-400"
+                                            : isSunday
+                                            ? "text-red-500"
+                                            : isSaturday
+                                            ? "text-blue-500"
+                                            : "text-gray-700 dark:text-gray-300"
+                                    }`}
+                                >
+                                    {day}
+                                </span>
+                                {data?.hasRequest && (
+                                    <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />
+                                )}
                             </div>
 
-                            {/* Request Indicator */}
-                            {data?.hasRequest && (
-                                <div className="mb-1">
-                                    <span className="inline-block w-2 h-2 rounded-full bg-orange-400" />
-                                </div>
-                            )}
-
-                            {/* Scheduled Staff Count */}
+                            {/* Scheduled Staff Count - 横一列 */}
                             {hasScheduled && (
-                                <div className="space-y-0.5">
+                                <div className="absolute bottom-1 left-1.5 right-1.5 flex items-center gap-1">
                                     {data.castCount > 0 && (
-                                        <div className="flex items-center gap-0.5 text-[10px] leading-tight px-1 py-0.5 rounded bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-400">
-                                            <Users className="h-2.5 w-2.5" />
-                                            <span>キャスト {data.castCount}</span>
-                                        </div>
+                                        <span className="text-[10px] font-medium px-1 py-0.5 rounded bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-400">
+                                            {data.castCount}
+                                        </span>
                                     )}
                                     {data.staffCount > 0 && (
-                                        <div className="flex items-center gap-0.5 text-[10px] leading-tight px-1 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
-                                            <Users className="h-2.5 w-2.5" />
-                                            <span>スタッフ {data.staffCount}</span>
-                                        </div>
+                                        <span className="text-[10px] font-medium px-1 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
+                                            {data.staffCount}
+                                        </span>
                                     )}
                                 </div>
                             )}

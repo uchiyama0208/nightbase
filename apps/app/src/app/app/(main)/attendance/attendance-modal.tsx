@@ -56,6 +56,7 @@ interface AttendanceModalProps {
     editingRecord?: AttendanceRecord | null;
     onOpenProfileEdit?: (profileId: string) => void;
     onFocusAttendanceForProfile?: (profileId: string) => void;
+    onSaved?: () => void;
 }
 
 export function AttendanceModal({
@@ -68,6 +69,7 @@ export function AttendanceModal({
     editingRecord,
     onOpenProfileEdit,
     onFocusAttendanceForProfile,
+    onSaved,
 }: AttendanceModalProps) {
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -79,6 +81,7 @@ export function AttendanceModal({
     // Fallback to defaults.
 
     const [showActions, setShowActions] = useState(false);
+    const [selectedProfileId, setSelectedProfileId] = useState<string>("");
 
     const editingProfile = editingRecord
         ? profiles.find((p) => p.id === editingRecord.user_id) || null
@@ -87,12 +90,19 @@ export function AttendanceModal({
     // When editing, use the editing profile's role; otherwise use defaultRole
     const [selectedRole, setSelectedRole] = useState(editingProfile?.role || defaultRole);
 
-    // Update selectedRole when editingProfile changes
+    // Update selectedRole and selectedProfileId when modal opens or editingProfile changes
     useEffect(() => {
+        if (!isOpen) return;
+
         if (editingProfile) {
             setSelectedRole(editingProfile.role);
+            setSelectedProfileId(editingProfile.id);
+        } else if (initialData?.profileId) {
+            setSelectedProfileId(initialData.profileId);
+        } else {
+            setSelectedProfileId("");
         }
-    }, [editingProfile]);
+    }, [isOpen, editingProfile, initialData?.profileId]);
 
     // Filter profiles for the dropdown based on selectedRole
     const filteredProfiles = profiles.filter(p => {
@@ -101,7 +111,6 @@ export function AttendanceModal({
         return p.role === selectedRole;
     });
 
-    const defaultProfileId = editingRecord?.user_id || initialData?.profileId || "";
     const defaultDate = editingRecord?.date || initialData?.date || new Date().toISOString().split("T")[0];
     // Status is hidden, default to empty or inferred by backend
 
@@ -145,6 +154,7 @@ export function AttendanceModal({
             // But we changed them to return object.
 
             router.refresh();
+            onSaved?.();
             onClose();
         } catch (error) {
             console.error("Error saving attendance:", error);
@@ -187,7 +197,7 @@ export function AttendanceModal({
                                 ? (editingProfile.display_name || editingProfile.real_name || "メンバー")
                                 : "出勤記録"}
                         </DialogTitle>
-                        {defaultProfileId ? (
+                        {selectedProfileId ? (
                             <button
                                 type="button"
                                 onClick={() => setShowActions((prev) => !prev)}
@@ -201,7 +211,7 @@ export function AttendanceModal({
                         )}
                     </DialogHeader>
 
-                    {showActions && defaultProfileId && (
+                    {showActions && selectedProfileId && (
                         <>
                             <button
                                 type="button"
@@ -215,7 +225,7 @@ export function AttendanceModal({
                                     variant="ghost"
                                     className="justify-start h-8 px-2 rounded-lg text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700"
                                     onClick={() => {
-                                        onOpenProfileEdit?.(defaultProfileId);
+                                        onOpenProfileEdit?.(selectedProfileId);
                                         setShowActions(false);
                                         onClose();
                                     }}
@@ -227,7 +237,7 @@ export function AttendanceModal({
                                     variant="ghost"
                                     className="justify-start h-8 px-2 rounded-lg text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700"
                                     onClick={() => {
-                                        onFocusAttendanceForProfile?.(defaultProfileId);
+                                        onFocusAttendanceForProfile?.(selectedProfileId);
                                         setShowActions(false);
                                         onClose();
                                     }}
@@ -287,7 +297,12 @@ export function AttendanceModal({
 
                         <div className="space-y-1">
                             <Label htmlFor="profileId">メンバー</Label>
-                            <Select name="profileId" defaultValue={defaultProfileId} required>
+                            <Select
+                                name="profileId"
+                                value={selectedProfileId}
+                                onValueChange={setSelectedProfileId}
+                                required
+                            >
                                 <SelectTrigger id="profileId" className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md">
                                     <SelectValue placeholder="メンバーを選択" />
                                 </SelectTrigger>
@@ -377,7 +392,11 @@ export function AttendanceModal({
                         </div>
 
                         <DialogFooter className="flex-col sm:flex-row gap-4 mt-8">
-                            <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto rounded-full h-10">
+                            <Button
+                                type="submit"
+                                disabled={isSubmitting || !selectedProfileId}
+                                className="w-full sm:w-auto rounded-full h-10"
+                            >
                                 {isSubmitting ? "保存中..." : (editingRecord ? "保存" : "作成")}
                             </Button>
                             <Button

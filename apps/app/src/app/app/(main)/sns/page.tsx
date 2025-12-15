@@ -1,9 +1,23 @@
 import { redirect } from "next/navigation";
 import { getSnsPageData } from "./actions";
 import { SnsClient } from "./SnsClient";
-import { PageTitle } from "@/components/page-title";
+import { getAppDataWithPermissionCheck, getAccessDeniedRedirectUrl } from "../../data-access";
 
 export default async function SnsPage() {
+    const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("sns", "view");
+
+    if (!user) {
+        redirect("/login");
+    }
+
+    if (!profile || !profile.store_id) {
+        redirect("/app/me");
+    }
+
+    if (!hasAccess) {
+        redirect(getAccessDeniedRedirectUrl("sns"));
+    }
+
     const result = await getSnsPageData();
 
     if ("redirect" in result) {
@@ -13,20 +27,14 @@ export default async function SnsPage() {
     const { data } = result;
 
     return (
-        <div className="space-y-4">
-            <PageTitle
-                title="SNS"
-                backTab="community"
-            />
-            <SnsClient
-                storeId={data.storeId}
-                storeName={data.storeName}
-                accounts={data.accounts}
-                templates={data.templates}
-                scheduledPosts={data.scheduledPosts}
-                postHistory={data.postHistory}
-                recurringSchedules={data.recurringSchedules}
-            />
-        </div>
+        <SnsClient
+            storeId={data.storeId}
+            storeName={data.storeName}
+            accounts={data.accounts}
+            templates={data.templates}
+            scheduledPosts={data.scheduledPosts}
+            postHistory={data.postHistory}
+            recurringSchedules={data.recurringSchedules}
+        />
     );
 }

@@ -17,11 +17,10 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { Plus, Search, Wine, Trash2, Edit } from "lucide-react";
+import { Plus, Search, Wine, Trash2, Edit, Filter } from "lucide-react";
 import { getBottleKeeps, deleteBottleKeep } from "./actions";
 import { BottleModal } from "./bottle-modal";
 import { formatJSTDate } from "@/lib/utils";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
 import {
     Dialog,
@@ -47,12 +46,26 @@ export function BottleList({ storeId, menus, profiles }: BottleListProps) {
     const [isPending, startTransition] = useTransition();
     const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
+
+    const remainingLabels: Record<string, string> = {
+        "100": "未開封",
+        "75": "多め",
+        "50": "半分",
+        "25": "少なめ",
+        "0": "無し",
+    };
 
     const activeFilters = useMemo(() => [
-        searchQuery.trim() && "検索",
-        remainingFilter !== "all" && "残量",
+        searchQuery.trim() && `"${searchQuery}"`,
+        remainingFilter !== "all" && remainingLabels[remainingFilter],
     ].filter(Boolean) as string[], [searchQuery, remainingFilter]);
     const hasFilters = activeFilters.length > 0;
+
+    const getFilterSummary = useCallback(() => {
+        if (!hasFilters) return "なし";
+        return activeFilters.join("・");
+    }, [hasFilters, activeFilters]);
 
     const fetchBottles = useCallback(async () => {
         startTransition(async () => {
@@ -121,8 +134,22 @@ export function BottleList({ storeId, menus, profiles }: BottleListProps) {
 
 
     return (
-        <div className="space-y-4">
-            <div className="flex items-center justify-end mb-4">
+        <div className="space-y-2">
+            {/* Top row: Filter + Plus button */}
+            <div className="flex items-center justify-between">
+                <button
+                    type="button"
+                    className={`flex items-center gap-1 px-1 py-1 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 ${
+                        hasFilters ? "text-blue-600" : "text-gray-500 dark:text-gray-400"
+                    }`}
+                    onClick={() => setIsFilterDialogOpen(true)}
+                >
+                    <Filter className="h-5 w-5 shrink-0" />
+                    <span className="text-sm text-gray-600 dark:text-gray-300 truncate">
+                        フィルター: {getFilterSummary()}
+                    </span>
+                </button>
+
                 <Button
                     size="icon"
                     className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
@@ -132,51 +159,7 @@ export function BottleList({ storeId, menus, profiles }: BottleListProps) {
                 </Button>
             </div>
 
-            <Accordion type="single" collapsible className="w-full mb-4">
-                <AccordionItem
-                    value="filters"
-                    className="rounded-2xl border border-gray-200 bg-white px-2 dark:border-gray-700 dark:bg-gray-800"
-                >
-                    <AccordionTrigger className="px-2 text-sm font-semibold text-gray-900 dark:text-white">
-                        <div className="flex w-full items-center justify-between pr-2">
-                            <span>フィルター</span>
-                            {hasFilters && (
-                                <span className="text-xs text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/40 px-2 py-0.5 rounded-full">
-                                    {activeFilters.join("・")}
-                                </span>
-                            )}
-                        </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="px-2">
-                        <div className="flex flex-col gap-3 pt-2 pb-2">
-                            <div className="relative w-full">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                <Input
-                                    placeholder="ボトル名やゲスト名で検索..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="pl-10 w-full h-10 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs md:text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                />
-                            </div>
-                            <Select value={remainingFilter} onValueChange={setRemainingFilter}>
-                                <SelectTrigger className="w-full h-10">
-                                    <SelectValue placeholder="残量" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">すべて</SelectItem>
-                                    <SelectItem value="100">未開封</SelectItem>
-                                    <SelectItem value="75">多め</SelectItem>
-                                    <SelectItem value="50">半分</SelectItem>
-                                    <SelectItem value="25">少なめ</SelectItem>
-                                    <SelectItem value="0">無し</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </AccordionContent>
-                </AccordionItem>
-            </Accordion>
-
-            <div className="rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-x-auto">
+            <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
                 <Table>
                     <TableHeader>
                         <TableRow className="border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
@@ -291,6 +274,67 @@ export function BottleList({ storeId, menus, profiles }: BottleListProps) {
                             className="rounded-lg"
                         >
                             削除する
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* フィルターダイアログ */}
+            <Dialog open={isFilterDialogOpen} onOpenChange={setIsFilterDialogOpen}>
+                <DialogContent className="max-w-md rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+                    <DialogHeader>
+                        <DialogTitle className="text-gray-900 dark:text-white">フィルター</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                検索
+                            </label>
+                            <div className="relative">
+                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                    placeholder="ボトル名やゲスト名で検索..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="pl-8 bg-white dark:bg-gray-800"
+                                />
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                残量
+                            </label>
+                            <Select value={remainingFilter} onValueChange={setRemainingFilter}>
+                                <SelectTrigger className="w-full bg-white dark:bg-gray-800">
+                                    <SelectValue placeholder="残量" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">すべて</SelectItem>
+                                    <SelectItem value="100">未開封</SelectItem>
+                                    <SelectItem value="75">多め</SelectItem>
+                                    <SelectItem value="50">半分</SelectItem>
+                                    <SelectItem value="25">少なめ</SelectItem>
+                                    <SelectItem value="0">無し</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                    <DialogFooter className="flex justify-end gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setSearchQuery("");
+                                setRemainingFilter("all");
+                            }}
+                            className="rounded-lg"
+                        >
+                            リセット
+                        </Button>
+                        <Button
+                            onClick={() => setIsFilterDialogOpen(false)}
+                            className="rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                            適用
                         </Button>
                     </DialogFooter>
                 </DialogContent>

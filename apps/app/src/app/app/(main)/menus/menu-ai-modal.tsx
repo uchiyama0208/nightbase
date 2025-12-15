@@ -151,7 +151,8 @@ export function MenuAIModal({ isOpen, onClose, categories, onSuccess }: MenuAIMo
         try {
             const result = await createMenuCategory(newCategoryName.trim());
             if (result.category) {
-                setLocalCategories(prev => [...prev, result.category]);
+                const newCategory = result.category;
+                setLocalCategories(prev => [...prev, newCategory]);
             }
             setNewCategoryName("");
         } catch (err) {

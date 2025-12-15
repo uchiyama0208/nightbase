@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Button } from "@/components/ui/button";
 import { TableSession, BillSettings, Order } from "@/types/floor";
 import { getBillSettings } from "../seats/bill-actions";
-import { checkoutSession } from "./actions";
+import { checkoutSession } from "./actions/session";
 import { calculateBill, BillBreakdown } from "@/utils/bill-calculator";
 import { Loader2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";

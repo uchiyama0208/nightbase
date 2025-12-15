@@ -25,12 +25,19 @@ import {
     CalendarClock,
     MessageSquare,
     Share2,
-    Sparkles,
     Calendar,
     Car,
     LayoutGrid,
     Coins,
     Wallet,
+    BarChart3,
+    Trophy,
+    FileText,
+    ClipboardList,
+    CalendarRange,
+    ShoppingCart,
+    Sparkles,
+    QrCode,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
@@ -80,33 +87,31 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
             label: "出勤管理",
             icon: Calendar,
             href: "/app/attendance",
-            roles: ["admin", "staff"],
-            feature: "attendance" as const,
+            key: "attendance",
         },
         {
             label: "送迎管理",
             icon: Car,
             href: "/app/pickup",
-            roles: ["admin", "staff"],
+            key: "pickup",
         },
         {
             label: "タイムカード",
             icon: Clock,
             href: "/app/timecard",
-            roles: ["admin", "staff", "cast"],
-            feature: "timecard" as const,
+            key: "timecard",
         },
         {
             label: "シフト管理",
             icon: CalendarCheck,
             href: "/app/shifts",
-            roles: ["admin", "staff"],
+            key: "shifts",
         },
         {
             label: "マイシフト",
             icon: CalendarClock,
             href: "/app/my-shifts",
-            roles: ["admin", "staff", "cast"],
+            key: "my-shifts",
         },
     ];
 
@@ -116,27 +121,25 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
             label: "プロフィール情報",
             icon: Users,
             href: "/app/users",
-            roles: ["admin", "staff"],
-            feature: "users" as const,
+            key: "users",
+        },
+        {
+            label: "履歴書",
+            icon: FileText,
+            href: "/app/resumes",
+            key: "resumes",
         },
         {
             label: "権限",
             icon: Shield,
             href: "/app/roles",
-            roles: ["admin", "staff"],
-            feature: "roles" as const,
+            key: "roles",
         },
         {
             label: "招待",
             icon: Mail,
             href: "/app/invitations",
-            roles: ["admin", "staff"],
-        },
-        {
-            label: "参加申請",
-            icon: UserPlus,
-            href: "/app/invitations/join-requests",
-            roles: ["admin", "staff"],
+            key: "invitations",
         },
     ];
 
@@ -146,48 +149,89 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
             label: "フロア管理",
             icon: LayoutGrid,
             href: "/app/floor",
-            roles: ["admin", "staff"],
+            key: "floor",
+        },
+        {
+            label: "注文一覧",
+            icon: ClipboardList,
+            href: "/app/orders",
+            key: "orders",
+        },
+        {
+            label: "順番待ち",
+            icon: Grid3X3,
+            href: "/app/queue",
+            key: "queue",
+        },
+        {
+            label: "予約",
+            icon: CalendarRange,
+            href: "/app/reservations",
+            key: "reservations",
         },
         {
             label: "席エディター",
             icon: Armchair,
             href: "/app/seats",
-            roles: ["admin", "staff"],
+            key: "seats",
         },
         {
             label: "伝票",
             icon: Receipt,
             href: "/app/slips",
-            roles: ["admin", "staff"],
+            key: "slips",
         },
         {
             label: "メニュー",
             icon: Utensils,
             href: "/app/menus",
-            roles: ["admin", "staff"],
-            feature: "menus" as const,
+            key: "menus",
         },
         {
             label: "ボトルキープ",
             icon: Wine,
             href: "/app/bottles",
-            roles: ["admin", "staff"],
+            key: "bottles",
+        },
+        {
+            label: "買い出し",
+            icon: ShoppingCart,
+            href: "/app/shopping",
+            key: "shopping",
         },
     ];
 
     // 料金給与
     const salaryRoutes = [
         {
-            label: "料金体系",
-            icon: Coins,
-            href: "/app/pricing-systems",
-            roles: ["admin", "staff"],
+            label: "売上",
+            icon: BarChart3,
+            href: "/app/sales",
+            key: "sales",
         },
         {
-            label: "給与体系",
+            label: "給与",
+            icon: Banknote,
+            href: "/app/payroll",
+            key: "payroll",
+        },
+        {
+            label: "ランキング",
+            icon: Trophy,
+            href: "/app/ranking",
+            key: "ranking",
+        },
+        {
+            label: "料金システム",
+            icon: Coins,
+            href: "/app/pricing-systems",
+            key: "pricing-systems",
+        },
+        {
+            label: "給与システム",
             icon: Wallet,
             href: "/app/salary-systems",
-            roles: ["admin", "staff"],
+            key: "salary-systems",
         },
     ];
 
@@ -197,19 +241,19 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
             label: "掲示板",
             icon: MessageSquare,
             href: "/app/board",
-            roles: ["admin", "staff", "cast"],
+            key: "board",
         },
         {
             label: "SNS",
             icon: Share2,
             href: "/app/sns",
-            roles: ["admin", "staff"],
+            key: "sns",
         },
         {
-            label: "機能追加",
+            label: "AIクリエイト",
             icon: Sparkles,
-            href: "/app/features",
-            roles: ["admin", "staff"],
+            href: "/app/ai-create",
+            key: "ai-create",
         },
     ];
 
@@ -219,48 +263,38 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
             label: "店舗設定",
             icon: Settings,
             href: "/app/settings",
-            roles: ["admin", "staff"],
+            key: "settings",
+        },
+        {
+            label: "QRコード注文",
+            icon: QrCode,
+            href: "/app/settings/qr-order",
+            key: "qr-order",
         },
         {
             label: "権限",
             icon: Shield,
             href: "/app/roles",
-            roles: ["admin", "staff"],
-            feature: "roles" as const,
+            key: "roles-settings",
         },
         {
             label: "招待",
             icon: Mail,
             href: "/app/invitations",
-            roles: ["admin", "staff"],
-        },
-        {
-            label: "参加申請",
-            icon: UserPlus,
-            href: "/app/invitations/join-requests",
-            roles: ["admin", "staff"],
+            key: "invitations-settings",
         },
     ];
 
-    const filterRoutes = (routes: any[]) => {
-        return routes.filter((route) => {
-            if (!userRole || !route.roles.includes(userRole)) return false;
-            if (!storeFeatures) return true;
-            if (route.feature === "attendance" && storeFeatures.show_attendance === false) return false;
-            if (route.feature === "timecard" && storeFeatures.show_timecard === false) return false;
-            if (route.feature === "users" && storeFeatures.show_users === false) return false;
-            if (route.feature === "roles" && storeFeatures.show_roles === false) return false;
-            if (route.feature === "menus" && storeFeatures.show_menus === false) return false;
-            return true;
-        });
-    };
+    // admin と staff は全ページにアクセス可能、cast は権限セットに基づく
+    // TODO: 権限セットに基づくフィルタリングを実装
+    const isAdminOrStaff = userRole === "admin" || userRole === "staff";
 
-    const filteredShiftRoutes = filterRoutes(shiftRoutes);
-    const filteredUserRoutes = filterRoutes(userRoutes);
-    const filteredFloorRoutes = filterRoutes(floorRoutes);
-    const filteredSalaryRoutes = filterRoutes(salaryRoutes);
-    const filteredCommunityRoutes = filterRoutes(communityRoutes);
-    const filteredSettingsRoutes = filterRoutes(settingsRoutes);
+    const filteredShiftRoutes = isAdminOrStaff ? shiftRoutes : shiftRoutes.filter(r => ["timecard", "my-shifts"].includes(r.key));
+    const filteredUserRoutes = isAdminOrStaff ? userRoutes : [];
+    const filteredFloorRoutes = isAdminOrStaff ? floorRoutes : [];
+    const filteredSalaryRoutes = isAdminOrStaff ? salaryRoutes : [];
+    const filteredCommunityRoutes = isAdminOrStaff ? communityRoutes : communityRoutes.filter(r => r.key === "board");
+    const filteredSettingsRoutes = isAdminOrStaff ? settingsRoutes : [];
 
     const handleSignOut = async () => {
         const { signOut } = await import("@/app/app/(main)/settings/actions");

@@ -39,35 +39,85 @@ export async function createPendingProfile(formData: FormData) {
     const storeId = formData.get("store_id") as string;
     const role = formData.get("role") as string;
 
-    // Create profile with pending status
-    const { data: profile, error: profileError } = await supabase
+    // Check if user already has a profile for this store
+    const { data: existingProfile } = await supabase
         .from("profiles")
-        .insert({
-            user_id: user.id,
-            store_id: storeId,
-            display_name: displayName,
-            display_name_kana: displayNameKana,
-            real_name: realName,
-            real_name_kana: realNameKana,
-            role: role,
-            approval_status: "pending",
-        })
-        .select()
-        .single();
+        .select("id, role")
+        .eq("user_id", user.id)
+        .eq("store_id", storeId)
+        .maybeSingle();
 
-    if (profileError) {
-        console.error("Profile creation error:", profileError);
-        return { success: false, error: profileError.message };
+    // Only block if user is already an approved member (cast or staff)
+    if (existingProfile && existingProfile.role && existingProfile.role !== "guest") {
+        return { success: false, error: "既にこの店舗のメンバーです" };
     }
 
-    // Update user's current_profile_id
-    await supabase
-        .from("users")
-        .update({ current_profile_id: profile.id })
-        .eq("id", user.id);
+    let profileId: string;
+
+    if (existingProfile) {
+        // Check if there's already a pending join request
+        const { data: existingJoinRequest } = await supabase
+            .from("join_requests")
+            .select("id")
+            .eq("profile_id", existingProfile.id)
+            .eq("status", "pending")
+            .maybeSingle();
+
+        if (existingJoinRequest) {
+            return { success: false, error: "既にこの店舗への参加申請が承認待ちです" };
+        }
+
+        profileId = existingProfile.id;
+    } else {
+        // Create profile without role (role will be set on approval)
+        const { data: profile, error: profileError } = await supabase
+            .from("profiles")
+            .insert({
+                user_id: user.id,
+                store_id: storeId,
+                display_name: displayName,
+                display_name_kana: displayNameKana,
+                real_name: realName,
+                real_name_kana: realNameKana,
+            })
+            .select()
+            .single();
+
+        if (profileError) {
+            console.error("Profile creation error:", profileError);
+            return { success: false, error: profileError.message };
+        }
+
+        profileId = profile.id;
+
+        // Update user's current_profile_id
+        await supabase
+            .from("users")
+            .update({ current_profile_id: profile.id })
+            .eq("id", user.id);
+    }
+
+    // Create join request
+    const { error: joinRequestError } = await supabase
+        .from("join_requests")
+        .insert({
+            store_id: storeId,
+            profile_id: profileId,
+            display_name: displayName,
+            display_name_kana: displayNameKana,
+            real_name: realName || null,
+            real_name_kana: realNameKana || null,
+            requested_role: role,
+            status: "pending",
+        });
+
+    if (joinRequestError) {
+        console.error("Join request creation error:", joinRequestError);
+        return { success: false, error: joinRequestError.message };
+    }
 
     revalidatePath("/");
-    return { success: true, profileId: profile.id };
+    return { success: true, profileId };
 }
 
 export async function checkApprovalStatus() {
@@ -90,7 +140,7 @@ export async function checkApprovalStatus() {
 
     const { data: profile } = await supabase
         .from("profiles")
-        .select("approval_status, store_id, stores(name)")
+        .select("id, role, store_id, stores(name)")
         .eq("id", appUser.current_profile_id)
         .maybeSingle();
 
@@ -98,9 +148,28 @@ export async function checkApprovalStatus() {
         return { success: false, status: null };
     }
 
+    // If profile has an approved role (cast or staff), they are approved
+    // "guest" role means pending/unapproved
+    if (profile.role && profile.role !== "guest") {
+        return {
+            success: true,
+            status: "approved",
+            storeName: (profile.stores as any)?.name,
+        };
+    }
+
+    // Check join_requests table for pending status
+    const { data: joinRequest } = await supabase
+        .from("join_requests")
+        .select("status")
+        .eq("profile_id", profile.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
     return {
         success: true,
-        status: profile.approval_status,
+        status: joinRequest?.status || null,
         storeName: (profile.stores as any)?.name,
     };
 }
@@ -180,7 +249,7 @@ export async function upsertOwnerProfile(formData: FormData) {
                 display_name_kana: displayNameKana,
                 real_name: realName,
                 real_name_kana: realNameKana,
-                role: "staff", // Ensure role is staff for store creators
+                role: "admin", // Store creator gets admin role
             })
             .eq("id", existingProfile.id);
 
@@ -198,7 +267,7 @@ export async function upsertOwnerProfile(formData: FormData) {
                 display_name_kana: displayNameKana,
                 real_name: realName,
                 real_name_kana: realNameKana,
-                role: "staff", // Changed from "admin" to "staff" to match access control checks
+                role: "admin", // Store creator gets admin role
             })
             .select()
             .single();
@@ -270,62 +339,16 @@ export async function createStoreAndLink(storeData: FormData) {
         return { success: false, error: storeError.message };
     }
 
-    // Create default roles for the store using service role to bypass RLS
+    // Link store to profile using service role to bypass RLS
     const { createClient } = await import("@supabase/supabase-js");
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { data: staffRole, error: staffRoleError } = await serviceClient
-        .from("store_roles")
-        .insert({
-            store_id: store.id,
-            name: "デフォルトスタッフ",
-            permissions: {
-                can_manage_roles: true,
-                can_manage_users: true,
-                can_manage_settings: true,
-                can_manage_attendance: true,
-                can_manage_menus: true,
-                can_manage_bottles: true,
-                can_view_reports: true,
-            },
-            is_system_role: true,
-        })
-        .select()
-        .single();
-
-    if (staffRoleError || !staffRole) {
-        console.error("Failed to create Staff role:", staffRoleError);
-        await supabase.from("stores").delete().eq("id", store.id);
-        return { success: false, error: "デフォルトロールの作成に失敗しました" };
-    }
-
-    const { data: castRole, error: castRoleError } = await serviceClient
-        .from("store_roles")
-        .insert({
-            store_id: store.id,
-            name: "デフォルトキャスト",
-            permissions: {
-                target: "cast",
-            },
-            is_system_role: true,
-        })
-        .select()
-        .single();
-
-    if (castRoleError || !castRole) {
-        console.error("Failed to create Cast role:", castRoleError);
-        await supabase.from("stores").delete().eq("id", store.id);
-        return { success: false, error: "デフォルトロールの作成に失敗しました" };
-    }
-
-    // Link store and role to profile using service client to bypass RLS
     const { data: updatedProfile, error: profileError } = await serviceClient
         .from("profiles")
         .update({
             store_id: store.id,
-            role_id: staffRole.id,
         })
         .eq("id", appUser.current_profile_id)
         .select("id, store_id")
@@ -333,7 +356,7 @@ export async function createStoreAndLink(storeData: FormData) {
 
     if (profileError) {
         console.error("Profile update error:", profileError);
-        // Rollback: delete the store (cascade should handle roles)
+        // Rollback: delete the store
         await serviceClient.from("stores").delete().eq("id", store.id);
         return { success: false, error: profileError.message };
     }
@@ -378,6 +401,69 @@ export async function getOnboardingStatus() {
         hasStore: !!profile?.store_id,
         profileId: profile?.id,
     };
+}
+
+export async function withdrawJoinRequest() {
+    const supabase = await createServerClient() as any;
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+        return { success: false, error: "Unauthorized" };
+    }
+
+    const { data: appUser } = await supabase
+        .from("users")
+        .select("current_profile_id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+    if (!appUser?.current_profile_id) {
+        return { success: false, error: "Profile not found" };
+    }
+
+    // Get profile to check store_id
+    const { data: profile } = await supabase
+        .from("profiles")
+        .select("id, store_id")
+        .eq("id", appUser.current_profile_id)
+        .maybeSingle();
+
+    if (!profile) {
+        return { success: false, error: "Profile not found" };
+    }
+
+    // Delete the pending join request
+    const { error: deleteJoinRequestError } = await supabase
+        .from("join_requests")
+        .delete()
+        .eq("profile_id", profile.id)
+        .eq("status", "pending");
+
+    if (deleteJoinRequestError) {
+        console.error("Delete join request error:", deleteJoinRequestError);
+        return { success: false, error: deleteJoinRequestError.message };
+    }
+
+    // Delete the profile (only if it has no role)
+    const { error: deleteProfileError } = await supabase
+        .from("profiles")
+        .delete()
+        .eq("id", profile.id)
+        .is("role", null);
+
+    if (deleteProfileError) {
+        console.error("Delete profile error:", deleteProfileError);
+        // Continue even if profile deletion fails (might have a role)
+    }
+
+    // Clear current_profile_id
+    await supabase
+        .from("users")
+        .update({ current_profile_id: null })
+        .eq("id", user.id);
+
+    revalidatePath("/");
+    return { success: true };
 }
 
 export async function saveProfileData(formData: FormData) {

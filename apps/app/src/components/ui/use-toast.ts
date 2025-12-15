@@ -12,6 +12,7 @@ export interface Toast {
   title?: React.ReactNode;
   description?: React.ReactNode;
   action?: ToastActionElement;
+  variant?: "default" | "destructive";
 }
 
 const toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>();

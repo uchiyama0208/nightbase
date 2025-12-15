@@ -200,6 +200,71 @@ section {
   }
 }
 
+/* 給与明細印刷用スタイル */
+.print-payslip {
+  display: none;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .print-payslip {
+    display: block !important;
+    visibility: visible !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 15mm;
+    background: white !important;
+    color: black !important;
+  }
+
+  .print-payslip * {
+    visibility: visible !important;
+  }
+
+  .print-payslip table {
+    border-collapse: collapse;
+    width: 100%;
+  }
+
+  .print-payslip td,
+  .print-payslip th {
+    border: 1px solid black !important;
+    padding: 8px 12px;
+  }
+
+  .print-payslip .bg-gray-100 {
+    background-color: #f3f4f6 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .print-payslip .bg-gray-50 {
+    background-color: #f9fafb !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .print-payslip .bg-gray-200 {
+    background-color: #e5e7eb !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  @page {
+    size: A4;
+    margin: 10mm;
+  }
+}
+
 @layer utilities {
   @keyframes float {
     0% {

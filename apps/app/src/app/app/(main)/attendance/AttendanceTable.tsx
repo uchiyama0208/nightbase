@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
     Table,
     TableBody,
@@ -12,7 +13,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { createAttendance } from "./actions";
 import { updateAttendance } from "./actions";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { createBrowserClient } from "@supabase/ssr";
 
 interface AttendanceRecord {
     id: string;
@@ -38,7 +45,7 @@ interface Profile {
 }
 
 import Link from "next/link";
-import { Plus, Car } from "lucide-react";
+import { Plus, Settings, Filter, X } from "lucide-react";
 
 import { AttendanceModal } from "./attendance-modal";
 import { UserEditModal } from "../users/user-edit-modal";
@@ -50,7 +57,9 @@ interface AttendanceTableProps {
     roleFilter: string;
 }
 
-export function AttendanceTable({ attendanceRecords, profiles, roleFilter: initialRoleFilter }: AttendanceTableProps) {
+export function AttendanceTable({ attendanceRecords: initialRecords, profiles, roleFilter: initialRoleFilter }: AttendanceTableProps) {
+    const router = useRouter();
+    const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>(initialRecords);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalInitialData, setModalInitialData] = useState<{
         profileId?: string;
@@ -65,6 +74,58 @@ export function AttendanceTable({ attendanceRecords, profiles, roleFilter: initi
     const [dateQuery, setDateQuery] = useState("");
     const [workingOnly, setWorkingOnly] = useState(false);
     const [roleFilter, setRoleFilter] = useState(initialRoleFilter);
+    const [isFilterOpen, setIsFilterOpen] = useState(false);
+
+    // Update records when initialRecords changes
+    useEffect(() => {
+        setAttendanceRecords(initialRecords);
+    }, [initialRecords]);
+
+    // Supabase Realtime subscription
+    useEffect(() => {
+        const supabase = createBrowserClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        );
+
+        const channel = supabase
+            .channel("time_cards_changes")
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "time_cards",
+                },
+                () => {
+                    router.refresh();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [router]);
+
+    // Vercel-style tabs with animated underline
+    const tabsRef = useRef<{ [key: string]: HTMLButtonElement | null }>({});
+    const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
+
+    const tabs = [
+        { key: "cast", label: "キャスト" },
+        { key: "staff", label: "スタッフ" },
+    ];
+
+    useEffect(() => {
+        const activeButton = tabsRef.current[roleFilter];
+        if (activeButton) {
+            setIndicatorStyle({
+                left: activeButton.offsetLeft,
+                width: activeButton.offsetWidth,
+            });
+        }
+    }, [roleFilter]);
 
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
     const [profileForEdit, setProfileForEdit] = useState<Profile | null>(null);
@@ -206,186 +267,133 @@ export function AttendanceTable({ attendanceRecords, profiles, roleFilter: initi
     ].filter(Boolean) as string[], [nameQuery, dateQuery, workingOnly]);
     const hasFilters = activeFilters.length > 0;
 
-    const roleIndex = roleFilter === "cast" ? 0 : 1;
-
     return (
         <>
-            <div className="flex items-center justify-between mb-4">
-                <div className="relative inline-flex h-10 items-center rounded-full bg-gray-100 dark:bg-gray-800 p-1">
-                    <div
-                        className="absolute h-8 rounded-full bg-white dark:bg-gray-700 shadow-sm transition-transform duration-300 ease-in-out"
-                        style={{
-                            width: "80px",
-                            left: "4px",
-                            transform: `translateX(calc(${roleIndex} * (80px + 0px)))`
-                        }}
-                    />
-                    <button
-                        type="button"
-                        onClick={() => setRoleFilter("cast")}
-                        className={`relative z-10 w-20 flex items-center justify-center h-8 rounded-full text-sm font-medium transition-colors duration-200 ${roleFilter === "cast" ? "text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
-                    >
-                        キャスト
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setRoleFilter("staff")}
-                        className={`relative z-10 w-20 flex items-center justify-center h-8 rounded-full text-sm font-medium transition-colors duration-200 ${roleFilter === "staff" ? "text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
-                    >
-                        スタッフ
-                    </button>
-                </div>
-
-                <div className="flex items-center gap-2">
-                    <Link href="/app/pickup">
-                        <Button
-                            size="icon"
-                            variant="outline"
-                            className="h-10 w-10 rounded-full bg-white text-blue-600 border-blue-600 hover:bg-blue-50 dark:bg-gray-900 dark:text-blue-400 dark:border-blue-400 dark:hover:bg-blue-950 shadow-sm transition-all hover:scale-105 active:scale-95"
-                        >
-                            <Car className="h-5 w-5" />
-                        </Button>
-                    </Link>
+            <div className="flex items-center gap-2 mb-4">
+                <button
+                    type="button"
+                    className={`flex items-center gap-1 px-1 py-1 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 ${
+                        hasFilters ? "text-blue-600" : "text-gray-500 dark:text-gray-400"
+                    }`}
+                    onClick={() => setIsFilterOpen(true)}
+                >
+                    <Filter className="h-5 w-5 shrink-0" />
+                    <span className="text-sm text-gray-600 dark:text-gray-300 truncate">
+                        フィルター: {hasFilters ? activeFilters.join("・") : "なし"}
+                    </span>
+                </button>
+                <div className="flex-1" />
+                <Link href="/app/settings/timecard">
                     <Button
                         size="icon"
-                        className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
-                        onClick={() => handleModalOpen()}
+                        variant="outline"
+                        className="h-10 w-10 rounded-full bg-white text-gray-600 border-gray-300 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-400 dark:border-gray-600 dark:hover:bg-gray-800 shadow-sm transition-all hover:scale-105 active:scale-95"
                     >
-                        <Plus className="h-5 w-5" />
+                        <Settings className="h-5 w-5" />
                     </Button>
-                </div>
+                </Link>
+                <Button
+                    size="icon"
+                    className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
+                    onClick={() => handleModalOpen()}
+                >
+                    <Plus className="h-5 w-5" />
+                </Button>
             </div>
 
-            <Accordion type="single" collapsible className="w-full mb-4">
-                <AccordionItem
-                    value="filters"
-                    className="rounded-2xl border border-gray-200 bg-white px-2 dark:border-gray-700 dark:bg-gray-800"
-                >
-                    <AccordionTrigger className="px-2 text-sm font-semibold text-gray-900 dark:text-white">
-                        <div className="flex w-full items-center justify-between pr-2">
-                            <span>フィルター</span>
-                            {hasFilters && (
-                                <span className="text-xs text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/40 px-2 py-0.5 rounded-full">
-                                    {activeFilters.join("・")}
-                                </span>
-                            )}
-                        </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="px-2">
-                        <div className="flex flex-col gap-3 pt-2 pb-2">
-                            <Input
-                                placeholder="名前で検索"
-                                value={nameQuery}
-                                onChange={(e) => setNameQuery(e.target.value)}
-                                className="w-full h-10 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 text-xs md:text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                            <input
-                                type="date"
-                                value={dateQuery}
-                                onChange={(e) => setDateQuery(e.target.value)}
-                                onClick={(event) => event.currentTarget.showPicker?.()}
-                                className="w-full h-10 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 text-xs md:text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                            <label className="flex items-center gap-2 text-xs md:text-sm text-gray-600 dark:text-gray-300 cursor-pointer h-10 px-3">
-                                <input
-                                    type="checkbox"
-                                    checked={workingOnly}
-                                    onChange={(e) => setWorkingOnly(e.target.checked)}
-                                    className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 focus:ring-blue-500 dark:focus:ring-blue-400"
-                                    style={{ accentColor: '#2563eb' }}
-                                />
-                                <span className="whitespace-nowrap">出勤中のみ</span>
-                            </label>
-                        </div>
-                    </AccordionContent>
-                </AccordionItem>
-            </Accordion>
-            <div className="rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-x-auto">
+            {/* Vercel-style Tab Navigation */}
+            <div className="relative mb-4">
+                <div className="flex border-b border-gray-200 dark:border-gray-700">
+                    {tabs.map((tab) => (
+                        <button
+                            key={tab.key}
+                            ref={(el) => { tabsRef.current[tab.key] = el; }}
+                            type="button"
+                            onClick={() => setRoleFilter(tab.key)}
+                            className={`flex-1 px-4 py-2 text-sm font-medium transition-colors duration-200 ${
+                                roleFilter === tab.key
+                                    ? "text-gray-900 dark:text-white"
+                                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                            }`}
+                        >
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
+                <span
+                    className="absolute bottom-0 h-0.5 bg-gray-900 dark:bg-white transition-all duration-300 ease-out"
+                    style={{ left: indicatorStyle.left, width: indicatorStyle.width }}
+                />
+            </div>
+            <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
                 <Table>
                     <TableHeader>
-                        <TableRow className="border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                            <TableHead className="px-2 sm:px-4 text-center text-gray-500 dark:text-gray-400 w-1/7 whitespace-nowrap">日付</TableHead>
-                            <TableHead className="px-2 sm:px-4 text-center text-gray-500 dark:text-gray-400 w-1/7 whitespace-nowrap">名前</TableHead>
-                            <TableHead className="px-2 sm:px-4 text-center text-gray-500 dark:text-gray-400 w-1/7 whitespace-nowrap">開始</TableHead>
-                            <TableHead className="px-2 sm:px-4 text-center text-gray-500 dark:text-gray-400 w-1/7 whitespace-nowrap">終了</TableHead>
-                            <TableHead className="px-2 sm:px-4 text-center text-gray-500 dark:text-gray-400 w-1/7 whitespace-nowrap">送迎先</TableHead>
-                            <TableHead className="hidden md:table-cell px-2 sm:px-4 text-center text-gray-500 dark:text-gray-400 w-1/7 whitespace-nowrap">状態</TableHead>
-                            <TableHead className="hidden md:table-cell px-2 sm:px-4 text-center text-gray-500 dark:text-gray-400 w-1/7 whitespace-nowrap">打刻出勤</TableHead>
-                            <TableHead className="hidden md:table-cell px-2 sm:px-4 text-center text-gray-500 dark:text-gray-400 w-1/7 whitespace-nowrap">打刻退勤</TableHead>
+                        <TableRow className="bg-gray-50 dark:bg-gray-800/50">
+                            <TableHead className="w-1/5 text-center text-gray-900 dark:text-gray-100">日付</TableHead>
+                            <TableHead className="w-1/5 text-center text-gray-900 dark:text-gray-100">名前</TableHead>
+                            <TableHead className="w-1/5 text-center text-gray-900 dark:text-gray-100">開始</TableHead>
+                            <TableHead className="w-1/5 text-center text-gray-900 dark:text-gray-100">終了</TableHead>
+                            <TableHead className="w-1/5 text-center text-gray-900 dark:text-gray-100">状態</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {filteredRecords.map((record) => {
-                            if (!record.user_id) return null;
-                            const profile = profileMap[record.user_id];
-                            const displayName = profile ? (profile.display_name || profile.real_name || "不明") : "不明";
+                        {filteredRecords.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={5} className="text-center py-8 text-gray-500 dark:text-gray-400">
+                                    {attendanceRecords.length === 0 ? "出勤記録がありません" : "検索条件に一致する出勤記録がありません"}
+                                </TableCell>
+                            </TableRow>
+                        ) : (
+                            filteredRecords.map((record) => {
+                                if (!record.user_id) return null;
+                                const profile = profileMap[record.user_id];
+                                const displayName = profile ? (profile.display_name || profile.real_name || "不明") : "不明";
 
-                            return (
-                                <TableRow
-                                    key={record.id}
-                                    className="cursor-pointer border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                                    onClick={() => {
-                                        if (record.isVirtual) {
-                                            handleModalOpen({
-                                                initialData: {
-                                                    profileId: record.user_id,
-                                                    date: record.date,
-                                                    status: record.status,
-                                                    startTime: record.clock_in_time ? record.clock_in_time.slice(0, 5) : "",
-                                                    endTime: record.clock_out_time ? record.clock_out_time.slice(0, 5) : "",
-                                                }
-                                            });
-                                        } else {
-                                            handleModalOpen({ record: record });
-                                        }
-                                    }}
-                                >
-                                    <TableCell className="font-medium text-xs md:text-sm px-2 sm:px-4 text-center text-gray-900 dark:text-white whitespace-nowrap">
-                                        {formatDate(record.date)}
-                                    </TableCell>
-                                    <TableCell className="text-xs md:text-sm px-2 sm:px-4 text-center text-gray-900 dark:text-white whitespace-nowrap">
-                                        {displayName}
-                                    </TableCell>
-                                    <TableCell className="text-xs md:text-sm px-2 sm:px-4 text-center text-gray-900 dark:text-white whitespace-nowrap">
-                                        {formatTime(record.start_time)}
-                                    </TableCell>
-                                    <TableCell className="text-xs md:text-sm px-2 sm:px-4 text-center text-gray-900 dark:text-white whitespace-nowrap">
-                                        {formatTime(record.end_time)}
-                                    </TableCell>
-                                    <TableCell className="text-xs md:text-sm px-2 sm:px-4 text-center text-gray-900 dark:text-white whitespace-nowrap">
-                                        {(record as any).pickup_destination || "-"}
-                                    </TableCell>
-                                    <TableCell className="hidden md:table-cell px-2 sm:px-4 text-center">
-                                        {getStatusBadge(record.status)}
-                                    </TableCell>
-                                    <TableCell className="hidden md:table-cell text-xs md:text-sm px-2 sm:px-4 text-center text-gray-900 dark:text-white whitespace-nowrap">
-                                        {formatTime(record.clock_in ?? null)}
-                                    </TableCell>
-                                    <TableCell className="hidden md:table-cell text-xs md:text-sm px-2 sm:px-4 text-center text-gray-900 dark:text-white whitespace-nowrap">
-                                        {formatTime(record.clock_out ?? null)}
-                                    </TableCell>
-                                </TableRow>
-                            )
-                        })}
-                        {filteredRecords.length === 0 && attendanceRecords.length > 0 && (
-                            <TableRow>
-                                <TableCell colSpan={8} className="h-24 text-center text-xs md:text-sm text-gray-500 dark:text-gray-400">
-                                    検索条件に一致する出勤記録がありません
-                                </TableCell>
-                            </TableRow>
-                        )}
-                        {attendanceRecords.length === 0 && (
-                            <TableRow>
-                                <TableCell colSpan={8} className="h-24 text-center text-xs md:text-sm text-gray-500 dark:text-gray-400">
-                                    出勤記録がありません
-                                </TableCell>
-                            </TableRow>
+                                return (
+                                    <TableRow
+                                        key={record.id}
+                                        className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                                        onClick={() => {
+                                            if (record.isVirtual) {
+                                                handleModalOpen({
+                                                    initialData: {
+                                                        profileId: record.user_id,
+                                                        date: record.date,
+                                                        status: record.status,
+                                                        startTime: record.clock_in_time ? record.clock_in_time.slice(0, 5) : "",
+                                                        endTime: record.clock_out_time ? record.clock_out_time.slice(0, 5) : "",
+                                                    }
+                                                });
+                                            } else {
+                                                handleModalOpen({ record: record });
+                                            }
+                                        }}
+                                    >
+                                        <TableCell className="w-1/5 text-center text-gray-900 dark:text-gray-100">
+                                            {formatDate(record.date)}
+                                        </TableCell>
+                                        <TableCell className="w-1/5 text-center text-gray-900 dark:text-gray-100">
+                                            {displayName}
+                                        </TableCell>
+                                        <TableCell className="w-1/5 text-center text-gray-900 dark:text-gray-100">
+                                            {formatTime(record.start_time)}
+                                        </TableCell>
+                                        <TableCell className="w-1/5 text-center text-gray-900 dark:text-gray-100">
+                                            {formatTime(record.end_time)}
+                                        </TableCell>
+                                        <TableCell className="w-1/5 text-center">
+                                            {getStatusBadge(record.status)}
+                                        </TableCell>
+                                    </TableRow>
+                                );
+                            })
                         )}
                     </TableBody>
                 </Table>
             </div>
 
             <AttendanceModal
+                key={editingRecord?.id || "new"}
                 isOpen={isModalOpen}
                 onClose={handleModalClose}
                 profiles={profiles}
@@ -407,6 +415,80 @@ export function AttendanceTable({ attendanceRecords, profiles, roleFilter: initi
                     }
                 }}
             />
+
+            {/* Filter Modal */}
+            <Dialog open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+                <DialogContent className="max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900">
+                    <DialogHeader>
+                        <DialogTitle className="text-base font-semibold text-gray-900 dark:text-white">
+                            フィルター
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-4 mt-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                名前で検索
+                            </label>
+                            <div className="relative">
+                                <Input
+                                    placeholder="名前を入力..."
+                                    value={nameQuery}
+                                    onChange={(e) => setNameQuery(e.target.value)}
+                                    className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 pr-9 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                {nameQuery && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setNameQuery("")}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                日付で絞り込み
+                            </label>
+                            <div className="relative">
+                                <input
+                                    type="date"
+                                    value={dateQuery}
+                                    onChange={(e) => setDateQuery(e.target.value)}
+                                    onClick={(event) => event.currentTarget.showPicker?.()}
+                                    className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 pr-9 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                {dateQuery && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setDateQuery("")}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={workingOnly}
+                                onChange={(e) => setWorkingOnly(e.target.checked)}
+                                className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 focus:ring-blue-500"
+                                style={{ accentColor: '#2563eb' }}
+                            />
+                            <span>出勤中のみ表示</span>
+                        </label>
+                        <Button
+                            className="w-full rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                            onClick={() => setIsFilterOpen(false)}
+                        >
+                            適用
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </>
     );
 }

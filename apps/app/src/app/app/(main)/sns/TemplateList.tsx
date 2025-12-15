@@ -21,7 +21,7 @@ import {
     DialogTitle,
     DialogFooter,
 } from "@/components/ui/dialog";
-import { Trash2, Loader2, Info, Link2, Send, Clock, Eye, CheckCircle } from "lucide-react";
+import { Trash2, Loader2, Info, Link2, Send, Clock, Eye, ChevronLeft } from "lucide-react";
 import { formatJSTDateTime } from "@/lib/utils";
 import {
     type SnsTemplate,
@@ -229,14 +229,10 @@ export function TemplateList({
     );
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-3">
             {/* Scheduled Posts */}
             {scheduledPosts.length > 0 && (
                 <div className="space-y-3">
-                    <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                        <Clock className="h-4 w-4" />
-                        予約投稿
-                    </h3>
                     {scheduledPosts.map((post) => (
                         <div
                             key={post.id}
@@ -280,10 +276,6 @@ export function TemplateList({
 
             {/* Post History */}
             <div className="space-y-3">
-                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4" />
-                    投稿履歴
-                </h3>
                 {postHistory.length === 0 ? (
                     <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6 text-center">
                         <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -324,7 +316,14 @@ export function TemplateList({
             {/* Create Post Modal */}
             <Dialog open={showModal} onOpenChange={handleModalClose}>
                 <DialogContent className="max-w-lg rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900 max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
+                    <DialogHeader className="relative flex flex-row items-center justify-center space-y-0">
+                        <button
+                            type="button"
+                            onClick={() => handleModalClose(false)}
+                            className="absolute left-0 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        >
+                            <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                        </button>
                         <DialogTitle className="text-base font-semibold text-gray-900 dark:text-gray-50">
                             投稿を作成
                         </DialogTitle>
@@ -564,28 +563,11 @@ export function TemplateList({
                             </label>
                         </div>
                     </div>
-                    <DialogFooter className="gap-2">
-                        <Button
-                            variant="outline"
-                            onClick={() => handleModalClose(false)}
-                            disabled={isSubmitting}
-                            className="rounded-lg"
-                        >
-                            キャンセル
-                        </Button>
-                        <Button
-                            variant="outline"
-                            onClick={() => setShowScheduleModal(true)}
-                            disabled={isSubmitting || !canPost || (saveAsTemplate && !templateName.trim())}
-                            className="rounded-lg gap-1.5"
-                        >
-                            <Clock className="h-4 w-4" />
-                            予約投稿
-                        </Button>
+                    <DialogFooter className="flex-col gap-2">
                         <Button
                             onClick={handlePost}
                             disabled={isSubmitting || !canPost || (saveAsTemplate && !templateName.trim())}
-                            className="rounded-lg gap-1.5"
+                            className="w-full rounded-lg gap-1.5"
                         >
                             {isSubmitting ? (
                                 <>
@@ -599,6 +581,15 @@ export function TemplateList({
                                 </>
                             )}
                         </Button>
+                        <Button
+                            variant="outline"
+                            onClick={() => setShowScheduleModal(true)}
+                            disabled={isSubmitting || !canPost || (saveAsTemplate && !templateName.trim())}
+                            className="w-full rounded-lg gap-1.5"
+                        >
+                            <Clock className="h-4 w-4" />
+                            予約投稿
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -606,7 +597,14 @@ export function TemplateList({
             {/* Schedule Modal */}
             <Dialog open={showScheduleModal} onOpenChange={setShowScheduleModal}>
                 <DialogContent className="max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900">
-                    <DialogHeader>
+                    <DialogHeader className="relative flex flex-row items-center justify-center space-y-0">
+                        <button
+                            type="button"
+                            onClick={() => setShowScheduleModal(false)}
+                            className="absolute left-0 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        >
+                            <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                        </button>
                         <DialogTitle className="text-base font-semibold text-gray-900 dark:text-gray-50">
                             予約投稿
                         </DialogTitle>
@@ -621,19 +619,11 @@ export function TemplateList({
                             />
                         </div>
                     </div>
-                    <DialogFooter className="gap-2">
-                        <Button
-                            variant="outline"
-                            onClick={() => setShowScheduleModal(false)}
-                            disabled={isSubmitting}
-                            className="rounded-lg"
-                        >
-                            キャンセル
-                        </Button>
+                    <DialogFooter>
                         <Button
                             onClick={handleSchedulePost}
                             disabled={isSubmitting || !scheduledAt}
-                            className="rounded-lg"
+                            className="w-full rounded-lg"
                         >
                             {isSubmitting ? (
                                 <>
@@ -659,22 +649,22 @@ export function TemplateList({
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                         この予約投稿を削除しますか？
                     </p>
-                    <DialogFooter className="gap-2">
-                        <Button
-                            variant="outline"
-                            onClick={() => setShowDeleteConfirm(false)}
-                            disabled={isSubmitting}
-                            className="rounded-lg"
-                        >
-                            キャンセル
-                        </Button>
+                    <DialogFooter className="flex-col gap-2">
                         <Button
                             variant="destructive"
                             onClick={handleDeleteScheduledPost}
                             disabled={isSubmitting}
-                            className="rounded-lg"
+                            className="w-full rounded-lg"
                         >
                             {isSubmitting ? "削除中..." : "削除"}
+                        </Button>
+                        <Button
+                            variant="outline"
+                            onClick={() => setShowDeleteConfirm(false)}
+                            disabled={isSubmitting}
+                            className="w-full rounded-lg"
+                        >
+                            キャンセル
                         </Button>
                     </DialogFooter>
                 </DialogContent>

@@ -1,45 +1,26 @@
-import { createServerClient } from "@/lib/supabaseServerClient";
 import { redirect } from "next/navigation";
 import { importUsersFromCsv } from "../../users/actions";
 import { importAttendanceFromCsv } from "../../attendance/actions";
 import { importMenusFromCsv, getMenuCategories } from "../../menus/actions";
 import { MenuImportSection } from "./menu-import-section";
+import { getAppDataWithPermissionCheck, getAccessDeniedRedirectUrl } from "@/app/app/data-access";
 
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 
 export default async function ImportSettingsPage() {
-  const supabase = await createServerClient() as any;
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("settings", "edit");
 
   if (!user) {
     redirect("/login");
   }
 
-  const { data: appUser } = await supabase
-    .from("users")
-    .select("current_profile_id")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (!appUser?.current_profile_id) {
-    redirect("/app/me");
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*, stores(*)")
-    .eq("id", appUser.current_profile_id)
-    .maybeSingle();
-
   if (!profile || !profile.store_id) {
     redirect("/app/me");
   }
 
-  if (profile.role !== "staff") {
-    redirect("/app/timecard");
+  if (!hasAccess) {
+    redirect(getAccessDeniedRedirectUrl("settings"));
   }
 
   // Fetch menu categories for the dropdown

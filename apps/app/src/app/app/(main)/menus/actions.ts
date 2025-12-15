@@ -1,6 +1,5 @@
 "use server";
 
-import { createServerClient } from "@/lib/supabaseServerClient";
 import { revalidatePath } from "next/cache";
 import OpenAI from "openai";
 import {
@@ -9,31 +8,39 @@ import {
     getAuthUser,
     logQueryError,
 } from "@/lib/auth-helpers";
+import type {
+    Menu,
+    MenuCategory,
+    ExtractedMenuItem,
+    MenusDataResult,
+    MenuCreatePayload,
+    MenuUpdatePayload,
+    CategorySortOrderUpdate,
+    BulkMenuCreateItem,
+} from "./types";
 
-export interface MenuCategory {
-    id: string;
-    store_id: string;
-    name: string;
-    sort_order: number;
-    created_at: string;
+// 型の再エクスポート（後方互換性のため）
+export type { Menu, MenuCategory, ExtractedMenuItem } from "./types";
+
+// ============================================
+// 権限チェック
+// ============================================
+
+/**
+ * メニュー管理権限をチェック
+ */
+async function checkMenuPermission() {
+    return getAuthContext({ permission: "can_manage_menus" });
 }
 
-export interface Menu {
-    id: string;
-    store_id: string;
-    name: string;
-    category_id: string;
-    price: number;
-    target_type: "guest" | "cast";
-    cast_back_amount: number;
-    hide_from_slip: boolean;
-    image_url: string | null;
-    created_at: string;
-    updated_at: string;
-    category?: MenuCategory;
-}
+// ============================================
+// メニュー取得
+// ============================================
 
-export async function getMenus() {
+/**
+ * 店舗のメニュー一覧を取得
+ */
+export async function getMenus(): Promise<Menu[]> {
     try {
         const { supabase, storeId } = await getAuthContext();
 
@@ -48,7 +55,7 @@ export async function getMenus() {
             return [];
         }
 
-        // Sort by category sort_order
+        // カテゴリのsort_orderでソート
         const sortedMenus = (menus as Menu[]).sort((a, b) => {
             const orderA = a.category?.sort_order ?? 0;
             const orderB = b.category?.sort_order ?? 0;
@@ -62,7 +69,10 @@ export async function getMenus() {
     }
 }
 
-export async function getMenuCategories() {
+/**
+ * 店舗のメニューカテゴリ一覧を取得
+ */
+export async function getMenuCategories(): Promise<MenuCategory[]> {
     try {
         const { supabase, storeId } = await getAuthContext();
 
@@ -83,11 +93,37 @@ export async function getMenuCategories() {
     }
 }
 
-async function checkMenuPermission() {
-    return getAuthContext({ permission: "can_manage_menus" });
+/**
+ * メニューページ用のデータを取得
+ */
+export async function getMenusData(): Promise<MenusDataResult> {
+    const result = await getAuthContextForPage({ requireStaff: true });
+
+    if ("redirect" in result) {
+        return result;
+    }
+
+    const [menus, categories] = await Promise.all([
+        getMenus(),
+        getMenuCategories(),
+    ]);
+
+    return {
+        data: {
+            menus,
+            categories,
+        }
+    };
 }
 
-export async function createMenu(formData: FormData) {
+// ============================================
+// メニュー作成・更新・削除
+// ============================================
+
+/**
+ * メニューを新規作成
+ */
+export async function createMenu(formData: FormData): Promise<{ success: boolean; menu?: Menu }> {
     const { supabase, storeId } = await checkMenuPermission();
 
     const name = formData.get("name") as string;
@@ -96,22 +132,36 @@ export async function createMenu(formData: FormData) {
     const targetType = (formData.get("target_type") as string) || "guest";
     const castBackAmount = parseInt(formData.get("cast_back_amount") as string) || 0;
     const hideFromSlip = formData.get("hide_from_slip") === "on";
+    const isHidden = formData.get("is_hidden") === "on";
     const imageUrl = formData.get("image_url") as string | null;
+    const stockEnabled = formData.get("stock_enabled") === "on";
+    const stockQuantity = parseInt(formData.get("stock_quantity") as string) || 0;
+    const stockAlertThreshold = parseInt(formData.get("stock_alert_threshold") as string) || 3;
 
     if (!name || !categoryId || isNaN(price)) {
         throw new Error("Invalid input");
     }
 
-    const { data, error } = await supabase.from("menus").insert({
+    const payload: MenuCreatePayload = {
         store_id: storeId,
         name,
         category_id: categoryId,
         price,
-        target_type: targetType,
+        target_type: targetType as "guest" | "cast",
         cast_back_amount: targetType === "cast" ? castBackAmount : 0,
         hide_from_slip: hideFromSlip,
+        is_hidden: isHidden,
         image_url: imageUrl || null,
-    }).select().single();
+        stock_enabled: stockEnabled,
+        stock_quantity: stockEnabled ? stockQuantity : 0,
+        stock_alert_threshold: stockEnabled ? stockAlertThreshold : 3,
+    };
+
+    const { data, error } = await supabase
+        .from("menus")
+        .insert(payload)
+        .select()
+        .single();
 
     if (error) {
         console.error("Error creating menu:", error);
@@ -119,10 +169,13 @@ export async function createMenu(formData: FormData) {
     }
 
     revalidatePath("/app/menus");
-    return { success: true, menu: data };
+    return { success: true, menu: data as Menu };
 }
 
-export async function updateMenu(formData: FormData) {
+/**
+ * メニューを更新
+ */
+export async function updateMenu(formData: FormData): Promise<{ success: boolean }> {
     const { supabase } = await checkMenuPermission();
 
     const id = formData.get("id") as string;
@@ -132,24 +185,34 @@ export async function updateMenu(formData: FormData) {
     const targetType = (formData.get("target_type") as string) || "guest";
     const castBackAmount = parseInt(formData.get("cast_back_amount") as string) || 0;
     const hideFromSlip = formData.get("hide_from_slip") === "on";
+    const isHidden = formData.get("is_hidden") === "on";
     const imageUrl = formData.get("image_url") as string | null;
+    const stockEnabled = formData.get("stock_enabled") === "on";
+    const stockQuantity = parseInt(formData.get("stock_quantity") as string) || 0;
+    const stockAlertThreshold = parseInt(formData.get("stock_alert_threshold") as string) || 3;
 
     if (!id || !name || !categoryId || isNaN(price)) {
         throw new Error("Invalid input");
     }
 
+    const payload: MenuUpdatePayload = {
+        name,
+        category_id: categoryId,
+        price,
+        target_type: targetType as "guest" | "cast",
+        cast_back_amount: targetType === "cast" ? castBackAmount : 0,
+        hide_from_slip: hideFromSlip,
+        is_hidden: isHidden,
+        image_url: imageUrl || null,
+        stock_enabled: stockEnabled,
+        stock_quantity: stockEnabled ? stockQuantity : 0,
+        stock_alert_threshold: stockEnabled ? stockAlertThreshold : 3,
+        updated_at: new Date().toISOString(),
+    };
+
     const { error } = await supabase
         .from("menus")
-        .update({
-            name,
-            category_id: categoryId,
-            price,
-            target_type: targetType,
-            cast_back_amount: targetType === "cast" ? castBackAmount : 0,
-            hide_from_slip: hideFromSlip,
-            image_url: imageUrl || null,
-            updated_at: new Date().toISOString(),
-        })
+        .update(payload)
         .eq("id", id);
 
     if (error) {
@@ -161,10 +224,16 @@ export async function updateMenu(formData: FormData) {
     return { success: true };
 }
 
-export async function deleteMenu(id: string) {
+/**
+ * メニューを削除
+ */
+export async function deleteMenu(id: string): Promise<{ success: boolean }> {
     const { supabase } = await checkMenuPermission();
 
-    const { error } = await supabase.from("menus").delete().eq("id", id);
+    const { error } = await supabase
+        .from("menus")
+        .delete()
+        .eq("id", id);
 
     if (error) {
         console.error("Error deleting menu:", error);
@@ -175,12 +244,52 @@ export async function deleteMenu(id: string) {
     return { success: true };
 }
 
-// Category Management Actions
-
-export async function createMenuCategory(name: string) {
+/**
+ * メニューを一括作成
+ */
+export async function bulkCreateMenus(
+    items: BulkMenuCreateItem[]
+): Promise<{ success: boolean; count: number }> {
     const { supabase, storeId } = await checkMenuPermission();
 
-    // Get max sort order
+    if (items.length === 0) {
+        throw new Error("追加するメニューがありません");
+    }
+
+    const menusToInsert = items.map(item => ({
+        store_id: storeId,
+        name: item.name,
+        category_id: item.categoryId,
+        price: item.price,
+        target_type: "guest" as const,
+        cast_back_amount: 0,
+        hide_from_slip: false,
+    }));
+
+    const { error } = await supabase
+        .from("menus")
+        .insert(menusToInsert);
+
+    if (error) {
+        console.error("Error bulk creating menus:", error);
+        throw new Error("メニューの追加に失敗しました");
+    }
+
+    revalidatePath("/app/menus");
+    return { success: true, count: items.length };
+}
+
+// ============================================
+// カテゴリ管理
+// ============================================
+
+/**
+ * メニューカテゴリを新規作成
+ */
+export async function createMenuCategory(name: string): Promise<{ success: boolean; category?: MenuCategory }> {
+    const { supabase, storeId } = await checkMenuPermission();
+
+    // 最大のsort_orderを取得
     const { data: maxOrderData } = await supabase
         .from("menu_categories")
         .select("sort_order")
@@ -207,10 +316,13 @@ export async function createMenuCategory(name: string) {
     }
 
     revalidatePath("/app/menus");
-    return { success: true, category: data };
+    return { success: true, category: data as MenuCategory };
 }
 
-export async function updateMenuCategory(id: string, name: string) {
+/**
+ * メニューカテゴリを更新
+ */
+export async function updateMenuCategory(id: string, name: string): Promise<{ success: boolean }> {
     const { supabase } = await checkMenuPermission();
 
     const { error } = await supabase
@@ -227,7 +339,10 @@ export async function updateMenuCategory(id: string, name: string) {
     return { success: true };
 }
 
-export async function deleteMenuCategory(id: string) {
+/**
+ * メニューカテゴリを削除
+ */
+export async function deleteMenuCategory(id: string): Promise<{ success: boolean }> {
     const { supabase } = await checkMenuPermission();
 
     const { error } = await supabase
@@ -244,47 +359,38 @@ export async function deleteMenuCategory(id: string) {
     return { success: true };
 }
 
-export async function reorderMenuCategories(items: { id: string; sort_order: number }[]) {
+/**
+ * メニューカテゴリの並び順を一括更新
+ */
+export async function reorderMenuCategories(
+    items: CategorySortOrderUpdate[]
+): Promise<{ success: boolean }> {
     const { supabase } = await checkMenuPermission();
 
-    // Upsert sort orders
-    // Since we can't easily do bulk update with different values in one query without RPC,
-    // we'll loop or use upsert if we include all required fields.
-    // But upsert requires all non-null fields or defaults.
-    // Let's loop for now, it's usually small number of categories.
-
     for (const item of items) {
-        await supabase
+        const { error } = await supabase
             .from("menu_categories")
             .update({ sort_order: item.sort_order })
             .eq("id", item.id);
+
+        if (error) {
+            console.error("Error updating category sort order:", error);
+            throw new Error("Failed to reorder categories");
+        }
     }
 
     revalidatePath("/app/menus");
     return { success: true };
 }
 
-export async function getMenusData() {
-    const result = await getAuthContextForPage({ requireStaff: true });
+// ============================================
+// CSVインポート
+// ============================================
 
-    if ("redirect" in result) {
-        return result;
-    }
-
-    const [menus, categories] = await Promise.all([
-        getMenus(),
-        getMenuCategories(),
-    ]);
-
-    return {
-        data: {
-            menus,
-            categories,
-        }
-    };
-}
-
-export async function importMenusFromCsv(formData: FormData) {
+/**
+ * CSVからメニューをインポート
+ */
+export async function importMenusFromCsv(formData: FormData): Promise<{ success: boolean; count: number }> {
     const { supabase, storeId } = await checkMenuPermission();
 
     const file = formData.get("file") as File;
@@ -301,7 +407,7 @@ export async function importMenusFromCsv(formData: FormData) {
         throw new Error("CSV must have header and at least one data row");
     }
 
-    // Parse header
+    // ヘッダーを解析
     const header = lines[0].split(",").map(h => h.trim().toLowerCase());
     const nameIdx = header.indexOf("name");
     const priceIdx = header.indexOf("price");
@@ -310,8 +416,14 @@ export async function importMenusFromCsv(formData: FormData) {
         throw new Error("CSV must have 'name' and 'price' columns");
     }
 
-    // Parse data rows
-    const menusToInsert: any[] = [];
+    // データ行を解析
+    const menusToInsert: Array<{
+        store_id: string;
+        name: string;
+        category_id: string;
+        price: number;
+    }> = [];
+
     for (let i = 1; i < lines.length; i++) {
         const values = lines[i].split(",").map(v => v.trim());
         const name = values[nameIdx];
@@ -334,8 +446,9 @@ export async function importMenusFromCsv(formData: FormData) {
         throw new Error("No valid menu items found in CSV");
     }
 
-    // Insert menus
-    const { error } = await supabase.from("menus").insert(menusToInsert);
+    const { error } = await supabase
+        .from("menus")
+        .insert(menusToInsert);
 
     if (error) {
         console.error("Error importing menus:", error);
@@ -347,13 +460,70 @@ export async function importMenusFromCsv(formData: FormData) {
     return { success: true, count: menusToInsert.length };
 }
 
-// AI読み取り用のメニューアイテム型
-export interface ExtractedMenuItem {
-    name: string;
-    price: number;
+// ============================================
+// 画像管理
+// ============================================
+
+/**
+ * メニュー画像をアップロード
+ */
+export async function uploadMenuImage(formData: FormData): Promise<string> {
+    const { supabase } = await getAuthUser();
+
+    const file = formData.get("file") as File;
+    if (!file) {
+        throw new Error("ファイルが選択されていません");
+    }
+
+    const fileExt = file.name.split(".").pop();
+    const fileName = `menu-${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
+    const filePath = `menu-images/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(filePath, file);
+
+    if (uploadError) {
+        console.error("Upload error:", uploadError);
+        throw new Error(`アップロードに失敗しました: ${uploadError.message}`);
+    }
+
+    const {
+        data: { publicUrl },
+    } = supabase.storage.from("avatars").getPublicUrl(filePath);
+
+    return publicUrl;
 }
 
-// 画像からメニューを読み取るAIアクション
+/**
+ * メニュー画像を削除
+ */
+export async function deleteMenuImage(imageUrl: string): Promise<void> {
+    const { supabase } = await getAuthUser();
+
+    const urlParts = imageUrl.split("/avatars/");
+    if (urlParts.length < 2) {
+        return; // 有効なStorageのURLではない場合はスキップ
+    }
+
+    const filePath = urlParts[1];
+
+    const { error } = await supabase.storage
+        .from("avatars")
+        .remove([filePath]);
+
+    if (error) {
+        console.error("Delete error:", error);
+    }
+}
+
+// ============================================
+// AI機能
+// ============================================
+
+/**
+ * 画像からメニューを読み取る
+ */
 export async function extractMenusFromImage(base64Image: string): Promise<ExtractedMenuItem[]> {
     await getAuthUser(); // 認証チェックのみ
 
@@ -413,96 +583,15 @@ export async function extractMenusFromImage(base64Image: string): Promise<Extrac
     try {
         const parsed = JSON.parse(content) as { items: ExtractedMenuItem[] };
         return parsed.items || [];
-    } catch (e) {
+    } catch {
         console.error("Failed to parse AI response:", content);
         throw new Error("AIの応答を解析できませんでした");
     }
 }
 
-// 抽出したメニューを一括追加するアクション
-export async function bulkCreateMenus(
-    items: { name: string; price: number; categoryId: string }[]
-) {
-    const { supabase, storeId } = await checkMenuPermission();
-
-    if (items.length === 0) {
-        throw new Error("追加するメニューがありません");
-    }
-
-    const menusToInsert = items.map(item => ({
-        store_id: storeId,
-        name: item.name,
-        category_id: item.categoryId,
-        price: item.price,
-        target_type: "guest" as const,
-        cast_back_amount: 0,
-        hide_from_slip: false,
-    }));
-
-    const { error } = await supabase.from("menus").insert(menusToInsert);
-
-    if (error) {
-        console.error("Error bulk creating menus:", error);
-        throw new Error("メニューの追加に失敗しました");
-    }
-
-    revalidatePath("/app/menus");
-    return { success: true, count: items.length };
-}
-
-// メニュー画像をアップロード
-export async function uploadMenuImage(formData: FormData): Promise<string> {
-    const { supabase } = await getAuthUser();
-
-    const file = formData.get("file") as File;
-    if (!file) {
-        throw new Error("ファイルが選択されていません");
-    }
-
-    // Upload to Supabase Storage
-    const fileExt = file.name.split(".").pop();
-    const fileName = `menu-${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
-    const filePath = `menu-images/${fileName}`;
-
-    const { error: uploadError } = await supabase.storage
-        .from("avatars")
-        .upload(filePath, file);
-
-    if (uploadError) {
-        console.error("Upload error:", uploadError);
-        throw new Error(`アップロードに失敗しました: ${uploadError.message}`);
-    }
-
-    // Get Public URL
-    const {
-        data: { publicUrl },
-    } = supabase.storage.from("avatars").getPublicUrl(filePath);
-
-    return publicUrl;
-}
-
-// メニュー画像を削除
-export async function deleteMenuImage(imageUrl: string): Promise<void> {
-    const { supabase } = await getAuthUser();
-
-    // Extract file path from URL
-    const urlParts = imageUrl.split("/avatars/");
-    if (urlParts.length < 2) {
-        return; // Not a valid storage URL, skip deletion
-    }
-
-    const filePath = urlParts[1];
-
-    const { error } = await supabase.storage
-        .from("avatars")
-        .remove([filePath]);
-
-    if (error) {
-        console.error("Delete error:", error);
-    }
-}
-
-// AIでメニュー画像を生成
+/**
+ * AIでメニュー画像を生成
+ */
 export async function generateMenuImage(menuName: string): Promise<string> {
     const { supabase } = await getAuthUser();
 
@@ -510,7 +599,6 @@ export async function generateMenuImage(menuName: string): Promise<string> {
         apiKey: process.env.OPENAI_API_KEY,
     });
 
-    // DALL-E 3で画像を生成
     const response = await openai.images.generate({
         model: "dall-e-3",
         prompt: `A clean product photo of "${menuName}" on a bar counter. The item is very large, centered, and fills 70% of the frame. Simple blurred bar background with subtle warm ambient lighting. Minimal composition. The product is the sole focus. Sharp focus on the item, extremely blurred background. Professional bar photography style.`,
@@ -542,7 +630,6 @@ export async function generateMenuImage(menuName: string): Promise<string> {
         throw new Error(`画像の保存に失敗しました: ${uploadError.message}`);
     }
 
-    // Get Public URL
     const {
         data: { publicUrl },
     } = supabase.storage.from("avatars").getPublicUrl(filePath);

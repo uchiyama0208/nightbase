@@ -1,12 +1,18 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Users, Calendar } from "lucide-react";
+import { Plus, Users, Calendar, Filter, Search } from "lucide-react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
+import {
+    Dialog,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { SalarySystem } from "./actions";
 
 // Lazy load the modal
@@ -18,31 +24,58 @@ const SalarySystemModal = dynamic(
 interface SalarySystemsListProps {
     initialSystems: SalarySystem[];
     typeFilter: string;
+    storeShowBreakColumns: boolean;
+    storeTimeRoundingEnabled: boolean;
+    storeTimeRoundingMinutes: number;
 }
 
-export function SalarySystemsList({ initialSystems, typeFilter }: SalarySystemsListProps) {
+type TabType = "cast" | "staff";
+
+export function SalarySystemsList({ initialSystems, typeFilter, storeShowBreakColumns, storeTimeRoundingEnabled, storeTimeRoundingMinutes }: SalarySystemsListProps) {
     const router = useRouter();
     const [systems, setSystems] = useState(initialSystems);
     const [selectedSystem, setSelectedSystem] = useState<SalarySystem | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [nameQuery, setNameQuery] = useState("");
-    const [optimisticType, setOptimisticType] = useState(typeFilter);
+    const [optimisticType, setOptimisticType] = useState<TabType>(typeFilter as TabType);
+    const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
+
+    // Vercel-style tabs
+    const tabsRef = useRef<{ [key: string]: HTMLButtonElement | null }>({});
+    const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
+
+    useEffect(() => {
+        const activeButton = tabsRef.current[optimisticType];
+        if (activeButton) {
+            setIndicatorStyle({
+                left: activeButton.offsetLeft,
+                width: activeButton.offsetWidth,
+            });
+        }
+    }, [optimisticType]);
 
     useEffect(() => {
         setSystems(initialSystems);
     }, [initialSystems]);
 
     useEffect(() => {
-        setOptimisticType(typeFilter);
+        setOptimisticType(typeFilter as TabType);
     }, [typeFilter]);
 
-    const handleTypeChange = (type: string) => {
+    const handleTypeChange = (type: TabType) => {
         setOptimisticType(type);
         router.push(`/app/salary-systems?type=${type}`);
     };
 
-    const activeFilters = [nameQuery.trim() && "名前"].filter(Boolean).map(String);
+    const activeFilters = useMemo(() => [
+        nameQuery.trim() && `"${nameQuery}"`,
+    ].filter(Boolean) as string[], [nameQuery]);
     const hasFilters = activeFilters.length > 0;
+
+    const getFilterSummary = useCallback(() => {
+        if (!hasFilters) return "なし";
+        return activeFilters.join("・");
+    }, [hasFilters, activeFilters]);
 
     const filteredSystems = useMemo(() => {
         return systems
@@ -60,8 +93,6 @@ export function SalarySystemsList({ initialSystems, typeFilter }: SalarySystemsL
             })
             .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     }, [systems, optimisticType, nameQuery]);
-
-    const typeIndex = optimisticType === "cast" ? 0 : 1;
 
     const handleCardClick = (system: SalarySystem) => {
         setSelectedSystem(system);
@@ -101,32 +132,21 @@ export function SalarySystemsList({ initialSystems, typeFilter }: SalarySystemsL
     };
 
     return (
-        <>
-            <div className="flex items-center justify-between mb-4">
-                <div className="relative inline-flex h-10 items-center rounded-full bg-gray-100 dark:bg-gray-800 p-1">
-                    <div
-                        className="absolute h-8 rounded-full bg-white dark:bg-gray-700 shadow-sm transition-transform duration-300 ease-in-out"
-                        style={{
-                            width: "80px",
-                            left: "4px",
-                            transform: `translateX(calc(${typeIndex} * (80px + 0px)))`
-                        }}
-                    />
-                    <button
-                        type="button"
-                        onClick={() => handleTypeChange("cast")}
-                        className={`relative z-10 w-20 flex items-center justify-center h-8 rounded-full text-sm font-medium transition-colors duration-200 ${optimisticType === "cast" ? "text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
-                    >
-                        キャスト
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => handleTypeChange("staff")}
-                        className={`relative z-10 w-20 flex items-center justify-center h-8 rounded-full text-sm font-medium transition-colors duration-200 ${optimisticType === "staff" ? "text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
-                    >
-                        スタッフ
-                    </button>
-                </div>
+        <div className="space-y-2">
+            {/* Top row: Filter + Plus button */}
+            <div className="flex items-center justify-between">
+                <button
+                    type="button"
+                    className={`flex items-center gap-1 px-1 py-1 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 ${
+                        hasFilters ? "text-blue-600" : "text-gray-500 dark:text-gray-400"
+                    }`}
+                    onClick={() => setIsFilterDialogOpen(true)}
+                >
+                    <Filter className="h-5 w-5 shrink-0" />
+                    <span className="text-sm text-gray-600 dark:text-gray-300 truncate">
+                        フィルター: {getFilterSummary()}
+                    </span>
+                </button>
 
                 <Button
                     size="icon"
@@ -137,33 +157,40 @@ export function SalarySystemsList({ initialSystems, typeFilter }: SalarySystemsL
                 </Button>
             </div>
 
-            <Accordion type="single" collapsible className="w-full mb-4">
-                <AccordionItem
-                    value="filters"
-                    className="rounded-2xl border border-gray-200 bg-white px-2 dark:border-gray-700 dark:bg-gray-800"
-                >
-                    <AccordionTrigger className="px-2 text-sm font-semibold text-gray-900 dark:text-white">
-                        <div className="flex w-full items-center justify-between pr-2">
-                            <span>フィルター</span>
-                            {hasFilters && (
-                                <span className="text-xs text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/40 px-2 py-0.5 rounded-full">
-                                    {activeFilters.join("・")}
-                                </span>
-                            )}
-                        </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="px-2">
-                        <div className="flex flex-col gap-3 pt-2 pb-2">
-                            <Input
-                                placeholder="システム名で検索"
-                                value={nameQuery}
-                                onChange={(e) => setNameQuery(e.target.value)}
-                                className="w-full h-10 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 text-xs md:text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                        </div>
-                    </AccordionContent>
-                </AccordionItem>
-            </Accordion>
+            {/* Vercel-style Tab Navigation */}
+            <div className="relative">
+                <div className="flex w-full">
+                    <button
+                        ref={(el) => { tabsRef.current["cast"] = el; }}
+                        type="button"
+                        onClick={() => handleTypeChange("cast")}
+                        className={`flex-1 py-2 text-sm font-medium transition-colors relative ${
+                            optimisticType === "cast"
+                                ? "text-gray-900 dark:text-white"
+                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                        }`}
+                    >
+                        キャスト
+                    </button>
+                    <button
+                        ref={(el) => { tabsRef.current["staff"] = el; }}
+                        type="button"
+                        onClick={() => handleTypeChange("staff")}
+                        className={`flex-1 py-2 text-sm font-medium transition-colors relative ${
+                            optimisticType === "staff"
+                                ? "text-gray-900 dark:text-white"
+                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                        }`}
+                    >
+                        スタッフ
+                    </button>
+                </div>
+                <div
+                    className="absolute bottom-0 h-0.5 bg-gray-900 dark:bg-white transition-all duration-200"
+                    style={{ left: indicatorStyle.left, width: indicatorStyle.width }}
+                />
+                <div className="absolute bottom-0 left-0 right-0 h-px bg-gray-200 dark:bg-gray-700" />
+            </div>
 
             {filteredSystems.length === 0 ? (
                 <div className="text-center py-12 text-gray-500 dark:text-gray-400">
@@ -244,7 +271,50 @@ export function SalarySystemsList({ initialSystems, typeFilter }: SalarySystemsL
                 targetType={optimisticType as 'cast' | 'staff'}
                 onSaved={handleSaved}
                 onDeleted={handleDeleted}
+                storeShowBreakColumns={storeShowBreakColumns}
+                storeTimeRoundingEnabled={storeTimeRoundingEnabled}
+                storeTimeRoundingMinutes={storeTimeRoundingMinutes}
             />
-        </>
+
+            {/* フィルターダイアログ */}
+            <Dialog open={isFilterDialogOpen} onOpenChange={setIsFilterDialogOpen}>
+                <DialogContent className="max-w-md rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+                    <DialogHeader>
+                        <DialogTitle className="text-gray-900 dark:text-white">フィルター</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                システム名で検索
+                            </label>
+                            <div className="relative">
+                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                    placeholder="システム名で検索..."
+                                    value={nameQuery}
+                                    onChange={(e) => setNameQuery(e.target.value)}
+                                    className="pl-8 bg-white dark:bg-gray-800"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                    <DialogFooter className="flex justify-end gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => setNameQuery("")}
+                            className="rounded-lg"
+                        >
+                            リセット
+                        </Button>
+                        <Button
+                            onClick={() => setIsFilterDialogOpen(false)}
+                            className="rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                            適用
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </div>
     );
 }

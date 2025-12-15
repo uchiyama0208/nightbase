@@ -1,10 +1,15 @@
 import { createServerClient as createSupabaseServerClient } from "@supabase/ssr";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/types/supabase";
-import { getSupabaseConfig } from "./supabaseClient";
+import { getSupabaseConfig, ensureEnv } from "./supabaseClient";
 
+/**
+ * サーバーサイド用Supabaseクライアントを作成
+ * Cookie認証を使用してユーザーセッションを維持
+ */
 export async function createServerClient(): Promise<SupabaseClient<Database>> {
   const { supabaseUrl, supabaseAnonKey } = getSupabaseConfig();
   const cookieStore = await cookies();
@@ -34,4 +39,33 @@ export async function createServerClient(): Promise<SupabaseClient<Database>> {
       },
     }
   ) as SupabaseClient<Database>;
+}
+
+// Service Role Client のシングルトンインスタンス
+let serviceRoleClientInstance: SupabaseClient<Database> | null = null;
+
+/**
+ * Service Role Client を作成（RLSをバイパス）
+ * 注意: このクライアントはRLSを無視するため、慎重に使用すること
+ */
+export function createServiceRoleClient(): SupabaseClient<Database> {
+  // キャッシュされたインスタンスを返す
+  if (serviceRoleClientInstance) {
+    return serviceRoleClientInstance;
+  }
+
+  const { supabaseUrl } = getSupabaseConfig();
+  const serviceRoleKey = ensureEnv("SUPABASE_SERVICE_ROLE_KEY", process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+  serviceRoleClientInstance = createSupabaseClient<Database>(supabaseUrl, serviceRoleKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+    global: {
+      fetch,
+    },
+  });
+
+  return serviceRoleClientInstance;
 }

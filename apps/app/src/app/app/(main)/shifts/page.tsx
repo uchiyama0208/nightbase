@@ -2,10 +2,9 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabaseServerClient";
-import { getAppData } from "../../data-access";
+import { getAppDataWithPermissionCheck, getAccessDeniedRedirectUrl } from "../../data-access";
 import { ShiftsClient } from "./shifts-client";
-import { getShiftRequests, getCalendarData, getStoreShiftDefaults, getExistingRequestDates } from "./actions";
-import { PageTitle } from "@/components/page-title";
+import { getCalendarData, getStoreShiftDefaults, getExistingRequestDates } from "./actions";
 
 export const metadata: Metadata = {
     title: "シフト管理",
@@ -50,7 +49,7 @@ function ShiftsSkeleton() {
 }
 
 export default async function ShiftsPage() {
-    const { user, profile } = await getAppData();
+    const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("shifts", "view");
 
     if (!user) {
         redirect("/login");
@@ -60,17 +59,15 @@ export default async function ShiftsPage() {
         redirect("/app/me");
     }
 
-    // admin/staffのみアクセス可能
-    if (!["admin", "staff"].includes(profile.role)) {
-        redirect("/app/me");
+    if (!hasAccess) {
+        redirect(getAccessDeniedRedirectUrl("shifts"));
     }
 
     const now = new Date();
     const year = now.getFullYear();
     const month = now.getMonth() + 1;
 
-    const [shiftRequests, calendarData, profiles, storeDefaults, storeInfo, existingDates] = await Promise.all([
-        getShiftRequests(profile.store_id),
+    const [calendarData, profiles, storeDefaults, storeInfo, existingDates] = await Promise.all([
         getCalendarData(profile.store_id, year, month),
         getProfiles(profile.store_id),
         getStoreShiftDefaults(profile.store_id),
@@ -79,26 +76,18 @@ export default async function ShiftsPage() {
     ]);
 
     return (
-        <div className="space-y-4">
-            <PageTitle
-                title="シフト管理"
-                description="シフト募集の作成と提出状況の管理ができます。"
-                backTab="shift"
+        <Suspense fallback={<ShiftsSkeleton />}>
+            <ShiftsClient
+                initialCalendarData={calendarData}
+                profiles={profiles}
+                storeId={profile.store_id}
+                profileId={profile.id}
+                storeDefaults={storeDefaults}
+                storeName={storeInfo.name}
+                existingDates={existingDates}
+                closedDays={storeInfo.closedDays}
             />
-            <Suspense fallback={<ShiftsSkeleton />}>
-                <ShiftsClient
-                    shiftRequests={shiftRequests}
-                    initialCalendarData={calendarData}
-                    profiles={profiles}
-                    storeId={profile.store_id}
-                    profileId={profile.id}
-                    storeDefaults={storeDefaults}
-                    storeName={storeInfo.name}
-                    existingDates={existingDates}
-                    closedDays={storeInfo.closedDays}
-                />
-            </Suspense>
-        </div>
+        </Suspense>
     );
 }
 

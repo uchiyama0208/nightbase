@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableType, PricingSystem } from "@/types/floor";
-import { createSession } from "./actions";
+import { createSession } from "./actions/session";
 import { getTableTypes } from "../seats/actions";
 import { getPricingSystems } from "../pricing-systems/actions";
 import { useToast } from "@/components/ui/use-toast";

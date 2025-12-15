@@ -2,12 +2,8 @@ import { createServerClient } from "@/lib/supabaseServerClient";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import Image from "next/image";
-import Link from "next/link";
-import { User, Settings } from "lucide-react";
 import { StoreActionsModal } from "./store-actions-modal";
-import { StoreSelectorModal } from "./store-selector-modal";
-import { AttendanceCalendar } from "./attendance-calendar";
+import { MeContent } from "./me-content";
 
 export const metadata: Metadata = {
     title: "マイページ",
@@ -72,74 +68,71 @@ export default async function MyPage() {
         };
     });
 
+    // Fetch approved shift submissions for all user's profiles
+    const { data: shiftsRaw } = await supabase
+        .from("shift_submissions")
+        .select(`
+            id,
+            availability,
+            status,
+            approved_start_time,
+            approved_end_time,
+            profile_id,
+            shift_request_dates(target_date, shift_requests(store_id))
+        `)
+        .in("profile_id", profileIds)
+        .eq("status", "approved")
+        .eq("availability", "available");
+
+    // Map shifts with store info
+    const scheduledShifts = (shiftsRaw || []).map(shift => {
+        const profile = profiles.find(p => p.id === shift.profile_id);
+        const storeData = profile?.stores as unknown;
+        const store = (Array.isArray(storeData) ? storeData[0] : storeData) as { id: string; name: string; icon_url?: string | null } | null;
+        const dateInfo = shift.shift_request_dates as any;
+        return {
+            id: shift.id,
+            target_date: dateInfo?.target_date || null,
+            start_time: shift.approved_start_time,
+            end_time: shift.approved_end_time,
+            store_name: store?.name || "不明",
+            store_icon_url: store?.icon_url || null,
+        };
+    }).filter(s => s.target_date);
+
+    // Use LINE data (users table) if available, otherwise fall back to profile data
+    const avatarUrl = appUser?.avatar_url || currentProfile?.avatar_url;
+    const displayName = appUser?.display_name || currentProfile?.display_name;
+
+    // Map profiles for client component
+    const mappedProfiles = profiles.map(p => {
+        const s = p.stores as unknown;
+        const store = (Array.isArray(s) ? s[0] : s) as { id: string; name: string; icon_url?: string | null } | null;
+        return {
+            id: p.id,
+            display_name: p.display_name,
+            role: p.role,
+            stores: store,
+        };
+    });
+
     return (
-        <div className="max-w-2xl mx-auto -mt-4 -mx-4 sm:mx-auto sm:mt-0">
-            {/* Profile Header - Twitter style */}
-            {(() => {
-                // Use LINE data (users table) if available, otherwise fall back to profile data
-                const avatarUrl = appUser?.avatar_url || currentProfile?.avatar_url;
-                const displayName = appUser?.display_name || currentProfile?.display_name;
-
-                return (
-                    <div className="px-4 pt-6 pb-4">
-                        <div className="flex items-center gap-4">
-                            {avatarUrl ? (
-                                <Image
-                                    src={avatarUrl}
-                                    alt={displayName || ""}
-                                    width={64}
-                                    height={64}
-                                    className="rounded-full object-cover"
-                                />
-                            ) : (
-                                <div className="w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                                    <User className="h-8 w-8 text-gray-400 dark:text-gray-500" />
-                                </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                                <h1 className="text-xl font-bold text-gray-900 dark:text-white truncate">
-                                    {displayName || "名前未設定"}
-                                </h1>
-                            </div>
-                            <Link
-                                href="/app/me/settings"
-                                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                            >
-                                <Settings className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                            </Link>
-                        </div>
-                        {/* Store Selector */}
-                        <div className="mt-3">
-                            <StoreSelectorModal
-                                profiles={profiles.map(p => {
-                                    const s = p.stores as unknown;
-                                    const store = (Array.isArray(s) ? s[0] : s) as { id: string; name: string; icon_url?: string | null } | null;
-                                    return {
-                                        id: p.id,
-                                        display_name: p.display_name,
-                                        role: p.role,
-                                        stores: store,
-                                    };
-                                })}
-                                currentProfileId={currentProfileId || null}
-                                currentStoreName={currentStore?.name || null}
-                                currentStoreIcon={currentStore?.icon_url || null}
-                            />
-                        </div>
-                    </div>
-                );
-            })()}
-
-            {/* Attendance Calendar */}
-            <div className="px-4 mt-4">
-                <AttendanceCalendar timeCards={timeCards} />
-            </div>
+        <>
+            <MeContent
+                avatarUrl={avatarUrl || null}
+                displayName={displayName || null}
+                profiles={mappedProfiles}
+                currentProfileId={currentProfileId || null}
+                currentStore={currentStore}
+                timeCards={timeCards}
+                scheduledShifts={scheduledShifts}
+            />
 
             {/* Store Actions Modal */}
             <Suspense fallback={null}>
                 <StoreActionsModal />
             </Suspense>
-        </div>
+        </>
     );
 }
 

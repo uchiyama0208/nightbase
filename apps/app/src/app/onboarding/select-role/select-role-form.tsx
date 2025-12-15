@@ -77,12 +77,6 @@ export function SelectRoleForm() {
                     </div>
                 </RadioGroup>
 
-                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                    <p className="text-sm text-blue-900 dark:text-blue-100">
-                        💡 管理者が申請を確認する際に、ロールを変更することができます
-                    </p>
-                </div>
-
                 <div className="pt-4 border-t">
                     <Button onClick={handleProceed} className="w-full">
                         次へ

@@ -16,7 +16,7 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Loader2, MoreHorizontal, Pencil, Trash2, User, Tag } from "lucide-react";
+import { ChevronLeft, Loader2, MoreHorizontal, Pencil, Trash2, User, Tag } from "lucide-react";
 import { formatJSTDateTime } from "@/lib/utils";
 import { type StoreManual, type LikeUser, deleteManual, getManualLikes, toggleManualLike, markManualAsRead } from "./actions";
 import { LikeButton } from "./LikeButton";
@@ -93,7 +93,7 @@ export function ManualDetailModal({ isOpen, onClose, manual, isStaff }: ManualDe
                             onClick={onClose}
                             className="absolute left-0 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                         >
-                            <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                            <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                         </button>
                         <DialogTitle className="text-base font-semibold text-gray-900 dark:text-gray-50 px-8 text-center">
                             {manual.title}

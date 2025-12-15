@@ -17,7 +17,13 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { Filter } from "lucide-react";
 
 interface TimeCard {
     id: string;
@@ -39,6 +45,7 @@ export function TimecardHistory({ timeCards, showBreakColumns }: TimecardHistory
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
     const [statusFilter, setStatusFilter] = useState<string>("all");
+    const [isFilterOpen, setIsFilterOpen] = useState(false);
 
     const activeFilters = [
         dateFrom && "開始日",
@@ -55,6 +62,12 @@ export function TimecardHistory({ timeCards, showBreakColumns }: TimecardHistory
             hour: "2-digit",
             minute: "2-digit",
         });
+    };
+
+    const formatWorkDate = (dateString: string) => {
+        // "2025-12-04" -> "2025/12/4"
+        const [year, month, day] = dateString.split("-");
+        return `${year}/${parseInt(month)}/${parseInt(day)}`;
     };
 
     const calculateWorkTime = (card: TimeCard) => {
@@ -91,41 +104,59 @@ export function TimecardHistory({ timeCards, showBreakColumns }: TimecardHistory
         });
     }, [timeCards, statusFilter, dateFrom, dateTo]);
 
+    const getFilterSummary = () => {
+        if (!hasFilters) return "なし";
+        return activeFilters.join("・");
+    };
+
     return (
         <div className="space-y-3">
-            <Accordion type="single" collapsible className="w-full sm:w-auto">
-                <AccordionItem
-                    value="filters"
-                    className="rounded-2xl border border-gray-200 bg-white px-2 dark:border-gray-700 dark:bg-gray-800"
+            {/* Header Row */}
+            <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">勤務履歴</h2>
+                <button
+                    type="button"
+                    className={`flex items-center gap-1 px-1 py-1 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 ${
+                        hasFilters ? "text-blue-600" : "text-gray-500 dark:text-gray-400"
+                    }`}
+                    onClick={() => setIsFilterOpen(true)}
                 >
-                    <AccordionTrigger className="px-2 text-sm font-semibold text-gray-900 dark:text-white">
-                        <div className="flex w-full items-center justify-between pr-2">
-                            <span>フィルター</span>
-                            {hasFilters && (
-                                <span className="text-xs text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/40 px-2 py-0.5 rounded-full">
-                                    {activeFilters.join("・")}
-                                </span>
-                            )}
-                        </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="px-2">
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4 items-center">
+                    <Filter className="h-5 w-5 shrink-0" />
+                    <span className="text-sm text-gray-600 dark:text-gray-300 truncate">
+                        フィルター: {getFilterSummary()}
+                    </span>
+                </button>
+            </div>
+
+            {/* Filter Modal */}
+            <Dialog open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+                <DialogContent className="max-w-md rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+                    <DialogHeader>
+                        <DialogTitle className="text-gray-900 dark:text-white">フィルター</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 mt-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700 dark:text-gray-200">開始日</label>
                             <Input
                                 type="date"
                                 value={dateFrom}
                                 onChange={(e) => setDateFrom(e.target.value)}
                                 onClick={(event) => event.currentTarget.showPicker?.()}
                                 className="h-10"
-                                placeholder="開始日"
                             />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700 dark:text-gray-200">終了日</label>
                             <Input
                                 type="date"
                                 value={dateTo}
                                 onChange={(e) => setDateTo(e.target.value)}
                                 onClick={(event) => event.currentTarget.showPicker?.()}
                                 className="h-10"
-                                placeholder="終了日"
                             />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700 dark:text-gray-200">ステータス</label>
                             <Select value={statusFilter} onValueChange={setStatusFilter}>
                                 <SelectTrigger className="h-10">
                                     <SelectValue placeholder="ステータス" />
@@ -137,58 +168,56 @@ export function TimecardHistory({ timeCards, showBreakColumns }: TimecardHistory
                                 </SelectContent>
                             </Select>
                         </div>
-                    </AccordionContent>
-                </AccordionItem>
-            </Accordion>
+                    </div>
+                </DialogContent>
+            </Dialog>
 
-            <div className="rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-x-auto">
-                <div className="min-w-full">
-                    <Table>
-                        <TableHeader>
-                            <TableRow className="border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                <TableHead className="min-w-[90px] px-2 sm:px-4 text-center text-gray-500 dark:text-gray-400">勤務日</TableHead>
-                                <TableHead className="min-w-[90px] px-2 sm:px-4 text-center text-gray-500 dark:text-gray-400">出勤</TableHead>
-                                <TableHead className="min-w-[90px] px-2 sm:px-4 text-center text-gray-500 dark:text-gray-400">退勤</TableHead>
+            <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+                <Table>
+                    <TableHeader>
+                        <TableRow className="border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                            <TableHead className="px-1.5 sm:px-3 text-center text-xs text-gray-500 dark:text-gray-400">日付</TableHead>
+                            <TableHead className="px-1.5 sm:px-3 text-center text-xs text-gray-500 dark:text-gray-400">出勤</TableHead>
+                            <TableHead className="px-1.5 sm:px-3 text-center text-xs text-gray-500 dark:text-gray-400">退勤</TableHead>
+                            {showBreakColumns && (
+                                <>
+                                    <TableHead className="hidden md:table-cell px-1.5 sm:px-3 text-center text-xs text-gray-500 dark:text-gray-400">休憩開始</TableHead>
+                                    <TableHead className="hidden md:table-cell px-1.5 sm:px-3 text-center text-xs text-gray-500 dark:text-gray-400">休憩終了</TableHead>
+                                </>
+                            )}
+                            <TableHead className="px-1.5 sm:px-3 text-center text-xs text-gray-500 dark:text-gray-400">時間</TableHead>
+                            <TableHead className="hidden sm:table-cell px-1.5 sm:px-3 text-center text-xs text-gray-500 dark:text-gray-400">送迎先</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {filteredCards.map((card: TimeCard) => (
+                            <TableRow key={card.id} className="border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                <TableCell className="font-medium text-xs px-1.5 sm:px-3 text-center text-gray-900 dark:text-white whitespace-nowrap">{formatWorkDate(card.work_date)}</TableCell>
+                                <TableCell className="text-xs px-1.5 sm:px-3 text-center text-gray-900 dark:text-white">{formatDateTime(card.clock_in)}</TableCell>
+                                <TableCell className="text-xs px-1.5 sm:px-3 text-center text-gray-900 dark:text-white">{formatDateTime(card.clock_out)}</TableCell>
                                 {showBreakColumns && (
                                     <>
-                                        <TableHead className="hidden md:table-cell min-w-[90px] px-2 sm:px-4 text-center text-gray-500 dark:text-gray-400">休憩開始</TableHead>
-                                        <TableHead className="hidden md:table-cell min-w-[90px] px-2 sm:px-4 text-center text-gray-500 dark:text-gray-400">休憩終了</TableHead>
+                                        <TableCell className="hidden md:table-cell text-xs px-1.5 sm:px-3 text-center text-gray-900 dark:text-white">
+                                            {formatDateTime(card.break_start || null)}
+                                        </TableCell>
+                                        <TableCell className="hidden md:table-cell text-xs px-1.5 sm:px-3 text-center text-gray-900 dark:text-white">
+                                            {formatDateTime(card.break_end || null)}
+                                        </TableCell>
                                     </>
                                 )}
-                                <TableHead className="min-w-[80px] px-2 sm:px-4 text-center text-gray-500 dark:text-gray-400">勤務時間</TableHead>
-                                <TableHead className="min-w-[90px] px-2 sm:px-4 text-center text-gray-500 dark:text-gray-400">送迎先</TableHead>
+                                <TableCell className="font-medium text-xs px-1.5 sm:px-3 text-center text-gray-900 dark:text-white whitespace-nowrap">{calculateWorkTime(card)}</TableCell>
+                                <TableCell className="hidden sm:table-cell text-xs px-1.5 sm:px-3 text-center text-gray-900 dark:text-white truncate max-w-[80px]">{card.pickup_destination || card.pickup_location || "-"}</TableCell>
                             </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {filteredCards.map((card: TimeCard) => (
-                                <TableRow key={card.id} className="border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                    <TableCell className="font-medium text-xs md:text-sm px-2 sm:px-4 text-center text-gray-900 dark:text-white">{card.work_date}</TableCell>
-                                    <TableCell className="text-xs md:text-sm px-2 sm:px-4 text-center text-gray-900 dark:text-white">{formatDateTime(card.clock_in)}</TableCell>
-                                    <TableCell className="text-xs md:text-sm px-2 sm:px-4 text-center text-gray-900 dark:text-white">{formatDateTime(card.clock_out)}</TableCell>
-                                    {showBreakColumns && (
-                                        <>
-                                            <TableCell className="hidden md:table-cell text-xs md:text-sm px-2 sm:px-4 text-center text-gray-900 dark:text-white">
-                                                {formatDateTime(card.break_start || null)}
-                                            </TableCell>
-                                            <TableCell className="hidden md:table-cell text-xs md:text-sm px-2 sm:px-4 text-center text-gray-900 dark:text-white">
-                                                {formatDateTime(card.break_end || null)}
-                                            </TableCell>
-                                        </>
-                                    )}
-                                    <TableCell className="font-medium text-xs md:text-sm px-2 sm:px-4 text-center text-gray-900 dark:text-white">{calculateWorkTime(card)}</TableCell>
-                                    <TableCell className="text-xs md:text-sm px-2 sm:px-4 text-center text-gray-900 dark:text-white">{card.pickup_destination || card.pickup_location || "-"}</TableCell>
-                                </TableRow>
-                            ))}
-                            {filteredCards.length === 0 && (
-                                <TableRow>
-                                    <TableCell colSpan={showBreakColumns ? 7 : 5} className="h-24 text-center text-xs md:text-sm text-gray-500 dark:text-gray-400">
-                                        条件に一致する勤務履歴がありません
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
+                        ))}
+                        {filteredCards.length === 0 && (
+                            <TableRow>
+                                <TableCell colSpan={showBreakColumns ? 6 : 4} className="h-24 text-center text-xs text-gray-500 dark:text-gray-400">
+                                    条件に一致する勤務履歴がありません
+                                </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
             </div>
         </div>
     );

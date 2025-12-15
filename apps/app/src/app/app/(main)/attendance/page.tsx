@@ -3,15 +3,14 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabaseServerClient";
 import { AttendanceTable } from "./AttendanceTable";
-import { getAppData } from "../../data-access";
-import { PageTitle } from "@/components/page-title";
+import { getAppDataWithPermissionCheck, getAccessDeniedRedirectUrl } from "../../data-access";
 
 export const metadata: Metadata = {
 	title: "勤怠",
 };
 
 async function getAttendanceData(roleParam?: string) {
-	const { user, profile } = await getAppData();
+	const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("attendance", "view");
 
 	if (!user) {
 		redirect("/login");
@@ -19,6 +18,10 @@ async function getAttendanceData(roleParam?: string) {
 
 	if (!profile || !profile.store_id) {
 		redirect("/app/me");
+	}
+
+	if (!hasAccess) {
+		redirect(getAccessDeniedRedirectUrl("attendance"));
 	}
 
 	const storeId = profile.store_id;
@@ -100,14 +103,7 @@ export default async function AttendancePage({
 	const { allRecords, allProfiles, roleFilter } = data;
 
 	return (
-		<div className="space-y-4">
-			<PageTitle
-				title="出勤管理"
-				description="シフトの確認と出勤状況を管理します。"
-				backTab="shift"
-			/>
-			<AttendanceTable attendanceRecords={allRecords} profiles={allProfiles} roleFilter={roleFilter} />
-		</div>
+		<AttendanceTable attendanceRecords={allRecords} profiles={allProfiles} roleFilter={roleFilter} />
 	);
 }
 

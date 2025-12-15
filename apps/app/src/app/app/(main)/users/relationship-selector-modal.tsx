@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { ChevronLeft, Search, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -51,30 +51,22 @@ export function RelationshipSelectorModal({
     const [searchQuery, setSearchQuery] = useState("");
     const [roleFilter, setRoleFilter] = useState<string | null>("cast");
     const [localSelectedIds, setLocalSelectedIds] = useState<string[]>(selectedIds);
-    const roleIndex = useMemo(() => {
-        if (roleFilter === "cast") return 0;
-        if (roleFilter === "staff") return 1;
-        if (roleFilter === "guest") return 2;
-        return 0;
-    }, [roleFilter]);
 
-    const suggestionItems = useMemo(
-        () =>
-            Array.from(
-                new Set(
-                    profiles
-                        .map(
-                            (profile) =>
-                                profile.display_name ||
-                                profile.real_name ||
-                                profile.display_name_kana ||
-                                "",
-                        )
-                        .filter(Boolean),
-                ),
-            ) as string[],
-        [profiles],
-    );
+    // Vercel-style tabs
+    const roleTabsRef = useRef<{ [key: string]: HTMLButtonElement | null }>({});
+    const [roleIndicatorStyle, setRoleIndicatorStyle] = useState({ left: 0, width: 0 });
+
+    useEffect(() => {
+        if (roleFilter) {
+            const activeButton = roleTabsRef.current[roleFilter];
+            if (activeButton) {
+                setRoleIndicatorStyle({
+                    left: activeButton.offsetLeft,
+                    width: activeButton.offsetWidth,
+                });
+            }
+        }
+    }, [roleFilter]);
 
     useEffect(() => {
         setLocalSelectedIds(selectedIds);
@@ -100,11 +92,17 @@ export function RelationshipSelectorModal({
         });
 
     const toggleSelection = (profileId: string) => {
-        const newSelectedIds = localSelectedIds.includes(profileId)
+        const isCurrentlySelected = localSelectedIds.includes(profileId);
+        const newSelectedIds = isCurrentlySelected
             ? localSelectedIds.filter((id) => id !== profileId)
             : [...localSelectedIds, profileId];
         setLocalSelectedIds(newSelectedIds);
         onSelectionChange(newSelectedIds);
+
+        // 追加時はモーダルを閉じる
+        if (!isCurrentlySelected) {
+            onClose();
+        }
     };
 
     const handleCancel = () => {
@@ -163,29 +161,31 @@ export function RelationshipSelectorModal({
                         />
                     </div>
 
-                    {/* Role Filter - Toggle Button Style */}
+                    {/* Role Filter - Vercel-style tabs */}
                     {(title !== "指名" && title !== "担当") && (
-                        <div className="relative inline-flex h-10 items-center rounded-full bg-gray-100 dark:bg-gray-800 p-1 w-fit mx-auto">
-                            <div
-                                className="absolute h-8 rounded-full bg-white dark:bg-gray-700 shadow-sm transition-transform duration-300 ease-in-out"
-                                style={{
-                                    width: "72px",
-                                    left: "4px",
-                                    transform: `translateX(calc(${roleIndex} * 72px))`
-                                }}
-                            />
-                            {["cast", "staff", "guest"].map((role) => (
-                                <button
-                                    key={role}
-                                    onClick={() => setRoleFilter(role)}
-                                    className={`relative z-10 w-[72px] flex items-center justify-center h-8 rounded-full text-sm font-medium transition-colors duration-200 ${roleFilter === role
-                                        ? "text-gray-900 dark:text-white"
-                                        : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                        <div className="relative">
+                            <div className="flex">
+                                {["cast", "staff", "guest"].map((role) => (
+                                    <button
+                                        key={role}
+                                        ref={(el) => { roleTabsRef.current[role] = el; }}
+                                        type="button"
+                                        onClick={() => setRoleFilter(role)}
+                                        className={`flex-1 py-2 text-sm font-medium transition-colors relative ${
+                                            roleFilter === role
+                                                ? "text-gray-900 dark:text-white"
+                                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                                         }`}
-                                >
-                                    {roleLabels[role]}
-                                </button>
-                            ))}
+                                    >
+                                        {roleLabels[role]}
+                                    </button>
+                                ))}
+                            </div>
+                            <div
+                                className="absolute bottom-0 h-0.5 bg-gray-900 dark:bg-white transition-all duration-200"
+                                style={{ left: roleIndicatorStyle.left, width: roleIndicatorStyle.width }}
+                            />
+                            <div className="absolute bottom-0 left-0 right-0 h-px bg-gray-200 dark:bg-gray-700" />
                         </div>
                     )}
 
@@ -205,7 +205,7 @@ export function RelationshipSelectorModal({
                                         <Avatar className="h-8 w-8">
                                             <AvatarImage src={profile.avatar_url || ""} />
                                             <AvatarFallback className="bg-gray-200 dark:bg-gray-700">
-                                                <UserCircle className="h-5 w-5 text-gray-700 dark:text-gray-300" />
+                                                <UserCircle className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                                             </AvatarFallback>
                                         </Avatar>
                                         <div className="flex-1 text-left min-w-0">
@@ -231,13 +231,6 @@ export function RelationshipSelectorModal({
                                 ))
                             )}
                         </div>
-                    </div>
-                </div>
-
-                {/* Footer */}
-                <div className="px-3 py-4 border-t border-gray-200 dark:border-gray-700">
-                    <div className="text-sm text-gray-600 dark:text-gray-400 text-center">
-                        {localSelectedIds.length}人選択中
                     </div>
                 </div>
             </DialogContent>

@@ -6,11 +6,23 @@ import { cn } from "@/lib/utils";
 
 const Accordion = React.forwardRef<
     HTMLDivElement,
-    React.HTMLAttributes<HTMLDivElement> & { type?: "single" | "multiple"; collapsible?: boolean }
->(({ className, type, collapsible, ...props }, ref) => (
-    <div ref={ref} className={className} {...props} />
+    React.HTMLAttributes<HTMLDivElement> & {
+        type?: "single" | "multiple";
+        collapsible?: boolean;
+        value?: string;
+        onValueChange?: (value: string | undefined) => void;
+    }
+>(({ className, type, collapsible, value, onValueChange, ...props }, ref) => (
+    <AccordionRootContext.Provider value={{ value, onValueChange }}>
+        <div ref={ref} className={className} {...props} />
+    </AccordionRootContext.Provider>
 ));
 Accordion.displayName = "Accordion";
+
+const AccordionRootContext = React.createContext<{
+    value?: string;
+    onValueChange?: (value: string | undefined) => void;
+}>({});
 
 const AccordionContext = React.createContext<{
     value?: string;
@@ -26,7 +38,20 @@ const AccordionItem = React.forwardRef<
     HTMLDivElement,
     React.HTMLAttributes<HTMLDivElement> & { value: string }
 >(({ className, value, children, ...props }, ref) => {
-    const [isOpen, setIsOpen] = React.useState(false);
+    const rootContext = React.useContext(AccordionRootContext);
+    const [localIsOpen, setLocalIsOpen] = React.useState(false);
+
+    // Use controlled state from parent if available, otherwise use local state
+    const isControlled = rootContext.value !== undefined || rootContext.onValueChange !== undefined;
+    const isOpen = isControlled ? rootContext.value === value : localIsOpen;
+
+    const setIsOpen = React.useCallback((open: boolean) => {
+        if (isControlled && rootContext.onValueChange) {
+            rootContext.onValueChange(open ? value : undefined);
+        } else {
+            setLocalIsOpen(open);
+        }
+    }, [isControlled, rootContext, value]);
 
     return (
         <AccordionContext.Provider

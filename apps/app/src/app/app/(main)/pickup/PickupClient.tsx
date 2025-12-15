@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -115,7 +115,19 @@ export function PickupClient({
     const [editingRoute, setEditingRoute] = useState<PickupRouteWithPassengers | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
 
-    const viewIndex = viewMode === "list" ? 0 : 1;
+    // Vercel-style tabs
+    const tabsRef = useRef<{ [key: string]: HTMLButtonElement | null }>({});
+    const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
+
+    useEffect(() => {
+        const activeButton = tabsRef.current[viewMode];
+        if (activeButton) {
+            setIndicatorStyle({
+                left: activeButton.offsetLeft,
+                width: activeButton.offsetWidth,
+            });
+        }
+    }, [viewMode]);
 
     const handleOpenModal = (route?: PickupRouteWithPassengers) => {
         setEditingRoute(route || null);
@@ -168,57 +180,57 @@ export function PickupClient({
 
     return (
         <>
-            {/* Header with toggle and buttons */}
-            <div className="flex items-center justify-between">
-                <div className="relative inline-flex h-10 items-center rounded-full bg-gray-100 dark:bg-gray-800 p-1">
-                        <div
-                            className="absolute h-8 rounded-full bg-white dark:bg-gray-700 shadow-sm transition-transform duration-300 ease-in-out"
-                            style={{
-                                width: "80px",
-                                left: "4px",
-                                transform: `translateX(calc(${viewIndex} * (80px + 0px)))`,
-                            }}
-                        />
-                        <button
-                            type="button"
-                            onClick={() => setViewMode("list")}
-                            className={`relative z-10 w-20 flex items-center justify-center h-8 rounded-full text-sm font-medium transition-colors duration-200 ${
-                                viewMode === "list"
-                                    ? "text-gray-900 dark:text-white"
-                                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                            }`}
-                        >
-                            一覧
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setViewMode("map")}
-                            className={`relative z-10 w-20 flex items-center justify-center h-8 rounded-full text-sm font-medium transition-colors duration-200 ${
-                                viewMode === "map"
-                                    ? "text-gray-900 dark:text-white"
-                                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                            }`}
-                        >
-                            マップ
-                        </button>
-                </div>
+            {/* Header with buttons */}
+            <div className="flex items-center justify-end gap-2 mb-4">
+                <Button
+                    size="icon"
+                    className="h-10 w-10 rounded-full bg-purple-600 text-white hover:bg-purple-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
+                    onClick={() => setIsAIModalOpen(true)}
+                >
+                    <Sparkles className="h-5 w-5" />
+                </Button>
+                <Button
+                    size="icon"
+                    className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
+                    onClick={() => handleOpenModal()}
+                >
+                    <Plus className="h-5 w-5" />
+                </Button>
+            </div>
 
-                <div className="flex items-center gap-2">
-                    <Button
-                        size="icon"
-                        className="h-10 w-10 rounded-full bg-purple-600 text-white hover:bg-purple-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
-                        onClick={() => setIsAIModalOpen(true)}
+            {/* Vercel-style Tab Navigation */}
+            <div className="relative mb-4">
+                <div className="flex w-full">
+                    <button
+                        ref={(el) => { tabsRef.current["list"] = el; }}
+                        type="button"
+                        onClick={() => setViewMode("list")}
+                        className={`flex-1 py-2 text-sm font-medium transition-colors relative ${
+                            viewMode === "list"
+                                ? "text-gray-900 dark:text-white"
+                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                        }`}
                     >
-                        <Sparkles className="h-5 w-5" />
-                    </Button>
-                    <Button
-                        size="icon"
-                        className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
-                        onClick={() => handleOpenModal()}
+                        一覧
+                    </button>
+                    <button
+                        ref={(el) => { tabsRef.current["map"] = el; }}
+                        type="button"
+                        onClick={() => setViewMode("map")}
+                        className={`flex-1 py-2 text-sm font-medium transition-colors relative ${
+                            viewMode === "map"
+                                ? "text-gray-900 dark:text-white"
+                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                        }`}
                     >
-                        <Plus className="h-5 w-5" />
-                    </Button>
+                        マップ
+                    </button>
                 </div>
+                <div
+                    className="absolute bottom-0 h-0.5 bg-gray-900 dark:bg-white transition-all duration-200"
+                    style={{ left: indicatorStyle.left, width: indicatorStyle.width }}
+                />
+                <div className="absolute bottom-0 left-0 right-0 h-px bg-gray-200 dark:bg-gray-700" />
             </div>
 
             {/* Content */}

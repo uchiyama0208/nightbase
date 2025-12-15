@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getMySubmissions, submitShiftPreferences } from "./actions";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/ui/use-toast";
 
 interface ShiftRequestDate {
     id: string;
@@ -62,6 +63,7 @@ export function SubmissionModal({
     storeDefaults,
 }: SubmissionModalProps) {
     const router = useRouter();
+    const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [preferences, setPreferences] = useState<DatePreference[]>([]);
@@ -173,9 +175,11 @@ export function SubmissionModal({
             );
 
             if (result.success) {
+                toast({ title: "シフト希望を提出しました" });
                 router.refresh();
                 onClose();
             } else {
+                toast({ title: "提出に失敗しました", variant: "destructive" });
                 console.error("Failed to submit:", result.error);
             }
         } catch (error) {

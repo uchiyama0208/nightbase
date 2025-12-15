@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, User, Tag, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -57,28 +57,33 @@ export function BoardClient({ posts, manuals, tags, storeId, isStaff, userRole, 
     const [viewingPost, setViewingPost] = useState<StorePost | null>(null);
     const [viewingManual, setViewingManual] = useState<StoreManual | null>(null);
     const [activeMainTab, setActiveMainTab] = useState<"board" | "manual">("board");
-    const [activeSubTab, setActiveSubTab] = useState<"published" | "draft">("published");
     const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
     // Track read status locally for immediate UI update
     const [localPostReadStatus, setLocalPostReadStatus] = useState<Record<string, boolean>>(postReadStatus);
     const [localManualReadStatus, setLocalManualReadStatus] = useState<Record<string, boolean>>(manualReadStatus);
 
-    // 掲示板: 投稿済みと下書きの件数
-    const publishedPostCount = posts.filter(p => p.status === "published").length;
-    const draftPostCount = posts.filter(p => p.status === "draft").length;
+    // Vercel-style tabs for main tab
+    const mainTabsRef = useRef<{ [key: string]: HTMLButtonElement | null }>({});
+    const [mainIndicatorStyle, setMainIndicatorStyle] = useState({ left: 0, width: 0 });
 
-    // マニュアル: 投稿済みと下書きの件数
-    const publishedManualCount = manuals.filter(m => m.status === "published").length;
-    const draftManualCount = manuals.filter(m => m.status === "draft").length;
+    useEffect(() => {
+        const activeButton = mainTabsRef.current[activeMainTab];
+        if (activeButton) {
+            setMainIndicatorStyle({
+                left: activeButton.offsetLeft,
+                width: activeButton.offsetWidth,
+            });
+        }
+    }, [activeMainTab]);
 
-    // 掲示板フィルター
+    // 掲示板フィルター（スタッフは全て表示、キャストは公開のみ）
     const filteredPosts = isStaff
-        ? posts.filter(p => p.status === activeSubTab)
+        ? posts
         : posts.filter(p => p.status === "published");
 
     // マニュアルフィルター（タグでも絞り込み可能）
     let filteredManuals = isStaff
-        ? manuals.filter(m => m.status === activeSubTab)
+        ? manuals
         : manuals.filter(m => m.status === "published");
 
     if (selectedTagId) {
@@ -108,60 +113,10 @@ export function BoardClient({ posts, manuals, tags, storeId, isStaff, userRole, 
     };
 
     return (
-        <>
-            {/* Header */}
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-                    {activeMainTab === "board" ? "掲示板" : "マニュアル"}
-                </h1>
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    {activeMainTab === "board" ? "店舗からのお知らせ" : "業務マニュアル"}
-                </p>
-            </div>
-
-            {/* Main toggle (掲示板/マニュアル) + Add button */}
-            <div className="flex items-center justify-between">
-                <div className="relative inline-flex h-10 items-center rounded-full bg-gray-100 dark:bg-gray-800 p-1">
-                    <div
-                        className="absolute h-8 rounded-full bg-white dark:bg-gray-700 shadow-sm transition-transform duration-300 ease-in-out"
-                        style={{
-                            width: "100px",
-                            left: "4px",
-                            transform: `translateX(${activeMainTab === "board" ? "0" : "100px"})`
-                        }}
-                    />
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setActiveMainTab("board");
-                            setActiveSubTab("published");
-                            setSelectedTagId(null);
-                        }}
-                        className={`relative z-10 w-[100px] flex items-center justify-center gap-1.5 h-8 rounded-full text-sm font-medium whitespace-nowrap transition-colors duration-200 ${
-                            activeMainTab === "board"
-                                ? "text-gray-900 dark:text-white"
-                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                        }`}
-                    >
-                        掲示板
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setActiveMainTab("manual");
-                            setActiveSubTab("published");
-                            setSelectedTagId(null);
-                        }}
-                        className={`relative z-10 w-[100px] flex items-center justify-center gap-1.5 h-8 rounded-full text-sm font-medium whitespace-nowrap transition-colors duration-200 ${
-                            activeMainTab === "manual"
-                                ? "text-gray-900 dark:text-white"
-                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                        }`}
-                    >
-                        マニュアル
-                    </button>
-                </div>
-                {isStaff && (
+        <div className="space-y-2">
+            {/* Plus button */}
+            {isStaff && (
+                <div className="flex justify-end">
                     <Button
                         size="icon"
                         className="h-10 w-10 shrink-0 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
@@ -169,60 +124,49 @@ export function BoardClient({ posts, manuals, tags, storeId, isStaff, userRole, 
                     >
                         <Plus className="h-5 w-5" />
                     </Button>
-                )}
-            </div>
-
-            {/* Sub toggle (投稿済み/下書き) - スタッフのみ表示 */}
-            {isStaff && (
-                <div className="flex items-center gap-3">
-                    <div className="relative inline-flex h-9 items-center rounded-full bg-gray-100 dark:bg-gray-800 p-1">
-                        <div
-                            className="absolute h-7 rounded-full bg-white dark:bg-gray-700 shadow-sm transition-transform duration-300 ease-in-out"
-                            style={{
-                                width: "80px",
-                                left: "4px",
-                                transform: `translateX(${activeSubTab === "published" ? "0" : "80px"})`
-                            }}
-                        />
-                        <button
-                            type="button"
-                            onClick={() => setActiveSubTab("published")}
-                            className={`relative z-10 w-[80px] flex items-center justify-center gap-1 h-7 rounded-full text-xs font-medium whitespace-nowrap transition-colors duration-200 ${
-                                activeSubTab === "published"
-                                    ? "text-gray-900 dark:text-white"
-                                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                            }`}
-                        >
-                            公開
-                            <span className={`text-xs ${
-                                activeSubTab === "published"
-                                    ? "text-gray-600 dark:text-gray-300"
-                                    : "text-gray-400 dark:text-gray-500"
-                            }`}>
-                                {activeMainTab === "board" ? publishedPostCount : publishedManualCount}
-                            </span>
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setActiveSubTab("draft")}
-                            className={`relative z-10 w-[80px] flex items-center justify-center gap-1 h-7 rounded-full text-xs font-medium whitespace-nowrap transition-colors duration-200 ${
-                                activeSubTab === "draft"
-                                    ? "text-gray-900 dark:text-white"
-                                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                            }`}
-                        >
-                            下書き
-                            <span className={`text-xs ${
-                                activeSubTab === "draft"
-                                    ? "text-gray-600 dark:text-gray-300"
-                                    : "text-gray-400 dark:text-gray-500"
-                            }`}>
-                                {activeMainTab === "board" ? draftPostCount : draftManualCount}
-                            </span>
-                        </button>
-                    </div>
                 </div>
             )}
+
+            {/* Main Vercel-style Tab Navigation (掲示板/マニュアル) */}
+            <div className="relative">
+                <div className="flex w-full">
+                    <button
+                        ref={(el) => { mainTabsRef.current["board"] = el; }}
+                        type="button"
+                        onClick={() => {
+                            setActiveMainTab("board");
+                            setSelectedTagId(null);
+                        }}
+                        className={`flex-1 py-2 text-sm font-medium transition-colors relative ${
+                            activeMainTab === "board"
+                                ? "text-gray-900 dark:text-white"
+                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                        }`}
+                    >
+                        掲示板
+                    </button>
+                    <button
+                        ref={(el) => { mainTabsRef.current["manual"] = el; }}
+                        type="button"
+                        onClick={() => {
+                            setActiveMainTab("manual");
+                            setSelectedTagId(null);
+                        }}
+                        className={`flex-1 py-2 text-sm font-medium transition-colors relative ${
+                            activeMainTab === "manual"
+                                ? "text-gray-900 dark:text-white"
+                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                        }`}
+                    >
+                        マニュアル
+                    </button>
+                </div>
+                <div
+                    className="absolute bottom-0 h-0.5 bg-gray-900 dark:bg-white transition-all duration-200"
+                    style={{ left: mainIndicatorStyle.left, width: mainIndicatorStyle.width }}
+                />
+                <div className="absolute bottom-0 left-0 right-0 h-px bg-gray-200 dark:bg-gray-700" />
+            </div>
 
             {/* Tag filter (マニュアルのみ) */}
             {activeMainTab === "manual" && tags.length > 0 && (
@@ -263,7 +207,7 @@ export function BoardClient({ posts, manuals, tags, storeId, isStaff, userRole, 
                     filteredPosts.length === 0 ? (
                         <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-8 text-center">
                             <p className="text-gray-500 dark:text-gray-400">
-                                {activeSubTab === "published" ? "投稿がありません" : "下書きがありません"}
+                                投稿がありません
                             </p>
                         </div>
                     ) : (
@@ -281,14 +225,19 @@ export function BoardClient({ posts, manuals, tags, storeId, isStaff, userRole, 
                                     }`}
                                 >
                                     <div className="flex items-center gap-2 mb-1">
+                                        {isStaff && post.status === "published" && (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                                                公開中
+                                            </span>
+                                        )}
+                                        {isStaff && post.status === "draft" && (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
+                                                下書き
+                                            </span>
+                                        )}
                                         {!localPostReadStatus[post.id] && post.status === "published" && (
                                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
                                                 未読
-                                            </span>
-                                        )}
-                                        {post.status === "draft" && (
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
-                                                下書き
                                             </span>
                                         )}
                                         <h3 className="text-base font-semibold text-gray-900 dark:text-white truncate">
@@ -355,7 +304,7 @@ export function BoardClient({ posts, manuals, tags, storeId, isStaff, userRole, 
                     filteredManuals.length === 0 ? (
                         <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-8 text-center">
                             <p className="text-gray-500 dark:text-gray-400">
-                                {activeSubTab === "published" ? "マニュアルがありません" : "下書きがありません"}
+                                マニュアルがありません
                             </p>
                         </div>
                     ) : (
@@ -373,14 +322,19 @@ export function BoardClient({ posts, manuals, tags, storeId, isStaff, userRole, 
                                     }`}
                                 >
                                     <div className="flex items-center gap-2 mb-1">
+                                        {isStaff && manual.status === "published" && (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                                                公開中
+                                            </span>
+                                        )}
+                                        {isStaff && manual.status === "draft" && (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
+                                                下書き
+                                            </span>
+                                        )}
                                         {!localManualReadStatus[manual.id] && manual.status === "published" && (
                                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
                                                 未読
-                                            </span>
-                                        )}
-                                        {manual.status === "draft" && (
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
-                                                下書き
                                             </span>
                                         )}
                                         <h3 className="text-base font-semibold text-gray-900 dark:text-white truncate">
@@ -471,6 +425,6 @@ export function BoardClient({ posts, manuals, tags, storeId, isStaff, userRole, 
                 manual={viewingManual}
                 isStaff={isStaff}
             />
-        </>
+        </div>
     );
 }

@@ -46,7 +46,7 @@ export function LineFriendPopup() {
     };
 
     return (
-        <Dialog open={open} onOpenChange={(newOpen) => !newOpen && handleDismiss(false)}>
+        <Dialog open={open} onOpenChange={(newOpen: boolean) => !newOpen && handleDismiss(false)}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle className="text-xl">公式LINEを友だち追加 account</DialogTitle>

@@ -6,7 +6,8 @@ export function PricingSection() {
     const plans = [
         {
             name: "Light",
-            price: "39,800",
+            originalPrice: "14,800",
+            price: "12,800",
             description: "小規模店舗や、まずは試してみたい方に。",
             features: [
                 "スタッフ・キャスト管理 (〜10名)",
@@ -20,7 +21,8 @@ export function PricingSection() {
         },
         {
             name: "Standard",
-            price: "79,800",
+            originalPrice: "29,800",
+            price: "24,800",
             description: "必要な機能が全て揃った、一番人気のプラン。",
             features: [
                 "スタッフ・キャスト管理 (無制限)",
@@ -35,7 +37,8 @@ export function PricingSection() {
         },
         {
             name: "Premium",
-            price: "120,000~",
+            originalPrice: "59,800",
+            price: "49,800",
             description: "複数店舗展開や、専任サポートが必要な方に。",
             features: [
                 "複数店舗一元管理",
@@ -61,6 +64,9 @@ export function PricingSection() {
                         まずは小さく始めて、お店の成長に合わせて拡張できます。<br />
                         契約期間の縛りはありません。
                     </p>
+                    <div className="mt-6 inline-block bg-blue-100 text-blue-700 px-4 py-2 rounded-full text-sm font-bold">
+                        12/31まで期間限定キャンペーン実施中!
+                    </div>
                 </div>
 
                 <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
@@ -84,8 +90,16 @@ export function PricingSection() {
                             <div className="mb-8">
                                 <div className="flex items-baseline">
                                     <span className="text-sm text-slate-500 font-medium">月額</span>
-                                    <span className="text-4xl font-bold text-slate-900 mx-1">{plan.price}</span>
+                                    <span className="text-lg text-red-400 line-through mx-1">{plan.originalPrice}円</span>
+                                </div>
+                                <div className="flex items-baseline mt-1">
+                                    <span className="text-4xl font-bold text-blue-600 mx-1">{plan.price}</span>
                                     <span className="text-sm text-slate-500">円(税別)</span>
+                                </div>
+                                <div className="mt-2">
+                                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-medium">
+                                        12/31まで限定価格
+                                    </span>
                                 </div>
                             </div>
                             <ul className="space-y-4 mb-8 flex-1">

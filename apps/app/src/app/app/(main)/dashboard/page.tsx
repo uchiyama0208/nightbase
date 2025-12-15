@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { getAppData } from "../../data-access";
+import { getAppData, type PagePermissions } from "../../data-access";
 import { TabMenuCards } from "./tab-menu-cards";
 import { getDashboardData } from "./actions";
 
@@ -9,9 +9,15 @@ export const metadata: Metadata = {
     title: "ダッシュボード",
 };
 
+interface DashboardPageProps {
+    searchParams: Promise<{ denied?: string }>;
+}
+
 // Server Component (default export)
-export default async function DashboardPage() {
-    const { user, profile } = await getAppData();
+export default async function DashboardPage({ searchParams }: DashboardPageProps) {
+    const params = await searchParams;
+    const accessDeniedMessage = params.denied ? decodeURIComponent(params.denied) : null;
+    const { user, profile, permissions } = await getAppData();
 
     if (!user) {
         redirect("/login");
@@ -89,10 +95,11 @@ export default async function DashboardPage() {
 
     const invitationsInfo = dashboardResult.data ? {
         pendingCount: dashboardResult.data.pendingInvitationsCount,
-    } : { pendingCount: 0 };
+        joinRequestsCount: dashboardResult.data.pendingJoinRequestsCount,
+    } : { pendingCount: 0, joinRequestsCount: 0 };
 
-    const joinRequestsInfo = dashboardResult.data ? {
-        pendingCount: dashboardResult.data.pendingJoinRequestsCount,
+    const resumesInfo = dashboardResult.data ? {
+        pendingCount: dashboardResult.data.pendingResumesCount,
     } : { pendingCount: 0 };
 
     // Floor tab
@@ -117,14 +124,30 @@ export default async function DashboardPage() {
         activeCount: dashboardResult.data.activeBottleKeepsCount,
     } : { activeCount: 0 };
 
-    // Salary tab
-    const pricingInfo = dashboardResult.data ? {
-        count: dashboardResult.data.pricingSystemsCount,
-    } : { count: 0 };
+    const queueInfo = dashboardResult.data ? {
+        waitingCount: dashboardResult.data.waitingQueueCount,
+    } : { waitingCount: 0 };
 
-    const salaryInfo = dashboardResult.data ? {
-        count: dashboardResult.data.salarySystemsCount,
-    } : { count: 0 };
+    const reservationInfo = dashboardResult.data ? {
+        todayCount: dashboardResult.data.todayReservationsCount,
+    } : { todayCount: 0 };
+
+    const shoppingInfo = dashboardResult.data ? {
+        lowStockCount: dashboardResult.data.lowStockCount,
+    } : { lowStockCount: 0 };
+
+    // Salary tab
+    const salesInfo = dashboardResult.data ? {
+        todaySales: dashboardResult.data.todaySales,
+    } : { todaySales: 0 };
+
+    const payrollInfo = dashboardResult.data ? {
+        todayPayroll: dashboardResult.data.todayPayroll,
+    } : { todayPayroll: 0 };
+
+    const rankingInfo = dashboardResult.data ? {
+        top3: dashboardResult.data.rankingTop3,
+    } : { top3: [] };
 
     // Community tab
     const boardInfo = dashboardResult.data ? {
@@ -139,10 +162,9 @@ export default async function DashboardPage() {
         scheduledCount: dashboardResult.data.scheduledSnsPostsCount,
     } : { todayCount: 0, scheduledCount: 0 };
 
-    const featuresInfo = dashboardResult.data ? {
-        enabledCount: dashboardResult.data.enabledFeaturesCount,
-        disabledCount: dashboardResult.data.disabledFeaturesCount,
-    } : { enabledCount: 0, disabledCount: 0 };
+    const aiCreateInfo = dashboardResult.data ? {
+        credits: dashboardResult.data.aiCredits,
+    } : { credits: 0 };
 
     return (
         <Suspense fallback={<div className="h-40 bg-gray-100 dark:bg-gray-800 rounded-xl animate-pulse"></div>}>
@@ -155,17 +177,25 @@ export default async function DashboardPage() {
                 userInfo={userInfo}
                 rolesInfo={rolesInfo}
                 invitationsInfo={invitationsInfo}
-                joinRequestsInfo={joinRequestsInfo}
+                resumesInfo={resumesInfo}
                 floorInfo={floorInfo}
                 seatsInfo={seatsInfo}
                 slipsInfo={slipsInfo}
                 menusInfo={menusInfo}
                 bottlesInfo={bottlesInfo}
-                pricingInfo={pricingInfo}
-                salaryInfo={salaryInfo}
+                queueInfo={queueInfo}
+                reservationInfo={reservationInfo}
+                shoppingInfo={shoppingInfo}
+                salesInfo={salesInfo}
+                payrollInfo={payrollInfo}
+                rankingInfo={rankingInfo}
                 boardInfo={boardInfo}
                 snsInfo={snsInfo}
-                featuresInfo={featuresInfo}
+                aiCreateInfo={aiCreateInfo}
+                userRole={profile.role}
+                userRoleId={profile.role_id}
+                permissions={permissions ?? null}
+                accessDeniedMessage={accessDeniedMessage}
             />
         </Suspense>
     );

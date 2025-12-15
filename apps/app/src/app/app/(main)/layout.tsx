@@ -23,13 +23,11 @@ export default async function AppLayout({
     }
 
     // Check approval status
-    if (profile) {
-        const approvalStatus = profile.approval_status || "approved";
-
-        if (approvalStatus === "pending" || approvalStatus === "rejected") {
-            // Redirect to pending approval page
-            redirect("/onboarding/pending-approval");
-        }
+    // If profile exists but has no approved role (cast/staff), redirect to pending approval page
+    // "guest" role means the user hasn't been approved yet
+    if (profile && (!profile.role || profile.role === "guest")) {
+        // User has a profile but no approved role yet - redirect to pending approval page
+        redirect("/onboarding/pending-approval");
     }
 
     // Check for role permissions

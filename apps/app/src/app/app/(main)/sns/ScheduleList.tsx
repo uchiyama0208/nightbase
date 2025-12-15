@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import {
     Select,
     SelectContent,
@@ -21,7 +20,12 @@ import {
     DialogTitle,
     DialogFooter,
 } from "@/components/ui/dialog";
-import { Trash2, Loader2, Clock, RefreshCw, Link2 } from "lucide-react";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
+import { Trash2, Loader2, Clock, Link2, ChevronLeft, MoreHorizontal } from "lucide-react";
 import {
     type SnsAccount,
     type SnsRecurringSchedule,
@@ -29,7 +33,6 @@ import {
     createRecurringSchedule,
     updateRecurringSchedule,
     deleteRecurringSchedule,
-    toggleRecurringSchedule,
 } from "./actions";
 
 interface ScheduleListProps {
@@ -165,23 +168,10 @@ export function ScheduleList({
         }
     };
 
-    const handleToggleActive = async (id: string, currentlyActive: boolean) => {
-        try {
-            await toggleRecurringSchedule(id, !currentlyActive);
-            router.refresh();
-        } catch (error) {
-            console.error("Error toggling recurring schedule:", error);
-        }
-    };
-
     return (
-        <div className="space-y-6">
+        <div className="space-y-3">
             {/* Recurring schedules section */}
             <div className="space-y-3">
-                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                    <RefreshCw className="h-4 w-4" />
-                    繰り返しスケジュール
-                </h3>
                 {recurringSchedules.length === 0 ? (
                     <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6 text-center">
                         <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -190,73 +180,48 @@ export function ScheduleList({
                     </div>
                 ) : (
                     recurringSchedules.map((schedule) => (
-                        <div
+                        <button
                             key={schedule.id}
-                            className={`rounded-2xl border bg-white dark:bg-gray-900 p-4 ${
+                            type="button"
+                            onClick={() => openEditRecurringModal(schedule)}
+                            className={`w-full text-left rounded-2xl border bg-white dark:bg-gray-900 p-4 hover:border-blue-300 dark:hover:border-blue-600 transition-colors ${
                                 schedule.is_active
                                     ? "border-gray-200 dark:border-gray-700"
                                     : "border-gray-200/50 dark:border-gray-700/50 opacity-60"
                             }`}
                         >
-                            <div className="flex items-start justify-between gap-4">
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <h4 className="font-medium text-gray-900 dark:text-white">
-                                            {schedule.name}
-                                        </h4>
-                                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs ${
-                                            schedule.is_active
-                                                ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
-                                                : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
-                                        }`}>
-                                            {schedule.is_active ? "有効" : "無効"}
-                                        </span>
-                                    </div>
-                                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                                        <Clock className="h-4 w-4" />
-                                        毎日 {String(schedule.schedule_hour).padStart(2, "0")}:00
-                                    </div>
-                                    <div className="mt-2 flex flex-wrap gap-1">
-                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
-                                            {schedule.content_type === "cast_list" && "出勤キャスト"}
-                                            {schedule.content_type === "template" && "テンプレート"}
-                                            {schedule.content_type === "ai_generated" && "AI生成"}
-                                        </span>
-                                        {schedule.platforms.map((p) => (
-                                            <span
-                                                key={p}
-                                                className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
-                                            >
-                                                {p === "x" ? "X" : "Instagram"}
-                                            </span>
-                                        ))}
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <Switch
-                                        checked={schedule.is_active}
-                                        onCheckedChange={() => handleToggleActive(schedule.id, schedule.is_active)}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => openEditRecurringModal(schedule)}
-                                        className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-sm text-gray-600 dark:text-gray-400"
-                                    >
-                                        編集
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setDeletingId(schedule.id);
-                                            setShowDeleteConfirm(true);
-                                        }}
-                                        className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                                    >
-                                        <Trash2 className="h-4 w-4 text-red-500 dark:text-red-400" />
-                                    </button>
-                                </div>
+                            <div className="flex items-center gap-2 mb-1">
+                                <h4 className="font-medium text-gray-900 dark:text-white">
+                                    {schedule.name}
+                                </h4>
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs ${
+                                    schedule.is_active
+                                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                                        : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                                }`}>
+                                    {schedule.is_active ? "有効" : "無効"}
+                                </span>
                             </div>
-                        </div>
+                            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                                <Clock className="h-4 w-4" />
+                                毎日 {String(schedule.schedule_hour).padStart(2, "0")}:00
+                            </div>
+                            <div className="mt-2 flex flex-wrap gap-1">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                                    {schedule.content_type === "cast_list" && "出勤キャスト"}
+                                    {schedule.content_type === "template" && "テンプレート"}
+                                    {schedule.content_type === "ai_generated" && "AI生成"}
+                                </span>
+                                {schedule.platforms.map((p) => (
+                                    <span
+                                        key={p}
+                                        className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
+                                    >
+                                        {p === "x" ? "X" : "Instagram"}
+                                    </span>
+                                ))}
+                            </div>
+                        </button>
                     ))
                 )}
             </div>
@@ -264,10 +229,42 @@ export function ScheduleList({
             {/* Recurring Schedule Modal */}
             <Dialog open={showRecurringModal} onOpenChange={handleModalClose}>
                 <DialogContent className="max-w-lg rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900 max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
+                    <DialogHeader className="relative flex flex-row items-center justify-center space-y-0">
+                        <button
+                            type="button"
+                            onClick={() => handleModalClose(false)}
+                            className="absolute left-0 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        >
+                            <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                        </button>
                         <DialogTitle className="text-base font-semibold text-gray-900 dark:text-gray-50">
                             {editingRecurring ? "スケジュールを編集" : "スケジュールを作成"}
                         </DialogTitle>
+                        {editingRecurring && (
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <button
+                                        type="button"
+                                        className="absolute right-0 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                    >
+                                        <MoreHorizontal className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                                    </button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-36 p-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700" align="end">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setDeletingId(editingRecurring.id);
+                                            setShowDeleteConfirm(true);
+                                        }}
+                                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                        削除
+                                    </button>
+                                </PopoverContent>
+                            </Popover>
+                        )}
                     </DialogHeader>
                     <div className="space-y-4 py-2">
                         <div className="space-y-2">
@@ -465,19 +462,11 @@ export function ScheduleList({
                             </div>
                         )}
                     </div>
-                    <DialogFooter className="gap-2">
-                        <Button
-                            variant="outline"
-                            onClick={() => handleModalClose(false)}
-                            disabled={isSubmitting}
-                            className="rounded-lg"
-                        >
-                            キャンセル
-                        </Button>
+                    <DialogFooter className="flex-col gap-2">
                         <Button
                             onClick={handleSaveRecurring}
                             disabled={isSubmitting || !name.trim() || !selectedPlatform}
-                            className="rounded-lg"
+                            className="w-full rounded-lg"
                         >
                             {isSubmitting ? (
                                 <>
@@ -487,6 +476,14 @@ export function ScheduleList({
                             ) : (
                                 "保存"
                             )}
+                        </Button>
+                        <Button
+                            variant="outline"
+                            onClick={() => handleModalClose(false)}
+                            disabled={isSubmitting}
+                            className="w-full rounded-lg"
+                        >
+                            キャンセル
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -503,22 +500,22 @@ export function ScheduleList({
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                         このスケジュールを削除しますか？
                     </p>
-                    <DialogFooter className="gap-2">
-                        <Button
-                            variant="outline"
-                            onClick={() => setShowDeleteConfirm(false)}
-                            disabled={isSubmitting}
-                            className="rounded-lg"
-                        >
-                            キャンセル
-                        </Button>
+                    <DialogFooter className="flex-col gap-2">
                         <Button
                             variant="destructive"
                             onClick={handleDeleteRecurring}
                             disabled={isSubmitting}
-                            className="rounded-lg"
+                            className="w-full rounded-lg"
                         >
                             {isSubmitting ? "削除中..." : "削除"}
+                        </Button>
+                        <Button
+                            variant="outline"
+                            onClick={() => setShowDeleteConfirm(false)}
+                            disabled={isSubmitting}
+                            className="w-full rounded-lg"
+                        >
+                            キャンセル
                         </Button>
                     </DialogFooter>
                 </DialogContent>

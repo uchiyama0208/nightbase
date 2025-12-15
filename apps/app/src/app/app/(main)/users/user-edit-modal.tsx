@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { ChevronLeft, MoreHorizontal, Send, UserCircle, Heart, Edit2, Trash2, Upload, Download, Pencil, Calendar, Clock, MapPin } from "lucide-react";
+import { ChevronLeft, MoreHorizontal, Send, UserCircle, Heart, Edit2, Trash2, Upload, Download, Pencil, Calendar, Clock, MapPin, X, Plus, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,9 +35,17 @@ import {
     getUserBottleKeeps,
     getUserEditModalData,
     getProfileReportData,
+    updateProfileSalarySystems,
+    createPastEmployment,
+    updatePastEmployment,
+    deletePastEmployment,
 } from "./actions";
 import { getMenus } from "../menus/actions";
 import { BottleModal } from "../bottles/bottle-modal";
+import { SalarySystemSelectorModal } from "./salary-system-selector-modal";
+import { SalarySystemModal } from "../salary-systems/salary-system-modal";
+import { RoleFormModal } from "../roles/role-form-modal";
+import { getRoles, assignRoleToProfile, setAdminRole } from "../roles/actions";
 import { useRouter, useSearchParams } from "next/navigation";
 import { UserAttendanceListModal } from "./user-attendance-list-modal";
 import { AttendanceModal } from "../attendance/attendance-modal";
@@ -52,6 +60,7 @@ import {
     AccordionItem,
     AccordionTrigger,
 } from "@/components/ui/accordion";
+import { useToast } from "@/components/ui/use-toast";
 
 interface Profile {
     id: string;
@@ -68,11 +77,12 @@ interface Profile {
     city?: string | null;
     street?: string | null;
     building?: string | null;
+    birth_date?: string | null;
     phone_number?: string | null;
     emergency_phone_number?: string | null;
     nearest_station?: string | null;
-    height?: number | null;
     role: string;
+    role_id?: string | null;
     store_id: string;
     guest_addressee?: string | null;
     guest_receipt_type?: string | null;
@@ -89,11 +99,13 @@ interface UserEditModalProps {
     hidePersonalInfo?: boolean;
     onDelete?: (profileId: string) => void;
     onUpdate?: (profile: Partial<Profile> & { id: string }) => void;
+    canEdit?: boolean;
 }
 
-export function UserEditModal({ profile, open, onOpenChange, isNested = false, defaultRole: propDefaultRole, hidePersonalInfo = false, onDelete, onUpdate }: UserEditModalProps) {
+export function UserEditModal({ profile, open, onOpenChange, isNested = false, defaultRole: propDefaultRole, hidePersonalInfo = false, onDelete, onUpdate, canEdit = false }: UserEditModalProps) {
     const searchParams = useSearchParams();
     const defaultRole = propDefaultRole || searchParams.get("role") || "cast";
+    const { toast } = useToast();
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [role, setRole] = useState<string>(profile?.role ?? defaultRole);
@@ -124,6 +136,28 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
 
     // Past Employments state
     const [pastEmployments, setPastEmployments] = useState<any[]>([]);
+    const [originalPastEmployments, setOriginalPastEmployments] = useState<any[]>([]);
+
+    // Salary Systems state
+    const [salarySystems, setSalarySystems] = useState<any[]>([]);
+    const [selectedSalarySystemId, setSelectedSalarySystemId] = useState<string | null>(null);
+    const [salarySystemSelectorOpen, setSalarySystemSelectorOpen] = useState(false);
+    const [salarySystemCreateOpen, setSalarySystemCreateOpen] = useState(false);
+    const [salarySystemDetailOpen, setSalarySystemDetailOpen] = useState<any>(null);
+    const [salarySystemDetailFromSelector, setSalarySystemDetailFromSelector] = useState(false);
+    const [salarySystemRemoveConfirmOpen, setSalarySystemRemoveConfirmOpen] = useState(false);
+
+    // Role/Permission state
+    const [storeRoles, setStoreRoles] = useState<any[]>([]);
+    const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
+    const [roleModalOpen, setRoleModalOpen] = useState(false);
+    const [roleSelectorOpen, setRoleSelectorOpen] = useState(false);
+    const [roleRemoveConfirmOpen, setRoleRemoveConfirmOpen] = useState(false);
+
+    // Accordion state for sections
+    const [compatibilityAccordionOpen, setCompatibilityAccordionOpen] = useState<string | undefined>(undefined);
+    const [resumeAccordionOpen, setResumeAccordionOpen] = useState<string | undefined>(undefined);
+    const [personalInfoAccordionOpen, setPersonalInfoAccordionOpen] = useState<string | undefined>(undefined);
 
     // Tab toggle state (基本情報 / レポート)
     const [activeTab, setActiveTab] = useState<'info' | 'report'>('info');
@@ -133,6 +167,9 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
     // Report data state
     const [reportData, setReportData] = useState<any>(null);
     const [isLoadingReport, setIsLoadingReport] = useState(false);
+
+    // Status state for form submission (shadcn Select doesn't work with FormData)
+    const [statusValue, setStatusValue] = useState<string>((profile as any)?.status || "在籍中");
 
     // Address state for auto-fill
     const [addressState, setAddressState] = useState({
@@ -228,7 +265,51 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
 
     useEffect(() => {
         setRole(profile?.role ?? defaultRole);
+        setStatusValue((profile as any)?.status || "在籍中");
     }, [profile, defaultRole]);
+
+    // Reload salary systems when role changes (for new profile creation)
+    useEffect(() => {
+        if (!profile && open && (role === "cast" || role === "staff" || role === "partner")) {
+            const fetchSalarySystems = async () => {
+                const data = await getUserEditModalData(null, role);
+                if (data) {
+                    setSalarySystems(data.salarySystems || []);
+                    setSelectedSalarySystemId(null);
+                }
+            };
+            fetchSalarySystems();
+        }
+    }, [role, profile, open]);
+
+    // Handler for saving salary systems
+    const handleSaveSalarySystems = async () => {
+        if (!profile) return;
+        try {
+            const ids = selectedSalarySystemId ? [selectedSalarySystemId] : [];
+            await updateProfileSalarySystems(profile.id, ids);
+        } catch (error) {
+            console.error("Failed to save salary systems:", error);
+        }
+    };
+
+    // Handler for newly created salary system
+    const handleSalarySystemCreated = (newSystem: any) => {
+        setSalarySystems(prev => [...prev, newSystem]);
+        setSelectedSalarySystemId(newSystem.id);
+        setSalarySystemCreateOpen(false);
+    };
+
+    // Handler for salary system changes
+    const handleSalarySystemChange = async (systemId: string | null) => {
+        if (!profile) return;
+        try {
+            const ids = systemId ? [systemId] : [];
+            await updateProfileSalarySystems(profile.id, ids);
+        } catch (error) {
+            console.error("Failed to update salary system:", error);
+        }
+    };
 
     // Update slider position when role changes
     const isNewProfile = !profile;
@@ -318,6 +399,12 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
         const formData = new FormData(form);
         try {
             await updateUser(formData);
+
+            // 履歴書セクションの場合は過去在籍店も保存
+            if (section === 'resume') {
+                await savePastEmployments();
+            }
+
             setEditingSection(null);
             router.refresh();
         } catch (error) {
@@ -325,9 +412,71 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
         }
     };
 
+    // 過去在籍店の差分を計算して保存
+    const savePastEmployments = async () => {
+        if (!profile) return;
+
+        const originalIds = new Set(originalPastEmployments.map(e => e.id));
+        const currentIds = new Set(pastEmployments.filter(e => !e.id.startsWith('new-')).map(e => e.id));
+
+        // 削除されたもの
+        const toDelete = originalPastEmployments.filter(e => !currentIds.has(e.id));
+
+        // 新規追加されたもの
+        const toCreate = pastEmployments.filter(e => e.id.startsWith('new-'));
+
+        // 更新されたもの（IDが既存で、内容が変わったもの）
+        const toUpdate = pastEmployments.filter(e => {
+            if (e.id.startsWith('new-')) return false;
+            const original = originalPastEmployments.find(o => o.id === e.id);
+            if (!original) return false;
+            return (
+                e.store_name !== original.store_name ||
+                e.period !== original.period ||
+                e.hourly_wage !== original.hourly_wage ||
+                e.sales_amount !== original.sales_amount ||
+                e.customer_count !== original.customer_count
+            );
+        });
+
+        // 削除処理
+        for (const emp of toDelete) {
+            await deletePastEmployment(emp.id);
+        }
+
+        // 新規作成処理
+        for (const emp of toCreate) {
+            if (!emp.store_name) continue; // 店舗名が空なら作成しない
+            const formData = new FormData();
+            formData.set('profileId', profile.id);
+            formData.set('storeName', emp.store_name);
+            formData.set('period', emp.period || '');
+            formData.set('hourlyWage', emp.hourly_wage?.toString() || '');
+            formData.set('salesAmount', emp.sales_amount?.toString() || '');
+            formData.set('customerCount', emp.customer_count?.toString() || '');
+            await createPastEmployment(formData);
+        }
+
+        // 更新処理
+        for (const emp of toUpdate) {
+            const formData = new FormData();
+            formData.set('storeName', emp.store_name);
+            formData.set('period', emp.period || '');
+            formData.set('hourlyWage', emp.hourly_wage?.toString() || '');
+            formData.set('salesAmount', emp.sales_amount?.toString() || '');
+            formData.set('customerCount', emp.customer_count?.toString() || '');
+            await updatePastEmployment(emp.id, formData);
+        }
+
+        // 保存後、originalを更新
+        setOriginalPastEmployments(pastEmployments);
+    };
+
     // Handle cancel for a section
     const handleSectionCancel = () => {
         setEditingSection(null);
+        // 過去在籍店データを元に戻す
+        setPastEmployments(originalPastEmployments);
         router.refresh(); // Reset form values
     };
 
@@ -353,7 +502,18 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                         setComments(data.comments);
                         setBottleKeeps(data.bottleKeeps);
                         setPastEmployments(data.pastEmployments);
+                        setOriginalPastEmployments(data.pastEmployments);
+                        setSalarySystems(data.salarySystems || []);
+                        // 単一選択: 最初の1つを選択（または null）
+                        const assignedIds = data.assignedSalarySystemIds || [];
+                        setSelectedSalarySystemId(assignedIds.length > 0 ? assignedIds[0] : null);
                     }
+
+                    // Fetch store roles
+                    const roles = await getRoles();
+                    setStoreRoles(roles);
+                    // Set selected role from profile
+                    setSelectedRoleId(profile?.role_id || null);
 
                     // Only fetch menus when needed (for bottle modal) - lazy load
                     // Menus will be fetched when bottle modal opens
@@ -371,6 +531,10 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
             setBottleKeeps([]);
             setMenus([]);
             setPastEmployments([]);
+            setSalarySystems([]);
+            setSelectedSalarySystemId(null);
+            setStoreRoles([]);
+            setSelectedRoleId(null);
         }
     }, [open, profileId, profileRole]);
 
@@ -388,7 +552,75 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
         }
     };
 
+    // Handler for role assignment change
+    const handleRoleAssign = async (roleId: string | null) => {
+        if (!profile) return;
+        try {
+            await assignRoleToProfile(profile.id, roleId);
+            setSelectedRoleId(roleId);
+            setRoleSelectorOpen(false);
+        } catch (error: any) {
+            console.error("Failed to assign role:", error);
+            alert(error.message || "権限の適用に失敗しました");
+        }
+    };
+
+    // Handler for role creation
+    const handleRoleCreated = async () => {
+        setRoleModalOpen(false);
+        // Refresh roles list
+        const roles = await getRoles();
+        setStoreRoles(roles);
+    };
+
+    // Handler for setting admin role
+    const handleSetAdminRole = async () => {
+        if (!profile) return;
+        try {
+            await setAdminRole(profile.id, true);
+            // Update local state
+            setRole("admin");
+            setSelectedRoleId(null);
+            setRoleSelectorOpen(false);
+            router.refresh();
+        } catch (error: any) {
+            console.error("Failed to set admin role:", error);
+            alert(error.message || "管理者権限の付与に失敗しました");
+        }
+    };
+
     const handleSubmit = async (formData: FormData) => {
+        console.log("handleSubmit called, canEdit:", canEdit);
+
+        // Check edit permission on client side first
+        if (!canEdit) {
+            console.log("canEdit is false, showing toast");
+            toast({
+                title: "権限エラー",
+                description: "編集権限がありません",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        // Call server action first to check permissions
+        console.log("Calling server action...");
+        const result = profile
+            ? await updateUser(formData)
+            : await createUser(formData);
+
+        console.log("Server action result:", result);
+
+        if (!result.success) {
+            console.log("Server returned error, showing toast:", result.error);
+            toast({
+                title: "エラー",
+                description: result.error || "保存に失敗しました",
+                variant: "destructive",
+            });
+            return;
+        }
+
         // Extract form data for optimistic update
         const updatedData = {
             id: profile?.id || "",
@@ -399,49 +631,47 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
             role: formData.get("role") as string,
         };
 
-        // Optimistic UI: close modal and update parent immediately (sync, no await)
+        // Success: close modal and update parent
         onOpenChange(false);
         if (profile && onUpdate) {
             onUpdate(updatedData);
         }
-
-        // Fire and forget - don't block UI
-        (async () => {
-            try {
-                if (profile) {
-                    await updateUser(formData);
-                } else {
-                    await createUser(formData);
-                }
-            } catch (error) {
-                console.error("Failed to save user:", error);
-                router.refresh();
-            }
-        })();
+        router.refresh();
     };
 
     const handleDelete = async () => {
         if (!profile) return;
 
-        // Optimistic UI: immediately close modals and notify parent
+        // Check edit permission on client side first
+        if (!canEdit) {
+            toast({
+                title: "権限エラー",
+                description: "削除権限がありません",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        // Call server action first to check permissions
+        const result = await deleteUser(profile.id);
+        if (!result.success) {
+            toast({
+                title: "エラー",
+                description: result.error || "削除に失敗しました",
+                variant: "destructive",
+            });
+            setShowDeleteConfirm(false);
+            return;
+        }
+
+        // Success: close modals and notify parent
         setShowDeleteConfirm(false);
         onOpenChange(false);
 
-        // Notify parent to remove from list immediately
         if (onDelete) {
             onDelete(profile.id);
         }
-
-        // Delete in background
-        try {
-            await deleteUser(profile.id);
-            router.refresh();
-        } catch (error) {
-            console.error("Failed to delete user:", error);
-            // Optionally: could show a toast notification here
-            // For now, the refresh will restore the item if delete failed
-            router.refresh();
-        }
+        router.refresh();
     };
 
     const handleRelationshipChange = async (type: string, selectedIds: string[]) => {
@@ -531,70 +761,73 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent
-                    className="sm:max-w-[600px] bg-white dark:bg-gray-800 w-[95%] rounded-lg max-h-[90vh] overflow-y-auto p-6"
-                >
-                    <DialogHeader className="flex flex-row items-center justify-between gap-2 relative">
-                        <button
-                            type="button"
-                            onClick={() => onOpenChange(false)}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-0"
-                            aria-label="戻る"
-                        >
-                            <ChevronLeft className="h-4 w-4" />
-                        </button>
-                        <DialogTitle className="flex-1 text-center text-xl md:text-2xl font-bold text-gray-900 dark:text-white truncate">
-                            {profile ? (profile.display_name || "ユーザー編集") : "新規作成"}
-                        </DialogTitle>
-                        <DialogDescription className="sr-only">
-                            {profile ? "ユーザー情報を編集します" : "新しいユーザーを作成します"}
-                        </DialogDescription>
-                        {profile ? (
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-200 bg-white p-0 shadow-xl dark:border-gray-800 dark:bg-gray-900">
+                    <DialogTitle className="sr-only">
+                        {profile ? (profile.display_name || "ユーザー編集") : "新規作成"}
+                    </DialogTitle>
+                    {/* Header */}
+                    <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center justify-between px-4 py-3 relative">
                             <button
                                 type="button"
-                                onClick={() => setShowActions(!showActions)}
-                                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700"
-                                aria-label="オプション"
+                                onClick={() => onOpenChange(false)}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-0"
+                                aria-label="戻る"
                             >
-                                <MoreHorizontal className="h-4 w-4" />
+                                <ChevronLeft className="h-5 w-5" />
                             </button>
-                        ) : (
-                            <div className="w-8 h-8" />
-                        )}
+                            <h2 className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white truncate">
+                                {profile ? (profile.display_name || "ユーザー編集") : "新規作成"}
+                            </h2>
+                            {profile ? (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowActions(!showActions)}
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700"
+                                    aria-label="オプション"
+                                >
+                                    <MoreHorizontal className="h-4 w-4" />
+                                </button>
+                            ) : (
+                                <div className="w-8 h-8" />
+                            )}
+                        </div>
+                    </div>
 
-                        {showActions && (
-                            <>
-                                <div className="fixed inset-0 z-40" onClick={() => setShowActions(false)} />
-                                <div className="absolute right-0 top-10 z-50 w-40 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg p-2 flex flex-col gap-1 text-sm animate-in fade-in zoom-in-95 duration-100">
+                    {/* Actions Menu (positioned relative to the panel) */}
+                    {showActions && (
+                        <>
+                            <div className="fixed inset-0 z-40" onClick={() => setShowActions(false)} />
+                            <div className="absolute right-4 top-14 z-50 w-40 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg p-2 flex flex-col gap-1 text-sm animate-in fade-in zoom-in-95 duration-100">
+                                <button
+                                    type="button"
+                                    className="w-full text-left px-3 py-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                    onClick={() => {
+                                        setShowActions(false);
+                                        setShowAttendanceList(true);
+                                    }}
+                                >
+                                    勤怠一覧
+                                </button>
+                                {profile?.id !== currentUserProfileId && (
                                     <button
                                         type="button"
-                                        className="w-full text-left px-3 py-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                        className="w-full text-left px-3 py-2 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                                         onClick={() => {
                                             setShowActions(false);
-                                            setShowAttendanceList(true);
+                                            setShowDeleteConfirm(true);
                                         }}
                                     >
-                                        勤怠一覧
+                                        削除
                                     </button>
-                                    {profile?.id !== currentUserProfileId && (
-                                        <button
-                                            type="button"
-                                            className="w-full text-left px-3 py-2 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                                            onClick={() => {
-                                                setShowActions(false);
-                                                setShowDeleteConfirm(true);
-                                            }}
-                                        >
-                                            削除
-                                        </button>
-                                    )}
-                                </div>
-                            </>
-                        )}
-                    </DialogHeader>
+                                )}
+                            </div>
+                        </>
+                    )}
 
-                    <div className="space-y-6">
-                        <form
+                    {/* Content */}
+                    <div className="px-4 py-4 space-y-6">
+                    <form
                             ref={formRef}
                             id="profile-form"
                             action={handleSubmit}
@@ -607,26 +840,16 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
 
                             {profile && (
                                 <>
-                                    {/* Tab Toggle - 基本情報 / レポート */}
-                                    <div className="flex justify-center mb-4">
-                                        <div
-                                            ref={tabToggleRef}
-                                            className="relative inline-flex h-9 items-center rounded-full bg-gray-100 dark:bg-gray-800 p-1 text-xs"
-                                        >
-                                            {/* Sliding indicator */}
-                                            <div
-                                                className="absolute top-1 h-7 rounded-full bg-white dark:bg-gray-700 shadow-sm transition-all duration-200 ease-out"
-                                                style={{
-                                                    left: tabSliderStyle.left || 4,
-                                                    width: tabSliderStyle.width || 'auto',
-                                                }}
-                                            />
+                                    {/* Vercel-style Tab Navigation - 基本情報 / レポート */}
+                                    <div className="relative mb-4">
+                                        <div ref={tabToggleRef} className="flex">
                                             <button
                                                 type="button"
                                                 onClick={() => setActiveTab('info')}
-                                                className={`relative z-10 px-4 h-full flex items-center justify-center rounded-full font-medium whitespace-nowrap transition-colors duration-150 ${activeTab === 'info'
-                                                    ? "text-gray-900 dark:text-white"
-                                                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                                                className={`flex-1 py-2 text-sm font-medium transition-colors relative ${
+                                                    activeTab === 'info'
+                                                        ? "text-gray-900 dark:text-white"
+                                                        : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                                                 }`}
                                             >
                                                 基本情報
@@ -634,35 +857,20 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                             <button
                                                 type="button"
                                                 onClick={() => setActiveTab('report')}
-                                                className={`relative z-10 px-4 h-full flex items-center justify-center rounded-full font-medium whitespace-nowrap transition-colors duration-150 ${activeTab === 'report'
-                                                    ? "text-gray-900 dark:text-white"
-                                                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                                                className={`flex-1 py-2 text-sm font-medium transition-colors relative ${
+                                                    activeTab === 'report'
+                                                        ? "text-gray-900 dark:text-white"
+                                                        : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                                                 }`}
                                             >
                                                 レポート
                                             </button>
                                         </div>
-                                    </div>
-
-                                    <div className="flex flex-col items-center gap-4 mb-6">
-                                        <div className="relative group">
-                                            <Avatar className="h-24 w-24 cursor-pointer" onClick={handleAvatarClick}>
-                                                <AvatarImage src={profile.avatar_url || ""} className="object-cover" />
-                                                <AvatarFallback className="bg-gray-100 dark:bg-gray-800 text-2xl">
-                                                    {profile.display_name?.[0] || <UserCircle className="h-12 w-12" />}
-                                                </AvatarFallback>
-                                                <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                                    <Upload className="h-6 w-6 text-white" />
-                                                </div>
-                                            </Avatar>
-                                            <input
-                                                type="file"
-                                                ref={fileInputRef}
-                                                className="hidden"
-                                                accept="image/*"
-                                                onChange={handleFileChange}
-                                            />
-                                        </div>
+                                        <div
+                                            className="absolute bottom-0 h-0.5 bg-gray-900 dark:bg-white transition-all duration-200"
+                                            style={{ left: tabSliderStyle.left, width: tabSliderStyle.width }}
+                                        />
+                                        <div className="absolute bottom-0 left-0 right-0 h-px bg-gray-200 dark:bg-gray-700" />
                                     </div>
                                 </>
                             )}
@@ -853,164 +1061,127 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                             {/* 基本情報タブ */}
                             {(!profile || activeTab === 'info') && (
                                 <>
-                                    {/* 表示名セクション */}
-                                    <div className="space-y-4">
-                                        <div className="flex items-center justify-between">
-                                            <h3 className="font-medium text-gray-900 dark:text-white">表示名</h3>
-                                            {profile && !isEditingSection('displayName') && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setEditingSection('displayName')}
-                                                    className="inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700"
-                                                    aria-label="編集"
-                                                >
-                                                    <Pencil className="h-3.5 w-3.5" />
-                                                </button>
+                                    {/* 表示名セクション - アイコン＋表示名とかな */}
+                                    {profile && (
+                                        <div className="space-y-4">
+                                            {isEditingSection('displayName') ? (
+                                                <>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="displayName">表示名</Label>
+                                                        <Input
+                                                            id="displayName"
+                                                            name="displayName"
+                                                            defaultValue={profile?.display_name || ""}
+                                                            placeholder="表示名"
+                                                            className="rounded-md"
+                                                            required
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="displayNameKana">表示名（かな）</Label>
+                                                        <Input
+                                                            id="displayNameKana"
+                                                            name="displayNameKana"
+                                                            defaultValue={profile?.display_name_kana || ""}
+                                                            placeholder="ひょうじめい"
+                                                            className="rounded-md"
+                                                            required
+                                                        />
+                                                    </div>
+                                                    {role === "cast" && (
+                                                        <div className="space-y-2">
+                                                            <Label htmlFor="status">ステータス</Label>
+                                                            <Select
+                                                                value={statusValue}
+                                                                onValueChange={setStatusValue}
+                                                            >
+                                                                <SelectTrigger id="status" className="rounded-md">
+                                                                    <SelectValue placeholder="ステータスを選択" />
+                                                                </SelectTrigger>
+                                                                <SelectContent position="popper" className="z-[9999]">
+                                                                    <SelectItem value="在籍中">在籍中</SelectItem>
+                                                                    <SelectItem value="体入">体入</SelectItem>
+                                                                    <SelectItem value="休職中">休職中</SelectItem>
+                                                                    <SelectItem value="退店済み">退店済み</SelectItem>
+                                                                </SelectContent>
+                                                            </Select>
+                                                            <input type="hidden" name="status" value={statusValue} />
+                                                        </div>
+                                                    )}
+                                                    <div className="grid grid-cols-2 gap-2 pt-2">
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            onClick={handleSectionCancel}
+                                                        >
+                                                            キャンセル
+                                                        </Button>
+                                                        <Button
+                                                            type="button"
+                                                            onClick={() => handleSectionSave('displayName')}
+                                                        >
+                                                            保存
+                                                        </Button>
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="relative group flex-shrink-0">
+                                                                <Avatar className="h-12 w-12 cursor-pointer" onClick={handleAvatarClick}>
+                                                                    <AvatarImage src={profile.avatar_url || ""} className="object-cover" />
+                                                                    <AvatarFallback className="bg-gray-100 dark:bg-gray-800 text-lg">
+                                                                        {profile.display_name?.[0] || <UserCircle className="h-6 w-6" />}
+                                                                    </AvatarFallback>
+                                                                    <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                                                        <Upload className="h-4 w-4 text-white" />
+                                                                    </div>
+                                                                </Avatar>
+                                                            </div>
+                                                            <div className="flex flex-col min-w-0">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="font-medium text-gray-900 dark:text-white truncate">
+                                                                        {profile.display_name || "-"}
+                                                                    </span>
+                                                                    {role === "cast" && statusValue && (
+                                                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                                                            statusValue === "在籍中" ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" :
+                                                                            statusValue === "体入" ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" :
+                                                                            statusValue === "休職中" ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" :
+                                                                            statusValue === "退店済み" ? "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" :
+                                                                            "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                                                                        }`}>
+                                                                            {statusValue}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <span className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                                                                    {profile.display_name_kana || "-"}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setEditingSection('displayName')}
+                                                            className="inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700"
+                                                            aria-label="編集"
+                                                        >
+                                                            <Pencil className="h-3.5 w-3.5" />
+                                                        </button>
+                                                    </div>
+                                                    <input type="hidden" name="displayName" value={profile?.display_name || ""} />
+                                                    <input type="hidden" name="displayNameKana" value={profile?.display_name_kana || ""} />
+                                                    <input type="hidden" name="status" value={statusValue} />
+                                                </>
                                             )}
-                                        </div>
-                                {isEditingSection('displayName') ? (
-                                    <>
-                                        <div className="space-y-2">
-                                            <Label htmlFor="displayName">表示名</Label>
-                                            <Input
-                                                id="displayName"
-                                                name="displayName"
-                                                defaultValue={profile?.display_name || ""}
-                                                placeholder="表示名"
-                                                className="rounded-md"
-                                                required
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label htmlFor="displayNameKana">表示名（かな）</Label>
-                                            <Input
-                                                id="displayNameKana"
-                                                name="displayNameKana"
-                                                defaultValue={profile?.display_name_kana || ""}
-                                                placeholder="ひょうじめい"
-                                                className="rounded-md"
-                                                required
-                                            />
-                                        </div>
-                                        {profile && (
-                                            <div className="flex justify-end gap-2 pt-2">
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={handleSectionCancel}
-                                                >
-                                                    キャンセル
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    onClick={() => handleSectionSave('displayName')}
-                                                >
-                                                    保存
-                                                </Button>
-                                            </div>
-                                        )}
-                                    </>
-                                ) : (
-                                    <div className="space-y-3">
-                                        <div>
-                                            <span className="text-xs text-gray-500 dark:text-gray-400">表示名</span>
-                                            <p className="text-sm text-gray-900 dark:text-white">{profile?.display_name || "-"}</p>
-                                        </div>
-                                        <div>
-                                            <span className="text-xs text-gray-500 dark:text-gray-400">表示名（かな）</span>
-                                            <p className="text-sm text-gray-900 dark:text-white">{profile?.display_name_kana || "-"}</p>
-                                        </div>
-                                        {/* Hidden inputs for form submission */}
-                                        <input type="hidden" name="displayName" value={profile?.display_name || ""} />
-                                        <input type="hidden" name="displayNameKana" value={profile?.display_name_kana || ""} />
-                                    </div>
-                                )}
-                            </div>
-
-                            {!hidePersonalInfo && role === "cast" && (
-                                <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
-                                    <div className="flex items-center justify-between">
-                                        <h3 className="font-medium text-gray-900 dark:text-white">キャスト情報</h3>
-                                        {profile && !isEditingSection('castInfo') && (
-                                            <button
-                                                type="button"
-                                                onClick={() => setEditingSection('castInfo')}
-                                                className="inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700"
-                                                aria-label="編集"
-                                            >
-                                                <Pencil className="h-3.5 w-3.5" />
-                                            </button>
-                                        )}
-                                    </div>
-                                    {isEditingSection('castInfo') ? (
-                                        <>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="height">身長 (cm)</Label>
-                                                    <Input
-                                                        id="height"
-                                                        name="height"
-                                                        type="number"
-                                                        defaultValue={profile?.height || ""}
-                                                        placeholder="160"
-                                                        className="rounded-md"
-                                                    />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="status">状態</Label>
-                                                    <Select
-                                                        name="status"
-                                                        defaultValue={(profile as any)?.status || "在籍中"}
-                                                    >
-                                                        <SelectTrigger id="status" className="rounded-md">
-                                                            <SelectValue placeholder="状態を選択" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="在籍中">在籍中</SelectItem>
-                                                            <SelectItem value="未面接">未面接</SelectItem>
-                                                            <SelectItem value="保留">保留</SelectItem>
-                                                            <SelectItem value="不合格">不合格</SelectItem>
-                                                            <SelectItem value="体入">体入</SelectItem>
-                                                            <SelectItem value="休職中">休職中</SelectItem>
-                                                            <SelectItem value="退店済み">退店済み</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
-                                            </div>
-                                            {profile && (
-                                                <div className="flex justify-end gap-2 pt-2">
-                                                    <Button type="button" variant="outline" size="sm" onClick={handleSectionCancel}>
-                                                        キャンセル
-                                                    </Button>
-                                                    <Button type="button" size="sm" onClick={() => handleSectionSave('castInfo')}>
-                                                        保存
-                                                    </Button>
-                                                </div>
-                                            )}
-                                        </>
-                                    ) : (
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <span className="text-xs text-gray-500 dark:text-gray-400">身長</span>
-                                                <p className="text-sm text-gray-900 dark:text-white">{profile?.height ? `${profile.height}cm` : "-"}</p>
-                                            </div>
-                                            <div>
-                                                <span className="text-xs text-gray-500 dark:text-gray-400">状態</span>
-                                                <p className="text-sm text-gray-900 dark:text-white">{(profile as any)?.status || "在籍中"}</p>
-                                            </div>
-                                            <input type="hidden" name="height" value={profile?.height || ""} />
-                                            <input type="hidden" name="status" value={(profile as any)?.status || "在籍中"} />
                                         </div>
                                     )}
-                                </div>
-                            )}
 
                             {(role === "staff" || role === "admin") && (
                                 <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
                                     <div className="flex items-center justify-between">
-                                        <h3 className="font-medium text-gray-900 dark:text-white">スタッフ情報</h3>
+                                        <h3 className="font-medium text-gray-900 dark:text-white text-sm">スタッフ情報</h3>
                                         {profile && !isEditingSection('staffInfo') && (
                                             <button
                                                 type="button"
@@ -1027,18 +1198,21 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                             <div className="space-y-2">
                                                 <Label htmlFor="staffStatus">状態</Label>
                                                 <Select
-                                                    name="status"
-                                                    defaultValue={(profile as any)?.status || "在籍中"}
+                                                    value={statusValue}
+                                                    onValueChange={setStatusValue}
                                                 >
                                                     <SelectTrigger id="staffStatus" className="rounded-md">
                                                         <SelectValue placeholder="状態を選択" />
                                                     </SelectTrigger>
-                                                    <SelectContent>
+                                                    <SelectContent position="popper" className="z-[9999]">
                                                         <SelectItem value="在籍中">在籍中</SelectItem>
+                                                        <SelectItem value="体入">体入</SelectItem>
                                                         <SelectItem value="休職中">休職中</SelectItem>
+                                                        <SelectItem value="退店済み">退店済み</SelectItem>
                                                         <SelectItem value="退職済み">退職済み</SelectItem>
                                                     </SelectContent>
                                                 </Select>
+                                                <input type="hidden" name="status" value={statusValue} />
                                             </div>
                                             {profile && (
                                                 <div className="flex justify-end gap-2 pt-2">
@@ -1054,8 +1228,8 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                     ) : (
                                         <div>
                                             <span className="text-xs text-gray-500 dark:text-gray-400">状態</span>
-                                            <p className="text-sm text-gray-900 dark:text-white">{(profile as any)?.status || "在籍中"}</p>
-                                            <input type="hidden" name="status" value={(profile as any)?.status || "在籍中"} />
+                                            <p className="text-sm text-gray-900 dark:text-white">{statusValue}</p>
+                                            <input type="hidden" name="status" value={statusValue} />
                                         </div>
                                     )}
                                 </div>
@@ -1064,7 +1238,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                             {role === "partner" && (
                                 <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
                                     <div className="flex items-center justify-between">
-                                        <h3 className="font-medium text-gray-900 dark:text-white">パートナー情報</h3>
+                                        <h3 className="font-medium text-gray-900 dark:text-white text-sm">パートナー情報</h3>
                                         {profile && !isEditingSection('partnerInfo') && (
                                             <button
                                                 type="button"
@@ -1188,7 +1362,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                             {role === "guest" && (
                                 <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
                                     <div className="flex items-center justify-between">
-                                        <h3 className="font-medium text-gray-900 dark:text-white">ゲスト情報</h3>
+                                        <h3 className="font-medium text-gray-900 dark:text-white text-sm">ゲスト情報</h3>
                                         {profile && !isEditingSection('guestInfo') && (
                                             <button
                                                 type="button"
@@ -1242,22 +1416,24 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                             )}
                                         </>
                                     ) : (
-                                        <div className="space-y-3">
-                                            <div>
-                                                <span className="text-xs text-gray-500 dark:text-gray-400">宛名</span>
-                                                <p className="text-sm text-gray-900 dark:text-white">{profile?.guest_addressee || "-"}</p>
-                                            </div>
-                                            <div>
-                                                <span className="text-xs text-gray-500 dark:text-gray-400">領収書</span>
-                                                <p className="text-sm text-gray-900 dark:text-white">
-                                                    {profile?.guest_receipt_type === "none" ? "なし" :
-                                                     profile?.guest_receipt_type === "amount_only" ? "金額のみ" :
-                                                     profile?.guest_receipt_type === "with_date" ? "日付入り" : "未設定"}
-                                                </p>
+                                        <>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <span className="text-xs text-gray-500 dark:text-gray-400">宛名</span>
+                                                    <p className="text-sm text-gray-900 dark:text-white">{profile?.guest_addressee || "-"}</p>
+                                                </div>
+                                                <div>
+                                                    <span className="text-xs text-gray-500 dark:text-gray-400">領収書</span>
+                                                    <p className="text-sm text-gray-900 dark:text-white">
+                                                        {profile?.guest_receipt_type === "none" ? "なし" :
+                                                         profile?.guest_receipt_type === "amount_only" ? "金額のみ" :
+                                                         profile?.guest_receipt_type === "with_date" ? "日付入り" : "未設定"}
+                                                    </p>
+                                                </div>
                                             </div>
                                             <input type="hidden" name="guestAddressee" value={profile?.guest_addressee || ""} />
                                             <input type="hidden" name="guestReceiptType" value={profile?.guest_receipt_type || "unspecified"} />
-                                        </div>
+                                        </>
                                     )}
                                 </div>
                             )}
@@ -1266,7 +1442,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                             {profile && role === "guest" && (
                                 <div className="border-t border-gray-200 dark:border-gray-700 pt-6 space-y-4">
                                     <div className="flex items-center justify-between">
-                                        <h3 className="font-medium text-gray-900 dark:text-white">キープボトル</h3>
+                                        <h3 className="font-medium text-gray-900 dark:text-white text-sm">キープボトル</h3>
                                         <button
                                             type="button"
                                             onClick={async () => {
@@ -1306,149 +1482,173 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
 
                             {/* Compatibility & Relationships */}
                             {profile && (
-                                <div className="border-t border-gray-200 dark:border-gray-700 pt-6 space-y-6">
-                                    {/* Compatibility */}
-                                    <div className="space-y-4">
-                                        <h3 className="font-medium text-gray-900 dark:text-white">相性</h3>
-                                        <div className="space-y-3">
-                                            <div className="space-y-2">
-                                                <div className="flex items-center justify-between">
-                                                    <span className="text-xs text-gray-500 font-medium">相性 ◯</span>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setRelationshipSelectorOpen("compatibility_good")}
-                                                        className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
-                                                    >
-                                                        + 追加
-                                                    </button>
-                                                </div>
-                                                <div className="flex flex-wrap gap-2">
-                                                    {getSelectedProfiles("compatibility_good").length === 0 ? (
-                                                        <span className="text-sm text-gray-400 dark:text-gray-500">未設定</span>
-                                                    ) : (
-                                                        getSelectedProfiles("compatibility_good").map((p) => (
+                                <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                                    <Accordion type="single" collapsible className="w-full" value={compatibilityAccordionOpen} onValueChange={setCompatibilityAccordionOpen}>
+                                        <AccordionItem value="compatibility" className="border-none">
+                                            <div
+                                                className="cursor-pointer"
+                                                onClick={() => {
+                                                    if (!compatibilityAccordionOpen) {
+                                                        setCompatibilityAccordionOpen('compatibility');
+                                                    }
+                                                }}
+                                            >
+                                                <AccordionTrigger className="hover:no-underline w-full justify-start py-0 [&>svg]:h-4 [&>svg]:w-4">
+                                                    <span className="font-medium text-gray-900 dark:text-white text-sm">相性</span>
+                                                </AccordionTrigger>
+                                            </div>
+                                            <AccordionContent className="pt-3 pb-0">
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    {/* 相性◯ */}
+                                                    <div className="space-y-2">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-xs text-gray-500 dark:text-gray-400">相性 ◯</span>
                                                             <button
-                                                                key={p.id}
                                                                 type="button"
-                                                                onClick={() => setNestedProfileId(p.id)}
-                                                                className="px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-sm hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+                                                                onClick={() => setRelationshipSelectorOpen("compatibility_good")}
+                                                                className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
                                                             >
-                                                                {p.display_name || p.real_name || "名前なし"}
+                                                                + 追加
                                                             </button>
-                                                        ))
+                                                        </div>
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {getSelectedProfiles("compatibility_good").length === 0 ? (
+                                                                <span className="text-xs text-gray-400 dark:text-gray-500">未設定</span>
+                                                            ) : (
+                                                                getSelectedProfiles("compatibility_good").map((p) => (
+                                                                    <button
+                                                                        key={p.id}
+                                                                        type="button"
+                                                                        onClick={() => setNestedProfileId(p.id)}
+                                                                        className="px-2 py-1 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-xs hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+                                                                    >
+                                                                        {p.display_name || p.real_name || "名前なし"}
+                                                                    </button>
+                                                                ))
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    {/* 相性✕ */}
+                                                    <div className="space-y-2">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-xs text-gray-500 dark:text-gray-400">相性 ✕</span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setRelationshipSelectorOpen("compatibility_bad")}
+                                                                className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                                                            >
+                                                                + 追加
+                                                            </button>
+                                                        </div>
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {getSelectedProfiles("compatibility_bad").length === 0 ? (
+                                                                <span className="text-xs text-gray-400 dark:text-gray-500">未設定</span>
+                                                            ) : (
+                                                                getSelectedProfiles("compatibility_bad").map((p) => (
+                                                                    <button
+                                                                        key={p.id}
+                                                                        type="button"
+                                                                        onClick={() => setNestedProfileId(p.id)}
+                                                                        className="px-2 py-1 rounded-full bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-xs hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                                                                    >
+                                                                        {p.display_name || p.real_name || "名前なし"}
+                                                                    </button>
+                                                                ))
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    {/* 指名 (Cast/Guest only) */}
+                                                    {(role === "cast" || role === "guest") && (
+                                                        <div className="space-y-2">
+                                                            <div className="flex items-center justify-between">
+                                                                <span className="text-xs text-gray-500 dark:text-gray-400">指名</span>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setRelationshipSelectorOpen("nomination")}
+                                                                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                                                                >
+                                                                    + 追加
+                                                                </button>
+                                                            </div>
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {getSelectedProfiles("nomination").length === 0 ? (
+                                                                    <span className="text-xs text-gray-400 dark:text-gray-500">未設定</span>
+                                                                ) : (
+                                                                    getSelectedProfiles("nomination").map((p) => (
+                                                                        <button
+                                                                            key={p.id}
+                                                                            type="button"
+                                                                            onClick={() => setNestedProfileId(p.id)}
+                                                                            className="px-2 py-1 rounded-full bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 text-xs hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors"
+                                                                        >
+                                                                            {p.display_name || p.real_name || "名前なし"}
+                                                                        </button>
+                                                                    ))
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    {/* 担当 (Cast/Staff only) */}
+                                                    {(role === "cast" || role === "staff") && (
+                                                        <div className="space-y-2">
+                                                            <div className="flex items-center justify-between">
+                                                                <span className="text-xs text-gray-500 dark:text-gray-400">担当</span>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setRelationshipSelectorOpen("in_charge")}
+                                                                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                                                                >
+                                                                    + 追加
+                                                                </button>
+                                                            </div>
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {getSelectedProfiles("in_charge").length === 0 ? (
+                                                                    <span className="text-xs text-gray-400 dark:text-gray-500">未設定</span>
+                                                                ) : (
+                                                                    getSelectedProfiles("in_charge").map((p) => (
+                                                                        <button
+                                                                            key={p.id}
+                                                                            type="button"
+                                                                            onClick={() => setNestedProfileId(p.id)}
+                                                                            className="px-2 py-1 rounded-full bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 text-xs hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
+                                                                        >
+                                                                            {p.display_name || p.real_name || "名前なし"}
+                                                                        </button>
+                                                                    ))
+                                                                )}
+                                                            </div>
+                                                        </div>
                                                     )}
                                                 </div>
-                                            </div>
-                                            <div className="space-y-2">
-                                                <div className="flex items-center justify-between">
-                                                    <span className="text-xs text-gray-500 font-medium">相性 ✕</span>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setRelationshipSelectorOpen("compatibility_bad")}
-                                                        className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
-                                                    >
-                                                        + 追加
-                                                    </button>
-                                                </div>
-                                                <div className="flex flex-wrap gap-2">
-                                                    {getSelectedProfiles("compatibility_bad").length === 0 ? (
-                                                        <span className="text-sm text-gray-400 dark:text-gray-500">未設定</span>
-                                                    ) : (
-                                                        getSelectedProfiles("compatibility_bad").map((p) => (
-                                                            <button
-                                                                key={p.id}
-                                                                type="button"
-                                                                onClick={() => setNestedProfileId(p.id)}
-                                                                className="px-3 py-1.5 rounded-full bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-sm hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
-                                                            >
-                                                                {p.display_name || p.real_name || "名前なし"}
-                                                            </button>
-                                                        ))
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Nomination (Cast/Guest only) */}
-                                    {(role === "cast" || role === "guest") && (
-                                        <div className="space-y-2">
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">指名</span>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setRelationshipSelectorOpen("nomination")}
-                                                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
-                                                >
-                                                    + 追加
-                                                </button>
-                                            </div>
-                                            <div className="flex flex-wrap gap-2">
-                                                {getSelectedProfiles("nomination").length === 0 ? (
-                                                    <span className="text-sm text-gray-400 dark:text-gray-500">未設定</span>
-                                                ) : (
-                                                    getSelectedProfiles("nomination").map((p) => (
-                                                        <button
-                                                            key={p.id}
-                                                            type="button"
-                                                            onClick={() => setNestedProfileId(p.id)}
-                                                            className="px-3 py-1.5 rounded-full bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 text-sm hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors"
-                                                        >
-                                                            {p.display_name || p.real_name || "名前なし"}
-                                                        </button>
-                                                    ))
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* In Charge (Cast/Staff only) */}
-                                    {(role === "cast" || role === "staff") && (
-                                        <div className="space-y-2">
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">担当</span>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setRelationshipSelectorOpen("in_charge")}
-                                                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
-                                                >
-                                                    + 追加
-                                                </button>
-                                            </div>
-                                            <div className="flex flex-wrap gap-2">
-                                                {getSelectedProfiles("in_charge").length === 0 ? (
-                                                    <span className="text-sm text-gray-400 dark:text-gray-500">未設定</span>
-                                                ) : (
-                                                    getSelectedProfiles("in_charge").map((p) => (
-                                                        <button
-                                                            key={p.id}
-                                                            type="button"
-                                                            onClick={() => setNestedProfileId(p.id)}
-                                                            className="px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 text-sm hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
-                                                        >
-                                                            {p.display_name || p.real_name || "名前なし"}
-                                                        </button>
-                                                    ))
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
+                                            </AccordionContent>
+                                        </AccordionItem>
+                                    </Accordion>
                                 </div>
                             )}
 
-                            {/* Resume Section Accordion (Cast only) */}
+                            {/* Resume Section (Cast only) */}
                             {!hidePersonalInfo && role === "cast" && (
-                                <div className="border-t border-gray-100 dark:border-gray-800 pt-4">
-                                    <Accordion type="single" collapsible className="w-full">
+                                <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                                    <Accordion type="single" collapsible className="w-full" value={isEditingSection('resume') ? 'resume' : resumeAccordionOpen} onValueChange={setResumeAccordionOpen}>
                                         <AccordionItem value="resume" className="border-none">
-                                            <div className="flex items-center justify-between py-2">
-                                                <AccordionTrigger className="hover:no-underline flex-1 justify-start">
-                                                    <span className="font-medium text-gray-900 dark:text-white">履歴書</span>
+                                            <div
+                                                className="flex items-center justify-between cursor-pointer"
+                                                onClick={() => {
+                                                    if (!isEditingSection('resume')) {
+                                                        setResumeAccordionOpen(resumeAccordionOpen === 'resume' ? undefined : 'resume');
+                                                    }
+                                                }}
+                                            >
+                                                <AccordionTrigger className="hover:no-underline flex-1 justify-start py-0 [&>svg]:h-4 [&>svg]:w-4">
+                                                    <span className="font-medium text-gray-900 dark:text-white text-sm">履歴書</span>
                                                 </AccordionTrigger>
-                                                {profile && !isEditingSection('resume') && (
+                                                {profile && !isEditingSection('resume') && resumeAccordionOpen === 'resume' && (
                                                     <button
                                                         type="button"
-                                                        onClick={() => setEditingSection('resume')}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setEditingSection('resume');
+                                                        }}
                                                         className="inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700"
                                                         aria-label="編集"
                                                     >
@@ -1456,9 +1656,10 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                     </button>
                                                 )}
                                             </div>
-                                            <AccordionContent>
+                                            <AccordionContent className="pt-3 pb-0">
                                                 {isEditingSection('resume') ? (
                                                     <div className="space-y-4 pt-2">
+                                                        {/* 希望キャスト名 */}
                                                         <div className="space-y-2">
                                                             <Label htmlFor="desiredCastName">希望キャスト名</Label>
                                                             <Input
@@ -1469,6 +1670,18 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                                 className="rounded-md"
                                                             />
                                                         </div>
+                                                        {/* 生年月日 */}
+                                                        <div className="space-y-2">
+                                                            <Label htmlFor="birthDate">生年月日</Label>
+                                                            <Input
+                                                                id="birthDate"
+                                                                name="birthDate"
+                                                                type="date"
+                                                                defaultValue={(profile as any)?.birth_date || ""}
+                                                                className="rounded-md"
+                                                            />
+                                                        </div>
+                                                        {/* 希望時給・希望シフト */}
                                                         <div className="grid grid-cols-2 gap-4">
                                                             <div className="space-y-2">
                                                                 <Label htmlFor="desiredHourlyWage">希望時給 (円)</Label>
@@ -1492,6 +1705,110 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                                 />
                                                             </div>
                                                         </div>
+                                                        {/* 過去在籍店（編集モード） */}
+                                                        {profile && (
+                                                            <div className="space-y-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                                                                <div className="flex items-center justify-between">
+                                                                    <Label>過去在籍店</Label>
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        onClick={() => {
+                                                                            setPastEmployments([...pastEmployments, {
+                                                                                id: `new-${Date.now()}`,
+                                                                                store_name: "",
+                                                                                period: "",
+                                                                                hourly_wage: null,
+                                                                                sales_amount: null,
+                                                                                customer_count: null,
+                                                                            }]);
+                                                                        }}
+                                                                        className="h-7 text-xs"
+                                                                    >
+                                                                        <Plus className="h-3 w-3 mr-1" />
+                                                                        追加
+                                                                    </Button>
+                                                                </div>
+                                                                <div className="space-y-3">
+                                                                    {pastEmployments.length === 0 ? (
+                                                                        <span className="text-sm text-gray-400 dark:text-gray-500">登録なし</span>
+                                                                    ) : (
+                                                                        pastEmployments.map((employment, index) => (
+                                                                            <div key={employment.id} className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg space-y-2">
+                                                                                <div className="flex items-center justify-between">
+                                                                                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400">#{index + 1}</span>
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => {
+                                                                                            setPastEmployments(pastEmployments.filter(e => e.id !== employment.id));
+                                                                                        }}
+                                                                                        className="text-red-500 hover:text-red-600 p-1"
+                                                                                    >
+                                                                                        <X className="h-3.5 w-3.5" />
+                                                                                    </button>
+                                                                                </div>
+                                                                                <Input
+                                                                                    placeholder="店舗名"
+                                                                                    value={employment.store_name}
+                                                                                    onChange={(e) => {
+                                                                                        const updated = [...pastEmployments];
+                                                                                        updated[index] = { ...employment, store_name: e.target.value };
+                                                                                        setPastEmployments(updated);
+                                                                                    }}
+                                                                                    className="rounded-md h-8 text-sm"
+                                                                                />
+                                                                                <Input
+                                                                                    placeholder="期間（例: 2023年1月〜2023年12月）"
+                                                                                    value={employment.period || ""}
+                                                                                    onChange={(e) => {
+                                                                                        const updated = [...pastEmployments];
+                                                                                        updated[index] = { ...employment, period: e.target.value };
+                                                                                        setPastEmployments(updated);
+                                                                                    }}
+                                                                                    className="rounded-md h-8 text-sm"
+                                                                                />
+                                                                                <div className="grid grid-cols-3 gap-2">
+                                                                                    <Input
+                                                                                        type="number"
+                                                                                        placeholder="時給"
+                                                                                        value={employment.hourly_wage || ""}
+                                                                                        onChange={(e) => {
+                                                                                            const updated = [...pastEmployments];
+                                                                                            updated[index] = { ...employment, hourly_wage: e.target.value ? parseInt(e.target.value) : null };
+                                                                                            setPastEmployments(updated);
+                                                                                        }}
+                                                                                        className="rounded-md h-8 text-sm"
+                                                                                    />
+                                                                                    <Input
+                                                                                        type="number"
+                                                                                        placeholder="売上"
+                                                                                        value={employment.sales_amount || ""}
+                                                                                        onChange={(e) => {
+                                                                                            const updated = [...pastEmployments];
+                                                                                            updated[index] = { ...employment, sales_amount: e.target.value ? parseInt(e.target.value) : null };
+                                                                                            setPastEmployments(updated);
+                                                                                        }}
+                                                                                        className="rounded-md h-8 text-sm"
+                                                                                    />
+                                                                                    <Input
+                                                                                        type="number"
+                                                                                        placeholder="客数"
+                                                                                        value={employment.customer_count || ""}
+                                                                                        onChange={(e) => {
+                                                                                            const updated = [...pastEmployments];
+                                                                                            updated[index] = { ...employment, customer_count: e.target.value ? parseInt(e.target.value) : null };
+                                                                                            setPastEmployments(updated);
+                                                                                        }}
+                                                                                        className="rounded-md h-8 text-sm"
+                                                                                    />
+                                                                                </div>
+                                                                            </div>
+                                                                        ))
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        )}
                                                         {profile && (
                                                             <div className="flex justify-end gap-2 pt-2">
                                                                 <Button type="button" variant="outline" size="sm" onClick={handleSectionCancel}>
@@ -1505,11 +1822,20 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                     </div>
                                                 ) : (
                                                     <div className="space-y-4 pt-2">
-                                                        <div className="grid grid-cols-3 gap-4">
+                                                        {/* 表示モード */}
+                                                        <div className="grid grid-cols-2 gap-4">
                                                             <div>
                                                                 <span className="text-xs text-gray-500 dark:text-gray-400">希望キャスト名</span>
                                                                 <p className="text-sm text-gray-900 dark:text-white">{(profile as any)?.desired_cast_name || "-"}</p>
                                                             </div>
+                                                            <div>
+                                                                <span className="text-xs text-gray-500 dark:text-gray-400">生年月日</span>
+                                                                <p className="text-sm text-gray-900 dark:text-white">
+                                                                    {(profile as any)?.birth_date ? new Date((profile as any).birth_date).toLocaleDateString("ja-JP") : "-"}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="grid grid-cols-2 gap-4">
                                                             <div>
                                                                 <span className="text-xs text-gray-500 dark:text-gray-400">希望時給</span>
                                                                 <p className="text-sm text-gray-900 dark:text-white">{(profile as any)?.desired_hourly_wage ? `¥${(profile as any).desired_hourly_wage.toLocaleString()}` : "-"}</p>
@@ -1520,11 +1846,13 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                             </div>
                                                         </div>
                                                         <input type="hidden" name="desiredCastName" value={(profile as any)?.desired_cast_name || ""} />
+                                                        <input type="hidden" name="birthDate" value={(profile as any)?.birth_date || ""} />
                                                         <input type="hidden" name="desiredHourlyWage" value={(profile as any)?.desired_hourly_wage || ""} />
                                                         <input type="hidden" name="desiredShiftDays" value={(profile as any)?.desired_shift_days || ""} />
 
+                                                        {/* 過去在籍店（表示モード） */}
                                                         {profile && (
-                                                            <div className="space-y-2 pt-2">
+                                                            <div className="space-y-2 pt-2 border-t border-gray-100 dark:border-gray-800">
                                                                 <Label>過去在籍店</Label>
                                                                 <div className="space-y-2">
                                                                     {pastEmployments.length === 0 ? (
@@ -1559,19 +1887,29 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                 </div>
                             )}
 
-                            {/* Personal Info Accordion */}
+                            {/* Personal Info Section */}
                             {!hidePersonalInfo && (
-                                <div className="border-t border-gray-100 dark:border-gray-800 pt-4">
-                                    <Accordion type="single" collapsible className="w-full">
+                                <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                                    <Accordion type="single" collapsible className="w-full" value={isEditingSection('personalInfo') ? 'personal-info' : personalInfoAccordionOpen} onValueChange={setPersonalInfoAccordionOpen}>
                                         <AccordionItem value="personal-info" className="border-none">
-                                            <div className="flex items-center justify-between py-2">
-                                                <AccordionTrigger className="hover:no-underline flex-1 justify-start">
-                                                    <span className="font-medium text-gray-900 dark:text-white">個人情報</span>
+                                            <div
+                                                className="flex items-center justify-between cursor-pointer"
+                                                onClick={() => {
+                                                    if (!isEditingSection('personalInfo')) {
+                                                        setPersonalInfoAccordionOpen(personalInfoAccordionOpen === 'personal-info' ? undefined : 'personal-info');
+                                                    }
+                                                }}
+                                            >
+                                                <AccordionTrigger className="hover:no-underline flex-1 justify-start py-0 [&>svg]:h-4 [&>svg]:w-4">
+                                                    <span className="font-medium text-gray-900 dark:text-white text-sm">個人情報</span>
                                                 </AccordionTrigger>
-                                                {profile && !isEditingSection('personalInfo') && (
+                                                {profile && !isEditingSection('personalInfo') && personalInfoAccordionOpen === 'personal-info' && (
                                                     <button
                                                         type="button"
-                                                        onClick={() => setEditingSection('personalInfo')}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setEditingSection('personalInfo');
+                                                        }}
                                                         className="inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700"
                                                         aria-label="編集"
                                                     >
@@ -1579,9 +1917,9 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                     </button>
                                                 )}
                                             </div>
-                                            <AccordionContent>
+                                            <AccordionContent className="pt-3 pb-0">
                                                 {isEditingSection('personalInfo') ? (
-                                                    <div className="space-y-4 pt-2">
+                                                    <div className="space-y-4">
                                                         {/* 本名 */}
                                                         <div className="grid grid-cols-2 gap-4">
                                                             <div className="space-y-2">
@@ -1627,6 +1965,18 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                                     className="rounded-md"
                                                                 />
                                                             </div>
+                                                        </div>
+
+                                                        {/* 生年月日 */}
+                                                        <div className="space-y-2">
+                                                            <Label htmlFor="birthDate">生年月日</Label>
+                                                            <Input
+                                                                id="birthDate"
+                                                                name="birthDate"
+                                                                type="date"
+                                                                defaultValue={profile?.birth_date || ""}
+                                                                className="rounded-md"
+                                                            />
                                                         </div>
 
                                                         {/* 電話番号 */}
@@ -1770,6 +2120,14 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                             </div>
                                                         </div>
 
+                                                        {/* 生年月日 */}
+                                                        <div>
+                                                            <span className="text-xs text-gray-500 dark:text-gray-400">生年月日</span>
+                                                            <p className="text-sm text-gray-900 dark:text-white">
+                                                                {profile?.birth_date ? new Date(profile.birth_date).toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "long", day: "numeric" }) : "-"}
+                                                            </p>
+                                                        </div>
+
                                                         {/* 電話番号 */}
                                                         <div>
                                                             <span className="text-xs text-gray-500 dark:text-gray-400">電話番号</span>
@@ -1822,6 +2180,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                         <input type="hidden" name="firstName" value={profile?.first_name || ""} />
                                                         <input type="hidden" name="lastNameKana" value={profile?.last_name_kana || ""} />
                                                         <input type="hidden" name="firstNameKana" value={profile?.first_name_kana || ""} />
+                                                        <input type="hidden" name="birthDate" value={profile?.birth_date || ""} />
                                                         <input type="hidden" name="phoneNumber" value={profile?.phone_number || ""} />
                                                         <input type="hidden" name="zipCode" value={profile?.zip_code || ""} />
                                                         <input type="hidden" name="prefecture" value={profile?.prefecture || ""} />
@@ -1837,6 +2196,167 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                     </Accordion>
                                 </div>
                             )}
+
+                            {/* Salary Systems Section - for cast, staff, partner */}
+                            {(role === "cast" || role === "staff" || role === "partner") && (() => {
+                                const selectedSystem = salarySystems.find(s => s.id === selectedSalarySystemId);
+                                return (
+                                    <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <h3 className="font-medium text-gray-900 dark:text-white text-sm">給与システム</h3>
+                                                {selectedSystem ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setSalarySystemDetailOpen(selectedSystem)}
+                                                        className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                                                    >
+                                                        {selectedSystem.name}
+                                                    </button>
+                                                ) : (
+                                                    <span className="text-sm text-gray-500 dark:text-gray-400">未設定</span>
+                                                )}
+                                            </div>
+                                            {profile && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setSalarySystemSelectorOpen(true)}
+                                                    className="inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700"
+                                                    aria-label="編集"
+                                                >
+                                                    <Pencil className="h-3.5 w-3.5" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
+                            {/* Role/Permission Section - for cast, staff, and admin */}
+                            {profile && (role === "cast" || role === "staff" || role === "admin") && (() => {
+                                const selectedRole = storeRoles.find(r => r.id === selectedRoleId);
+                                const availableRoles = storeRoles.filter(r => r.for_role === role);
+
+                                // adminは強制的に管理者権限（セレクター不要）
+                                if (role === "admin") {
+                                    return (
+                                        <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
+                                            <div className="flex items-center gap-2">
+                                                <Shield className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                                                <h3 className="font-medium text-gray-900 dark:text-white text-sm">権限</h3>
+                                                <span className="text-sm text-green-600 dark:text-green-400">管理者（全権限）</span>
+                                            </div>
+                                        </div>
+                                    );
+                                }
+
+                                return (
+                                    <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <Shield className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                                                <h3 className="font-medium text-gray-900 dark:text-white text-sm">権限</h3>
+                                                {selectedRole ? (
+                                                    <span className="text-sm text-blue-600 dark:text-blue-400">
+                                                        {selectedRole.name}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-sm text-gray-500 dark:text-gray-400">未設定</span>
+                                                )}
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setRoleSelectorOpen(true)}
+                                                className="inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700"
+                                                aria-label="編集"
+                                            >
+                                                <Pencil className="h-3.5 w-3.5" />
+                                            </button>
+                                        </div>
+
+                                        {/* Role Selector Inline (when open) */}
+                                        {roleSelectorOpen && (
+                                            <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl space-y-2">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">権限セットを選択</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setRoleSelectorOpen(false)}
+                                                        className="text-gray-400 hover:text-gray-600"
+                                                    >
+                                                        <X className="h-4 w-4" />
+                                                    </button>
+                                                </div>
+
+                                                {/* No role option */}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleRoleAssign(null)}
+                                                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                                                        !selectedRoleId
+                                                            ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                                                            : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                                                    }`}
+                                                >
+                                                    未設定
+                                                </button>
+
+                                                {/* Available roles */}
+                                                {availableRoles.map(r => (
+                                                    <button
+                                                        key={r.id}
+                                                        type="button"
+                                                        onClick={() => handleRoleAssign(r.id)}
+                                                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                                                            selectedRoleId === r.id
+                                                                ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                                                                : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                                                        }`}
+                                                    >
+                                                        {r.name}
+                                                        {r.is_system_role && (
+                                                            <span className="ml-2 text-xs text-gray-400">（システム）</span>
+                                                        )}
+                                                    </button>
+                                                ))}
+
+                                                {availableRoles.length === 0 && (
+                                                    <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-2">
+                                                        利用可能な権限セットがありません
+                                                    </p>
+                                                )}
+
+                                                {/* Admin role option - only for staff */}
+                                                {role === "staff" && (
+                                                    <>
+                                                        <div className="border-t border-gray-200 dark:border-gray-700 my-2" />
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleSetAdminRole}
+                                                            className="w-full text-left px-3 py-2 rounded-lg text-sm transition-colors hover:bg-green-50 dark:hover:bg-green-900/20 text-green-700 dark:text-green-400"
+                                                        >
+                                                            管理者権限（全権限）
+                                                        </button>
+                                                    </>
+                                                )}
+
+                                                {/* Create new role button */}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setRoleSelectorOpen(false);
+                                                        setRoleModalOpen(true);
+                                                    }}
+                                                    className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors border border-dashed border-blue-300 dark:border-blue-700"
+                                                >
+                                                    <Plus className="h-4 w-4" />
+                                                    新規作成
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })()}
 
                                     {!profile && (
                                         <DialogFooter className="mt-6">
@@ -1860,8 +2380,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                         </form>
 
                         {profile && (
-                            <div className="border-t border-gray-200 dark:border-gray-700 pt-6 space-y-4">
-                                <h3 className="font-medium text-gray-900 dark:text-white">コメント</h3>
+                            <div className="border-t border-gray-100 dark:border-gray-800 pt-4">
                                 <CommentList
                                     comments={comments}
                                     currentUserId={currentUserProfileId}
@@ -1873,10 +2392,9 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                             </div>
                         )}
 
-
-                    </div>
+                </div>
                 </DialogContent>
-            </Dialog >
+            </Dialog>
 
             {/* Bottle Modal - only show if not nested */}
             {
@@ -1901,7 +2419,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
 
             {/* Delete User Confirmation Modal */}
             <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-                <DialogContent className="sm:max-w-[400px] bg-white dark:bg-gray-800 w-[95%] rounded-lg p-6 z-[60]">
+                <DialogContent className="sm:max-w-[400px] bg-white dark:bg-gray-800 w-[90%] rounded-lg p-6">
                     <DialogHeader>
                         <DialogTitle className="text-center text-lg font-bold text-gray-900 dark:text-white">
                             ユーザーを削除
@@ -1919,16 +2437,14 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                             type="button"
                             variant="destructive"
                             onClick={handleDelete}
-                            disabled={isSubmitting}
                             className="w-full rounded-full bg-red-600 hover:bg-red-700 text-white h-10"
                         >
-                            {isSubmitting ? "削除中..." : "削除"}
+                            削除
                         </Button>
                         <Button
                             type="button"
                             variant="outline"
                             onClick={() => setShowDeleteConfirm(false)}
-                            disabled={isSubmitting}
                             className="w-full rounded-full border-gray-300 dark:border-gray-600 h-10"
                         >
                             キャンセル
@@ -1937,80 +2453,178 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                 </DialogContent>
             </Dialog>
 
-            {/* Attendance List Modal */}
-            {
-                profile && (
-                    <UserAttendanceListModal
-                        isOpen={showAttendanceList}
-                        onClose={() => setShowAttendanceList(false)}
-                        profileId={profile.id}
-                        profileName={profile.display_name || "メンバー"}
-                        onEditRecord={(record) => setEditingAttendanceRecord(record)}
-                    />
-                )
-            }
-
-            {/* Attendance Edit Modal (opened from list) */}
-            {
-                editingAttendanceRecord && profile && (
-                    <AttendanceModal
-                        isOpen={!!editingAttendanceRecord}
-                        onClose={() => setEditingAttendanceRecord(null)}
-                        profiles={[profile]}
-                        currentProfileId={profile.id}
-                        editingRecord={editingAttendanceRecord}
-                    />
-                )
-            }
-
-            {/* Relationship Selector Modals */}
-            {
-                profile && relationshipSelectorOpen && (
-                    <RelationshipSelectorModal
-                        isOpen={!!relationshipSelectorOpen}
-                        onClose={() => setRelationshipSelectorOpen(null)}
-                        title={
-                            relationshipSelectorOpen === "compatibility_good"
-                                ? "相性 ◯"
-                                : relationshipSelectorOpen === "compatibility_bad"
-                                    ? "相性 ✕"
-                                    : relationshipSelectorOpen === "nomination"
-                                        ? "指名"
-                                        : "担当"
-                        }
-                        profiles={(() => {
-                            if (relationshipSelectorOpen === "nomination") {
-                                if (role === "guest") return allProfiles.filter(p => p.role === "cast");
-                                if (role === "cast") return allProfiles.filter(p => p.role === "guest");
-                            }
-                            if (relationshipSelectorOpen === "in_charge") {
-                                if (role === "staff") return allProfiles.filter(p => p.role === "cast");
-                                if (role === "cast") return allProfiles.filter(p => p.role === "staff");
-                            }
-                            return allProfiles;
-                        })()}
-                        selectedIds={getSelectedIds(relationshipSelectorOpen)}
-                        onSelectionChange={(ids) => {
-                            if (relationshipSelectorOpen) {
-                                handleRelationshipChange(relationshipSelectorOpen, ids);
-                            }
-                        }}
-                        currentProfileId={profile.id}
-                    />
-                )
-            }
+            {/* Relationship Selector Modal */}
+            {profile && relationshipSelectorOpen && (
+                <RelationshipSelectorModal
+                    isOpen={!!relationshipSelectorOpen}
+                    onClose={() => setRelationshipSelectorOpen(null)}
+                    selectedIds={getSelectedIds(relationshipSelectorOpen)}
+                    profiles={allProfiles.filter((p) => p.id !== profile.id)}
+                    onSelectionChange={(ids) => handleRelationshipChange(relationshipSelectorOpen, ids)}
+                    currentProfileId={profile.id}
+                    title={
+                        relationshipSelectorOpen === "compatibility_good"
+                            ? "相性 ◯"
+                            : relationshipSelectorOpen === "compatibility_bad"
+                                ? "相性 ✕"
+                                : relationshipSelectorOpen === "nomination"
+                                    ? "指名"
+                                    : "担当"
+                    }
+                />
+            )}
 
             {/* Nested Profile Modal */}
-            {
-                nestedProfileId && (
-                    <UserEditModal
-                        open={!!nestedProfileId}
-                        onOpenChange={(open) => !open && setNestedProfileId(null)}
-                        profile={allProfiles.find((p) => p.id === nestedProfileId) || null}
-                        isNested={true}
-                    />
-                )
-            }
+            {nestedProfileId && (
+                <UserEditModal
+                    profile={allProfiles.find((p) => p.id === nestedProfileId) || null}
+                    open={!!nestedProfileId}
+                    onOpenChange={(open) => {
+                        if (!open) setNestedProfileId(null);
+                    }}
+                    isNested={true}
+                    hidePersonalInfo={true}
+                />
+            )}
+
+            {/* User Attendance List Modal */}
+            {profile && (
+                <UserAttendanceListModal
+                    profileId={profile.id}
+                    profileName={profile.display_name || profile.real_name || ""}
+                    isOpen={showAttendanceList}
+                    onClose={() => setShowAttendanceList(false)}
+                    onEditRecord={(record) => {
+                        setShowAttendanceList(false);
+                        setEditingAttendanceRecord(record);
+                    }}
+                />
+            )}
+
+            {/* Attendance Edit Modal */}
+            {editingAttendanceRecord && profile && (
+                <AttendanceModal
+                    isOpen={!!editingAttendanceRecord}
+                    onClose={() => setEditingAttendanceRecord(null)}
+                    profiles={[profile]}
+                    currentProfileId={profile.id}
+                    editingRecord={editingAttendanceRecord}
+                />
+            )}
+
+            {/* Salary System Selector Modal */}
+            {profile && (
+                <SalarySystemSelectorModal
+                    isOpen={salarySystemSelectorOpen}
+                    onClose={() => setSalarySystemSelectorOpen(false)}
+                    salarySystems={salarySystems}
+                    selectedId={selectedSalarySystemId}
+                    onSelect={(id) => {
+                        setSelectedSalarySystemId(id);
+                        handleSalarySystemChange(id);
+                    }}
+                    onSave={() => setSalarySystemSelectorOpen(false)}
+                    onOpenDetail={(system) => {
+                        setSalarySystemSelectorOpen(false);
+                        setSalarySystemDetailFromSelector(true);
+                        setSalarySystemDetailOpen(system);
+                    }}
+                    className="z-[110]"
+                />
+            )}
+
+            {/* Salary System Create Modal */}
+            {salarySystemCreateOpen && (
+                <SalarySystemModal
+                    isOpen={salarySystemCreateOpen}
+                    onClose={() => {
+                        setSalarySystemCreateOpen(false);
+                        if (salarySystemDetailFromSelector) {
+                            setSalarySystemSelectorOpen(true);
+                            setSalarySystemDetailFromSelector(false);
+                        }
+                    }}
+                    system={null}
+                    targetType={role === "cast" ? "cast" : "staff"}
+                    onSaved={(newSystem) => {
+                        setSalarySystems([...salarySystems, newSystem]);
+                        setSelectedSalarySystemId(newSystem.id);
+                        handleSalarySystemChange(newSystem.id);
+                        setSalarySystemCreateOpen(false);
+                        setSalarySystemDetailFromSelector(false);
+                    }}
+                    onDeleted={() => {}}
+                    storeShowBreakColumns={false}
+                    storeTimeRoundingEnabled={false}
+                    storeTimeRoundingMinutes={15}
+                    className="z-[110]"
+                />
+            )}
+
+            {/* Salary System Detail Modal */}
+            {salarySystemDetailOpen && (
+                <SalarySystemModal
+                    isOpen={!!salarySystemDetailOpen}
+                    onClose={() => {
+                        setSalarySystemDetailOpen(null);
+                        if (salarySystemDetailFromSelector) {
+                            setSalarySystemSelectorOpen(true);
+                            setSalarySystemDetailFromSelector(false);
+                        }
+                    }}
+                    system={salarySystemDetailOpen}
+                    targetType={salarySystemDetailOpen?.target_type === "cast" ? "cast" : "staff"}
+                    onSaved={(updatedSystem) => {
+                        setSalarySystems(salarySystems.map(s => s.id === updatedSystem.id ? updatedSystem : s));
+                        setSalarySystemDetailOpen(null);
+                        setSalarySystemDetailFromSelector(false);
+                    }}
+                    onDeleted={() => {}}
+                    storeShowBreakColumns={false}
+                    storeTimeRoundingEnabled={false}
+                    storeTimeRoundingMinutes={15}
+                    className="z-[110]"
+                />
+            )}
+
+            {/* Salary System Remove Confirmation */}
+            <Dialog open={salarySystemRemoveConfirmOpen} onOpenChange={setSalarySystemRemoveConfirmOpen}>
+                <DialogContent className="sm:max-w-[400px] bg-white dark:bg-gray-800 w-[90%] rounded-lg p-6 z-[110]">
+                    <DialogHeader>
+                        <DialogTitle className="text-gray-900 dark:text-white">給与システムを解除しますか？</DialogTitle>
+                        <DialogDescription className="text-gray-500 dark:text-gray-400">
+                            給与システムを設定しないと、このユーザーの給与計算が行われません。
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setSalarySystemRemoveConfirmOpen(false)}
+                        >
+                            キャンセル
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="destructive"
+                            onClick={() => {
+                                setSelectedSalarySystemId(null);
+                                handleSalarySystemChange(null);
+                                setSalarySystemRemoveConfirmOpen(false);
+                            }}
+                        >
+                            解除する
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Role Form Modal for creating new roles */}
+            <RoleFormModal
+                open={roleModalOpen}
+                onClose={handleRoleCreated}
+                forRole={role === "cast" ? "cast" : "staff"}
+            />
         </>
     );
 }

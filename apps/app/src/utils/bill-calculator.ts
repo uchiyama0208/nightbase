@@ -34,17 +34,19 @@ function calculateExtension(durationMinutes: number, setDuration: number): {
     };
 }
 
-function calculateCastFees(settings: BillSettings, assignments: TableSession["cast_assignments"]): {
+// V2: Calculate cast fees from orders instead of cast_assignments
+function calculateCastFeesFromOrders(settings: BillSettings, orders: Order[]): {
     shimeCount: number;
     jounaiCount: number;
     shimeTotal: number;
     jounaiTotal: number;
     total: number;
 } {
-    const counts = (assignments ?? []).reduce(
-        (acc, assignment) => {
-            if (assignment.status === "shime") acc.shime += 1;
-            if (assignment.status === "jounai") acc.jounai += 1;
+    // Count nomination fees (指名料) as shime, companion fees (場内料金) as jounai
+    const counts = orders.reduce(
+        (acc, order) => {
+            if (order.item_name === "指名料" || order.item_name === "同伴料") acc.shime += order.quantity;
+            if (order.item_name === "場内料金") acc.jounai += order.quantity;
             return acc;
         },
         { shime: 0, jounai: 0 }
@@ -102,7 +104,8 @@ export function calculateBill(
     const extensionPrice = extensionBlocks * settings.extension_fee_30m * session.guest_count;
     const timeChargeTotal = basePrice + extensionPrice;
 
-    const castFees = calculateCastFees(settings, session.cast_assignments);
+    // V2: Calculate cast fees from orders instead of cast_assignments
+    const castFees = calculateCastFeesFromOrders(settings, orders);
     const orderTotal = orders.reduce((sum, order) => sum + (order.amount || 0), 0);
 
     const subtotal = timeChargeTotal + castFees.total + orderTotal;

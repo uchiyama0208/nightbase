@@ -3,16 +3,16 @@
 import { createServerClient } from "@/lib/supabaseServerClient";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { getAuthContextWithPermission } from "@/lib/auth";
 
-export async function createUser(formData: FormData) {
-    const supabase = await createServerClient() as any;
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
+export async function createUser(formData: FormData): Promise<{ success: boolean; error?: string }> {
+    try {
+        // Check edit permission for users page
+        const { supabase, profile: currentProfile } = await getAuthContextWithPermission("users", "edit");
 
-    if (!user) {
-        redirect("/login");
-    }
+        if (!currentProfile?.store_id) {
+            return { success: false, error: "店舗情報が見つかりません" };
+        }
 
     const displayName = formData.get("displayName") as string;
     const displayNameKana = (formData.get("displayNameKana") as string | null)?.trim() || null;
@@ -32,6 +32,7 @@ export async function createUser(formData: FormData) {
     const city = (formData.get("city") as string | null)?.trim() || null;
     const street = (formData.get("street") as string | null)?.trim() || null;
     const building = (formData.get("building") as string | null)?.trim() || null;
+    const birthDate = (formData.get("birthDate") as string | null)?.trim() || null;
     const phoneNumber = (formData.get("phoneNumber") as string | null)?.trim() || null;
     const emergencyPhoneNumber = (formData.get("emergencyPhoneNumber") as string | null)?.trim() || null;
     const nearestStation = (formData.get("nearestStation") as string | null)?.trim() || null;
@@ -49,69 +50,52 @@ export async function createUser(formData: FormData) {
         ? guestReceiptTypeRaw
         : "none";
 
-    if (!displayName || !role) {
-        throw new Error("必須項目が入力されていません");
+        if (!displayName || !role) {
+            return { success: false, error: "必須項目が入力されていません" };
+        }
+
+        // Create new profile
+        // Note: user_id is omitted (null) for guests/staff created this way
+        const { error } = await supabase.from("profiles").insert({
+            display_name: displayName,
+            display_name_kana: displayNameKana,
+            real_name: realName,
+            real_name_kana: realNameKana,
+            last_name: lastName,
+            first_name: firstName,
+            last_name_kana: lastNameKana,
+            first_name_kana: firstNameKana,
+            zip_code: zipCode,
+            prefecture: prefecture,
+            city: city,
+            street: street,
+            building: building,
+            birth_date: birthDate,
+            phone_number: phoneNumber,
+            emergency_phone_number: emergencyPhoneNumber,
+            nearest_station: nearestStation,
+            height: height,
+            desired_cast_name: desiredCastName,
+            desired_hourly_wage: desiredHourlyWage,
+            desired_shift_days: desiredShiftDays,
+            status: role === "cast" ? (formData.get("status") as string || "通常") : null,
+            role: role,
+            store_id: currentProfile.store_id,
+            user_id: null, // Explicitly set to null to avoid default value issues
+            guest_addressee: role === "guest" ? guestAddressee : null,
+            guest_receipt_type: role === "guest" ? guestReceiptType : "none",
+        });
+
+        if (error) {
+            console.error("Error creating user:", error);
+            return { success: false, error: `ユーザーの作成に失敗しました: ${error.message}` };
+        }
+
+        revalidatePath("/app/users");
+        return { success: true };
+    } catch (err: any) {
+        return { success: false, error: err.message || "ユーザーの作成に失敗しました" };
     }
-
-    // Get current user's store
-    const { data: appUser } = await supabase
-        .from("users")
-        .select("current_profile_id")
-        .eq("id", user.id)
-        .maybeSingle();
-
-    if (!appUser?.current_profile_id) {
-        throw new Error("店舗情報が見つかりません");
-    }
-
-    const { data: currentProfile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("id", appUser.current_profile_id)
-        .maybeSingle();
-
-    if (!currentProfile?.store_id) {
-        throw new Error("店舗情報が見つかりません");
-    }
-
-    // Create new profile
-    // Note: user_id is omitted (null) for guests/staff created this way
-    const { error } = await supabase.from("profiles").insert({
-        display_name: displayName,
-        display_name_kana: displayNameKana,
-        real_name: realName,
-        real_name_kana: realNameKana,
-        last_name: lastName,
-        first_name: firstName,
-        last_name_kana: lastNameKana,
-        first_name_kana: firstNameKana,
-        zip_code: zipCode,
-        prefecture: prefecture,
-        city: city,
-        street: street,
-        building: building,
-        phone_number: phoneNumber,
-        emergency_phone_number: emergencyPhoneNumber,
-        nearest_station: nearestStation,
-        height: height,
-        desired_cast_name: desiredCastName,
-        desired_hourly_wage: desiredHourlyWage,
-        desired_shift_days: desiredShiftDays,
-        status: role === "cast" ? (formData.get("status") as string || "通常") : null,
-        role: role,
-        store_id: currentProfile.store_id,
-        user_id: null, // Explicitly set to null to avoid default value issues
-        guest_addressee: role === "guest" ? guestAddressee : null,
-        guest_receipt_type: role === "guest" ? guestReceiptType : "none",
-    });
-
-    if (error) {
-        console.error("Error creating user:", error);
-        throw new Error(`ユーザーの作成に失敗しました: ${error.message}`);
-    }
-
-    revalidatePath("/app/users");
-    return { success: true };
 }
 
 export async function importUsersFromCsv(formData: FormData) {
@@ -236,160 +220,160 @@ export async function importUsersFromCsv(formData: FormData) {
     revalidatePath("/app/users");
 }
 
-export async function updateUser(formData: FormData) {
-    const supabase = await createServerClient() as any;
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
+export async function updateUser(formData: FormData): Promise<{ success: boolean; error?: string }> {
+    try {
+        // Check edit permission for users page
+        const { supabase, user } = await getAuthContextWithPermission("users", "edit");
 
-    if (!user) {
-        redirect("/login");
-    }
+        const profileId = formData.get("profileId") as string;
+        const displayName = formData.get("displayName") as string;
+        const displayNameKana = (formData.get("displayNameKana") as string | null)?.trim() || null;
 
-    const profileId = formData.get("profileId") as string;
-    const displayName = formData.get("displayName") as string;
-    const displayNameKana = (formData.get("displayNameKana") as string | null)?.trim() || null;
+        const lastName = (formData.get("lastName") as string | null)?.trim() || null;
+        const firstName = (formData.get("firstName") as string | null)?.trim() || null;
+        const lastNameKana = (formData.get("lastNameKana") as string | null)?.trim() || null;
+        const firstNameKana = (formData.get("firstNameKana") as string | null)?.trim() || null;
 
-    const lastName = (formData.get("lastName") as string | null)?.trim() || null;
-    const firstName = (formData.get("firstName") as string | null)?.trim() || null;
-    const lastNameKana = (formData.get("lastNameKana") as string | null)?.trim() || null;
-    const firstNameKana = (formData.get("firstNameKana") as string | null)?.trim() || null;
+        const realName = (formData.get("realName") as string | null)?.trim() || [lastName, firstName].filter(Boolean).join(" ");
+        const realNameKana = (formData.get("realNameKana") as string | null)?.trim() || [lastNameKana, firstNameKana].filter(Boolean).join(" ");
 
-    const realName = (formData.get("realName") as string | null)?.trim() || [lastName, firstName].filter(Boolean).join(" ");
-    const realNameKana = (formData.get("realNameKana") as string | null)?.trim() || [lastNameKana, firstNameKana].filter(Boolean).join(" ");
+        const zipCode = (formData.get("zipCode") as string | null)?.trim() || null;
+        const prefecture = (formData.get("prefecture") as string | null)?.trim() || null;
+        const city = (formData.get("city") as string | null)?.trim() || null;
+        const street = (formData.get("street") as string | null)?.trim() || null;
+        const building = (formData.get("building") as string | null)?.trim() || null;
+        const birthDate = (formData.get("birthDate") as string | null)?.trim() || null;
+        const phoneNumber = (formData.get("phoneNumber") as string | null)?.trim() || null;
 
-    const zipCode = (formData.get("zipCode") as string | null)?.trim() || null;
-    const prefecture = (formData.get("prefecture") as string | null)?.trim() || null;
-    const city = (formData.get("city") as string | null)?.trim() || null;
-    const street = (formData.get("street") as string | null)?.trim() || null;
-    const building = (formData.get("building") as string | null)?.trim() || null;
-    const phoneNumber = (formData.get("phoneNumber") as string | null)?.trim() || null;
+        const emergencyPhoneNumber = (formData.get("emergencyPhoneNumber") as string | null)?.trim() || null;
+        const nearestStation = (formData.get("nearestStation") as string | null)?.trim() || null;
+        const height = (formData.get("height") as string | null)?.trim() ? parseInt(formData.get("height") as string) : null;
 
-    const emergencyPhoneNumber = (formData.get("emergencyPhoneNumber") as string | null)?.trim() || null;
-    const nearestStation = (formData.get("nearestStation") as string | null)?.trim() || null;
-    const height = (formData.get("height") as string | null)?.trim() ? parseInt(formData.get("height") as string) : null;
+        const desiredCastName = (formData.get("desiredCastName") as string | null)?.trim() || null;
+        const desiredHourlyWage = (formData.get("desiredHourlyWage") as string | null)?.trim() ? parseInt(formData.get("desiredHourlyWage") as string) : null;
+        const desiredShiftDays = (formData.get("desiredShiftDays") as string | null)?.trim() || null;
 
-    const desiredCastName = (formData.get("desiredCastName") as string | null)?.trim() || null;
-    const desiredHourlyWage = (formData.get("desiredHourlyWage") as string | null)?.trim() ? parseInt(formData.get("desiredHourlyWage") as string) : null;
-    const desiredShiftDays = (formData.get("desiredShiftDays") as string | null)?.trim() || null;
+        const role = formData.get("role") as string;
+        const guestAddressee = (formData.get("guestAddressee") as string | null)?.trim() || null;
+        const guestReceiptTypeRaw = (formData.get("guestReceiptType") as string | null) ?? "none";
+        const guestReceiptType = ["none", "amount_only", "with_date"].includes(guestReceiptTypeRaw)
+            ? guestReceiptTypeRaw
+            : "none";
 
-    const role = formData.get("role") as string;
-    const guestAddressee = (formData.get("guestAddressee") as string | null)?.trim() || null;
-    const guestReceiptTypeRaw = (formData.get("guestReceiptType") as string | null) ?? "none";
-    const guestReceiptType = ["none", "amount_only", "with_date"].includes(guestReceiptTypeRaw)
-        ? guestReceiptTypeRaw
-        : "none";
+        if (!profileId || !displayName || !role) {
+            return { success: false, error: "必須項目が入力されていません" };
+        }
 
-    if (!profileId || !displayName || !role) {
-        throw new Error("必須項目が入力されていません");
-    }
+        const { data: appUser } = await supabase
+            .from("users")
+            .select("current_profile_id")
+            .eq("id", user.id)
+            .maybeSingle();
 
-    const { data: appUser } = await supabase
-        .from("users")
-        .select("current_profile_id")
-        .eq("id", user.id)
-        .maybeSingle();
+        if (!appUser?.current_profile_id) {
+            return { success: false, error: "店舗情報が見つかりません" };
+        }
 
-    if (!appUser?.current_profile_id) {
-        throw new Error("店舗情報が見つかりません");
-    }
-
-    const { data: currentProfile } = await supabase
-        .from("profiles")
-        .select("store_id, role, role_id")
-        .eq("id", appUser.current_profile_id)
-        .maybeSingle();
-
-    if (!currentProfile?.store_id) {
-        throw new Error("店舗情報が見つかりません");
-    }
-
-    // Get the target profile's current role
-    const { data: targetProfile } = await supabase
-        .from("profiles")
-        .select("role, role_id")
-        .eq("id", profileId)
-        .maybeSingle();
-
-    // Check if we are changing the role from staff to something else
-    if (targetProfile?.role === "staff" && role !== "staff") {
-        // Check if this is the last staff
-        const { count, error: countError } = await supabase
+        const { data: currentProfile } = await supabase
             .from("profiles")
-            .select("*", { count: "exact", head: true })
-            .eq("store_id", currentProfile.store_id)
-            .eq("role", "staff");
+            .select("store_id, role, role_id")
+            .eq("id", appUser.current_profile_id)
+            .maybeSingle();
 
-        if (countError) {
-            console.error("Error checking staff count:", countError);
-            throw new Error("スタッフ数の確認に失敗しました");
+        if (!currentProfile?.store_id) {
+            return { success: false, error: "店舗情報が見つかりません" };
         }
 
-        if (count !== null && count <= 1) {
-            throw new Error("店舗には少なくとも1人のスタッフが必要です");
-        }
-    }
+        // Get the target profile's current role
+        const { data: targetProfile } = await supabase
+            .from("profiles")
+            .select("role, role_id")
+            .eq("id", profileId)
+            .maybeSingle();
 
-    // Also check for new role system (role_id) on the target profile
-    if (targetProfile?.role_id) {
-        const { data: targetRole } = await supabase
-            .from("store_roles")
-            .select("name, is_system_role")
-            .eq("id", targetProfile.role_id)
-            .single();
-
-        if (targetRole?.name === "デフォルトスタッフ" && targetRole?.is_system_role && role !== "staff") {
-            // Check if there are other users with the same staff role_id
-            const { count: roleCount } = await supabase
+        // Check if we are changing the role from staff to something else
+        if (targetProfile?.role === "staff" && role !== "staff") {
+            // Check if this is the last staff
+            const { count, error: countError } = await supabase
                 .from("profiles")
                 .select("*", { count: "exact", head: true })
                 .eq("store_id", currentProfile.store_id)
-                .eq("role_id", targetProfile.role_id);
+                .eq("role", "staff");
 
-            if (roleCount !== null && roleCount <= 1) {
-                throw new Error("店舗には少なくとも1人のスタッフが必要です");
+            if (countError) {
+                console.error("Error checking staff count:", countError);
+                return { success: false, error: "スタッフ数の確認に失敗しました" };
+            }
+
+            if (count !== null && count <= 1) {
+                return { success: false, error: "店舗には少なくとも1人のスタッフが必要です" };
             }
         }
+
+        // Also check for new role system (role_id) on the target profile
+        if (targetProfile?.role_id) {
+            const { data: targetRole } = await supabase
+                .from("store_roles")
+                .select("name, is_system_role")
+                .eq("id", targetProfile.role_id)
+                .single();
+
+            if (targetRole?.name === "デフォルトスタッフ" && targetRole?.is_system_role && role !== "staff") {
+                // Check if there are other users with the same staff role_id
+                const { count: roleCount } = await supabase
+                    .from("profiles")
+                    .select("*", { count: "exact", head: true })
+                    .eq("store_id", currentProfile.store_id)
+                    .eq("role_id", targetProfile.role_id);
+
+                if (roleCount !== null && roleCount <= 1) {
+                    return { success: false, error: "店舗には少なくとも1人のスタッフが必要です" };
+                }
+            }
+        }
+
+        const { error } = await supabase
+            .from("profiles")
+            .update({
+                display_name: displayName,
+                display_name_kana: displayNameKana,
+                real_name: realName,
+                real_name_kana: realNameKana,
+                last_name: lastName,
+                first_name: firstName,
+                last_name_kana: lastNameKana,
+                first_name_kana: firstNameKana,
+                zip_code: zipCode,
+                prefecture: prefecture,
+                city: city,
+                street: street,
+                building: building,
+                birth_date: birthDate,
+                phone_number: phoneNumber,
+                emergency_phone_number: emergencyPhoneNumber,
+                nearest_station: nearestStation,
+                height: height,
+                desired_cast_name: desiredCastName,
+                desired_hourly_wage: desiredHourlyWage,
+                desired_shift_days: desiredShiftDays,
+                status: role === "cast" ? (formData.get("status") as string || "通常") : null,
+                role,
+                guest_addressee: role === "guest" ? guestAddressee : null,
+                guest_receipt_type: role === "guest" ? guestReceiptType : "none",
+            })
+            .eq("id", profileId)
+            .eq("store_id", currentProfile.store_id);
+
+        if (error) {
+            console.error("Error updating user:", error);
+            return { success: false, error: `ユーザーの更新に失敗しました: ${error.message}` };
+        }
+
+        revalidatePath("/app/users");
+        return { success: true };
+    } catch (err: any) {
+        return { success: false, error: err.message || "ユーザーの更新に失敗しました" };
     }
-
-    const { error } = await supabase
-        .from("profiles")
-        .update({
-            display_name: displayName,
-            display_name_kana: displayNameKana,
-            real_name: realName,
-            real_name_kana: realNameKana,
-            last_name: lastName,
-            first_name: firstName,
-            last_name_kana: lastNameKana,
-            first_name_kana: firstNameKana,
-            zip_code: zipCode,
-            prefecture: prefecture,
-            city: city,
-            street: street,
-            building: building,
-            phone_number: phoneNumber,
-            emergency_phone_number: emergencyPhoneNumber,
-            nearest_station: nearestStation,
-            height: height,
-            desired_cast_name: desiredCastName,
-            desired_hourly_wage: desiredHourlyWage,
-            desired_shift_days: desiredShiftDays,
-            status: role === "cast" ? (formData.get("status") as string || "通常") : null,
-            role,
-            guest_addressee: role === "guest" ? guestAddressee : null,
-            guest_receipt_type: role === "guest" ? guestReceiptType : "none",
-        })
-        .eq("id", profileId)
-        .eq("store_id", currentProfile.store_id);
-
-    if (error) {
-        console.error("Error updating user:", error);
-        throw new Error(`ユーザーの更新に失敗しました: ${error.message}`);
-    }
-
-    revalidatePath("/app/users");
-    return { success: true };
 }
 
 // Auto-save version that doesn't call revalidatePath to prevent modal from closing
@@ -422,6 +406,7 @@ export async function autoSaveUser(formData: FormData) {
     const city = (formData.get("city") as string | null)?.trim() || null;
     const street = (formData.get("street") as string | null)?.trim() || null;
     const building = (formData.get("building") as string | null)?.trim() || null;
+    const birthDate = (formData.get("birthDate") as string | null)?.trim() || null;
     const phoneNumber = (formData.get("phoneNumber") as string | null)?.trim() || null;
 
     const emergencyPhoneNumber = (formData.get("emergencyPhoneNumber") as string | null)?.trim() || null;
@@ -475,6 +460,7 @@ export async function autoSaveUser(formData: FormData) {
             city: city,
             street: street,
             building: building,
+            birth_date: birthDate,
             phone_number: phoneNumber,
             emergency_phone_number: emergencyPhoneNumber,
             nearest_station: nearestStation,
@@ -499,92 +485,68 @@ export async function autoSaveUser(formData: FormData) {
     return { success: true };
 }
 
-export async function deleteUser(profileId: string) {
-    const supabase = await createServerClient() as any;
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
+export async function deleteUser(profileId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+        // Check edit permission for users page
+        const { supabase, profile: currentProfile } = await getAuthContextWithPermission("users", "edit");
 
-    if (!user) {
-        throw new Error("User not authenticated");
-    }
+        if (!currentProfile?.store_id) {
+            return { success: false, error: "店舗情報が見つかりません" };
+        }
 
-    // Get current user's profile and store
-    const { data: appUser } = await supabase
-        .from("users")
-        .select("current_profile_id")
-        .eq("id", user.id)
-        .maybeSingle();
+        // Get target profile
+        const { data: targetProfile } = await supabase
+            .from("profiles")
+            .select("store_id, user_id")
+            .eq("id", profileId)
+            .maybeSingle();
 
-    if (!appUser?.current_profile_id) {
-        throw new Error("No active profile found for current user");
-    }
+        if (!targetProfile) {
+            return { success: false, error: "ユーザーが見つかりません" };
+        }
 
-    const { data: currentProfile } = await supabase
-        .from("profiles")
-        .select("store_id, role")
-        .eq("id", appUser.current_profile_id)
-        .maybeSingle();
+        // Verify same store
+        if (targetProfile.store_id !== currentProfile.store_id) {
+            return { success: false, error: "権限がありません" };
+        }
 
-    if (!currentProfile?.store_id) {
-        throw new Error("店舗情報が見つかりません");
-    }
+        // Prevent self-deletion
+        if (profileId === currentProfile.id) {
+            return { success: false, error: "自分自身を削除することはできません" };
+        }
 
-    // Permission check: only admin or staff can delete users
-    if (!['admin', 'staff'].includes(currentProfile.role)) {
-        throw new Error("ユーザーを削除する権限がありません");
-    }
-
-    // Get target profile
-    const { data: targetProfile } = await supabase
-        .from("profiles")
-        .select("store_id, user_id")
-        .eq("id", profileId)
-        .maybeSingle();
-
-    if (!targetProfile) {
-        throw new Error("ユーザーが見つかりません");
-    }
-
-    // Verify same store
-    if (targetProfile.store_id !== currentProfile.store_id) {
-        throw new Error("権限がありません");
-    }
-
-    // Prevent self-deletion
-    if (profileId === appUser.current_profile_id) {
-        throw new Error("自分自身を削除することはできません");
-    }
-
-    // Find all users who have this profile as current_profile_id
-    const { data: affectedUsers } = await supabase
-        .from("users")
-        .select("id")
-        .eq("current_profile_id", profileId);
-
-    // Update affected users' current_profile_id to null
-    if (affectedUsers && affectedUsers.length > 0) {
-        const { error: updateError } = await supabase
+        // Find all users who have this profile as current_profile_id
+        const { data: affectedUsers } = await supabase
             .from("users")
-            .update({ current_profile_id: null })
+            .select("id")
             .eq("current_profile_id", profileId);
 
-        if (updateError) {
-            console.error("Error updating affected users:", updateError);
-            throw new Error("関連ユーザーの更新に失敗しました");
+        // Update affected users' current_profile_id to null
+        if (affectedUsers && affectedUsers.length > 0) {
+            const { error: updateError } = await supabase
+                .from("users")
+                .update({ current_profile_id: null })
+                .eq("current_profile_id", profileId);
+
+            if (updateError) {
+                console.error("Error updating affected users:", updateError);
+                return { success: false, error: "関連ユーザーの更新に失敗しました" };
+            }
         }
+
+        // Delete the profile (CASCADE DELETE will handle related data)
+        const { error } = await supabase.from("profiles").delete().eq("id", profileId);
+
+        if (error) {
+            console.error("Error deleting user:", error);
+            return { success: false, error: `ユーザーの削除に失敗しました: ${error.message}` };
+        }
+
+        revalidatePath("/app/users");
+        return { success: true };
+    } catch (err: any) {
+        return { success: false, error: err.message || "ユーザーの削除に失敗しました" };
     }
-
-    // Delete the profile (CASCADE DELETE will handle related data)
-    const { error } = await supabase.from("profiles").delete().eq("id", profileId);
-
-    if (error) {
-        console.error("Error deleting user:", error);
-        throw new Error(`ユーザーの削除に失敗しました: ${error.message}`);
-    }
-
-    revalidatePath("/app/users");
-    return { success: true };
 }
 
 export async function getProfileDetails(profileId: string) {
@@ -912,6 +874,19 @@ export async function getUserEditModalData(targetProfileId: string | null, targe
 
     // If no target profile, return just the basics
     if (!targetProfileId) {
+        // Still need to fetch salary systems for new profile creation
+        let salarySystems: any[] = [];
+        if (targetRole === "cast" || targetRole === "staff" || targetRole === "partner") {
+            const salaryTargetType = targetRole === "cast" ? "cast" : "staff";
+            const { data: systems } = await supabase
+                .from("salary_systems")
+                .select("id, name, target_type")
+                .eq("store_id", currentProfile.store_id)
+                .eq("target_type", salaryTargetType)
+                .order("name");
+            salarySystems = systems || [];
+        }
+
         return {
             currentUserProfileId: appUser.current_profile_id,
             allProfiles: filteredProfiles,
@@ -919,6 +894,8 @@ export async function getUserEditModalData(targetProfileId: string | null, targe
             comments: [],
             bottleKeeps: [],
             pastEmployments: [],
+            salarySystems,
+            assignedSalarySystemIds: [],
         };
     }
 
@@ -984,6 +961,31 @@ export async function getUserEditModalData(targetProfileId: string | null, targe
         pastEmployments = data || [];
     }
 
+    // Fetch salary systems for cast, staff, partner
+    let salarySystems: any[] = [];
+    let assignedSalarySystemIds: string[] = [];
+
+    if (targetRole === "cast" || targetRole === "staff" || targetRole === "partner") {
+        // Get all salary systems for this store matching the target type
+        const salaryTargetType = targetRole === "cast" ? "cast" : "staff";
+        const { data: systems } = await supabase
+            .from("salary_systems")
+            .select("id, name, target_type")
+            .eq("store_id", currentProfile.store_id)
+            .eq("target_type", salaryTargetType)
+            .order("name");
+        salarySystems = systems || [];
+
+        // Get assigned salary systems for this profile
+        if (targetProfileId) {
+            const { data: assigned } = await supabase
+                .from("profile_salary_systems")
+                .select("salary_system_id")
+                .eq("profile_id", targetProfileId);
+            assignedSalarySystemIds = (assigned || []).map((a: any) => a.salary_system_id);
+        }
+    }
+
     // Add like counts to comments
     const comments = commentsResult.data || [];
     let commentsWithLikes = comments;
@@ -1021,6 +1023,8 @@ export async function getUserEditModalData(targetProfileId: string | null, targe
         comments: commentsWithLikes,
         bottleKeeps,
         pastEmployments,
+        salarySystems,
+        assignedSalarySystemIds,
     };
 }
 
@@ -1181,8 +1185,8 @@ export async function getUsersData(roleParam?: string, query?: string) {
         return { redirect: "/app/me" };
     }
 
-    // Role check
-    if (currentProfile.role !== "staff") {
+    // Role check - staff and admin can access
+    if (currentProfile.role !== "staff" && currentProfile.role !== "admin") {
         return { redirect: "/app/timecard" };
     }
 
@@ -1521,4 +1525,44 @@ export async function getProfileReportData(profileId: string, role: string) {
             monthlyData,
         };
     }
+}
+
+export async function updateProfileSalarySystems(profileId: string, salarySystemIds: string[]) {
+    const supabase = await createServerClient() as any;
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) throw new Error("Unauthorized");
+
+    // Delete existing assignments
+    const { error: deleteError } = await supabase
+        .from("profile_salary_systems")
+        .delete()
+        .eq("profile_id", profileId);
+
+    if (deleteError) {
+        console.error("Error deleting salary systems:", deleteError);
+        throw new Error("Failed to update salary systems");
+    }
+
+    // Insert new assignments
+    if (salarySystemIds.length > 0) {
+        const insertData = salarySystemIds.map(id => ({
+            profile_id: profileId,
+            salary_system_id: id,
+        }));
+
+        const { error: insertError } = await supabase
+            .from("profile_salary_systems")
+            .insert(insertData);
+
+        if (insertError) {
+            console.error("Error inserting salary systems:", insertError);
+            throw new Error("Failed to update salary systems");
+        }
+    }
+
+    revalidatePath("/app/users");
+    return { success: true };
 }

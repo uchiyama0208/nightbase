@@ -1,64 +1,66 @@
 "use server";
 
-import { createServerClient } from "@/lib/supabaseServerClient";
+import { getAuthContext } from "@/lib/auth-helpers";
 import { PricingSystem } from "@/types/floor";
 import { revalidatePath } from "next/cache";
+import type { PricingSystemCreatePayload, PricingSystemUpdatePayload } from "./types";
 
-export async function getPricingSystems() {
-    const supabase = await createServerClient() as any;
+// 型の再エクスポート
+export type { PricingSystem } from "@/types/floor";
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
+// ============================================
+// 料金システム取得
+// ============================================
 
-    const { data: profile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("user_id", user.id)
-        .single();
+/**
+ * 店舗の料金システム一覧を取得
+ */
+export async function getPricingSystems(): Promise<PricingSystem[]> {
+    try {
+        const { supabase, storeId } = await getAuthContext();
 
-    if (!profile?.store_id) return [];
+        const { data, error } = await supabase
+            .from("pricing_systems")
+            .select("*")
+            .eq("store_id", storeId)
+            .order("created_at", { ascending: true });
 
-    const { data, error } = await supabase
-        .from("pricing_systems")
-        .select("*")
-        .eq("store_id", profile.store_id)
-        .order("created_at", { ascending: true });
+        if (error) {
+            console.error("Error fetching pricing systems:", error);
+            return [];
+        }
 
-    if (error) {
-        console.error("Error fetching pricing systems:", error);
+        return data as PricingSystem[];
+    } catch {
         return [];
     }
-
-    return data as PricingSystem[];
 }
 
-export async function createPricingSystem(data: Omit<PricingSystem, "id" | "store_id" | "created_at" | "updated_at">) {
-    const supabase = await createServerClient() as any;
+// ============================================
+// 料金システム作成・更新・削除
+// ============================================
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Not authenticated");
+/**
+ * 料金システムを新規作成
+ */
+export async function createPricingSystem(
+    data: PricingSystemCreatePayload
+): Promise<PricingSystem> {
+    const { supabase, storeId } = await getAuthContext();
 
-    const { data: profile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("user_id", user.id)
-        .single();
-
-    if (!profile?.store_id) throw new Error("No store found");
-
-    // If this is set as default, unset other defaults
+    // デフォルトに設定する場合、他のデフォルトを解除
     if (data.is_default) {
         await supabase
             .from("pricing_systems")
             .update({ is_default: false })
-            .eq("store_id", profile.store_id);
+            .eq("store_id", storeId);
     }
 
     const { data: result, error } = await supabase
         .from("pricing_systems")
         .insert({
             ...data,
-            store_id: profile.store_id,
+            store_id: storeId,
         })
         .select()
         .single();
@@ -72,26 +74,21 @@ export async function createPricingSystem(data: Omit<PricingSystem, "id" | "stor
     return result as PricingSystem;
 }
 
-export async function updatePricingSystem(id: string, data: Partial<PricingSystem>) {
-    const supabase = await createServerClient() as any;
+/**
+ * 料金システムを更新
+ */
+export async function updatePricingSystem(
+    id: string,
+    data: PricingSystemUpdatePayload
+): Promise<PricingSystem> {
+    const { supabase, storeId } = await getAuthContext();
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Not authenticated");
-
-    const { data: profile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("user_id", user.id)
-        .single();
-
-    if (!profile?.store_id) throw new Error("No store found");
-
-    // If this is set as default, unset other defaults
+    // デフォルトに設定する場合、他のデフォルトを解除
     if (data.is_default) {
         await supabase
             .from("pricing_systems")
             .update({ is_default: false })
-            .eq("store_id", profile.store_id);
+            .eq("store_id", storeId);
     }
 
     const { data: result, error } = await supabase
@@ -113,8 +110,11 @@ export async function updatePricingSystem(id: string, data: Partial<PricingSyste
     return result as PricingSystem;
 }
 
-export async function deletePricingSystem(id: string) {
-    const supabase = await createServerClient() as any;
+/**
+ * 料金システムを削除
+ */
+export async function deletePricingSystem(id: string): Promise<{ success: boolean }> {
+    const { supabase } = await getAuthContext();
 
     const { error } = await supabase
         .from("pricing_systems")
@@ -130,27 +130,19 @@ export async function deletePricingSystem(id: string) {
     return { success: true };
 }
 
-export async function setDefaultPricingSystem(id: string) {
-    const supabase = await createServerClient() as any;
+/**
+ * 指定した料金システムをデフォルトに設定
+ */
+export async function setDefaultPricingSystem(id: string): Promise<{ success: boolean }> {
+    const { supabase, storeId } = await getAuthContext();
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Not authenticated");
-
-    const { data: profile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("user_id", user.id)
-        .single();
-
-    if (!profile?.store_id) throw new Error("No store found");
-
-    // Unset all defaults
+    // 全てのデフォルトを解除
     await supabase
         .from("pricing_systems")
         .update({ is_default: false })
-        .eq("store_id", profile.store_id);
+        .eq("store_id", storeId);
 
-    // Set new default
+    // 新しいデフォルトを設定
     const { error } = await supabase
         .from("pricing_systems")
         .update({ is_default: true })

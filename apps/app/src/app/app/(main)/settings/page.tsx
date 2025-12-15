@@ -1,51 +1,28 @@
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Store, Clock, ChevronRight, Upload, LayoutGrid, Receipt, Eye } from "lucide-react";
-import { createServerClient } from "@/lib/supabaseServerClient";
+import { Store, Clock, ChevronRight, Upload, LayoutGrid, Receipt, Eye, CalendarDays } from "lucide-react";
 import { DeleteStoreModal } from "./delete-store-modal";
+import { getAppDataWithPermissionCheck, getAccessDeniedRedirectUrl } from "@/app/app/data-access";
 
 export const metadata: Metadata = {
     title: "店舗設定",
 };
 
-async function checkSettingsAccess() {
-    const supabase = await createServerClient() as any;
-    const { data: { user } } = await supabase.auth.getUser();
+export default async function SettingsPage() {
+    const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("settings", "view");
 
     if (!user) {
         redirect("/login");
     }
 
-    const { data: appUser } = await supabase
-        .from("users")
-        .select("current_profile_id")
-        .eq("id", user.id)
-        .maybeSingle();
-
-    if (!appUser?.current_profile_id) {
+    if (!profile) {
         redirect("/app/me");
     }
 
-    const { data: currentProfile } = await supabase
-        .from("profiles")
-        .select("store_id, role")
-        .eq("id", appUser.current_profile_id)
-        .maybeSingle();
-
-    if (!currentProfile?.store_id) {
-        redirect("/app/me");
+    if (!hasAccess) {
+        redirect(getAccessDeniedRedirectUrl("settings"));
     }
-
-    if (currentProfile.role !== "staff") {
-        redirect("/app/dashboard");
-    }
-
-    return true;
-}
-
-export default async function SettingsPage() {
-    await checkSettingsAccess();
 
     return (
         <div className="max-w-2xl mx-auto space-y-4">
@@ -69,6 +46,16 @@ export default async function SettingsPage() {
                                 <Clock className="h-5 w-5 text-green-600 dark:text-green-400" />
                             </div>
                             <span className="font-medium text-gray-900 dark:text-white">タイムカード設定</span>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-gray-400" />
+                    </Link>
+
+                    <Link href="/app/settings/shift" className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        <div className="flex items-center space-x-4">
+                            <div className="bg-pink-100 dark:bg-pink-900 p-2 rounded-md">
+                                <CalendarDays className="h-5 w-5 text-pink-600 dark:text-pink-400" />
+                            </div>
+                            <span className="font-medium text-gray-900 dark:text-white">シフト設定</span>
                         </div>
                         <ChevronRight className="h-5 w-5 text-gray-400" />
                     </Link>

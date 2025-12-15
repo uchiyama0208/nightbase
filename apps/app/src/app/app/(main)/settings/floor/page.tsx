@@ -2,57 +2,29 @@ import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
-import { createServerClient } from "@/lib/supabaseServerClient";
 import { FloorSettingsForm } from "./floor-settings-form";
+import { getAppDataWithPermissionCheck, getAccessDeniedRedirectUrl } from "@/app/app/data-access";
 
 export const metadata: Metadata = {
     title: "フロア設定",
 };
 
-async function checkSettingsAccess() {
-    const supabase = await createServerClient() as any;
-    const { data: { user } } = await supabase.auth.getUser();
+export default async function FloorSettingsPage() {
+    const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("settings", "edit");
 
     if (!user) {
         redirect("/login");
     }
 
-    const { data: appUser } = await supabase
-        .from("users")
-        .select("current_profile_id")
-        .eq("id", user.id)
-        .maybeSingle();
-
-    if (!appUser?.current_profile_id) {
+    if (!profile || !profile.store_id) {
         redirect("/app/me");
     }
 
-    const { data: currentProfile } = await supabase
-        .from("profiles")
-        .select("store_id, role")
-        .eq("id", appUser.current_profile_id)
-        .maybeSingle();
-
-    if (!currentProfile?.store_id) {
-        redirect("/app/me");
+    if (!hasAccess) {
+        redirect(getAccessDeniedRedirectUrl("settings"));
     }
 
-    if (currentProfile.role !== "staff") {
-        redirect("/app/dashboard");
-    }
-
-    return currentProfile.store_id;
-}
-
-export default async function FloorSettingsPage() {
-    const storeId = await checkSettingsAccess();
-    const supabase = await createServerClient() as any;
-
-    const { data: store } = await supabase
-        .from("stores")
-        .select("*")
-        .eq("id", storeId)
-        .single();
+    const store = profile.stores as any;
 
     if (!store) {
         redirect("/app/settings");

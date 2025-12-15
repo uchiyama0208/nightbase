@@ -189,9 +189,20 @@ export async function POST(req: Request) {
 - 卓のオープン/クローズ（例: 「A卓を開けて」「VIP1の会計をして」）
 - 注文の登録（例: 「A卓にビール3本」「B卓にシャンパン、あやか付きで」）
 - ボトルキープの登録（例: 「山田さんのウイスキーをキープして」）
+- プロフィール検索（例: 「あいりはいる？」「田中さんを探して」）
 
 ## 現在の店舗データ
 ${storeContext}
+
+## アクションボタンについて
+ユーザーが特定の人物について質問した場合（例:「○○というキャストはいる？」）、searchProfileツールを使って検索してください。
+検索結果が見つかった場合、回答の最後に以下の形式でアクション情報を含めてください:
+
+[[ACTION:open_profile:プロフィールID:ラベル]]
+
+例: 「あいりさん（キャスト）が見つかりました。[[ACTION:open_profile:abc123:あいりのプロフィールを開く]]」
+
+複数の候補がある場合は、それぞれにアクションを追加してください。
 
 ## 注意事項
 - 日本語で回答してください
@@ -208,6 +219,7 @@ ${storeContext}
             system: systemPrompt,
             messages,
             tools,
+            maxSteps: 5,
             onFinish: async ({ text }) => {
                 // Save assistant response to database
                 if (text) {

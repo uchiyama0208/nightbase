@@ -16,17 +16,14 @@ function getJSTDateString(date: Date = new Date()): string {
 // Helper function to round time based on settings
 function roundTime(date: Date, method: string, minutes: number): Date {
     const rounded = new Date(date);
-    const ms = 1000 * 60 * minutes; // milliseconds in the rounding interval
+    const ms = 1000 * 60 * minutes;
     const time = rounded.getTime();
 
     if (method === "floor") {
-        // Round down
         return new Date(Math.floor(time / ms) * ms);
     } else if (method === "ceil") {
-        // Round up
         return new Date(Math.ceil(time / ms) * ms);
     } else {
-        // Round (四捨五入)
         return new Date(Math.round(time / ms) * ms);
     }
 }
@@ -41,7 +38,6 @@ export async function clockIn(pickupRequired?: boolean, pickupDestination?: stri
         throw new Error("User not authenticated");
     }
 
-    // Resolve current profile via users.current_profile_id
     const { data: appUser } = await supabase
         .from("users")
         .select("current_profile_id")
@@ -52,92 +48,160 @@ export async function clockIn(pickupRequired?: boolean, pickupDestination?: stri
         throw new Error("No active profile found for current user");
     }
 
-    // Get current profile with store info
     const { data: profile } = await supabase
         .from("profiles")
-        .select("store_id, stores(time_rounding_enabled, time_rounding_method, time_rounding_minutes)")
+        .select("store_id, stores(time_rounding_enabled, time_rounding_method, time_rounding_minutes, day_switch_time)")
         .eq("id", appUser.current_profile_id)
         .maybeSingle();
 
     const now = new Date();
-    // Use JST for work_date
     const workDate = getJSTDateString(now);
+    const store = profile?.stores as any;
 
     // Calculate scheduled start time
-    const store = profile?.stores as any;
     let scheduledStartTime: string;
     if (store?.time_rounding_enabled) {
-        // If rounding is enabled, use rounded time
         const rounded = roundTime(
             now,
             store.time_rounding_method || "round",
             store.time_rounding_minutes || 15
         );
-        scheduledStartTime = rounded.toISOString();
+        scheduledStartTime = rounded.toLocaleTimeString("ja-JP", {
+            timeZone: "Asia/Tokyo",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+        });
     } else {
-        // If rounding is disabled, use actual clock_in time
-        scheduledStartTime = now.toISOString();
+        scheduledStartTime = now.toLocaleTimeString("ja-JP", {
+            timeZone: "Asia/Tokyo",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+        });
     }
 
-    const { error } = await supabase.from("time_cards").insert({
-        user_id: appUser.current_profile_id,
-        work_date: workDate,
-        clock_in: now.toISOString(),
-        scheduled_start_time: scheduledStartTime,
-        pickup_required: pickupRequired ?? false,
-        pickup_destination: pickupDestination || null,
-    });
+    // Check if there's already a work record for today
+    // scheduled = 確定済みシフト、pending = 提出済みシフト → これらは出勤に変換
+    // working = 勤務中、completed = 完了 → これらがあれば既に出勤済み
+    const { data: existingRecord } = await supabase
+        .from("work_records")
+        .select("id, status")
+        .eq("profile_id", appUser.current_profile_id)
+        .eq("work_date", workDate)
+        .neq("status", "cancelled")
+        .maybeSingle();
 
-    if (error) {
-        console.error("Error clocking in:", JSON.stringify(error, null, 2));
-        throw new Error(`Failed to clock in: ${error.message || error.code}`);
+    if (existingRecord) {
+        // すでに勤務中の場合は何もしない（成功として扱う）
+        if (existingRecord.status === "working") {
+            revalidatePath("/app/timecard");
+            revalidatePath("/app/attendance");
+            return; // 既に勤務中なので何もせずに正常終了
+        }
+
+        // 完了済みの場合はエラー（再出勤は不可）
+        if (existingRecord.status === "completed") {
+            throw new Error("Already completed for today");
+        }
+
+        // pending/scheduled のシフトレコードを出勤に更新
+        // clock_out, break_start, break_end もクリアして新しい勤務として開始
+        const { error } = await supabase
+            .from("work_records")
+            .update({
+                clock_in: now.toISOString(),
+                clock_out: null,
+                break_start: null,
+                break_end: null,
+                status: "working",
+                pickup_required: pickupRequired ?? false,
+                pickup_destination: pickupDestination || null,
+                updated_at: now.toISOString(),
+            })
+            .eq("id", existingRecord.id);
+
+        if (error) {
+            console.error("Error clocking in (update):", JSON.stringify(error, null, 2));
+            throw new Error(`Failed to clock in: ${error.message || error.code}`);
+        }
+    } else {
+        // Create new record
+        const { error } = await supabase.from("work_records").insert({
+            profile_id: appUser.current_profile_id,
+            store_id: profile.store_id,
+            work_date: workDate,
+            clock_in: now.toISOString(),
+            scheduled_start_time: scheduledStartTime,
+            status: "working",
+            source: "manual",
+            pickup_required: pickupRequired ?? false,
+            pickup_destination: pickupDestination || null,
+        });
+
+        if (error) {
+            console.error("Error clocking in (insert):", JSON.stringify(error, null, 2));
+            throw new Error(`Failed to clock in: ${error.message || error.code}`);
+        }
     }
 
     revalidatePath("/app/timecard");
     revalidatePath("/app/attendance");
 }
 
-export async function clockOut(timeCardId: string) {
+export async function clockOut(workRecordId: string) {
     const supabase = await createServerClient() as any;
 
-    // Get the time card to find the user and apply rounding settings
-    const { data: timeCard } = await supabase
-        .from("time_cards")
-        .select("user_id, profiles(store_id, stores(time_rounding_enabled, time_rounding_method, time_rounding_minutes))")
-        .eq("id", timeCardId)
+    const { data: workRecord } = await supabase
+        .from("work_records")
+        .select("profile_id, profiles(store_id, stores(time_rounding_enabled, time_rounding_method, time_rounding_minutes))")
+        .eq("id", workRecordId)
         .maybeSingle();
 
     const now = new Date();
 
-    // Calculate scheduled end time
     let scheduledEndTime: string;
-    if (timeCard) {
-        const profile = timeCard.profiles as any;
+    if (workRecord) {
+        const profile = workRecord.profiles as any;
         const store = profile?.stores as any;
         if (store?.time_rounding_enabled) {
-            // If rounding is enabled, use rounded time
             const rounded = roundTime(
                 now,
                 store.time_rounding_method || "round",
                 store.time_rounding_minutes || 15
             );
-            scheduledEndTime = rounded.toISOString();
+            scheduledEndTime = rounded.toLocaleTimeString("ja-JP", {
+                timeZone: "Asia/Tokyo",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
+            });
         } else {
-            // If rounding is disabled, use actual clock_out time
-            scheduledEndTime = now.toISOString();
+            scheduledEndTime = now.toLocaleTimeString("ja-JP", {
+                timeZone: "Asia/Tokyo",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
+            });
         }
     } else {
-        // Fallback if timeCard is not found
-        scheduledEndTime = now.toISOString();
+        scheduledEndTime = now.toLocaleTimeString("ja-JP", {
+            timeZone: "Asia/Tokyo",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+        });
     }
 
     const { error } = await supabase
-        .from("time_cards")
+        .from("work_records")
         .update({
             clock_out: now.toISOString(),
-            scheduled_end_time: scheduledEndTime
+            scheduled_end_time: scheduledEndTime,
+            status: "completed",
+            updated_at: now.toISOString(),
         })
-        .eq("id", timeCardId);
+        .eq("id", workRecordId);
 
     if (error) {
         console.error("Error clocking out:", error);
@@ -148,14 +212,17 @@ export async function clockOut(timeCardId: string) {
     revalidatePath("/app/attendance");
 }
 
-export async function startBreak(timeCardId: string) {
+export async function startBreak(workRecordId: string) {
     const supabase = await createServerClient() as any;
     const now = new Date();
 
     const { error } = await supabase
-        .from("time_cards")
-        .update({ break_start: now.toISOString() })
-        .eq("id", timeCardId);
+        .from("work_records")
+        .update({
+            break_start: now.toISOString(),
+            updated_at: now.toISOString(),
+        })
+        .eq("id", workRecordId);
 
     if (error) {
         console.error("Error starting break:", error);
@@ -165,14 +232,17 @@ export async function startBreak(timeCardId: string) {
     revalidatePath("/app/timecard");
 }
 
-export async function endBreak(timeCardId: string) {
+export async function endBreak(workRecordId: string) {
     const supabase = await createServerClient() as any;
     const now = new Date();
 
     const { error } = await supabase
-        .from("time_cards")
-        .update({ break_end: now.toISOString() })
-        .eq("id", timeCardId);
+        .from("work_records")
+        .update({
+            break_end: now.toISOString(),
+            updated_at: now.toISOString(),
+        })
+        .eq("id", workRecordId);
 
     if (error) {
         console.error("Error ending break:", error);
@@ -229,7 +299,6 @@ export async function importTimecardsFromCsv(formData: FormData) {
         if (!nameToProfileId.has(name)) {
             nameToProfileId.set(name, p.id as string);
         } else {
-            // 同じ名前が複数存在する場合は曖昧として無効扱いにする
             nameToProfileId.set(name, null);
         }
     }
@@ -258,7 +327,6 @@ export async function importTimecardsFromCsv(formData: FormData) {
     const parseDateTime = (workDate: string, time: string | undefined): string | null => {
         const t = (time || "").trim();
         if (!t) return null;
-        // "HH:MM" または "YYYY-MM-DD HH:MM" を想定
         let iso: string;
         if (/^\d{2}:\d{2}/.test(t)) {
             iso = new Date(`${workDate}T${t}`).toISOString();
@@ -281,10 +349,7 @@ export async function importTimecardsFromCsv(formData: FormData) {
 
         const key = displayNameRaw.toLowerCase();
         const profileId = nameToProfileId.get(key);
-        if (!profileId) {
-            // 対応するユーザーが不明・曖昧な場合はスキップ
-            continue;
-        }
+        if (!profileId) continue;
 
         const clockIn = colIndex.clock_in !== -1 ? columns[colIndex.clock_in] : undefined;
         const clockOut = colIndex.clock_out !== -1 ? columns[colIndex.clock_out] : undefined;
@@ -292,8 +357,11 @@ export async function importTimecardsFromCsv(formData: FormData) {
         const breakEnd = colIndex.break_end !== -1 ? columns[colIndex.break_end] : undefined;
 
         const record: any = {
-            user_id: profileId,
+            profile_id: profileId,
+            store_id: profile.store_id,
             work_date: workDate,
+            source: "manual",
+            status: clockOut ? "completed" : (clockIn ? "working" : "scheduled"),
         };
 
         const clockInIso = parseDateTime(workDate, clockIn);
@@ -314,7 +382,7 @@ export async function importTimecardsFromCsv(formData: FormData) {
         return;
     }
 
-    const { error } = await supabase.from("time_cards").insert(toInsert);
+    const { error } = await supabase.from("work_records").insert(toInsert);
 
     if (error) {
         console.error("Error importing timecards from CSV:", error);
@@ -332,7 +400,6 @@ export async function getTimecardData() {
         return { redirect: "/login" };
     }
 
-    // Resolve current profile via users.current_profile_id
     const { data: appUser } = await supabase
         .from("users")
         .select("current_profile_id")
@@ -343,21 +410,24 @@ export async function getTimecardData() {
         return { redirect: "/app/me" };
     }
 
-    // Fetch time cards for the current profile
-    const { data: timeCards, error } = await supabase
-        .from("time_cards")
+    // Fetch work records for the current profile
+    // タイムカードには実際に出退勤した記録（working/completed）のみ表示
+    // pending/scheduled はシフト希望であり、まだ出勤していないので除外
+    const { data: workRecords, error } = await supabase
+        .from("work_records")
         .select("*")
-        .eq("user_id", appUser.current_profile_id)
+        .eq("profile_id", appUser.current_profile_id)
+        .in("status", ["working", "completed"])
         .order("work_date", { ascending: false })
         .order("clock_in", { ascending: false });
 
     if (error) {
-        throw new Error(`Failed to fetch timecards: ${error.message}`);
+        throw new Error(`Failed to fetch work records: ${error.message}`);
     }
 
     const { data: profile } = await supabase
         .from("profiles")
-        .select("*, stores(show_break_columns, show_timecard, location_check_enabled, latitude, longitude, location_radius)")
+        .select("*, stores(show_break_columns, show_timecard, location_check_enabled, latitude, longitude, location_radius, day_switch_time)")
         .eq("id", appUser.current_profile_id)
         .maybeSingle();
 
@@ -368,15 +438,15 @@ export async function getTimecardData() {
 
     const showBreakColumns = store ? (store.show_break_columns ?? false) : false;
 
-    // Get today's latest time card (use JST)
+    // Get today's latest work record
     const today = getJSTDateString();
-    const latestTimeCard = timeCards?.find((card) => card.work_date === today) || null;
+    const latestTimeCard = workRecords?.find((record: any) => record.work_date === today) || null;
 
     // Fetch pickup history
     const { data: pickupRows } = await supabase
-        .from("time_cards")
+        .from("work_records")
         .select("pickup_destination")
-        .eq("user_id", appUser.current_profile_id)
+        .eq("profile_id", appUser.current_profile_id)
         .not("pickup_destination", "is", null);
 
     const pickupHistory = Array.from(new Set(
@@ -384,6 +454,24 @@ export async function getTimecardData() {
             .map((row: any) => row.pickup_destination)
             .filter((dest: string | null) => dest && dest.trim() !== "")
     )) as string[];
+
+    // Convert to old timeCards format for compatibility
+    const timeCards = workRecords?.map((r: any) => ({
+        id: r.id,
+        user_id: r.profile_id,
+        work_date: r.work_date,
+        clock_in: r.clock_in,
+        clock_out: r.clock_out,
+        break_start: r.break_start,
+        break_end: r.break_end,
+        scheduled_start_time: r.scheduled_start_time,
+        scheduled_end_time: r.scheduled_end_time,
+        pickup_required: r.pickup_required,
+        pickup_destination: r.pickup_destination,
+        forgot_clockout: r.forgot_clockout,
+        created_at: r.created_at,
+        updated_at: r.updated_at,
+    })) || [];
 
     return {
         data: {
@@ -396,7 +484,20 @@ export async function getTimecardData() {
                 location_radius: store?.location_radius,
             },
             showBreakColumns,
-            latestTimeCard,
+            latestTimeCard: latestTimeCard ? {
+                id: latestTimeCard.id,
+                user_id: latestTimeCard.profile_id,
+                work_date: latestTimeCard.work_date,
+                clock_in: latestTimeCard.clock_in,
+                clock_out: latestTimeCard.clock_out,
+                break_start: latestTimeCard.break_start,
+                break_end: latestTimeCard.break_end,
+                scheduled_start_time: latestTimeCard.scheduled_start_time,
+                scheduled_end_time: latestTimeCard.scheduled_end_time,
+                pickup_required: latestTimeCard.pickup_required,
+                pickup_destination: latestTimeCard.pickup_destination,
+                forgot_clockout: latestTimeCard.forgot_clockout,
+            } : null,
             pickupHistory,
         }
     };

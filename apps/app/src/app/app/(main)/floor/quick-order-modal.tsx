@@ -13,8 +13,9 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Minus, Plus, X, ShoppingCart, PlusCircle, History, ChevronLeft, Clock, User, Users, RefreshCcw } from "lucide-react";
-import { getMenus, getMenuCategories, createOrder, getSessionOrders } from "./actions";
+import { Minus, Plus, X, ShoppingCart, PlusCircle, History, ChevronLeft, Clock, User, Users, RefreshCcw, AlertTriangle, Package } from "lucide-react";
+import { getMenus, getMenuCategories } from "./actions/menu";
+import { createOrder, getSessionOrders } from "./actions/order";
 import { MenuEditModal } from "@/app/app/(main)/menus/menu-edit-modal";
 import { useToast } from "@/components/ui/use-toast";
 import { TableSession } from "@/types/floor";
@@ -23,10 +24,11 @@ import { formatTime } from "./utils/format";
 
 interface QuickOrderModalProps {
     session: TableSession;
-    table: Table;
+    table: Table | null;
     open: boolean;
     onOpenChange: (open: boolean) => void;
     onOrderComplete: () => void;
+    initialTarget?: string;
 }
 
 interface MenuCategory {
@@ -39,15 +41,19 @@ interface Menu {
     id: string;
     name: string;
     price: number;
-    category_id: string;
-    is_for_guest: boolean;
-    is_for_cast: boolean;
-    is_hidden: boolean;
-    hide_from_slip: boolean;
-    created_at: string;
-    updated_at: string;
-    store_id: string;
-    menu_categories?: MenuCategory;
+    category_id: string | null;
+    is_for_guest?: boolean;
+    is_for_cast?: boolean;
+    is_hidden?: boolean;
+    hide_from_slip?: boolean;
+    created_at?: string;
+    updated_at?: string;
+    store_id?: string;
+    menu_categories?: MenuCategory | null;
+    stock_enabled?: boolean;
+    stock_quantity?: number;
+    stock_alert_threshold?: number;
+    image_url?: string | null;
 }
 
 interface OrderHistoryItem {
@@ -61,12 +67,12 @@ interface OrderHistoryItem {
     guest?: { id: string; display_name: string };
 }
 
-export function QuickOrderModal({ session, table, open, onOpenChange, onOrderComplete }: QuickOrderModalProps) {
+export function QuickOrderModal({ session, table, open, onOpenChange, onOrderComplete, initialTarget }: QuickOrderModalProps) {
     const [menus, setMenus] = useState<Menu[]>([]);
     const [categories, setCategories] = useState<MenuCategory[]>([]);
     const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
     const [cart, setCart] = useState<{ [menuId: string]: number }>({});
-    const [selectedTarget, setSelectedTarget] = useState<string>("table");
+    const [selectedTarget, setSelectedTarget] = useState<string>(initialTarget || "table");
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // View state instead of multiple dialog states
@@ -91,12 +97,12 @@ export function QuickOrderModal({ session, table, open, onOpenChange, onOrderCom
         if (open) {
             loadData();
             setCart({});
-            setSelectedTarget("table");
+            setSelectedTarget(initialTarget || "table");
             setTempMenus([]);
             setHistoryFilter("all");
             setView('order');
         }
-    }, [open]);
+    }, [open, initialTarget]);
 
     useEffect(() => {
         if (view === 'history' && session?.id) {
@@ -291,6 +297,8 @@ export function QuickOrderModal({ session, table, open, onOpenChange, onOrderCom
         setIsMenuEditModalOpen(false);
         // Reload menus to get the newly created menu
         await loadData();
+        // Return to order view
+        setView('order');
     };
 
     const totalAmount = Object.entries(cart).reduce((sum, [menuId, quantity]) => {
@@ -348,29 +356,31 @@ export function QuickOrderModal({ session, table, open, onOpenChange, onOrderCom
         return options;
     }, [targetOptions]);
 
+    const needsFullHeight = view === 'order' || view === 'history';
+
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className="max-w-lg h-[85vh] flex flex-col p-0 gap-0">
+                <DialogContent className={`max-w-lg flex flex-col p-0 gap-0 ${needsFullHeight ? 'h-[85vh]' : ''}`}>
                     {/* View: Order (Main) */}
                     {view === 'order' && (
                         <>
                             {/* Header */}
-                            <div className="p-4 border-b space-y-3">
+                            <div className="px-3 py-2 border-b space-y-2">
                                 <div className="flex items-center gap-2">
                                     <Button
                                         variant="ghost"
                                         size="icon"
-                                        className="h-8 w-8 -ml-2"
+                                        className="h-7 w-7 -ml-1"
                                         onClick={() => onOpenChange(false)}
                                     >
                                         <ChevronLeft className="h-5 w-5" />
                                     </Button>
-                                    <DialogTitle className="text-lg font-bold">{table.name} - クイック注文</DialogTitle>
+                                    <DialogTitle className="text-base font-bold">{table?.name || "卓なし"} - クイック注文</DialogTitle>
                                 </div>
 
                                 <Select value={selectedTarget} onValueChange={setSelectedTarget}>
-                                    <SelectTrigger className="w-full">
+                                    <SelectTrigger className="w-full h-9">
                                         <SelectValue placeholder="頼んだ人を選択" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -401,69 +411,89 @@ export function QuickOrderModal({ session, table, open, onOpenChange, onOrderCom
                                             </button>
                                         ))}
                                     </div>
-                                    <div className="p-2 border-t border-slate-200 dark:border-slate-700">
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="w-full"
+                                    <div className="p-1 border-t border-slate-200 dark:border-slate-700">
+                                        <button
+                                            type="button"
+                                            className="w-full px-1 py-2 text-[10px] text-muted-foreground hover:text-foreground hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors"
                                             onClick={() => setView('menu-type-select')}
                                         >
-                                            <PlusCircle className="h-4 w-4" />
-                                        </Button>
+                                            メニュー作成
+                                        </button>
                                     </div>
                                 </div>
 
                                 {/* Menu List */}
                                 <ScrollArea className="flex-1">
                                     <div className="p-2 space-y-1">
-                                        {filteredMenus.map(menu => (
-                                            <div
-                                                key={menu.id}
-                                                className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700"
-                                            >
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="font-medium text-sm truncate">{menu.name}</div>
-                                                    <div className="text-xs text-muted-foreground">
-                                                        ¥{menu.price.toLocaleString()}
-                                                    </div>
-                                                </div>
+                                        {filteredMenus.map(menu => {
+                                            const isOutOfStock = menu.stock_enabled && menu.stock_quantity === 0;
+                                            const isLowStock = menu.stock_enabled && (menu.stock_quantity ?? 0) > 0 && (menu.stock_quantity ?? 0) <= (menu.stock_alert_threshold ?? 3);
 
-                                                <div className="flex items-center gap-1 ml-2">
-                                                    {cart[menu.id] > 0 ? (
-                                                        <>
-                                                            <Button
-                                                                size="icon"
-                                                                variant="outline"
-                                                                className="h-8 w-8"
-                                                                onClick={() => removeFromCart(menu.id)}
-                                                            >
-                                                                <Minus className="h-3 w-3" />
-                                                            </Button>
-                                                            <span className="w-6 text-center text-sm font-medium">
-                                                                {cart[menu.id]}
-                                                            </span>
+                                            return (
+                                                <div
+                                                    key={menu.id}
+                                                    className={`flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 ${isOutOfStock ? 'opacity-50' : ''}`}
+                                                >
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-medium text-sm truncate">{menu.name}</span>
+                                                            {isOutOfStock && (
+                                                                <span className="inline-flex items-center gap-0.5 rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400 shrink-0">
+                                                                    <Package className="h-2.5 w-2.5" />
+                                                                    売切
+                                                                </span>
+                                                            )}
+                                                            {isLowStock && (
+                                                                <span className="inline-flex items-center gap-0.5 rounded-full bg-yellow-100 px-1.5 py-0.5 text-[10px] font-medium text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 shrink-0">
+                                                                    <AlertTriangle className="h-2.5 w-2.5" />
+                                                                    残{menu.stock_quantity}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div className="text-xs text-muted-foreground">
+                                                            ¥{menu.price.toLocaleString()}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-1 ml-2">
+                                                        {isOutOfStock ? (
+                                                            <span className="text-xs text-muted-foreground px-2">在庫なし</span>
+                                                        ) : cart[menu.id] > 0 ? (
+                                                            <>
+                                                                <Button
+                                                                    size="icon"
+                                                                    variant="outline"
+                                                                    className="h-8 w-8"
+                                                                    onClick={() => removeFromCart(menu.id)}
+                                                                >
+                                                                    <Minus className="h-3 w-3" />
+                                                                </Button>
+                                                                <span className="w-6 text-center text-sm font-medium">
+                                                                    {cart[menu.id]}
+                                                                </span>
+                                                                <Button
+                                                                    size="icon"
+                                                                    variant="outline"
+                                                                    className="h-8 w-8"
+                                                                    onClick={() => addToCart(menu.id)}
+                                                                >
+                                                                    <Plus className="h-3 w-3" />
+                                                                </Button>
+                                                            </>
+                                                        ) : (
                                                             <Button
                                                                 size="icon"
                                                                 variant="outline"
                                                                 className="h-8 w-8"
                                                                 onClick={() => addToCart(menu.id)}
                                                             >
-                                                                <Plus className="h-3 w-3" />
+                                                                <Plus className="h-4 w-4" />
                                                             </Button>
-                                                        </>
-                                                    ) : (
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
-                                                            onClick={() => addToCart(menu.id)}
-                                                        >
-                                                            <Plus className="h-3 w-3 mr-1" />
-                                                            追加
-                                                        </Button>
-                                                    )}
+                                                        )}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
 
                                         {filteredMenus.length === 0 && (
                                             <div className="text-center py-8 text-muted-foreground text-sm">
@@ -475,7 +505,7 @@ export function QuickOrderModal({ session, table, open, onOpenChange, onOrderCom
                             </div>
 
                             {/* Footer */}
-                            <div className="p-4 border-t bg-slate-50 dark:bg-slate-900 space-y-3">
+                            <div className="px-3 py-2 border-t bg-slate-50 dark:bg-slate-900 space-y-2">
                                 {totalItems > 0 && (
                                     <div className="flex items-center justify-between text-sm">
                                         <div className="flex items-center gap-2">
@@ -488,15 +518,14 @@ export function QuickOrderModal({ session, table, open, onOpenChange, onOrderCom
                                 <div className="flex gap-2">
                                     <Button
                                         variant="outline"
-                                        size="lg"
-                                        className="px-3"
+                                        size="icon"
+                                        className="h-10 w-10 shrink-0"
                                         onClick={() => setView('history')}
                                     >
                                         <History className="h-5 w-5" />
                                     </Button>
                                     <Button
-                                        className="flex-1"
-                                        size="lg"
+                                        className="flex-1 h-10"
                                         onClick={handleOrder}
                                         disabled={totalItems === 0 || isSubmitting}
                                     >
@@ -510,29 +539,27 @@ export function QuickOrderModal({ session, table, open, onOpenChange, onOrderCom
                     {/* View: Menu Type Selection */}
                     {view === 'menu-type-select' && (
                         <>
-                            <div className="p-4 border-b flex items-center gap-2">
+                            <div className="px-3 py-2 border-b flex items-center gap-2">
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-8 w-8 -ml-2"
+                                    className="h-7 w-7 -ml-1"
                                     onClick={() => setView('order')}
                                 >
                                     <ChevronLeft className="h-5 w-5" />
                                 </Button>
-                                <DialogTitle className="text-lg font-bold">メニュー作成方法を選択</DialogTitle>
+                                <DialogTitle className="text-base font-bold">メニュー作成方法を選択</DialogTitle>
                             </div>
-                            <div className="flex-1 flex flex-col items-center justify-center p-6 gap-4">
+                            <div className="flex-1 flex flex-col items-center justify-center p-6 gap-3">
                                 <Button
-                                    size="lg"
-                                    className="w-full max-w-sm h-20 text-lg"
+                                    className="w-full max-w-sm h-12"
                                     onClick={() => setIsMenuEditModalOpen(true)}
                                 >
                                     通常メニュー登録
                                 </Button>
                                 <Button
-                                    size="lg"
                                     variant="outline"
-                                    className="w-full max-w-sm h-20 text-lg"
+                                    className="w-full max-w-sm h-12"
                                     onClick={() => setView('create-temp-menu')}
                                 >
                                     一時的なメニュー作成
@@ -544,43 +571,41 @@ export function QuickOrderModal({ session, table, open, onOpenChange, onOrderCom
                     {/* View: Create Temporary Menu */}
                     {view === 'create-temp-menu' && (
                         <>
-                            <div className="p-4 border-b flex items-center gap-2">
+                            <div className="px-3 py-2 border-b flex items-center gap-2">
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-8 w-8 -ml-2"
+                                    className="h-7 w-7 -ml-1"
                                     onClick={() => setView('menu-type-select')}
                                 >
                                     <ChevronLeft className="h-5 w-5" />
                                 </Button>
-                                <DialogTitle className="text-lg font-bold">一時メニュー作成</DialogTitle>
+                                <DialogTitle className="text-base font-bold">一時メニュー作成</DialogTitle>
                             </div>
-                            <ScrollArea className="flex-1">
-                                <div className="p-4 space-y-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="menu-name">メニュー名</Label>
-                                        <Input
-                                            id="menu-name"
-                                            value={newMenuName}
-                                            onChange={(e) => setNewMenuName(e.target.value)}
-                                            placeholder="例: オリジナルカクテル"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="menu-price">金額 (円)</Label>
-                                        <Input
-                                            id="menu-price"
-                                            type="number"
-                                            value={newMenuPrice}
-                                            onChange={(e) => setNewMenuPrice(e.target.value)}
-                                            placeholder="1000"
-                                        />
-                                    </div>
+                            <div className="p-4 space-y-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="menu-name">メニュー名</Label>
+                                    <Input
+                                        id="menu-name"
+                                        value={newMenuName}
+                                        onChange={(e) => setNewMenuName(e.target.value)}
+                                        placeholder="例: オリジナルカクテル"
+                                    />
                                 </div>
-                            </ScrollArea>
-                            <div className="p-4 border-t bg-slate-50 dark:bg-slate-900 flex justify-end gap-2">
-                                <Button variant="outline" onClick={() => setView('menu-type-select')}>キャンセル</Button>
-                                <Button onClick={handleCreateTempMenu}>決定</Button>
+                                <div className="space-y-2">
+                                    <Label htmlFor="menu-price">金額 (円)</Label>
+                                    <Input
+                                        id="menu-price"
+                                        type="number"
+                                        value={newMenuPrice}
+                                        onChange={(e) => setNewMenuPrice(e.target.value)}
+                                        placeholder="1000"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-2 pt-2">
+                                    <Button onClick={handleCreateTempMenu}>決定</Button>
+                                    <Button variant="outline" onClick={() => setView('menu-type-select')}>キャンセル</Button>
+                                </div>
                             </div>
                         </>
                     )}
@@ -588,21 +613,21 @@ export function QuickOrderModal({ session, table, open, onOpenChange, onOrderCom
                     {/* View: History */}
                     {view === 'history' && (
                         <>
-                            <div className="p-4 border-b space-y-3">
-                                <div className="flex items-center gap-2 mb-2">
+                            <div className="px-3 py-2 border-b space-y-2">
+                                <div className="flex items-center gap-2">
                                     <Button
                                         variant="ghost"
                                         size="icon"
-                                        className="h-8 w-8 -ml-2"
+                                        className="h-7 w-7 -ml-1"
                                         onClick={() => setView('order')}
                                     >
                                         <ChevronLeft className="h-5 w-5" />
                                     </Button>
-                                    <DialogTitle className="text-lg font-bold">注文履歴</DialogTitle>
+                                    <DialogTitle className="text-base font-bold">注文履歴</DialogTitle>
                                 </div>
 
                                 <Select value={historyFilter} onValueChange={setHistoryFilter}>
-                                    <SelectTrigger className="w-full">
+                                    <SelectTrigger className="w-full h-9">
                                         <SelectValue placeholder="表示対象を選択" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -616,7 +641,7 @@ export function QuickOrderModal({ session, table, open, onOpenChange, onOrderCom
                             </div>
 
                             <ScrollArea className="flex-1">
-                                <div className="p-4 space-y-4">
+                                <div className="p-3 space-y-3">
                                     {filteredHistory.length === 0 ? (
                                         <div className="text-center py-8 text-muted-foreground text-sm">
                                             注文履歴がありません
@@ -676,7 +701,7 @@ export function QuickOrderModal({ session, table, open, onOpenChange, onOrderCom
                             </ScrollArea>
 
                             {/* Footer for History View */}
-                            <div className="p-4 border-t bg-slate-50 dark:bg-slate-900 space-y-3">
+                            <div className="px-3 py-2 border-t bg-slate-50 dark:bg-slate-900 space-y-2">
                                 {totalItems > 0 && (
                                     <div className="flex items-center justify-between text-sm">
                                         <div className="flex items-center gap-2">
@@ -688,8 +713,7 @@ export function QuickOrderModal({ session, table, open, onOpenChange, onOrderCom
                                 )}
                                 <div className="flex gap-2">
                                     <Button
-                                        className="flex-1"
-                                        size="lg"
+                                        className="flex-1 h-10"
                                         onClick={handleOrder}
                                         disabled={totalItems === 0 || isSubmitting}
                                     >

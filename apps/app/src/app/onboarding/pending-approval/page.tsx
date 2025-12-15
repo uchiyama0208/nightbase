@@ -23,7 +23,7 @@ export default async function PendingApprovalPage() {
 
     const { data: profile } = await supabase
         .from("profiles")
-        .select("approval_status, role, stores(name)")
+        .select("id, role, stores(name)")
         .eq("id", appUser.current_profile_id)
         .maybeSingle();
 
@@ -31,12 +31,23 @@ export default async function PendingApprovalPage() {
         redirect("/signup");
     }
 
-    if (profile.approval_status === "approved") {
+    // If profile has an approved role (cast or staff), they are approved
+    // "guest" role means pending/unapproved
+    if (profile.role && profile.role !== "guest") {
         redirect("/app/dashboard");
     }
 
+    // Check join_requests table for status
+    const { data: joinRequest } = await supabase
+        .from("join_requests")
+        .select("status")
+        .eq("profile_id", profile.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
     const storeName = (profile.stores as any)?.name || "店舗";
-    const status = profile.approval_status as "pending" | "rejected";
+    const status = (joinRequest?.status || "pending") as "pending" | "rejected";
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">

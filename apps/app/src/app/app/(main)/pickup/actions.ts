@@ -4,16 +4,7 @@ import { createServerClient } from "@/lib/supabaseServerClient";
 import { createServiceRoleClient } from "@/lib/supabaseServiceClient";
 import { revalidatePath } from "next/cache";
 import OpenAI from "openai";
-
-// 今日の日付をJSTで取得
-function getTodayJST(): string {
-    return new Date().toLocaleDateString("ja-JP", {
-        timeZone: "Asia/Tokyo",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-    }).replace(/\//g, "-");
-}
+import { getBusinessDate } from "../queue/utils";
 
 export interface PickupRouteWithPassengers {
     id: string;
@@ -82,12 +73,20 @@ export async function getPickupData(dateParam?: string): Promise<
         return { redirect: "/app/me" };
     }
 
-    // Staff only
-    if (currentProfile.role !== "staff") {
+    // Staff and admin only
+    if (currentProfile.role !== "staff" && currentProfile.role !== "admin") {
         return { redirect: "/app/timecard" };
     }
 
-    const targetDate = dateParam || getTodayJST();
+    // 店舗のday_switch_timeを取得
+    const { data: storeSettings } = await supabase
+        .from("stores")
+        .select("day_switch_time")
+        .eq("id", currentProfile.store_id)
+        .single();
+
+    const daySwitchTime = storeSettings?.day_switch_time || "05:00";
+    const targetDate = dateParam || getBusinessDate(daySwitchTime);
     const serviceSupabase = createServiceRoleClient() as any;
 
     // Get all profiles in the store
@@ -104,21 +103,79 @@ export async function getPickupData(dateParam?: string): Promise<
         };
     }
 
-    // Get today's time_cards (attendees with pickup_destination)
+    // 営業日に該当するwork_dateを計算
+    // 営業日 = targetDate の場合、work_date は targetDate または targetDate+1（深夜帯）
+    // 例: day_switch_time=05:00, 営業日=12/13 → work_date=12/13(05:00以降) or 12/14(05:00未満)
+    const targetDateObj = new Date(targetDate + "T00:00:00+09:00");
+    const nextDateObj = new Date(targetDateObj);
+    nextDateObj.setDate(nextDateObj.getDate() + 1);
+    const nextDate = nextDateObj.toLocaleDateString("ja-JP", {
+        timeZone: "Asia/Tokyo",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+    }).replace(/\//g, "-");
+
+    // Get time_cards for both dates (business day spans two calendar dates)
     const { data: timeCards } = await serviceSupabase
         .from("time_cards")
-        .select("user_id, pickup_destination, clock_in, scheduled_start_time")
-        .eq("work_date", targetDate)
+        .select("user_id, pickup_destination, clock_in, scheduled_start_time, work_date")
+        .in("work_date", [targetDate, nextDate])
         .in("user_id", Object.keys(profileMap));
 
-    const todayAttendees: TodayAttendee[] = (timeCards || [])
-        .filter((tc: any) => profileMap[tc.user_id]?.role === "cast")
-        .map((tc: any) => ({
-            profile_id: tc.user_id,
-            display_name: profileMap[tc.user_id]?.display_name || "不明",
-            pickup_destination: tc.pickup_destination,
-            start_time: tc.scheduled_start_time || tc.clock_in,
-        }));
+    // day_switch_time をパース
+    const switchParts = daySwitchTime.split(":");
+    const switchHour = parseInt(switchParts[0], 10) || 5;
+    const switchMinute = parseInt(switchParts[1], 10) || 0;
+
+    // 営業日に該当するレコードのみフィルタ
+    const filteredTimeCards = (timeCards || []).filter((tc: any) => {
+        if (!tc.clock_in) return false;
+        const clockInDate = new Date(tc.clock_in);
+        const clockInJST = new Date(clockInDate.toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
+        const clockInHour = clockInJST.getHours();
+        const clockInMinute = clockInJST.getMinutes();
+        const clockInDateStr = clockInJST.toLocaleDateString("ja-JP", {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+        }).replace(/\//g, "-");
+
+        // 切り替え時間以降 → その日が営業日
+        // 切り替え時間未満 → 前日が営業日
+        if (clockInHour > switchHour || (clockInHour === switchHour && clockInMinute >= switchMinute)) {
+            // 切り替え時間以降: clock_inの日付 = 営業日
+            return clockInDateStr === targetDate;
+        } else {
+            // 切り替え時間未満: clock_inの日付の前日 = 営業日
+            const prevDate = new Date(clockInJST);
+            prevDate.setDate(prevDate.getDate() - 1);
+            const prevDateStr = prevDate.toLocaleDateString("ja-JP", {
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+            }).replace(/\//g, "-");
+            return prevDateStr === targetDate;
+        }
+    });
+
+    // pickup_destinationが設定されている出勤者を全て取得（role問わず）
+    // 同じユーザーが複数のtime_cardsを持つ場合は最新のものを使用
+    const attendeeMap = new Map<string, TodayAttendee>();
+    for (const tc of filteredTimeCards) {
+        if (!tc.pickup_destination) continue;
+        const existing = attendeeMap.get(tc.user_id);
+        // 既存のレコードがない、または新しいclock_inの場合は上書き
+        if (!existing || (tc.clock_in && (!existing.start_time || tc.clock_in > existing.start_time))) {
+            attendeeMap.set(tc.user_id, {
+                profile_id: tc.user_id,
+                display_name: profileMap[tc.user_id]?.display_name || "不明",
+                pickup_destination: tc.pickup_destination,
+                start_time: tc.scheduled_start_time || tc.clock_in,
+            });
+        }
+    }
+    const todayAttendees: TodayAttendee[] = Array.from(attendeeMap.values());
 
     // Get staff and partners for driver selection
     const staffProfiles = (storeProfiles || []).filter(

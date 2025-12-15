@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { ChevronLeft, ChevronRight, Check, Calendar, Users, Clock, Loader2, Send } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, Calendar, Users, Clock, Loader2, Send, Search } from "lucide-react";
 import Image from "next/image";
 import {
     Dialog,
@@ -15,6 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { createShiftRequest, getLineTargetProfiles, sendLineNotification, checkExistingRequestConflicts } from "./actions";
 import { LineWarningModal } from "./line-warning-modal";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/ui/use-toast";
 
 interface Profile {
     id: string;
@@ -64,6 +65,7 @@ export function ShiftRequestModal({
     closedDays = [],
 }: ShiftRequestModalProps) {
     const router = useRouter();
+    const { toast } = useToast();
     const [step, setStep] = useState<Step>("role");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSendingLine, setIsSendingLine] = useState(false);
@@ -74,6 +76,7 @@ export function ShiftRequestModal({
     } | null>(null);
     const [createdRequestId, setCreatedRequestId] = useState<string | null>(null);
     const [showLineSendConfirm, setShowLineSendConfirm] = useState(false);
+    const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
     // Form state
     const [deadlineDaysBefore, setDeadlineDaysBefore] = useState(3);
@@ -83,6 +86,7 @@ export function ShiftRequestModal({
     const [useAllActiveProfiles, setUseAllActiveProfiles] = useState(false);
     const [showMemberList, setShowMemberList] = useState(false);
     const [dateConfigs, setDateConfigs] = useState<DateConfig[]>([]);
+    const [memberSearchQuery, setMemberSearchQuery] = useState("");
 
     // Warning state
     const [isCheckingConflicts, setIsCheckingConflicts] = useState(false);
@@ -121,6 +125,15 @@ export function ShiftRequestModal({
             return !p.status || p.status === "在籍中";
         });
     }, [filteredProfiles]);
+
+    // Filter profiles by search query
+    const searchedProfiles = useMemo(() => {
+        if (!memberSearchQuery.trim()) return filteredProfiles;
+        const query = memberSearchQuery.toLowerCase();
+        return filteredProfiles.filter((p) =>
+            p.display_name?.toLowerCase().includes(query)
+        );
+    }, [filteredProfiles, memberSearchQuery]);
 
     // シフト開始日（選択した日付の中で一番直近の日付）
     const shiftStartDate = useMemo(() => {
@@ -321,11 +334,26 @@ export function ShiftRequestModal({
     const sendLineAndClose = async (requestId: string) => {
         setIsSendingLine(true);
         try {
-            await sendLineNotification(requestId, storeName);
+            const result = await sendLineNotification(requestId, storeName);
+            if (result.success) {
+                toast({
+                    title: "LINE通知を送信しました",
+                });
+            } else {
+                console.error("LINE send error:", result.error);
+                toast({
+                    title: "送信に失敗しました",
+                    variant: "destructive",
+                });
+            }
             router.refresh();
             onClose();
         } catch (error) {
             console.error("Error sending LINE:", error);
+            toast({
+                title: "送信に失敗しました",
+                variant: "destructive",
+            });
         } finally {
             setIsSendingLine(false);
             setIsSubmitting(false);
@@ -372,28 +400,33 @@ export function ShiftRequestModal({
         <>
             <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
                 <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0">
-                    <DialogHeader className="flex flex-row items-center border-b px-4 py-3 flex-shrink-0 mb-0">
-                        {step !== "role" && (
-                            <button
-                                type="button"
-                                onClick={handleBack}
-                                className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 mr-2"
-                            >
-                                <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                            </button>
-                        )}
-                        <DialogTitle className="text-lg font-semibold text-gray-900 dark:text-white">
-                            {step === "role" && "シフト募集を作成"}
-                            {step === "members" && "対象メンバーを選択"}
-                            {step === "dates" && "対象日付を選択"}
-                            {step === "warnings" && "確認事項"}
-                            {step === "times" && "出勤時間を設定"}
-                            {step === "deadline" && "提出期限を設定"}
-                            {step === "confirm" && "内容を確認"}
-                        </DialogTitle>
+                    <DialogHeader className="border-b px-4 py-3 flex-shrink-0 mb-0">
+                        <div className="flex items-center justify-between">
+                            {step !== "role" ? (
+                                <button
+                                    type="button"
+                                    onClick={handleBack}
+                                    className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+                                >
+                                    <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                                </button>
+                            ) : (
+                                <div className="w-7" />
+                            )}
+                            <DialogTitle className="text-lg font-semibold text-gray-900 dark:text-white">
+                                {step === "role" && "シフト募集を作成"}
+                                {step === "members" && "対象メンバーを選択"}
+                                {step === "dates" && "対象日付を選択"}
+                                {step === "warnings" && "確認事項"}
+                                {step === "times" && "出勤時間を設定"}
+                                {step === "deadline" && "提出期限を設定"}
+                                {step === "confirm" && "内容を確認"}
+                            </DialogTitle>
+                            <div className="w-7" />
+                        </div>
                     </DialogHeader>
 
-                    <div className="flex-1 overflow-y-auto p-4 min-h-0">
+                    <div className="flex-1 overflow-y-auto px-4 py-4 min-h-0">
                         {/* Step 1: Role Selection */}
                         {step === "role" && (
                             <div className="space-y-4">
@@ -491,30 +524,37 @@ export function ShiftRequestModal({
                                             }
                                             const dateKey = formatDateKey(day);
                                             const isSelected = selectedDates.includes(dateKey);
-                                            const isPast = new Date(dateKey) < new Date(today.toDateString());
-                                            const dayOfWeek = new Date(calendarYear, calendarMonth, day).getDay();
+                                            const cellDate = new Date(calendarYear, calendarMonth, day);
+                                            const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                                            const isPast = cellDate < todayStart;
+                                            const dayOfWeek = cellDate.getDay();
                                             const dayName = weekDays[dayOfWeek];
                                             const isClosedDay = closedDaysJP.includes(dayName);
 
+                                            const baseClass = "h-10 text-sm relative";
+                                            let stateClass = "";
+
+                                            if (isPast) {
+                                                stateClass = "text-gray-300 dark:text-gray-600 cursor-not-allowed";
+                                            } else if (isSelected) {
+                                                stateClass = "bg-blue-600 text-white";
+                                            } else if (isClosedDay) {
+                                                stateClass = "text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800/50 hover:bg-gray-200 dark:hover:bg-gray-700/50";
+                                            } else if (dayOfWeek === 0) {
+                                                stateClass = "text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20";
+                                            } else if (dayOfWeek === 6) {
+                                                stateClass = "text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20";
+                                            } else {
+                                                stateClass = "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800";
+                                            }
+
                                             return (
                                                 <button
-                                                    key={day}
+                                                    key={`${dateKey}-${isSelected}`}
                                                     type="button"
                                                     onClick={() => !isPast && toggleDate(dateKey)}
                                                     disabled={isPast}
-                                                    className={`h-10 text-sm transition-colors relative ${
-                                                        isPast
-                                                            ? "text-gray-300 dark:text-gray-600 cursor-not-allowed"
-                                                            : isSelected
-                                                            ? "bg-blue-600 text-white"
-                                                            : isClosedDay
-                                                            ? "text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800/50"
-                                                            : dayOfWeek === 0
-                                                            ? "text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                                            : dayOfWeek === 6
-                                                            ? "text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                                                            : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-                                                    }`}
+                                                    className={`${baseClass} ${stateClass}`}
                                                 >
                                                     {day}
                                                 </button>
@@ -522,14 +562,6 @@ export function ShiftRequestModal({
                                         })}
                                     </div>
                                 </div>
-
-                                {/* Legends */}
-                                {closedDaysJP.length > 0 && (
-                                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                                        <span className="w-3 h-3 rounded bg-gray-100 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700" />
-                                        <span>店休日（{closedDaysJP.join("・")}）</span>
-                                    </div>
-                                )}
 
                                 {/* Selected Dates */}
                                 {selectedDates.length > 0 && (
@@ -554,9 +586,9 @@ export function ShiftRequestModal({
 
                         {/* Step 2: Member Selection */}
                         {step === "members" && (
-                            <div className="space-y-4">
+                            <div>
                                 {!showMemberList ? (
-                                    <>
+                                    <div className="space-y-4">
                                         <p className="text-sm text-gray-500 dark:text-gray-400">
                                             対象メンバーを選択してください
                                         </p>
@@ -607,14 +639,37 @@ export function ShiftRequestModal({
                                                 </div>
                                             </button>
                                         </div>
-                                    </>
+                                    </div>
                                 ) : (
-                                    <>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                                            送信するメンバーを選択してください
-                                        </p>
-                                        <div className="space-y-2 max-h-[350px] overflow-y-auto">
-                                            {filteredProfiles.map((profile) => (
+                                    <div className="space-y-2">
+                                        <div className="relative">
+                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                            <Input
+                                                type="text"
+                                                placeholder="名前で検索"
+                                                value={memberSearchQuery}
+                                                onChange={(e) => setMemberSearchQuery(e.target.value)}
+                                                className="pl-9 h-9"
+                                            />
+                                        </div>
+                                        <div className="flex items-center gap-2 pb-2 border-b border-gray-100 dark:border-gray-800">
+                                            <button
+                                                type="button"
+                                                onClick={() => setSelectedProfileIds(filteredProfiles.map((p) => p.id))}
+                                                className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                                            >
+                                                全選択
+                                            </button>
+                                            <span className="text-gray-300 dark:text-gray-600">|</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => setSelectedProfileIds([])}
+                                                className="text-xs text-gray-500 dark:text-gray-400 hover:underline"
+                                            >
+                                                全解除
+                                            </button>
+                                        </div>
+                                        {searchedProfiles.map((profile) => (
                                                 <label
                                                     key={profile.id}
                                                     className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
@@ -638,7 +693,9 @@ export function ShiftRequestModal({
                                                             className="h-8 w-8 rounded-full object-cover"
                                                         />
                                                     ) : (
-                                                        <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700" />
+                                                        <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xs font-medium text-gray-500 dark:text-gray-400">
+                                                            {profile.display_name?.charAt(0) || "?"}
+                                                        </div>
                                                     )}
                                                     <div className="flex-1">
                                                         <p className="text-sm font-medium text-gray-900 dark:text-white">
@@ -651,13 +708,12 @@ export function ShiftRequestModal({
                                                     </div>
                                                 </label>
                                             ))}
-                                        </div>
                                         {selectedProfileIds.length > 0 && (
-                                            <p className="text-sm text-blue-600 dark:text-blue-400">
+                                            <p className="text-sm text-blue-600 dark:text-blue-400 mt-2">
                                                 {selectedProfileIds.length}名を選択中
                                             </p>
                                         )}
-                                    </>
+                                    </div>
                                 )}
                             </div>
                         )}
@@ -873,39 +929,38 @@ export function ShiftRequestModal({
                                         </div>
                                     </div>
                                 </div>
+                                <div className="flex flex-col gap-2">
+                                    <Button
+                                        onClick={handleSubmit}
+                                        disabled={isSubmitting}
+                                        className="w-full"
+                                    >
+                                        {isSubmitting ? (
+                                            <>
+                                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                                作成中...
+                                            </>
+                                        ) : (
+                                            "作成"
+                                        )}
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => setShowCancelConfirm(true)}
+                                        disabled={isSubmitting}
+                                        className="w-full"
+                                    >
+                                        キャンセル
+                                    </Button>
+                                </div>
                             </div>
                         )}
                     </div>
 
                     {/* Footer */}
-                    <div className="border-t px-4 py-3 flex justify-end gap-2 flex-shrink-0">
-                        {step === "confirm" ? (
-                            <div className="flex gap-2 w-full">
-                                <Button
-                                    variant="outline"
-                                    onClick={onClose}
-                                    disabled={isSubmitting}
-                                    className="flex-1 bg-white dark:bg-gray-800"
-                                >
-                                    キャンセル
-                                </Button>
-                                <Button
-                                    onClick={handleSubmit}
-                                    disabled={isSubmitting}
-                                    className="flex-1"
-                                >
-                                    {isSubmitting ? (
-                                        <>
-                                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                            作成中...
-                                        </>
-                                    ) : (
-                                        "作成"
-                                    )}
-                                </Button>
-                            </div>
-                        ) : step !== "role" && !(step === "members" && !showMemberList) ? (
-                            <Button onClick={handleNext} disabled={!canProceed() || isCheckingConflicts}>
+                    {step !== "role" && step !== "confirm" && !(step === "members" && !showMemberList) && (
+                        <div className="border-t px-4 py-3 flex-shrink-0">
+                            <Button onClick={handleNext} disabled={!canProceed() || isCheckingConflicts} className="w-full">
                                 {isCheckingConflicts ? (
                                     <>
                                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -918,8 +973,8 @@ export function ShiftRequestModal({
                                     </>
                                 )}
                             </Button>
-                        ) : null}
-                    </div>
+                        </div>
+                    )}
                 </DialogContent>
             </Dialog>
 
@@ -932,7 +987,7 @@ export function ShiftRequestModal({
                                 シフト募集を作成しました
                             </DialogTitle>
                         </DialogHeader>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                        <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
                             対象メンバーにLINEで通知しますか？
                         </p>
                         <div className="flex flex-col gap-2 mt-4">
@@ -947,7 +1002,7 @@ export function ShiftRequestModal({
                                         送信中...
                                     </>
                                 ) : (
-                                    "Nightbase公式LINEでまとめて通知"
+                                    "公式LINEでまとめて通知"
                                 )}
                             </Button>
                             <Button
@@ -990,6 +1045,39 @@ export function ShiftRequestModal({
                     isLoading={isSendingLine}
                 />
             )}
+
+            {/* Cancel Confirmation Modal */}
+            <Dialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
+                <DialogContent className="max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle className="text-gray-900 dark:text-white">
+                            作成をキャンセルしますか？
+                        </DialogTitle>
+                    </DialogHeader>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                        入力した内容は保存されません。
+                    </p>
+                    <div className="flex flex-col gap-2 mt-4">
+                        <Button
+                            variant="outline"
+                            onClick={() => setShowCancelConfirm(false)}
+                            className="w-full"
+                        >
+                            戻る
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={() => {
+                                setShowCancelConfirm(false);
+                                onClose();
+                            }}
+                            className="w-full"
+                        >
+                            キャンセル
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </>
     );
 }

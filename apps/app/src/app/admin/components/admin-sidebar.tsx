@@ -291,7 +291,7 @@ export const COLUMN_LABELS: Record<string, string> = {
     holder_name: "所有者名",
     target_bottle_keep_id: "対象ボトルID",
     // 料金関連
-    pricing_system_id: "料金体系ID",
+    pricing_system_id: "料金システムID",
     base_price: "基本料金",
     hourly_rate: "時間料金",
     hourly_charge: "時間料金",
@@ -312,7 +312,7 @@ export const COLUMN_LABELS: Record<string, string> = {
     tax_rate: "税率",
     is_default: "デフォルト",
     // 給与関連
-    salary_system_id: "給与体系ID",
+    salary_system_id: "給与システムID",
     base_salary: "基本給",
     hourly_wage: "時給",
     hourly_settings: "時給設定",
@@ -404,8 +404,8 @@ export const TABLE_LABELS: Record<string, string> = {
     bottle_keeps: "ボトルキープ",
     bottle_keep_holders: "ボトル所有者",
     // 料金/給与
-    pricing_systems: "料金体系",
-    salary_systems: "給与体系",
+    pricing_systems: "料金システム",
+    salary_systems: "給与システム",
     profile_salary_systems: "給与設定",
     bill_settings: "会計設定",
     // 掲示板
@@ -495,8 +495,8 @@ const navSections: NavSection[] = [
         title: "料金/給与",
         icon: <DollarSign className="h-4 w-4" />,
         items: [
-            { label: "料金体系", href: "/admin/tables/pricing_systems", table: "pricing_systems" },
-            { label: "給与体系", href: "/admin/tables/salary_systems", table: "salary_systems" },
+            { label: "料金システム", href: "/admin/tables/pricing_systems", table: "pricing_systems" },
+            { label: "給与システム", href: "/admin/tables/salary_systems", table: "salary_systems" },
             { label: "給与設定", href: "/admin/tables/profile_salary_systems", table: "profile_salary_systems" },
             { label: "会計設定", href: "/admin/tables/bill_settings", table: "bill_settings" },
         ],

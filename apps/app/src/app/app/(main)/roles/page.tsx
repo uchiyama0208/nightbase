@@ -1,63 +1,13 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { createServerClient } from "@/lib/supabaseServerClient";
+import { getRolesPageData } from "./actions";
 import { RolesPageClient } from "./roles-client";
-import { PageTitle } from "@/components/page-title";
+import { getAppDataWithPermissionCheck, getAccessDeniedRedirectUrl } from "../../data-access";
 
 export const metadata: Metadata = {
     title: "権限",
 };
-
-async function getRolesData() {
-    const supabase = await createServerClient() as any;
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-        redirect("/login");
-    }
-
-    const { data: appUser } = await supabase
-        .from("users")
-        .select("current_profile_id")
-        .eq("id", user.id)
-        .maybeSingle();
-
-    if (!appUser?.current_profile_id) {
-        redirect("/app/me");
-    }
-
-    const { data: currentProfile } = await supabase
-        .from("profiles")
-        .select("store_id, role")
-        .eq("id", appUser.current_profile_id)
-        .maybeSingle();
-
-    if (!currentProfile?.store_id) {
-        redirect("/app/me");
-    }
-
-    if (currentProfile.role !== "staff") {
-        redirect("/app/dashboard");
-    }
-
-    const { data: roles } = await supabase
-        .from("store_roles")
-        .select("*")
-        .eq("store_id", currentProfile.store_id)
-        .order("created_at", { ascending: true });
-
-    const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, display_name, real_name, role_id, role")
-        .eq("store_id", currentProfile.store_id);
-
-    return {
-        roles: roles || [],
-        profiles: profiles || [],
-        currentProfileId: appUser.current_profile_id,
-    };
-}
 
 function RolesSkeleton() {
     return (
@@ -69,18 +19,41 @@ function RolesSkeleton() {
 }
 
 export default async function RolesPage() {
-    const data = await getRolesData();
+    const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("roles", "view");
+
+    if (!user) {
+        redirect("/login");
+    }
+
+    if (!profile || !profile.store_id) {
+        redirect("/app/me");
+    }
+
+    if (!hasAccess) {
+        redirect(getAccessDeniedRedirectUrl("roles"));
+    }
+
+    const result = await getRolesPageData();
+
+    if ("redirect" in result && result.redirect) {
+        redirect(result.redirect);
+    }
+
+    if (!("data" in result) || !result.data) {
+        redirect("/app/me");
+    }
+
+    const { roles, profiles, currentProfileId, currentRole } = result.data;
 
     return (
-        <div className="space-y-4">
-            <PageTitle
-                title="権限"
-                backTab="user"
+        <Suspense fallback={<RolesSkeleton />}>
+            <RolesPageClient
+                roles={roles}
+                profiles={profiles}
+                currentProfileId={currentProfileId}
+                currentRole={currentRole}
             />
-            <Suspense fallback={<RolesSkeleton />}>
-                <RolesPageClient roles={data.roles} profiles={data.profiles} currentProfileId={data.currentProfileId} />
-            </Suspense>
-        </div>
+        </Suspense>
     );
 }
 

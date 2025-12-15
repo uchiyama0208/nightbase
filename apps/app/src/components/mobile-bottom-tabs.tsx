@@ -1,7 +1,8 @@
 "use client";
 
-import { usePathname, useSearchParams, useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Calendar, Users, Layout, Coins, MessageCircle } from "lucide-react";
+import { useDashboardTab } from "@/contexts/dashboard-tab-context";
 
 type TabKey = "shift" | "user" | "floor" | "salary" | "community";
 
@@ -21,22 +22,26 @@ const tabs: Tab[] = [
 
 export function MobileBottomTabs() {
     const pathname = usePathname();
-    const searchParams = useSearchParams();
     const router = useRouter();
+    const dashboardTab = useDashboardTab();
 
-    // ダッシュボードページでタブパラメータがある場合、そのタブを選択
     const isDashboard = pathname === "/app/dashboard";
-    const currentTab = isDashboard ? (searchParams.get("tab") as TabKey | null) : null;
+    const activeTab = dashboardTab?.activeTab ?? "shift";
 
     const handleTabClick = (tabKey: TabKey) => {
-        router.replace(`/app/dashboard?tab=${tabKey}`, { scroll: false });
+        // Update context
+        dashboardTab?.setActiveTab(tabKey);
+        // Navigate to dashboard if not already there
+        if (!isDashboard) {
+            router.push("/app/dashboard");
+        }
     };
 
     return (
         <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 lg:hidden">
             <div className="flex items-center justify-around h-14 px-1">
                 {tabs.map((tab) => {
-                    const isActive = currentTab === tab.key;
+                    const isActive = activeTab === tab.key;
                     return (
                         <button
                             key={tab.key}

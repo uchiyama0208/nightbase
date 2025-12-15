@@ -1,56 +1,49 @@
 "use server";
 
-import { createServerClient } from "@/lib/supabaseServerClient";
+import { getAuthContext } from "@/lib/auth-helpers";
 import { Table } from "@/types/floor";
 import { revalidatePath } from "next/cache";
+import type { TableType, SortOrderUpdate } from "./types";
 
-export async function getTables() {
-    const supabase = await createServerClient() as any;
+// ============================================
+// テーブル関連の関数
+// ============================================
 
-    // Get current user's store_id
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
+/**
+ * 店舗のテーブル一覧を取得
+ */
+export async function getTables(): Promise<Table[]> {
+    try {
+        const { supabase, storeId } = await getAuthContext();
 
-    const { data: profile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("user_id", user.id)
-        .single();
+        const { data: tables, error } = await supabase
+            .from("tables")
+            .select("*")
+            .eq("store_id", storeId)
+            .order("created_at", { ascending: true });
 
-    if (!profile?.store_id) return [];
+        if (error) {
+            console.error("Error fetching tables:", error);
+            return [];
+        }
 
-    const { data: tables, error } = await supabase
-        .from("tables")
-        .select("*")
-        .eq("store_id", profile.store_id)
-        .order("created_at", { ascending: true });
-
-    if (error) {
-        console.error("Error fetching tables:", error);
+        return tables as Table[];
+    } catch {
         return [];
     }
-
-    return tables as Table[];
 }
 
-export async function saveTable(tableData: Partial<Table>) {
-    const supabase = await createServerClient() as any;
-
-    // Get current user's store_id
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Not authenticated");
-
-    const { data: profile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("id", user.id)
-        .single();
-
-    if (!profile?.store_id) throw new Error("No store found");
+/**
+ * テーブルを保存（新規作成または更新）
+ */
+export async function saveTable(
+    tableData: Partial<Table>
+): Promise<{ success: boolean; table?: Table }> {
+    const { supabase, storeId } = await getAuthContext();
 
     const dataToSave = {
         ...tableData,
-        store_id: profile.store_id,
+        store_id: storeId,
         updated_at: new Date().toISOString(),
     };
 
@@ -69,8 +62,12 @@ export async function saveTable(tableData: Partial<Table>) {
     return { success: true, table: data as Table };
 }
 
-export async function deleteTable(id: string) {
-    const supabase = await createServerClient() as any;
+/**
+ * テーブルを削除
+ */
+export async function deleteTable(id: string): Promise<{ success: boolean }> {
+    const { supabase } = await getAuthContext();
+
     const { error } = await supabase
         .from("tables")
         .delete()
@@ -85,25 +82,19 @@ export async function deleteTable(id: string) {
     return { success: true };
 }
 
-export async function createTable(tableData: Omit<Table, "id" | "store_id" | "created_at" | "updated_at" | "layout_data">) {
-    const supabase = await createServerClient() as any;
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Not authenticated");
-
-    const { data: profile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("user_id", user.id)
-        .single();
-
-    if (!profile?.store_id) throw new Error("No store found");
+/**
+ * テーブルを新規作成
+ */
+export async function createTable(
+    tableData: Omit<Table, "id" | "store_id" | "created_at" | "updated_at" | "layout_data">
+): Promise<Table> {
+    const { supabase, storeId } = await getAuthContext();
 
     const { data, error } = await supabase
         .from("tables")
         .insert({
             ...tableData,
-            store_id: profile.store_id,
+            store_id: storeId,
             layout_data: { seats: [], objects: [] },
         })
         .select()
@@ -118,8 +109,14 @@ export async function createTable(tableData: Omit<Table, "id" | "store_id" | "cr
     return data as Table;
 }
 
-export async function updateTable(id: string, tableData: Partial<Table>) {
-    const supabase = await createServerClient() as any;
+/**
+ * テーブルを更新
+ */
+export async function updateTable(
+    id: string,
+    tableData: Partial<Table>
+): Promise<Table> {
+    const { supabase } = await getAuthContext();
 
     const { data, error } = await supabase
         .from("tables")
@@ -140,54 +137,47 @@ export async function updateTable(id: string, tableData: Partial<Table>) {
     return data as Table;
 }
 
-// Table Type Management Functions
+// ============================================
+// テーブルタイプ関連の関数
+// ============================================
 
-export async function getTableTypes() {
-    const supabase = await createServerClient() as any;
+/**
+ * テーブルタイプ一覧を取得
+ */
+export async function getTableTypes(): Promise<TableType[]> {
+    try {
+        const { supabase, storeId } = await getAuthContext();
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
+        const { data: tableTypes, error } = await supabase
+            .from("table_types")
+            .select("*")
+            .eq("store_id", storeId)
+            .order("sort_order", { ascending: true });
 
-    const { data: profile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("user_id", user.id)
-        .single();
+        if (error) {
+            console.error("Error fetching table types:", error);
+            return [];
+        }
 
-    if (!profile?.store_id) return [];
-
-    const { data: tableTypes, error } = await supabase
-        .from("table_types")
-        .select("*")
-        .eq("store_id", profile.store_id)
-        .order("sort_order", { ascending: true });
-
-    if (error) {
-        console.error("Error fetching table types:", error);
+        return tableTypes as TableType[];
+    } catch {
         return [];
     }
-
-    return tableTypes;
 }
 
-export async function createTableType(name: string, sortOrder: number = 0) {
-    const supabase = await createServerClient() as any;
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Not authenticated");
-
-    const { data: profile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("user_id", user.id)
-        .single();
-
-    if (!profile?.store_id) throw new Error("No store found");
+/**
+ * テーブルタイプを新規作成
+ */
+export async function createTableType(
+    name: string,
+    sortOrder: number = 0
+): Promise<TableType> {
+    const { supabase, storeId } = await getAuthContext();
 
     const { data, error } = await supabase
         .from("table_types")
         .insert({
-            store_id: profile.store_id,
+            store_id: storeId,
             name,
             sort_order: sortOrder,
         })
@@ -200,11 +190,18 @@ export async function createTableType(name: string, sortOrder: number = 0) {
     }
 
     revalidatePath("/app/seats");
-    return data;
+    return data as TableType;
 }
 
-export async function updateTableType(id: string, name: string, sortOrder: number) {
-    const supabase = await createServerClient() as any;
+/**
+ * テーブルタイプを更新
+ */
+export async function updateTableType(
+    id: string,
+    name: string,
+    sortOrder: number
+): Promise<TableType> {
+    const { supabase } = await getAuthContext();
 
     const { data, error } = await supabase
         .from("table_types")
@@ -223,11 +220,14 @@ export async function updateTableType(id: string, name: string, sortOrder: numbe
     }
 
     revalidatePath("/app/seats");
-    return data;
+    return data as TableType;
 }
 
-export async function deleteTableType(id: string) {
-    const supabase = await createServerClient() as any;
+/**
+ * テーブルタイプを削除
+ */
+export async function deleteTableType(id: string): Promise<{ success: boolean }> {
+    const { supabase } = await getAuthContext();
 
     const { error } = await supabase
         .from("table_types")
@@ -243,9 +243,15 @@ export async function deleteTableType(id: string) {
     return { success: true };
 }
 
-export async function updateTableTypeSortOrders(updates: { id: string; sort_order: number }[]) {
-    const supabase = await createServerClient() as any;
+/**
+ * テーブルタイプの並び順を一括更新
+ */
+export async function updateTableTypeSortOrders(
+    updates: SortOrderUpdate[]
+): Promise<{ success: boolean }> {
+    const { supabase } = await getAuthContext();
 
+    // 並列で更新（エラー時は途中で止まる）
     for (const update of updates) {
         const { error } = await supabase
             .from("table_types")

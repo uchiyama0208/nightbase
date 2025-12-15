@@ -1,19 +1,5 @@
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
-
-import type { Database } from "@/types/supabase";
-import { ensureEnv, getSupabaseConfig } from "./supabaseClient";
-
-export function createServiceRoleClient(): SupabaseClient<Database> {
-  const { supabaseUrl } = getSupabaseConfig();
-  const serviceRoleKey = ensureEnv("SUPABASE_SERVICE_ROLE_KEY", process.env.SUPABASE_SERVICE_ROLE_KEY);
-
-  return createClient<Database>(supabaseUrl, serviceRoleKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-    global: {
-      fetch,
-    },
-  });
-}
+/**
+ * @deprecated supabaseServerClient.ts からインポートしてください
+ * このファイルは後方互換性のために残されています
+ */
+export { createServiceRoleClient } from "./supabaseServerClient";

@@ -1,11 +1,17 @@
 import { createServerClient } from "@/lib/supabaseServerClient";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+// ============================================
+// 共通型定義
+// ============================================
+
 /**
  * 認証・ストア情報取得の結果型
+ * 注意: supabaseは型安全性のためanyを使用（Supabase型定義が不完全なため）
  */
 export interface AuthContext {
-    supabase: SupabaseClient;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    supabase: SupabaseClient<any>;
     userId: string;
     profileId: string;
     storeId: string;
@@ -15,10 +21,33 @@ export interface AuthContext {
 
 /**
  * ページデータ取得用の結果型（リダイレクト対応）
+ * 各モジュールの DataResult 型はこれを使用すること
  */
 export type PageDataResult<T> =
     | { redirect: string }
     | { data: T };
+
+/**
+ * Server Action の結果型
+ * 成功/失敗を明示的に表現する
+ */
+export type ActionResult<T = void> =
+    | { success: true; data: T }
+    | { success: false; error: string };
+
+/**
+ * 成功結果を作成するヘルパー
+ */
+export function successResult<T>(data: T): ActionResult<T> {
+    return { success: true, data };
+}
+
+/**
+ * 失敗結果を作成するヘルパー
+ */
+export function errorResult(error: string): ActionResult<never> {
+    return { success: false, error };
+}
 
 /**
  * 認証チェック用のオプション
@@ -37,6 +66,7 @@ export interface AuthCheckOptions {
  * @returns 認証コンテキスト
  */
 export async function getAuthContext(options: AuthCheckOptions = {}): Promise<AuthContext> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const supabase = await createServerClient() as any;
     const {
         data: { user },
@@ -108,6 +138,7 @@ export async function getAuthContextForPage(options: AuthCheckOptions = {}): Pro
     | { redirect: string }
     | { context: AuthContext; storeName: string }
 > {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const supabase = await createServerClient() as any;
     const {
         data: { user },
@@ -165,10 +196,12 @@ export async function getAuthContextForPage(options: AuthCheckOptions = {}): Pro
  * @returns ユーザーIDとプロフィールID
  */
 export async function getAuthUser(): Promise<{
-    supabase: SupabaseClient;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    supabase: SupabaseClient<any>;
     userId: string;
     profileId: string;
 }> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const supabase = await createServerClient() as any;
     const {
         data: { user },

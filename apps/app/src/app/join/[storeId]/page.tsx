@@ -46,16 +46,27 @@ export default async function JoinPage({ params }: JoinPageProps) {
     if (user) {
         const { data: existingProfile } = await supabase
             .from("profiles")
-            .select("id, approval_status")
+            .select("id, role")
             .eq("user_id", user.id)
             .eq("store_id", storeId)
             .maybeSingle();
 
         if (existingProfile) {
-            if (existingProfile.approval_status === "pending") {
-                memberStatus = "pending";
-            } else if (existingProfile.approval_status === "approved") {
+            // If profile has a role, they are already a member
+            if (existingProfile.role) {
                 memberStatus = "approved";
+            } else {
+                // Check if there's a pending join request
+                const { data: joinRequest } = await supabase
+                    .from("join_requests")
+                    .select("id, status")
+                    .eq("profile_id", existingProfile.id)
+                    .eq("status", "pending")
+                    .maybeSingle();
+
+                if (joinRequest) {
+                    memberStatus = "pending";
+                }
             }
         }
     }

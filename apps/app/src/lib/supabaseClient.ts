@@ -50,6 +50,29 @@ export function createClient(): SupabaseClient<Database> {
 
 import { createBrowserClient as createSupabaseBrowserClient } from "@supabase/ssr";
 
+// Service Role Client (bypasses RLS - use with caution)
+let serviceRoleClient: SupabaseClient<Database> | null = null;
+
+export function createServiceRoleClient(): SupabaseClient<Database> {
+  if (serviceRoleClient) return serviceRoleClient;
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error("Service Role Key not configured");
+  }
+
+  serviceRoleClient = createSupabaseClient<Database>(supabaseUrl, serviceRoleKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+
+  return serviceRoleClient;
+}
+
 export function createBrowserClient(): SupabaseClient<Database> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;

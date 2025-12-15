@@ -1,48 +1,25 @@
-import { createServerClient } from "@/lib/supabaseServerClient";
 import { redirect } from "next/navigation";
 import { SlipSettingsForm } from "./slip-settings-form";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
+import { getAppDataWithPermissionCheck, getAccessDeniedRedirectUrl } from "@/app/app/data-access";
 
 export default async function SlipSettingsPage() {
-    const supabase = await createServerClient() as any;
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
+    const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("settings", "edit");
 
     if (!user) {
         redirect("/login");
     }
 
-    const { data: appUser } = await supabase
-        .from("users")
-        .select("current_profile_id")
-        .eq("id", user.id)
-        .maybeSingle();
-
-    if (!appUser?.current_profile_id) {
-        redirect("/app/me");
-    }
-
-    const { data: profile } = await supabase
-        .from("profiles")
-        .select("*, stores(*)")
-        .eq("id", appUser.current_profile_id)
-        .maybeSingle();
-
     if (!profile) {
         redirect("/app/me");
     }
 
+    if (!hasAccess) {
+        redirect(getAccessDeniedRedirectUrl("settings"));
+    }
+
     const store = profile.stores as any;
-    
-    // Debug: Log store data
-    console.log("Store data loaded:", {
-        store_id: profile.store_id,
-        slip_rounding_enabled: store?.slip_rounding_enabled,
-        slip_rounding_method: store?.slip_rounding_method,
-        slip_rounding_unit: store?.slip_rounding_unit,
-    });
 
     return (
         <div className="max-w-2xl mx-auto space-y-4">

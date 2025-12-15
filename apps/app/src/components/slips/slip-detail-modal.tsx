@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
     Dialog,
     DialogContent,
@@ -26,15 +27,27 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ChevronLeft, Plus, MoreHorizontal, Trash2, Pencil, X, Check, Save, Printer, UserPlus } from "lucide-react";
-import { getSessionById, updateSessionTimes, createOrder, updateSession, closeSession, checkoutSession, deleteSession, getMenus, getCasts, getGuests, updateOrder, deleteOrder, deleteOrdersByName, assignCast, removeCastAssignment, getStoreSettings } from "@/app/app/(main)/floor/actions";
+import { ChevronLeft, Plus, MoreHorizontal, Trash2, Pencil, X, Check, Save, Printer, UserPlus, RotateCcw } from "lucide-react";
+import {
+    getSessionByIdV2,
+    updateSessionTimes,
+    updateSession,
+    closeSession,
+    reopenSession,
+    checkoutSession,
+    deleteSession,
+} from "@/app/app/(main)/floor/actions/session";
+import { createOrder, updateOrder, deleteOrder, deleteOrdersByName } from "@/app/app/(main)/floor/actions/order";
+import { getMenus } from "@/app/app/(main)/floor/actions/menu";
+import { getCasts, getGuests, addGuestToSessionV2, removeGuestFromSessionV2 } from "@/app/app/(main)/floor/actions/guest";
+import { getStoreSettings } from "@/app/app/(main)/floor/actions/store";
 import { PlacementModal } from "@/app/app/(main)/floor/placement-modal";
 import { QuickOrderModal } from "@/app/app/(main)/floor/quick-order-modal";
 import { getTables } from "@/app/app/(main)/seats/actions";
 import { getPricingSystems } from "@/app/app/(main)/pricing-systems/actions";
-import { Table as FloorTable } from "@/types/floor";
+import { Table as FloorTable, PricingSystem } from "@/types/floor";
+import { PricingSystemModal } from "@/components/pricing-system-modal";
 
 interface SlipDetailModalProps {
     isOpen: boolean;
@@ -57,6 +70,7 @@ interface OrderItem {
     quantity: number;
     castName?: string;
     castId?: string | null;
+    guestId?: string | null;
     startTime?: string | null;
     endTime?: string | null;
     created_at: string;
@@ -93,6 +107,7 @@ export function SlipDetailModal({
     const [editingExtensionFeeIds, setEditingExtensionFeeIds] = useState<string[]>([]);
     const [editingDrinkIds, setEditingDrinkIds] = useState<string[]>([]);
     const [editingNominationIds, setEditingNominationIds] = useState<string[]>([]);
+    const [editingDouhanIds, setEditingDouhanIds] = useState<string[]>([]);
     const [editingCompanionIds, setEditingCompanionIds] = useState<string[]>([]);
     const [editingGuestIds, setEditingGuestIds] = useState<string[]>([]);
     const [editingOrderValues, setEditingOrderValues] = useState<Record<string, { quantity?: number, amount?: number, castId?: string | null, startTime?: string, endTime?: string }>>({});
@@ -110,19 +125,50 @@ export function SlipDetailModal({
     const [isQuickOrderOpen, setIsQuickOrderOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [isCheckoutDialogOpen, setIsCheckoutDialogOpen] = useState(false);
+    const [isReopenDialogOpen, setIsReopenDialogOpen] = useState(false);
     const [isCheckingOut, setIsCheckingOut] = useState(false);
+    const [isReopening, setIsReopening] = useState(false);
     const [isAddingOrder, setIsAddingOrder] = useState(false);
     const [isRecalculating, setIsRecalculating] = useState(false);
-    const [selectedFeeType, setSelectedFeeType] = useState<'nomination' | 'companion' | null>(null);
+    const [selectedFeeType, setSelectedFeeType] = useState<'nomination' | 'companion' | 'douhan' | null>(null);
     const [isDiscountDialogOpen, setIsDiscountDialogOpen] = useState(false);
     const [discountName, setDiscountName] = useState("");
     const [discountAmount, setDiscountAmount] = useState(0);
+    const [discountIsNegative, setDiscountIsNegative] = useState(true); // true = 引く（マイナス）, false = 足す（プラス）
     const [isPlacementOpen, setIsPlacementOpen] = useState(false);
     const [isCastPlacementOpen, setIsCastPlacementOpen] = useState(false);
     const [editingDiscountIds, setEditingDiscountIds] = useState<string[]>([]);
+    const [selectedCastForFee, setSelectedCastForFee] = useState<any>(null);
+    const [isGuestSelectOpen, setIsGuestSelectOpen] = useState(false);
     const [storeSettings, setStoreSettings] = useState<any>(null);
+    const [isPricingSystemModalOpen, setIsPricingSystemModalOpen] = useState(false);
+    const [selectedPricingSystemForEdit, setSelectedPricingSystemForEdit] = useState<PricingSystem | null>(null);
 
     const { toast } = useToast();
+
+    // Handle inert attribute for parent dialog when sub-modals are open
+    useEffect(() => {
+        const isSubModalOpen = isDiscountDialogOpen || isDeleteDialogOpen;
+        const dialogs = document.querySelectorAll('[role="dialog"]');
+
+        dialogs.forEach(dialog => {
+            const title = dialog.querySelector('h2')?.textContent || '';
+            if (title.includes('伝票詳細')) {
+                if (isSubModalOpen) {
+                    dialog.setAttribute('inert', '');
+                } else {
+                    dialog.removeAttribute('inert');
+                }
+            }
+        });
+
+        return () => {
+            // Cleanup: remove inert when component unmounts
+            dialogs.forEach(dialog => {
+                dialog.removeAttribute('inert');
+            });
+        };
+    }, [isDiscountDialogOpen, isDeleteDialogOpen]);
 
     useEffect(() => {
         if (isOpen && sessionId) {
@@ -144,7 +190,7 @@ export function SlipDetailModal({
         try {
             // すべてのデータを並列で取得
             const [currentSession, tablesData, pricingData, menusData, castsData, guestsData] = await Promise.all([
-                getSessionById(sessionId),
+                getSessionByIdV2(sessionId),
                 initialTables ? Promise.resolve(initialTables) : getTables(),
                 getPricingSystems(),
                 initialMenus ? Promise.resolve(initialMenus) : getMenus(),
@@ -169,6 +215,7 @@ export function SlipDetailModal({
                     quantity: order.quantity ?? 0,
                     castName: order.profiles?.display_name,
                     castId: order.cast_id || null,
+                    guestId: order.guest_id || null,
                     startTime: order.start_time || null,
                     endTime: order.end_time || null,
                     created_at: order.created_at,
@@ -180,21 +227,25 @@ export function SlipDetailModal({
                 setOrders(orderItems);
 
                 // Initialize edit states
-                setEditTableId(currentSession.table_id);
+                setEditTableId(currentSession.table_id || "");
                 setEditGuestCount(currentSession.guest_count || 0);
-                // ローカル日付を取得（タイムゾーンを考慮）
+                // JSTでの日付を取得
                 if (currentSession.start_time) {
-                    const d = new Date(currentSession.start_time);
-                    const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                    const localDate = new Date(currentSession.start_time).toLocaleDateString("ja-JP", {
+                        timeZone: "Asia/Tokyo",
+                        year: "numeric",
+                        month: "2-digit",
+                        day: "2-digit",
+                    }).replace(/\//g, "-");
                     setEditDate(localDate);
                 } else {
                     setEditDate("");
                 }
-                setEditStartTime(currentSession.start_time ? new Date(currentSession.start_time).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) : "");
+                setEditStartTime(currentSession.start_time ? new Date(currentSession.start_time).toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" }) : "");
                 setEditPricingSystemId(currentSession.pricing_system_id || "none");
                 setEditMainGuestId(currentSession.main_guest_id || "none");
-                setStartTime(currentSession.start_time ? new Date(currentSession.start_time).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) : "");
-                setEndTime(currentSession.end_time ? new Date(currentSession.end_time).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) : "");
+                setStartTime(currentSession.start_time ? new Date(currentSession.start_time).toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" }) : "");
+                setEndTime(currentSession.end_time ? new Date(currentSession.end_time).toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" }) : "");
             }
         } catch (error) {
             console.error("Failed to load session data:", error);
@@ -580,7 +631,7 @@ export function SlipDetailModal({
             // 退店時間を構築
             const [endHours, endMinutes] = endTime.split(":").map(Number);
             let sessionEndDate = new Date(year, month, day, endHours, endMinutes, 0, 0);
-            
+
             // 退店時間が入店時間より前の場合は翌日として扱う
             if (endTime < startTime) {
                 sessionEndDate.setDate(sessionEndDate.getDate() + 1);
@@ -596,20 +647,19 @@ export function SlipDetailModal({
 
             await updateSessionTimes(sessionId, newStartIso, newEndIso);
 
-            // 2. 既存のセット料金、延長料金、指名料を削除（場内料金は変更しない）
+            // 2. 既存のセット料金、延長料金、指名料、同伴料、場内料金を削除
             await deleteOrdersByName(sessionId, "セット料金");
             await deleteOrdersByName(sessionId, "延長料金");
             await deleteOrdersByName(sessionId, "指名料");
+            await deleteOrdersByName(sessionId, "同伴料");
+            await deleteOrdersByName(sessionId, "場内料金");
 
-            // 3. 人数を取得（削除後に使用）
-            const guestCount = editGuestCount || 1;
-
-            // 4. 滞在時間を計算（分単位）
+            // 3. 滞在時間を計算（分単位）
             const startDate = new Date(newStartIso);
             const endDate = new Date(newEndIso);
             const durationMinutes = Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60));
 
-            // 5. 必要な料金を計算
+            // 4. 必要な料金を計算
             const setDurationMinutes = pricingSystem.set_duration_minutes || 0;
             const extensionDurationMinutes = pricingSystem.extension_duration_minutes || 0;
 
@@ -618,65 +668,131 @@ export function SlipDetailModal({
                 return;
             }
 
-            const ordersToCreate: { menuId: string; quantity: number; amount: number }[] = [];
+            // 5. セット料金をゲスト別に作成
+            const sessionGuests = session.session_guests || [];
+            for (const sg of sessionGuests) {
+                // ゲストごとにセット料金を作成（castIdにguestIdを使用してゲスト紐付け）
+                await createOrder(
+                    sessionId,
+                    [{ menuId: "set-fee", quantity: 1, amount: pricingSystem.set_fee }],
+                    sg.guest_id, // guestId
+                    sg.guest_id  // castIdとしてguestIdを使用（ゲスト紐付け用）
+                );
+            }
 
-            if (durationMinutes <= setDurationMinutes) {
-                // セット料金のみ（滞在時間がセット料金の時間以内）
-                ordersToCreate.push({
-                    menuId: "set-fee",
-                    quantity: guestCount,
-                    amount: pricingSystem.set_fee,
-                });
-            } else {
-                // セット料金を追加（最初のセット料金分）
-                ordersToCreate.push({
-                    menuId: "set-fee",
-                    quantity: guestCount,
-                    amount: pricingSystem.set_fee,
-                });
-
-                // セット料金の時間を超えた分を延長料金として計算
+            // 6. 延長料金を計算（セット時間を超えた場合）
+            if (durationMinutes > setDurationMinutes) {
                 const excessMinutes = durationMinutes - setDurationMinutes;
                 const extensionCount = Math.ceil(excessMinutes / extensionDurationMinutes);
+                const guestCount = sessionGuests.length || editGuestCount || 1;
 
-                // 延長料金を必要な回数分追加
+                // 延長料金は人数分をまとめて作成
                 for (let i = 0; i < extensionCount; i++) {
-                    ordersToCreate.push({
-                        menuId: "extension-fee",
-                        quantity: guestCount,
-                        amount: pricingSystem.extension_fee,
-                    });
+                    await createOrder(
+                        sessionId,
+                        [{ menuId: "extension-fee", quantity: guestCount, amount: pricingSystem.extension_fee }],
+                        null,
+                        null
+                    );
                 }
             }
 
-            // 5. 新しい料金を追加
-            for (const order of ordersToCreate) {
-                await createOrder(sessionId, [order], null, null);
-            }
-
-            // 6. 既存の指名料からキャスト情報を取得して再作成（場内料金は変更しない）
+            // 7. 既存の指名料からキャスト情報を取得して再作成（guestIdを維持）
             const nominationOrders = orders.filter(o => o.name === '指名料' && o.castId);
-
-            // 指名セット時間を取得
             const nominationSetDurationMinutes = pricingSystem.nomination_set_duration_minutes || 60;
 
-            // 指名料を再作成（キャストごとにグループ化）
-            const nominationCastIds = [...new Set(nominationOrders.map(o => o.castId))];
-            for (const castId of nominationCastIds) {
-                if (!castId) continue;
-                const castOrder = nominationOrders.find(o => o.castId === castId);
-                const orderStartTime = castOrder?.startTime ? new Date(castOrder.startTime) : startDate;
-                const orderEndTime = castOrder?.endTime ? new Date(castOrder.endTime) : endDate;
-                const castDurationMinutes = Math.floor((orderEndTime.getTime() - orderStartTime.getTime()) / (1000 * 60));
+            for (const order of nominationOrders) {
+                if (!order.castId) continue;
 
+                const orderStartTime = order.startTime ? new Date(order.startTime) : startDate;
+                let orderEndTime = order.endTime ? new Date(order.endTime) : endDate;
+
+                // 終了時間が退店時間を超えている場合は退店時間に調整
+                if (orderEndTime.getTime() > endDate.getTime()) {
+                    orderEndTime = endDate;
+                }
+
+                const castDurationMinutes = Math.floor((orderEndTime.getTime() - orderStartTime.getTime()) / (1000 * 60));
                 if (castDurationMinutes <= 0) continue;
 
-                const nominationCount = Math.max(1, Math.floor(castDurationMinutes / nominationSetDurationMinutes));
+                const nominationCount = Math.max(1, Math.ceil(castDurationMinutes / nominationSetDurationMinutes));
                 await createOrder(
                     sessionId,
-                    [{ menuId: "nomination-fee", quantity: nominationCount, amount: pricingSystem.nomination_fee, startTime: castOrder?.startTime, endTime: castOrder?.endTime }],
-                    null,
-                    castId
+                    [{
+                        menuId: "nomination-fee",
+                        quantity: nominationCount,
+                        amount: pricingSystem.nomination_fee,
+                        startTime: orderStartTime.toISOString(),
+                        endTime: orderEndTime.toISOString()
+                    }],
+                    order.guestId || null, // guestIdを維持
+                    order.castId
+                );
+            }
+
+            // 8. 既存の同伴料からキャスト情報を取得して再作成（guestIdを維持）
+            const douhanOrders = orders.filter(o => o.name === '同伴料' && o.castId);
+            const douhanSetDurationMinutes = pricingSystem.douhan_set_duration_minutes || 60;
+
+            for (const order of douhanOrders) {
+                if (!order.castId) continue;
+
+                const orderStartTime = order.startTime ? new Date(order.startTime) : startDate;
+                let orderEndTime = order.endTime ? new Date(order.endTime) : endDate;
+
+                // 終了時間が退店時間を超えている場合は退店時間に調整
+                if (orderEndTime.getTime() > endDate.getTime()) {
+                    orderEndTime = endDate;
+                }
+
+                const castDurationMinutes = Math.floor((orderEndTime.getTime() - orderStartTime.getTime()) / (1000 * 60));
+                if (castDurationMinutes <= 0) continue;
+
+                const douhanCount = Math.max(1, Math.ceil(castDurationMinutes / douhanSetDurationMinutes));
+                await createOrder(
+                    sessionId,
+                    [{
+                        menuId: "douhan-fee",
+                        quantity: douhanCount,
+                        amount: pricingSystem.douhan_fee || 0,
+                        startTime: orderStartTime.toISOString(),
+                        endTime: orderEndTime.toISOString()
+                    }],
+                    order.guestId || null, // guestIdを維持
+                    order.castId
+                );
+            }
+
+            // 9. 既存の場内料金からキャスト情報を取得して再作成（guestIdを維持）
+            const companionOrders = orders.filter(o => o.name === '場内料金' && o.castId);
+            const companionSetDurationMinutes = pricingSystem.companion_set_duration_minutes || 30;
+
+            for (const order of companionOrders) {
+                if (!order.castId) continue;
+
+                const orderStartTime = order.startTime ? new Date(order.startTime) : startDate;
+                let orderEndTime = order.endTime ? new Date(order.endTime) : endDate;
+
+                // 終了時間が退店時間を超えている場合は退店時間に調整
+                if (orderEndTime.getTime() > endDate.getTime()) {
+                    orderEndTime = endDate;
+                }
+
+                const castDurationMinutes = Math.floor((orderEndTime.getTime() - orderStartTime.getTime()) / (1000 * 60));
+                if (castDurationMinutes <= 0) continue;
+
+                const companionCount = Math.max(1, Math.ceil(castDurationMinutes / companionSetDurationMinutes));
+                await createOrder(
+                    sessionId,
+                    [{
+                        menuId: "companion-fee",
+                        quantity: companionCount,
+                        amount: pricingSystem.companion_fee,
+                        startTime: orderStartTime.toISOString(),
+                        endTime: orderEndTime.toISOString()
+                    }],
+                    order.guestId || null, // guestIdを維持
+                    order.castId
                 );
             }
 
@@ -735,6 +851,62 @@ export function SlipDetailModal({
         }
     };
 
+    // ゲスト別セット料金の金額を更新
+    const handleUpdateGuestSetFeeAmount = async (guestId: string, amount: number) => {
+        if (!sessionId) return;
+
+        // 既存のセット料金オーダーを検索（castIdにguestIdを使用）
+        const existingOrder = orders.find(
+            o => o.name === 'セット料金' && o.castId === guestId
+        );
+
+        if (existingOrder) {
+            // 既存オーダーの金額を更新
+            setOrders(prev => prev.map(o =>
+                o.id === existingOrder.id ? { ...o, price: amount } : o
+            ));
+            try {
+                await updateOrder(existingOrder.id, { amount });
+                await loadAllData(true);
+                onUpdate?.();
+                toast({ title: "セット料金を更新しました" });
+            } catch (error) {
+                console.error(error);
+                toast({ title: "更新に失敗しました" });
+            }
+        } else {
+            // 新規作成（guestIdをcastIdとして使用してゲスト紐付け）
+            const tempId = `temp-${Date.now()}`;
+            const newOrder: OrderItem = {
+                id: tempId,
+                name: 'セット料金',
+                price: amount,
+                quantity: 1,
+                created_at: new Date().toISOString(),
+                menu_id: null,
+                item_name: 'セット料金',
+                castId: guestId,
+                hide_from_slip: false,
+            };
+            setOrders(prev => [...prev, newOrder]);
+            try {
+                await createOrder(
+                    sessionId,
+                    [{ menuId: "set-fee", quantity: 1, amount }],
+                    guestId, // castIdとしてguestIdを使用
+                    guestId  // guestId
+                );
+                await loadAllData(true);
+                onUpdate?.();
+                toast({ title: "セット料金を追加しました" });
+            } catch (error) {
+                console.error(error);
+                setOrders(prev => prev.filter(o => o.id !== tempId));
+                toast({ title: "追加に失敗しました" });
+            }
+        }
+    };
+
     const handleAddExtensionFee = async () => {
         if (!sessionId) return;
         const pricingSystem = getSelectedPricingSystem();
@@ -790,8 +962,13 @@ export function SlipDetailModal({
         setIsCastPlacementOpen(true);
     };
 
-    // 指名・場内指名の個別再計算
-    const handleRecalculateFeeOrder = async (orderId: string, feeType: 'nomination' | 'companion') => {
+    const handleAddDouhanFee = () => {
+        setSelectedFeeType('douhan');
+        setIsCastPlacementOpen(true);
+    };
+
+    // 指名・場内指名・同伴の個別再計算
+    const handleRecalculateFeeOrder = async (orderId: string, feeType: 'nomination' | 'companion' | 'douhan') => {
         const pricingSystem = getSelectedPricingSystem();
         if (!pricingSystem) {
             toast({ title: "料金システムが設定されていません" });
@@ -846,6 +1023,11 @@ export function SlipDetailModal({
             const nominationSetDurationMinutes = pricingSystem.nomination_set_duration_minutes || 60;
             quantity = Math.max(1, Math.floor(durationMinutes / nominationSetDurationMinutes));
             amount = pricingSystem.nomination_fee;
+        } else if (feeType === 'douhan') {
+            // 同伴料は指名と同じ計算方法
+            const douhanSetDurationMinutes = pricingSystem.nomination_set_duration_minutes || 60;
+            quantity = Math.max(1, Math.floor(durationMinutes / douhanSetDurationMinutes));
+            amount = pricingSystem.douhan_fee || 0;
         } else {
             const companionSetDurationMinutes = pricingSystem.companion_set_duration_minutes || 30;
             quantity = Math.ceil(durationMinutes / companionSetDurationMinutes);
@@ -888,23 +1070,64 @@ export function SlipDetailModal({
 
     const handleCastSelectForFee = async (profile: any) => {
         if (!sessionId || !selectedFeeType) return;
+
+        // ゲストが複数いる場合はゲスト選択モーダルを表示
+        const sessionGuests = session?.session_guests || [];
+        if (sessionGuests.length > 1) {
+            setSelectedCastForFee(profile);
+            setIsCastPlacementOpen(false);
+            setIsGuestSelectOpen(true);
+            return;
+        }
+
+        // ゲストが1人の場合は直接追加
+        const guestId = sessionGuests.length === 1 ? sessionGuests[0].guest_id : null;
+        await addCastFeeWithGuest(profile, guestId);
+    };
+
+    // ゲスト選択後にキャスト料金を追加
+    const handleGuestSelectForFee = async (guestId: string) => {
+        if (!selectedCastForFee) return;
+        setIsGuestSelectOpen(false);
+        await addCastFeeWithGuest(selectedCastForFee, guestId);
+        setSelectedCastForFee(null);
+    };
+
+    // キャスト料金追加の実処理
+    const addCastFeeWithGuest = async (profile: any, guestId: string | null) => {
+        if (!sessionId || !selectedFeeType) return;
         const pricingSystem = getSelectedPricingSystem();
         if (!pricingSystem) {
             toast({ title: "料金システムが設定されていません" });
             return;
         }
 
-        const menuId = selectedFeeType === 'nomination' ? 'nomination-fee' : 'companion-fee';
-        const amount = selectedFeeType === 'nomination' ? pricingSystem.nomination_fee : pricingSystem.companion_fee;
-        const feeName = selectedFeeType === 'nomination' ? '指名料' : '場内料金';
+        let menuId: string;
+        let amount: number;
+        let feeName: string;
+
+        if (selectedFeeType === 'nomination') {
+            menuId = 'nomination-fee';
+            amount = pricingSystem.nomination_fee;
+            feeName = '指名料';
+        } else if (selectedFeeType === 'douhan') {
+            menuId = 'douhan-fee';
+            amount = pricingSystem.douhan_fee || 0;
+            feeName = '同伴料';
+        } else {
+            menuId = 'companion-fee';
+            amount = pricingSystem.companion_fee;
+            feeName = '場内料金';
+        }
+
         const tempId = `temp-${Date.now()}`;
 
-        // 指名の場合のみ入店時間・退店時間を設定、場内指名は空にする
+        // 指名・同伴の場合のみ入店時間・退店時間を設定、場内指名は空にする
         let orderStartTime: string | null = null;
         let orderEndTime: string | null = null;
         let quantity = 0;
 
-        if (selectedFeeType === 'nomination') {
+        if (selectedFeeType === 'nomination' || selectedFeeType === 'douhan') {
             orderStartTime = session?.start_time || null;
             orderEndTime = session?.end_time || null;
 
@@ -945,7 +1168,7 @@ export function SlipDetailModal({
             await createOrder(
                 sessionId,
                 [{ menuId, quantity, amount, startTime: orderStartTime, endTime: orderEndTime }],
-                null,
+                guestId,
                 profile.id
             );
             // バックグラウンドで最新データを取得（loading表示なし）
@@ -958,6 +1181,8 @@ export function SlipDetailModal({
             setIsCastPlacementOpen(true);
             toast({ title: "追加に失敗しました" });
         }
+
+        setSelectedFeeType(null);
     };
 
 
@@ -999,17 +1224,19 @@ export function SlipDetailModal({
 
     const handleAddDiscount = async () => {
         if (!sessionId || !discountName || discountAmount <= 0) {
-            toast({ title: "割引名と割引額を入力してください" });
+            toast({ title: "項目名と金額を入力してください" });
             return;
         }
 
         const tempId = `temp-${Date.now()}`;
+        // discountIsNegative が true なら引く（マイナス）、false なら足す（プラス）
+        const finalAmount = discountIsNegative ? -discountAmount : discountAmount;
 
         // 楽観的UI: 即座にローカル状態を更新
         const newOrder: OrderItem = {
             id: tempId,
             name: discountName,
-            price: -discountAmount,
+            price: finalAmount,
             quantity: 1,
             created_at: new Date().toISOString(),
             menu_id: null,
@@ -1020,15 +1247,16 @@ export function SlipDetailModal({
         setIsDiscountDialogOpen(false);
         const savedDiscountName = discountName;
         const savedDiscountAmount = discountAmount;
+        const savedDiscountIsNegative = discountIsNegative;
         setDiscountName("");
         setDiscountAmount(0);
-        toast({ title: "割引を追加しました" });
+        toast({ title: "追加しました" });
 
         try {
-            // 割引はマイナス値で保存（temp-discountでitem_nameに割引名を設定）
+            // temp-discountでitem_nameに項目名を設定
             await createOrder(
                 sessionId,
-                [{ menuId: "temp-discount", quantity: 1, amount: -savedDiscountAmount, name: savedDiscountName }],
+                [{ menuId: "temp-discount", quantity: 1, amount: finalAmount, name: savedDiscountName }],
                 null,
                 null
             );
@@ -1116,16 +1344,15 @@ export function SlipDetailModal({
     const handleGuestSelect = async (profile: any) => {
         if (!sessionId || !session) return;
 
-        const tempAssignmentId = `temp-${Date.now()}`;
+        const tempGuestId = `temp-${Date.now()}`;
         const newGuestCount = (session.guest_count || 0) + 1;
 
         // 楽観的UI: 即座にローカル状態を更新
-        const tempAssignment = {
-            id: tempAssignmentId,
-            cast_id: profile.id,
+        const tempGuest = {
+            id: tempGuestId,
             guest_id: profile.id,
-            status: "waiting",
             profiles: {
+                id: profile.id,
                 display_name: profile.display_name,
                 avatar_url: profile.avatar_url,
             },
@@ -1133,49 +1360,34 @@ export function SlipDetailModal({
         setSession((prev: any) => ({
             ...prev!,
             guest_count: newGuestCount,
-            cast_assignments: [...(prev?.cast_assignments || []), tempAssignment],
+            session_guests: [...(prev?.session_guests || []), tempGuest],
         }));
         setEditGuestCount(newGuestCount);
 
-        // 楽観的UI: セット料金と延長料金の人数を即座に更新
-        const updatedOrders = orders.map(order => {
-            if (order.name === 'セット料金' || order.name === '延長料金') {
-                return { ...order, quantity: newGuestCount };
-            }
-            return order;
-        });
-        setOrders(updatedOrders);
+        // 楽観的UI: この新しいゲストのセット料金を追加
+        const pricingSystem = getSelectedPricingSystem();
+        const tempSetFeeId = `temp-setfee-${Date.now()}`;
+        if (pricingSystem) {
+            const newSetFeeOrder: OrderItem = {
+                id: tempSetFeeId,
+                name: 'セット料金',
+                price: pricingSystem.set_fee,
+                quantity: 1,
+                created_at: new Date().toISOString(),
+                menu_id: null,
+                item_name: 'セット料金',
+                castId: profile.id,
+                hide_from_slip: false,
+            };
+            setOrders(prev => [...prev, newSetFeeOrder]);
+        }
 
         setIsPlacementOpen(false);
         toast({ title: "ゲストを追加しました" });
 
         try {
-            // ゲストをcast_assignmentsに追加（ゲスト自身として）
-            await assignCast(
-                sessionId,
-                profile.id,
-                "waiting",
-                profile.id, // guestId = castId（ゲスト自身）
-                null, // gridX
-                null  // gridY
-            );
-
-            // 人数を更新
-            await updateSession(sessionId, {
-                guestCount: newGuestCount
-            });
-
-            // セット料金と延長料金の人数を自動更新（更新されたordersを使用）
-            const setFeeOrders = updatedOrders.filter(o => o.name === 'セット料金');
-            const extensionFeeOrders = updatedOrders.filter(o => o.name === '延長料金');
-
-            for (const order of setFeeOrders) {
-                await updateOrder(order.id, { quantity: newGuestCount });
-            }
-
-            for (const order of extensionFeeOrders) {
-                await updateOrder(order.id, { quantity: newGuestCount });
-            }
+            // V2: session_guestsに追加（セット料金も自動作成される）
+            await addGuestToSessionV2(sessionId, profile.id);
 
             // バックグラウンドで最新データを取得（loading表示なし）
             await loadAllData(true);
@@ -1186,57 +1398,40 @@ export function SlipDetailModal({
             setSession((prev: any) => ({
                 ...prev!,
                 guest_count: session.guest_count || 0,
-                cast_assignments: (prev?.cast_assignments || []).filter((a: any) => a.id !== tempAssignmentId),
+                session_guests: (prev?.session_guests || []).filter((sg: any) => sg.id !== tempGuestId),
             }));
             setIsPlacementOpen(true);
             toast({ title: "追加に失敗しました" });
         }
     };
 
-    const handleRemoveGuest = async (assignmentId: string) => {
+    const handleRemoveGuest = async (sessionGuestId: string) => {
         if (!sessionId || !session) return;
 
-        const deletedAssignment = session.cast_assignments?.find((a: any) => a.id === assignmentId);
+        // V2: session_guestsから対象を探す
+        const deletedGuest = session.session_guests?.find((sg: any) => sg.id === sessionGuestId);
+        if (!deletedGuest) return;
+
+        const guestId = deletedGuest.guest_id;
         const newGuestCount = Math.max(0, (session.guest_count || 0) - 1);
 
         // 楽観的UI: 即座にローカル状態を更新
         setSession((prev: any) => ({
             ...prev!,
             guest_count: newGuestCount,
-            cast_assignments: (prev?.cast_assignments || []).filter((a: any) => a.id !== assignmentId),
+            session_guests: (prev?.session_guests || []).filter((sg: any) => sg.id !== sessionGuestId),
         }));
         setEditGuestCount(newGuestCount);
 
-        // 楽観的UI: セット料金と延長料金の人数を即座に更新
-        const updatedOrders = orders.map(order => {
-            if (order.name === 'セット料金' || order.name === '延長料金') {
-                return { ...order, quantity: newGuestCount };
-            }
-            return order;
-        });
+        // 楽観的UI: このゲストのセット料金を削除
+        const updatedOrders = orders.filter(o => !(o.name === 'セット料金' && o.castId === guestId));
         setOrders(updatedOrders);
 
         toast({ title: "ゲストを削除しました" });
 
         try {
-            await removeCastAssignment(assignmentId);
-
-            // 人数を更新
-            await updateSession(sessionId, {
-                guestCount: newGuestCount
-            });
-
-            // セット料金と延長料金の人数を自動更新（更新されたordersを使用）
-            const setFeeOrders = updatedOrders.filter(o => o.name === 'セット料金');
-            const extensionFeeOrders = updatedOrders.filter(o => o.name === '延長料金');
-
-            for (const order of setFeeOrders) {
-                await updateOrder(order.id, { quantity: newGuestCount });
-            }
-
-            for (const order of extensionFeeOrders) {
-                await updateOrder(order.id, { quantity: newGuestCount });
-            }
+            // V2: session_guestsから削除（セット料金とキャスト料金も自動削除される）
+            await removeGuestFromSessionV2(sessionId, guestId);
 
             // バックグラウンドで最新データを取得（loading表示なし）
             await loadAllData(true);
@@ -1244,11 +1439,11 @@ export function SlipDetailModal({
         } catch (error) {
             console.error(error);
             // エラー時は元の状態に戻す
-            if (deletedAssignment) {
+            if (deletedGuest) {
                 setSession((prev: any) => ({
                     ...prev!,
                     guest_count: session.guest_count || 0,
-                    cast_assignments: [...(prev?.cast_assignments || []), deletedAssignment],
+                    session_guests: [...(prev?.session_guests || []), deletedGuest],
                 }));
             }
             toast({ title: "削除に失敗しました" });
@@ -1263,10 +1458,12 @@ export function SlipDetailModal({
     const table = tables.find(t => t.id === session.table_id);
     const tableName = table?.name || "不明";
 
-    // Get guest entries from cast_assignments (where cast_id === guest_id)
-    const guestAssignments = (session.cast_assignments || []).filter(
-        (assignment: any) => assignment.cast_id === assignment.guest_id && assignment.profiles
-    );
+    // Get guest entries from session_guests (V2 structure)
+    const guestAssignments = (session.session_guests || []).map((sg: any) => ({
+        id: sg.id,
+        guest_id: sg.guest_id,
+        profiles: sg.profiles,
+    }));
 
     return (
         <>
@@ -1421,9 +1618,9 @@ export function SlipDetailModal({
                 </div>
             </div>
 
-            <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }} modal={!preventOutsideClose}>
+            <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }} modal={true}>
                 <DialogContent
-                    className="max-w-md max-h-[90vh] flex flex-col p-4"
+                    className="max-w-md h-[90vh] flex flex-col p-4 overflow-hidden z-[60]"
                     onPointerDownOutside={(e) => {
                         if (preventOutsideClose) {
                             e.preventDefault();
@@ -1438,25 +1635,25 @@ export function SlipDetailModal({
                     }}
                     onClick={(e) => e.stopPropagation()}
                 >
-                    <DialogHeader className="flex flex-row items-center justify-between border-b pb-4 space-y-0 no-print flex-shrink-0">
-                        <Button variant="ghost" size="icon" className="-ml-2" onClick={(e) => { e.stopPropagation(); onClose(); }}>
-                            <ChevronLeft className="h-5 w-5" />
+                    <DialogHeader className="flex flex-row items-center justify-between border-b pb-1 mb-0 space-y-0 no-print flex-shrink-0">
+                        <Button variant="ghost" size="icon" className="-ml-2 h-8 w-8" onClick={(e) => { e.stopPropagation(); onClose(); }}>
+                            <ChevronLeft className="h-4 w-4" />
                         </Button>
-                        <DialogTitle className="flex items-center gap-2">
+                        <DialogTitle className="flex items-center gap-2 text-base">
                             {editable ? `${tableName} - 伝票詳細` : "伝票詳細"}
                         </DialogTitle>
-                        <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="icon" onClick={() => window.print()} className="no-print">
-                                <Printer className="h-5 w-5" />
+                        <div className="flex items-center gap-0">
+                            <Button variant="ghost" size="icon" onClick={() => window.print()} className="no-print h-8 w-8">
+                                <Printer className="h-4 w-4" />
                             </Button>
                             {editable ? (
-                                <DropdownMenu>
+                                <DropdownMenu modal={false}>
                                     <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="-mr-2 no-print">
-                                            <MoreHorizontal className="h-5 w-5" />
+                                        <Button variant="ghost" size="icon" className="-mr-2 no-print h-8 w-8">
+                                            <MoreHorizontal className="h-4 w-4" />
                                         </Button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="bg-white dark:bg-slate-900 border-gray-200 dark:border-white/10">
+                                    <DropdownMenuContent align="end" className="bg-white dark:bg-slate-900 border-gray-200 dark:border-white/10 z-[300]">
                                         <DropdownMenuItem
                                             className="text-destructive focus:text-destructive focus:bg-red-50 dark:focus:bg-red-900/20"
                                             onClick={() => setIsDeleteDialogOpen(true)}
@@ -1467,7 +1664,7 @@ export function SlipDetailModal({
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             ) : (
-                                <div className="w-10" />
+                                <div className="w-8" />
                             )}
                         </div>
                     </DialogHeader>
@@ -1477,7 +1674,8 @@ export function SlipDetailModal({
                             読み込み中...
                         </div>
                     ) : (
-                        <div className="space-y-3 pb-4 font-mono text-sm print-content flex-1 overflow-y-auto min-h-0">
+                        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+                        <div className="space-y-3 pb-4 font-mono text-sm print-content">
                             {/* Header Info */}
                             <div className="border rounded-lg p-3 bg-muted/30 relative">
                                 {editable && !isEditingHeader && (
@@ -1517,7 +1715,7 @@ export function SlipDetailModal({
                                                     <SelectTrigger className="h-11 text-base">
                                                         <SelectValue placeholder="テーブルを選択" />
                                                     </SelectTrigger>
-                                                    <SelectContent>
+                                                    <SelectContent className="z-[100]" position="popper" sideOffset={4}>
                                                         {tables.map((table) => (
                                                             <SelectItem key={table.id} value={table.id}>
                                                                 {table.name}
@@ -1532,7 +1730,7 @@ export function SlipDetailModal({
                                                     <SelectTrigger className="h-11 text-base">
                                                         <SelectValue placeholder="選択" />
                                                     </SelectTrigger>
-                                                    <SelectContent>
+                                                    <SelectContent className="z-[100]" position="popper" sideOffset={4}>
                                                         <SelectItem value="none">なし</SelectItem>
                                                         {pricingSystems.map((ps) => (
                                                             <SelectItem key={ps.id} value={ps.id}>
@@ -1574,10 +1772,7 @@ export function SlipDetailModal({
                                             </Button>
                                             <Button
                                                 className="h-11 bg-blue-600 text-white hover:bg-blue-700"
-                                                onClick={() => {
-                                                    handleSaveHeader();
-                                                    setIsEditingHeader(false);
-                                                }}
+                                                onClick={handleSaveHeader}
                                             >
                                                 保存
                                             </Button>
@@ -1595,7 +1790,7 @@ export function SlipDetailModal({
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
                                                 <div className="text-muted-foreground text-xs mb-1">日付</div>
-                                                <div className="font-medium text-sm">{new Date(session.start_time).toLocaleDateString('ja-JP')}</div>
+                                                <div className="font-medium text-sm">{new Date(session.start_time).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' })}</div>
                                             </div>
                                             <div>
                                                 <div className="text-muted-foreground text-xs mb-1">人数</div>
@@ -1609,9 +1804,23 @@ export function SlipDetailModal({
                                             </div>
                                             <div>
                                                 <div className="text-muted-foreground text-xs mb-1">料金システム</div>
-                                                <div className="font-medium text-sm">
-                                                    {pricingSystems.find(p => p.id === session.pricing_system_id)?.name || '-'}
-                                                </div>
+                                                {session.pricing_system_id ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const ps = pricingSystems.find(p => p.id === session.pricing_system_id);
+                                                            if (ps) {
+                                                                setSelectedPricingSystemForEdit(ps);
+                                                                setIsPricingSystemModalOpen(true);
+                                                            }
+                                                        }}
+                                                        className="font-medium text-sm text-blue-600 dark:text-blue-400 hover:underline text-left"
+                                                    >
+                                                        {pricingSystems.find(p => p.id === session.pricing_system_id)?.name || '-'}
+                                                    </button>
+                                                ) : (
+                                                    <div className="font-medium text-sm">-</div>
+                                                )}
                                             </div>
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">
@@ -1628,18 +1837,20 @@ export function SlipDetailModal({
                                 )}
                             </div>
 
-                            {/* Guests Section */}
-                            {/* Guests Section */}
+                            {/* Guests Section with Set Fee */}
                             <div className="border rounded-lg overflow-hidden relative">
                                 <div className="flex items-center justify-between px-3 py-2 bg-muted/50 border-b">
-                                    <span className="font-medium text-xs">ゲスト一覧</span>
+                                    <span className="font-medium text-xs">セット料金</span>
                                     {editable && (
                                         <div className="flex items-center gap-1 no-print">
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
                                                 className="h-6 w-6"
-                                                onClick={handleAddGuest}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleAddGuest();
+                                                }}
                                             >
                                                 <UserPlus className="h-4 w-4" />
                                             </Button>
@@ -1648,141 +1859,135 @@ export function SlipDetailModal({
                                 </div>
                                 <div className="divide-y">
                                     {guestAssignments.length > 0 ? (
-                                        guestAssignments.map((assignment: any) => (
-                                            <div key={assignment.id} className="flex items-center justify-between px-3 py-2">
-                                                <div className="flex items-center gap-2">
-                                                    <Avatar className="h-6 w-6">
-                                                        <AvatarImage src={assignment.profiles?.avatar_url} />
-                                                        <AvatarFallback className="text-[10px]">
-                                                            {assignment.profiles?.display_name?.[0] || "?"}
-                                                        </AvatarFallback>
-                                                    </Avatar>
-                                                    <span className="text-xs">{assignment.profiles?.display_name || "不明"}</span>
+                                        guestAssignments.map((assignment: any) => {
+                                            // このゲストのセット料金オーダーを検索
+                                            const guestSetFeeOrder = orders.find(
+                                                o => o.name === 'セット料金' && o.castId === assignment.guest_id
+                                            );
+                                            const setFeeAmount = guestSetFeeOrder?.price ?? (getSelectedPricingSystem()?.set_fee ?? 0);
+                                            const isEditingSet = editingGuestIds.includes(assignment.id);
+
+                                            return (
+                                                <div key={assignment.id} className="px-3 py-2 space-y-1">
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-2">
+                                                            <Avatar className="h-6 w-6">
+                                                                <AvatarImage src={assignment.profiles?.avatar_url} />
+                                                                <AvatarFallback className="text-[10px]">
+                                                                    {assignment.profiles?.display_name?.[0] || "?"}
+                                                                </AvatarFallback>
+                                                            </Avatar>
+                                                            <span className="text-xs font-medium">{assignment.profiles?.display_name || "不明"}</span>
+                                                        </div>
+                                                        {editable && isEditingSet && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10 no-print"
+                                                                onClick={() => handleRemoveGuest(assignment.id)}
+                                                            >
+                                                                <Trash2 className="h-3 w-3" />
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                    {/* Set Fee for this guest */}
+                                                    <div className="flex items-center justify-between pl-8 text-xs text-muted-foreground">
+                                                        <span>セット料金</span>
+                                                        <div className="flex items-center gap-2">
+                                                            {editable && isEditingSet ? (
+                                                                <div className="flex items-center gap-1">
+                                                                    <span>¥</span>
+                                                                    <Input
+                                                                        type="number"
+                                                                        min={0}
+                                                                        value={editingOrderValues[assignment.id]?.amount ?? setFeeAmount}
+                                                                        onChange={(e) => {
+                                                                            const newAmount = parseInt(e.target.value) || 0;
+                                                                            setEditingOrderValues(prev => ({
+                                                                                ...prev,
+                                                                                [assignment.id]: { ...prev[assignment.id], amount: newAmount }
+                                                                            }));
+                                                                        }}
+                                                                        className="w-20 h-8 text-base text-right"
+                                                                    />
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="h-6 w-6 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                                                        onClick={async () => {
+                                                                            const newAmount = editingOrderValues[assignment.id]?.amount ?? setFeeAmount;
+                                                                            await handleUpdateGuestSetFeeAmount(assignment.guest_id, newAmount);
+                                                                            setEditingGuestIds(prev => prev.filter(id => id !== assignment.id));
+                                                                            setEditingOrderValues(prev => {
+                                                                                const newValues = { ...prev };
+                                                                                delete newValues[assignment.id];
+                                                                                return newValues;
+                                                                            });
+                                                                        }}
+                                                                    >
+                                                                        <Check className="h-3 w-3" />
+                                                                    </Button>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="h-6 w-6"
+                                                                        onClick={() => {
+                                                                            setEditingGuestIds(prev => prev.filter(id => id !== assignment.id));
+                                                                            setEditingOrderValues(prev => {
+                                                                                const newValues = { ...prev };
+                                                                                delete newValues[assignment.id];
+                                                                                return newValues;
+                                                                            });
+                                                                        }}
+                                                                    >
+                                                                        <X className="h-3 w-3" />
+                                                                    </Button>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="flex items-center gap-2">
+                                                                    <span>¥{setFeeAmount.toLocaleString()}</span>
+                                                                    {editable && (
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            className="h-6 w-6 no-print"
+                                                                            onClick={() => setEditingGuestIds(prev => [...prev, assignment.id])}
+                                                                        >
+                                                                            <Pencil className="h-3 w-3" />
+                                                                        </Button>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                {editable && (
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10 no-print"
-                                                        onClick={() => handleRemoveGuest(assignment.id)}
-                                                    >
-                                                        <Trash2 className="h-3 w-3" />
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        ))
+                                            );
+                                        })
                                     ) : (
                                         <div className="px-3 py-4 text-center text-xs text-muted-foreground">
                                             ゲストが登録されていません
                                         </div>
                                     )}
                                 </div>
+                                {/* Total Set Fee */}
+                                {guestAssignments.length > 0 && (
+                                    <div className="flex items-center justify-between px-3 py-2 bg-muted/30 border-t text-xs">
+                                        <span className="font-medium">セット料金 合計</span>
+                                        <span className="font-medium">
+                                            ¥{guestAssignments.reduce((total: number, assignment: any) => {
+                                                const guestSetFeeOrder = orders.find(
+                                                    o => o.name === 'セット料金' && o.castId === assignment.guest_id
+                                                );
+                                                const setFeeAmount = guestSetFeeOrder?.price ?? (getSelectedPricingSystem()?.set_fee ?? 0);
+                                                return total + setFeeAmount;
+                                            }, 0).toLocaleString()}
+                                        </span>
+                                    </div>
+                                )}
                             </div>
 
 
 
-                            {/* Set Fee Section - Only show if editable */}
-                            {/* Set Fee Section - Only show if editable */}
-                            {editable && (
-                                <div className="border rounded-lg overflow-hidden relative">
-                                    <div className="flex items-center justify-between px-3 py-2 bg-muted/50 border-b">
-                                        <span className="font-medium text-xs">セット料金</span>
-                                        <div className="flex items-center gap-1 no-print">
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-6 w-6"
-                                                onClick={handleAddSetFee}
-                                                disabled={isAddingOrder}
-                                            >
-                                                <Plus className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    </div>
-                                    <div className="divide-y">
-                                        {orders
-                                            .filter(o => o.name === 'セット料金')
-                                            .map(order => {
-                                                const isEditing = editingSetFeeIds.includes(order.id);
-                                                return (
-                                                    <div key={order.id} className="p-3 space-y-3">
-                                                        <div className="flex justify-between text-xs items-center">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="font-medium">{order.name}</span>
-                                                                <span className="text-muted-foreground">({order.quantity}名 × ¥{order.price.toLocaleString()})</span>
-                                                                <span>¥{(order.price * order.quantity).toLocaleString()}</span>
-                                                            </div>
-                                                            <div className="flex items-center gap-2 ml-auto">
-                                                                {!isEditing ? (
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="icon"
-                                                                        className="h-6 w-6"
-                                                                        onClick={() => setEditingSetFeeIds(prev => [...prev, order.id])}
-                                                                    >
-                                                                        <Pencil className="h-3 w-3" />
-                                                                    </Button>
-                                                                ) : (
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="icon"
-                                                                        className="h-6 w-6 text-green-600 hover:text-green-700 hover:bg-green-50"
-                                                                        onClick={() => setEditingSetFeeIds(prev => prev.filter(id => id !== order.id))}
-                                                                    >
-                                                                        <Check className="h-4 w-4" />
-                                                                    </Button>
-                                                                )}
-                                                                {isEditing && (
-                                                                    <>
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="icon"
-                                                                            className="h-6 w-6 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                                                            onClick={async () => {
-                                                                                await handleSaveOrder(order.id);
-                                                                                setEditingSetFeeIds(prev => prev.filter(id => id !== order.id));
-                                                                            }}
-                                                                        >
-                                                                            <Save className="h-3 w-3" />
-                                                                        </Button>
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="icon"
-                                                                            className="h-6 w-6 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                                                            onClick={() => handleDeleteOrder(order.id, order.name)}
-                                                                        >
-                                                                            <Trash2 className="h-3 w-3" />
-                                                                        </Button>
-                                                                    </>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                        {isEditing ? (
-                                                            <div className="grid grid-cols-2 gap-2">
-                                                                <div>
-                                                                    <Label className="text-xs text-muted-foreground">人数</Label>
-                                                                    <Input
-                                                                        type="number"
-                                                                        value={editingOrderValues[order.id]?.quantity ?? order.quantity}
-                                                                        className="h-11 text-base"
-                                                                        onChange={(e) => handleEditOrderChange(order.id, 'quantity', parseInt(e.target.value) || 0)}
-                                                                    />
-                                                                </div>
-                                                            </div>
-                                                        ) : (
-                                                            <div className="grid grid-cols-2 gap-2 text-sm">
-                                                                <div>
-                                                                    <div className="text-muted-foreground text-xs">人数</div>
-                                                                    <div>{order.quantity}名</div>
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                );
-                                            })}
-                                    </div>
-                                </div>
-                            )}
                             {/* Extension Fee Section - Only show if editable */}
                             {/* Extension Fee Section - Only show if editable */}
                             {
@@ -1932,7 +2137,12 @@ export function SlipDetailModal({
                                 </div>
                                 <div className="divide-y">
                                     {orders
-                                        .filter(o => o.name !== 'セット料金' && o.name !== '延長料金' && o.name !== '指名料' && o.name !== '場内料金')
+                                        .filter(o => {
+                                            // メニューセクション: menu_idがあるもの（通常のメニューオーダー）のみ表示
+                                            // セット料金、延長料金、指名料、場内料金は除外
+                                            const specialFeeNames = ['セット料金', '延長料金', '指名料', '場内料金'];
+                                            return o.menu_id !== null && !specialFeeNames.includes(o.name);
+                                        })
                                         .map(order => {
                                             const isEditing = editingDrinkIds.includes(order.id);
                                             return (
@@ -2097,7 +2307,7 @@ export function SlipDetailModal({
                                                                     <SelectTrigger className="h-11 text-base">
                                                                         <SelectValue placeholder="キャストを選択" />
                                                                     </SelectTrigger>
-                                                                    <SelectContent>
+                                                                    <SelectContent className="z-[100]" position="popper" sideOffset={4}>
                                                                         <SelectItem value="none">なし</SelectItem>
                                                                         {casts.map((cast) => (
                                                                             <SelectItem key={cast.id} value={cast.id}>
@@ -2172,6 +2382,184 @@ export function SlipDetailModal({
                                                                 variant="ghost"
                                                                 className="h-10 w-full text-muted-foreground"
                                                                 onClick={() => setEditingNominationIds(prev => prev.filter(id => id !== order.id))}
+                                                            >
+                                                                キャンセル
+                                                            </Button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                </div>
+                            </div>
+
+                            {/* Douhan Section */}
+                            <div className="border rounded-lg overflow-hidden relative">
+                                <div className="flex items-center justify-between px-3 py-2 bg-muted/50 border-b">
+                                    <span className="font-medium text-xs">同伴</span>
+                                    <div className="flex items-center gap-1">
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6"
+                                            onClick={handleAddDouhanFee}
+                                            disabled={isAddingOrder}
+                                        >
+                                            <Plus className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </div>
+                                <div className="divide-y">
+                                    {orders
+                                        .filter(o => o.name === '同伴料')
+                                        .map(order => {
+                                            const isEditing = editingDouhanIds.includes(order.id);
+                                            const formatTime = (timeStr: string | null | undefined) => {
+                                                if (!timeStr) return "-";
+                                                try {
+                                                    return new Date(timeStr).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
+                                                } catch {
+                                                    return "-";
+                                                }
+                                            };
+                                            return (
+                                                <div key={order.id} className="p-3 space-y-3">
+                                                    <div className="flex justify-between items-center">
+                                                        <div className="space-y-1 flex-1">
+                                                            <div className="text-xs font-medium">
+                                                                {order.castName ? `${order.castName}` : '同伴料'}
+                                                            </div>
+                                                            {!isEditing && (
+                                                                <>
+                                                                    <div className="text-xs text-muted-foreground">
+                                                                        ¥{order.price.toLocaleString()} × {order.quantity} = ¥{(order.price * order.quantity).toLocaleString()}
+                                                                    </div>
+                                                                    <div className="text-xs text-muted-foreground">
+                                                                        {formatTime(order.startTime)} - {formatTime(order.endTime)}
+                                                                    </div>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex items-center gap-2 ml-auto">
+                                                            {!isEditing ? (
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-6 w-6"
+                                                                    onClick={() => {
+                                                                        setEditingDouhanIds(prev => [...prev, order.id]);
+                                                                        setEditingOrderValues(prev => ({
+                                                                            ...prev,
+                                                                            [order.id]: {
+                                                                                quantity: order.quantity,
+                                                                                amount: order.price,
+                                                                                castId: order.castId || "none",
+                                                                                startTime: order.startTime ? new Date(order.startTime).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) : "",
+                                                                                endTime: order.endTime ? new Date(order.endTime).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) : "",
+                                                                            }
+                                                                        }));
+                                                                    }}
+                                                                >
+                                                                    <Pencil className="h-3 w-3" />
+                                                                </Button>
+                                                            ) : (
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-6 w-6 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                                                    onClick={() => handleDeleteOrder(order.id, order.name)}
+                                                                >
+                                                                    <Trash2 className="h-3 w-3" />
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    {isEditing && (
+                                                        <div className="grid grid-cols-1 gap-2">
+                                                            <div>
+                                                                <Label className="text-xs text-muted-foreground">キャスト</Label>
+                                                                <Select
+                                                                    value={editingOrderValues[order.id]?.castId || "none"}
+                                                                    onValueChange={(value) => handleEditOrderChange(order.id, 'castId', value)}
+                                                                >
+                                                                    <SelectTrigger className="h-11 text-base">
+                                                                        <SelectValue placeholder="キャストを選択" />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent className="z-[100]" position="popper" sideOffset={4}>
+                                                                        <SelectItem value="none">なし</SelectItem>
+                                                                        {casts.map((cast) => (
+                                                                            <SelectItem key={cast.id} value={cast.id}>
+                                                                                {cast.display_name}
+                                                                            </SelectItem>
+                                                                        ))}
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            </div>
+                                                            <div className="grid grid-cols-2 gap-2">
+                                                                <div>
+                                                                    <Label className="text-xs text-muted-foreground">金額</Label>
+                                                                    <Input
+                                                                        type="number"
+                                                                        value={editingOrderValues[order.id]?.amount ?? order.price}
+                                                                        className="h-11 text-base"
+                                                                        onChange={(e) => handleEditOrderChange(order.id, 'amount', parseInt(e.target.value) || 0)}
+                                                                    />
+                                                                </div>
+                                                                <div>
+                                                                    <Label className="text-xs text-muted-foreground">数量</Label>
+                                                                    <Input
+                                                                        type="number"
+                                                                        value={editingOrderValues[order.id]?.quantity ?? order.quantity}
+                                                                        className="h-11 text-base"
+                                                                        onChange={(e) => handleEditOrderChange(order.id, 'quantity', parseInt(e.target.value) || 0)}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                            <div className="grid grid-cols-2 gap-2">
+                                                                <div>
+                                                                    <Label className="text-xs text-muted-foreground">開始時刻</Label>
+                                                                    <Input
+                                                                        type="time"
+                                                                        value={editingOrderValues[order.id]?.startTime || ""}
+                                                                        className="h-11 text-base"
+                                                                        onChange={(e) => handleEditOrderChange(order.id, 'startTime', e.target.value)}
+                                                                    />
+                                                                </div>
+                                                                <div>
+                                                                    <Label className="text-xs text-muted-foreground">終了時刻</Label>
+                                                                    <Input
+                                                                        type="time"
+                                                                        value={editingOrderValues[order.id]?.endTime || ""}
+                                                                        className="h-11 text-base"
+                                                                        onChange={(e) => handleEditOrderChange(order.id, 'endTime', e.target.value)}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                            <div className="grid grid-cols-2 gap-2 mt-2">
+                                                                <Button
+                                                                    variant="outline"
+                                                                    className="h-10"
+                                                                    onClick={async () => {
+                                                                        await handleRecalculateFeeOrder(order.id, 'douhan');
+                                                                        setEditingDouhanIds(prev => prev.filter(id => id !== order.id));
+                                                                    }}
+                                                                >
+                                                                    再計算
+                                                                </Button>
+                                                                <Button
+                                                                    className="h-10 bg-blue-600 text-white hover:bg-blue-700"
+                                                                    onClick={async () => {
+                                                                        await handleSaveOrder(order.id);
+                                                                        setEditingDouhanIds(prev => prev.filter(id => id !== order.id));
+                                                                    }}
+                                                                >
+                                                                    保存
+                                                                </Button>
+                                                            </div>
+                                                            <Button
+                                                                variant="ghost"
+                                                                className="h-10 w-full text-muted-foreground"
+                                                                onClick={() => setEditingDouhanIds(prev => prev.filter(id => id !== order.id))}
                                                             >
                                                                 キャンセル
                                                             </Button>
@@ -2275,7 +2663,7 @@ export function SlipDetailModal({
                                                                     <SelectTrigger className="h-11 text-base">
                                                                         <SelectValue placeholder="キャストを選択" />
                                                                     </SelectTrigger>
-                                                                    <SelectContent>
+                                                                    <SelectContent className="z-[100]" position="popper" sideOffset={4}>
                                                                         <SelectItem value="none">なし</SelectItem>
                                                                         {casts.map((cast) => (
                                                                             <SelectItem key={cast.id} value={cast.id}>
@@ -2365,7 +2753,7 @@ export function SlipDetailModal({
                             {editable && (
                                 <div className="border rounded-lg overflow-hidden relative">
                                     <div className="flex items-center justify-between px-3 py-2 bg-muted/50 border-b">
-                                        <span className="font-medium text-xs">割引</span>
+                                        <span className="font-medium text-xs">その他</span>
                                         <div className="flex items-center gap-1 no-print">
                                             <Button
                                                 variant="ghost"
@@ -2374,7 +2762,7 @@ export function SlipDetailModal({
                                                 onClick={() => {
                                                     setDiscountName("");
                                                     setDiscountAmount(0);
-                                                    setDiscountName("割引");
+                                                    setDiscountIsNegative(true);
                                                     setIsDiscountDialogOpen(true);
                                                 }}
                                                 disabled={isAddingOrder}
@@ -2386,21 +2774,22 @@ export function SlipDetailModal({
                                     <div className="divide-y">
                                         {orders
                                             .filter(o => {
-                                                // 割引を識別: menu_idがnullでitem_nameが存在し、特殊料金名でなく、かつamountがマイナス値
-                                                const specialFeeNames = ['セット料金', '延長料金', '指名料', '場内料金'];
+                                                // その他を識別: menu_idがnullでitem_nameが存在し、特殊料金名でない
+                                                const specialFeeNames = ['セット料金', '延長料金', '指名料', '場内料金', '同伴料'];
                                                 return o.menu_id === null &&
                                                     o.item_name &&
-                                                    !specialFeeNames.includes(o.item_name) &&
-                                                    (o.price < 0 || (o.price * o.quantity) < 0);
+                                                    !specialFeeNames.includes(o.item_name);
                                             })
                                             .map(order => {
                                                 const isEditing = editingDiscountIds.includes(order.id);
+                                                const totalAmount = order.price * order.quantity;
+                                                const isNegative = totalAmount < 0;
                                                 return (
                                                     <div key={order.id} className="p-3 flex justify-between items-center">
                                                         <div className="space-y-1 flex-1">
                                                             <div className="text-xs font-medium">{order.name}</div>
-                                                            <div className="text-xs text-muted-foreground">
-                                                                ¥{Math.abs(order.price * order.quantity).toLocaleString()}
+                                                            <div className={`text-xs ${isNegative ? 'text-red-500' : 'text-green-600'}`}>
+                                                                {isNegative ? '-' : '+'}¥{Math.abs(totalAmount).toLocaleString()}
                                                             </div>
                                                         </div>
                                                         <div className="flex items-center gap-3 ml-auto">
@@ -2500,20 +2889,38 @@ export function SlipDetailModal({
                                 )}
                             </div>
 
-                            {/* Checkout Button */}
+                            {/* Checkout/Reopen Button */}
                             {editable && session && (
-                                <div className="pt-4 border-t mt-4 no-print">
+                                <div className="pt-4 border-t mt-4 no-print space-y-2">
+                                    {session.status === "completed" ? (
+                                        <Button
+                                            className="w-full h-11 bg-blue-600 text-white hover:bg-blue-700"
+                                            onClick={() => setIsReopenDialogOpen(true)}
+                                        >
+                                            <RotateCcw className="h-4 w-4 mr-2" />
+                                            進行中に戻す
+                                        </Button>
+                                    ) : (
+                                        <Button
+                                            className="w-full h-11 bg-blue-600 text-white hover:bg-blue-700"
+                                            onClick={() => setIsCheckoutDialogOpen(true)}
+                                        >
+                                            会計終了
+                                        </Button>
+                                    )}
                                     <Button
-                                        className="w-full h-11 bg-blue-600 text-white hover:bg-blue-700"
-                                        onClick={() => setIsCheckoutDialogOpen(true)}
+                                        variant="outline"
+                                        className="w-full h-11"
+                                        onClick={onClose}
                                     >
-                                        会計終了
+                                        戻る
                                     </Button>
                                 </div>
                             )}
-                        </div >
+                        </div>
+                        </div>
                     )}
-                </DialogContent >
+                </DialogContent>
             </Dialog >
 
             {/* Quick Order Modal */}
@@ -2543,16 +2950,25 @@ export function SlipDetailModal({
                         }}
                         onProfileSelect={handleCastSelectForFee}
                         mode="cast"
+                        profiles={casts}
                     />
                 )
             }
 
-            {/* Discount Dialog */}
-            {
-                editable && (
-                    <Dialog open={isDiscountDialogOpen} onOpenChange={setIsDiscountDialogOpen}>
-                        <DialogContent className="max-w-sm">
-                            <DialogHeader className="mb-3 sm:mb-4 flex flex-row items-center justify-between gap-2 relative">
+            {/* Discount Dialog - Portal to body to avoid pointer-events issues */}
+            {isDiscountDialogOpen && typeof document !== 'undefined' && createPortal(
+                <>
+                    <div
+                        className="fixed inset-0 z-[500] bg-black/50 pointer-events-auto"
+                        onClick={() => {
+                            setIsDiscountDialogOpen(false);
+                            setDiscountName("");
+                            setDiscountAmount(0);
+                        }}
+                    />
+                    <div className="fixed inset-0 z-[501] flex items-center justify-center pointer-events-none">
+                        <div className="pointer-events-auto w-[calc(100%-2rem)] max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-700 dark:bg-gray-900" style={{ pointerEvents: 'auto' }}>
+                            <div className="mb-4 flex items-center justify-between">
                                 <button
                                     type="button"
                                     onClick={() => {
@@ -2560,40 +2976,69 @@ export function SlipDetailModal({
                                         setDiscountName("");
                                         setDiscountAmount(0);
                                     }}
-                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-0"
-                                    aria-label="戻る"
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700"
                                 >
                                     <ChevronLeft className="h-4 w-4" />
                                 </button>
-                                <DialogTitle className="flex-1 text-center text-xl font-bold">割引を追加</DialogTitle>
-                                <div className="h-8 w-8" /> {/* Spacer for centering */}
-                            </DialogHeader>
-                            <div className="space-y-4 py-4">
+                                <h2 className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white">その他を追加</h2>
+                                <div className="h-8 w-8" />
+                            </div>
+                            <div className="space-y-4" style={{ pointerEvents: 'auto' }}>
                                 <div className="space-y-2">
-                                    <Label>割引名</Label>
-                                    <Input
+                                    <Label>項目名</Label>
+                                    <input
+                                        type="text"
                                         value={discountName}
                                         onChange={(e) => setDiscountName(e.target.value)}
-                                        placeholder="例: 会員割引"
-                                        className="h-11 text-base"
+                                        placeholder="項目名を入力"
+                                        className="flex h-11 w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-base text-slate-900 placeholder:text-slate-400 shadow-sm transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-950 dark:text-slate-50 dark:border-slate-800"
+                                        style={{ pointerEvents: 'auto' }}
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>割引額</Label>
-                                    <Input
+                                    <Label>種類</Label>
+                                    <div className="relative inline-flex h-10 items-center rounded-full bg-gray-100 dark:bg-gray-800 p-1">
+                                        <div
+                                            className="absolute h-8 rounded-full bg-white dark:bg-gray-700 shadow-sm transition-transform duration-300 ease-in-out"
+                                            style={{
+                                                width: "calc(50% - 4px)",
+                                                left: "4px",
+                                                transform: `translateX(${discountIsNegative ? 0 : 100}%)`
+                                            }}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setDiscountIsNegative(true)}
+                                            className={`relative z-10 w-24 flex items-center justify-center h-8 rounded-full text-sm font-medium transition-colors duration-200 ${discountIsNegative ? "text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
+                                        >
+                                            引く
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setDiscountIsNegative(false)}
+                                            className={`relative z-10 w-24 flex items-center justify-center h-8 rounded-full text-sm font-medium transition-colors duration-200 ${!discountIsNegative ? "text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
+                                        >
+                                            足す
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>金額</Label>
+                                    <input
                                         type="number"
                                         value={discountAmount || ''}
                                         onChange={(e) => setDiscountAmount(parseInt(e.target.value) || 0)}
                                         placeholder="0"
-                                        className="h-11 text-base"
-                                        min="0"
+                                        className="flex h-11 w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-base text-slate-900 placeholder:text-slate-400 shadow-sm transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-950 dark:text-slate-50 dark:border-slate-800"
+                                        min={0}
+                                        style={{ pointerEvents: 'auto' }}
                                     />
                                 </div>
                             </div>
-                            <DialogFooter className="gap-2 sm:gap-0">
+                            <div className="flex justify-end gap-2 mt-6">
                                 <Button
                                     variant="outline"
-                                    className="flex-1 sm:flex-none h-[44px]"
+                                    className="h-[44px]"
                                     onClick={() => {
                                         setIsDiscountDialogOpen(false);
                                         setDiscountName("");
@@ -2603,80 +3048,135 @@ export function SlipDetailModal({
                                     キャンセル
                                 </Button>
                                 <Button
-                                    className="flex-1 sm:flex-none h-[44px]"
+                                    className="h-[44px]"
                                     onClick={handleAddDiscount}
                                     disabled={!discountName || discountAmount <= 0 || isAddingOrder}
                                 >
                                     追加
                                 </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
-                )
-            }
-
-            {/* Delete Confirmation Dialog */}
-            {
-                editable && (
-                    <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>伝票を削除しますか？</DialogTitle>
-                            </DialogHeader>
-                            <div className="py-4 text-muted-foreground">
-                                この操作は取り消せません。伝票と関連するセッション、注文、キャスト割り当て情報もすべて削除されます。
                             </div>
-                            <DialogFooter className="gap-2">
+                        </div>
+                    </div>
+                </>,
+                document.body
+            )}
+
+            {/* Delete Confirmation Dialog - Portal to body */}
+            {isDeleteDialogOpen && typeof document !== 'undefined' && createPortal(
+                <>
+                    <div
+                        className="fixed inset-0 z-[500] bg-black/50"
+                        onClick={() => setIsDeleteDialogOpen(false)}
+                    />
+                    <div className="fixed inset-0 z-[501] flex items-center justify-center pointer-events-none">
+                        <div className="pointer-events-auto w-[calc(100%-2rem)] max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-700 dark:bg-gray-900">
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">伝票を削除しますか？</h2>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+                                この操作は取り消せません。伝票と関連するセッション、注文、キャスト割り当て情報もすべて削除されます。
+                            </p>
+                            <div className="flex justify-end gap-2">
                                 <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
                                     キャンセル
                                 </Button>
                                 <Button variant="destructive" onClick={handleDeleteSession}>
                                     削除
                                 </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
-                )
-            }
+                            </div>
+                        </div>
+                    </div>
+                </>,
+                document.body
+            )}
 
             {/* Checkout Confirmation Dialog */}
-            <Dialog open={isCheckoutDialogOpen} onOpenChange={setIsCheckoutDialogOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>会計終了</DialogTitle>
-                        <DialogDescription>
-                            会計を確定して退店処理を行いますか？
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter className="gap-2">
-                        <Button variant="outline" onClick={() => setIsCheckoutDialogOpen(false)} disabled={isCheckingOut}>
-                            キャンセル
-                        </Button>
-                        <Button
-                            className="bg-blue-600 text-white hover:bg-blue-700"
-                            disabled={isCheckingOut}
-                            onClick={async () => {
-                                if (!sessionId) return;
-                                setIsCheckingOut(true);
-                                try {
-                                    await closeSession(sessionId);
-                                    toast({ title: "会計終了しました" });
-                                    setIsCheckoutDialogOpen(false);
-                                    onClose();
-                                    onUpdate?.();
-                                } catch (error) {
-                                    console.error(error);
-                                    toast({ title: "会計終了に失敗しました" });
-                                } finally {
-                                    setIsCheckingOut(false);
-                                }
-                            }}
-                        >
-                            {isCheckingOut ? "処理中..." : "会計終了"}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            {isCheckoutDialogOpen && (
+                <>
+                    <div
+                        className="fixed inset-0 z-[200] bg-black/50"
+                        onClick={() => !isCheckingOut && setIsCheckoutDialogOpen(false)}
+                    />
+                    <div className="fixed inset-0 z-[201] flex items-center justify-center pointer-events-none">
+                        <div className="pointer-events-auto w-[calc(100%-2rem)] max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-700 dark:bg-gray-900">
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">会計終了</h2>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+                                会計を確定して退店処理を行いますか？
+                            </p>
+                            <div className="flex justify-end gap-2">
+                                <Button variant="outline" onClick={() => setIsCheckoutDialogOpen(false)} disabled={isCheckingOut}>
+                                    キャンセル
+                                </Button>
+                                <Button
+                                    className="bg-blue-600 text-white hover:bg-blue-700"
+                                    disabled={isCheckingOut}
+                                    onClick={async () => {
+                                        if (!sessionId) return;
+                                        setIsCheckingOut(true);
+                                        try {
+                                            await closeSession(sessionId);
+                                            toast({ title: "会計終了しました" });
+                                            setIsCheckoutDialogOpen(false);
+                                            onClose();
+                                            onUpdate?.();
+                                        } catch (error) {
+                                            console.error(error);
+                                            toast({ title: "会計終了に失敗しました" });
+                                        } finally {
+                                            setIsCheckingOut(false);
+                                        }
+                                    }}
+                                >
+                                    {isCheckingOut ? "処理中..." : "会計終了"}
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </>
+            )}
+
+            {/* Reopen Confirmation Dialog */}
+            {isReopenDialogOpen && (
+                <>
+                    <div
+                        className="fixed inset-0 z-[200] bg-black/50"
+                        onClick={() => !isReopening && setIsReopenDialogOpen(false)}
+                    />
+                    <div className="fixed inset-0 z-[201] flex items-center justify-center pointer-events-none">
+                        <div className="pointer-events-auto w-[calc(100%-2rem)] max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-700 dark:bg-gray-900">
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">進行中に戻す</h2>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+                                このセッションを進行中に戻しますか？
+                            </p>
+                            <div className="flex justify-end gap-2">
+                                <Button variant="outline" onClick={() => setIsReopenDialogOpen(false)} disabled={isReopening}>
+                                    キャンセル
+                                </Button>
+                                <Button
+                                    className="bg-blue-600 text-white hover:bg-blue-700"
+                                    disabled={isReopening}
+                                    onClick={async () => {
+                                        if (!sessionId) return;
+                                        setIsReopening(true);
+                                        try {
+                                            await reopenSession(sessionId);
+                                            toast({ title: "進行中に戻しました" });
+                                            setIsReopenDialogOpen(false);
+                                            await loadAllData(true);
+                                            onUpdate?.();
+                                        } catch (error) {
+                                            console.error(error);
+                                            toast({ title: "進行中に戻すのに失敗しました" });
+                                        } finally {
+                                            setIsReopening(false);
+                                        }
+                                    }}
+                                >
+                                    {isReopening ? "処理中..." : "進行中に戻す"}
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </>
+            )}
 
             {/* Placement Modal for Guest Selection */}
             <PlacementModal
@@ -2685,6 +3185,90 @@ export function SlipDetailModal({
                 onProfileSelect={handleGuestSelect}
                 mode="guest"
                 sessionId={sessionId || undefined}
+                profiles={guests}
+            />
+
+            {/* Guest Selection Modal for Cast Fee (when multiple guests) */}
+            {isGuestSelectOpen && typeof document !== 'undefined' && createPortal(
+                <>
+                    <div
+                        className="fixed inset-0 z-[500] bg-black/50"
+                        onClick={() => {
+                            setIsGuestSelectOpen(false);
+                            setSelectedCastForFee(null);
+                            setSelectedFeeType(null);
+                        }}
+                    />
+                    <div className="fixed inset-0 z-[501] flex items-center justify-center pointer-events-none">
+                        <div className="pointer-events-auto w-[calc(100%-2rem)] max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-700 dark:bg-gray-900">
+                            <div className="mb-4 flex items-center justify-between">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsGuestSelectOpen(false);
+                                        setSelectedCastForFee(null);
+                                        setSelectedFeeType(null);
+                                    }}
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700"
+                                >
+                                    <ChevronLeft className="h-4 w-4" />
+                                </button>
+                                <h2 className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white">
+                                    ゲストを選択
+                                </h2>
+                                <div className="h-8 w-8" />
+                            </div>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                                {selectedCastForFee?.display_name}の{selectedFeeType === 'nomination' ? '指名料' : selectedFeeType === 'douhan' ? '同伴料' : '場内料金'}を追加するゲストを選択してください
+                            </p>
+                            <div className="space-y-2">
+                                {(session?.session_guests || []).map((sg: any) => {
+                                    const guest = sg.profiles;
+                                    if (!guest) return null;
+                                    return (
+                                        <button
+                                            key={sg.id}
+                                            type="button"
+                                            onClick={() => handleGuestSelectForFee(sg.guest_id)}
+                                            className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                                        >
+                                            <Avatar className="h-10 w-10">
+                                                <AvatarImage src={guest.avatar_url} />
+                                                <AvatarFallback>{guest.display_name?.[0] || "?"}</AvatarFallback>
+                                            </Avatar>
+                                            <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                                {guest.display_name || "不明"}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                </>,
+                document.body
+            )}
+
+            {/* Pricing System Edit Modal */}
+            <PricingSystemModal
+                isOpen={isPricingSystemModalOpen}
+                onClose={() => {
+                    setIsPricingSystemModalOpen(false);
+                    setSelectedPricingSystemForEdit(null);
+                }}
+                system={selectedPricingSystemForEdit}
+                onSaved={(updatedSystem) => {
+                    // Update the pricing systems list
+                    setPricingSystems(prev => prev.map(ps =>
+                        ps.id === updatedSystem.id ? updatedSystem : ps
+                    ));
+                    loadAllData(true);
+                }}
+                onDeleted={(deletedId) => {
+                    // Remove from pricing systems list
+                    setPricingSystems(prev => prev.filter(ps => ps.id !== deletedId));
+                    loadAllData(true);
+                }}
             />
         </>
     );

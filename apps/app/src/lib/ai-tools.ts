@@ -513,7 +513,6 @@ export function createAITools(supabase: SupabaseClient, storeId: string) {
                         store_id: storeId,
                         display_name: name,
                         role: role,
-                        approval_status: "approved",
                         invite_status: "accepted",
                     });
 
@@ -670,6 +669,74 @@ export function createAITools(supabase: SupabaseClient, storeId: string) {
                 return {
                     success: true,
                     message: `${profile.display_name}さんの送迎希望をキャンセルしました`,
+                };
+            },
+        }),
+
+        // プロフィール検索（アクション付き）
+        searchProfile: tool({
+            description: "キャスト、スタッフ、ゲストを名前で検索する。検索結果にはプロフィールIDが含まれ、ユーザーがプロフィールを開くためのアクションが提供される。",
+            parameters: z.object({
+                name: z.string().describe("検索する人の名前（部分一致可）"),
+                role: z.enum(["cast", "staff", "guest", "any"]).optional().describe("検索対象の役割。省略時は全て"),
+            }),
+            execute: async ({ name, role }) => {
+                let query = supabase
+                    .from("profiles")
+                    .select("id, display_name, display_name_kana, role, status, avatar_url")
+                    .eq("store_id", storeId)
+                    .ilike("display_name", `%${name}%`);
+
+                if (role && role !== "any") {
+                    query = query.eq("role", role);
+                }
+
+                const { data: profiles, error } = await query;
+
+                if (error) {
+                    return { success: false, message: `検索エラー: ${error.message}` };
+                }
+
+                if (!profiles || profiles.length === 0) {
+                    return {
+                        success: true,
+                        found: false,
+                        message: `「${name}」に該当する人が見つかりません`,
+                        actions: []
+                    };
+                }
+
+                const roleLabels: Record<string, string> = {
+                    cast: "キャスト",
+                    staff: "スタッフ",
+                    guest: "ゲスト",
+                    admin: "管理者",
+                };
+
+                const results = profiles.map(p => ({
+                    id: p.id,
+                    name: p.display_name,
+                    nameKana: p.display_name_kana,
+                    role: p.role,
+                    roleLabel: roleLabels[p.role] || p.role,
+                    status: p.status,
+                }));
+
+                // アクション情報を含める
+                const actions = profiles.map(p => ({
+                    type: "open_profile",
+                    profileId: p.id,
+                    label: `${p.display_name}のプロフィール`,
+                }));
+
+                return {
+                    success: true,
+                    found: true,
+                    message: profiles.length === 1
+                        ? `${profiles[0].display_name}さん（${roleLabels[profiles[0].role] || profiles[0].role}）が見つかりました`
+                        : `${profiles.length}件の候補が見つかりました: ${profiles.map(p => p.display_name).join(", ")}`,
+                    profiles: results,
+                    actions,
                 };
             },
         }),

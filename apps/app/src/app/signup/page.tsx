@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -19,6 +19,20 @@ export default function SignupPage() {
     const [privacyAccepted, setPrivacyAccepted] = useState(false);
     const [loading, setLoading] = useState(false);
     const [signupMethod, setSignupMethod] = useState<"line" | "email">("line");
+
+    // Vercel-style tabs
+    const tabsRef = useRef<{ [key: string]: HTMLButtonElement | null }>({});
+    const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
+
+    useEffect(() => {
+        const activeButton = tabsRef.current[signupMethod];
+        if (activeButton) {
+            setIndicatorStyle({
+                left: activeButton.offsetLeft,
+                width: activeButton.offsetWidth,
+            });
+        }
+    }, [signupMethod]);
 
     // Email signup form state
     const [email, setEmail] = useState("");
@@ -68,45 +82,53 @@ export default function SignupPage() {
     const canProceed = termsAccepted && privacyAccepted;
 
     return (
-        <div className="container mx-auto px-4 py-8 pt-24">
-            <div className="max-w-2xl mx-auto space-y-6">
+        <div className="min-h-screen flex items-center justify-center px-4 py-8 bg-gray-50 dark:bg-gray-900">
+            <div className="w-full max-w-md mx-auto space-y-8">
+                {/* Header */}
                 <div className="text-center space-y-2">
-                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                        Nightbaseへようこそ
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                        新規登録
                     </h1>
-                    <p className="text-gray-600 dark:text-gray-400">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
                         アカウントを作成して始めましょう
                     </p>
                 </div>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-gray-900 dark:text-white">新規登録</CardTitle>
-                        <CardDescription className="text-gray-600 dark:text-gray-400">
-                            登録方法を選択してください
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                        {/* Registration Method Tabs */}
-                        <div className="flex gap-2 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
-                            <button
-                                onClick={() => setSignupMethod("line")}
-                                className={`flex-1 py-1.5 px-3 text-sm rounded-md transition-colors whitespace-nowrap ${signupMethod === "line"
-                                    ? "bg-white dark:bg-gray-700 shadow-sm font-medium text-gray-900 dark:text-white"
-                                    : "text-gray-600 dark:text-gray-400"
+                <Card className="border-gray-200 dark:border-gray-700">
+                    <CardContent className="pt-6 space-y-6">
+                        {/* Registration Method Tabs - Vercel Style */}
+                        <div className="relative">
+                            <div className="flex w-full">
+                                <button
+                                    ref={(el) => { tabsRef.current["line"] = el; }}
+                                    type="button"
+                                    onClick={() => setSignupMethod("line")}
+                                    className={`flex-1 py-2 text-sm font-medium transition-colors relative ${
+                                        signupMethod === "line"
+                                            ? "text-gray-900 dark:text-white"
+                                            : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                                     }`}
-                            >
-                                LINEで登録
-                            </button>
-                            <button
-                                onClick={() => setSignupMethod("email")}
-                                className={`flex-1 py-1.5 px-3 text-sm rounded-md transition-colors whitespace-nowrap ${signupMethod === "email"
-                                    ? "bg-white dark:bg-gray-700 shadow-sm font-medium text-gray-900 dark:text-white"
-                                    : "text-gray-600 dark:text-gray-400"
+                                >
+                                    LINEで登録
+                                </button>
+                                <button
+                                    ref={(el) => { tabsRef.current["email"] = el; }}
+                                    type="button"
+                                    onClick={() => setSignupMethod("email")}
+                                    className={`flex-1 py-2 text-sm font-medium transition-colors relative ${
+                                        signupMethod === "email"
+                                            ? "text-gray-900 dark:text-white"
+                                            : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                                     }`}
-                            >
-                                メールアドレスで登録
-                            </button>
+                                >
+                                    メールで登録
+                                </button>
+                            </div>
+                            <div
+                                className="absolute bottom-0 h-0.5 bg-gray-900 dark:bg-white transition-all duration-200"
+                                style={{ left: indicatorStyle.left, width: indicatorStyle.width }}
+                            />
+                            <div className="absolute bottom-0 left-0 right-0 h-px bg-gray-200 dark:bg-gray-700" />
                         </div>
 
                         {signupMethod === "email" && (
@@ -187,50 +209,42 @@ export default function SignupPage() {
                                 )}
 
                                 <div className="space-y-4">
-                                    <label htmlFor="terms-email" className="flex items-start space-x-3 cursor-pointer">
+                                    <label htmlFor="terms-email" className="flex items-center space-x-3 cursor-pointer">
                                         <Checkbox
                                             id="terms-email"
                                             checked={termsAccepted}
                                             onCheckedChange={(checked) => setTermsAccepted(checked as boolean)}
                                         />
-                                        <div className="space-y-1">
-                                            <div className="font-medium text-gray-900 dark:text-white text-sm">
-                                                利用規約に同意する
-                                            </div>
-                                            <p className="text-xs">
-                                                <Link
-                                                    href={`${MARKETING_URL}/terms-of-service`}
-                                                    target="_blank"
-                                                    className="text-blue-600 dark:text-blue-400 underline hover:text-blue-700 dark:hover:text-blue-300"
-                                                    onClick={(e) => e.stopPropagation()}
-                                                >
-                                                    利用規約を確認する
-                                                </Link>
-                                            </p>
-                                        </div>
+                                        <span className="text-sm text-gray-900 dark:text-white">
+                                            <Link
+                                                href={`${MARKETING_URL}/terms-of-service`}
+                                                target="_blank"
+                                                className="text-blue-600 dark:text-blue-400 underline hover:text-blue-700 dark:hover:text-blue-300"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                利用規約
+                                            </Link>
+                                            に同意する
+                                        </span>
                                     </label>
 
-                                    <label htmlFor="privacy-email" className="flex items-start space-x-3 cursor-pointer">
+                                    <label htmlFor="privacy-email" className="flex items-center space-x-3 cursor-pointer">
                                         <Checkbox
                                             id="privacy-email"
                                             checked={privacyAccepted}
                                             onCheckedChange={(checked) => setPrivacyAccepted(checked as boolean)}
                                         />
-                                        <div className="space-y-1">
-                                            <div className="font-medium text-gray-900 dark:text-white text-sm">
-                                                プライバシーポリシーに同意する
-                                            </div>
-                                            <p className="text-xs">
-                                                <Link
-                                                    href={`${MARKETING_URL}/privacy-policy`}
-                                                    target="_blank"
-                                                    className="text-blue-600 dark:text-blue-400 underline hover:text-blue-700 dark:hover:text-blue-300"
-                                                    onClick={(e) => e.stopPropagation()}
-                                                >
-                                                    プライバシーポリシーを確認する
-                                                </Link>
-                                            </p>
-                                        </div>
+                                        <span className="text-sm text-gray-900 dark:text-white">
+                                            <Link
+                                                href={`${MARKETING_URL}/privacy-policy`}
+                                                target="_blank"
+                                                className="text-blue-600 dark:text-blue-400 underline hover:text-blue-700 dark:hover:text-blue-300"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                プライバシーポリシー
+                                            </Link>
+                                            に同意する
+                                        </span>
                                     </label>
                                 </div>
 
@@ -258,50 +272,42 @@ export default function SignupPage() {
                         {signupMethod === "line" && (
                             <div className="space-y-4">
                                 <div className="space-y-4">
-                                    <label htmlFor="terms" className="flex items-start space-x-3 cursor-pointer">
+                                    <label htmlFor="terms" className="flex items-center space-x-3 cursor-pointer">
                                         <Checkbox
                                             id="terms"
                                             checked={termsAccepted}
                                             onCheckedChange={(checked) => setTermsAccepted(checked as boolean)}
                                         />
-                                        <div className="space-y-1">
-                                            <div className="font-medium text-gray-900 dark:text-white">
-                                                利用規約に同意する
-                                            </div>
-                                            <p className="text-sm">
-                                                <Link
-                                                    href={`${MARKETING_URL}/terms-of-service`}
-                                                    target="_blank"
-                                                    className="text-blue-600 dark:text-blue-400 underline hover:text-blue-700 dark:hover:text-blue-300"
-                                                    onClick={(e) => e.stopPropagation()}
-                                                >
-                                                    利用規約を確認する
-                                                </Link>
-                                            </p>
-                                        </div>
+                                        <span className="text-sm text-gray-900 dark:text-white">
+                                            <Link
+                                                href={`${MARKETING_URL}/terms-of-service`}
+                                                target="_blank"
+                                                className="text-blue-600 dark:text-blue-400 underline hover:text-blue-700 dark:hover:text-blue-300"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                利用規約
+                                            </Link>
+                                            に同意する
+                                        </span>
                                     </label>
 
-                                    <label htmlFor="privacy" className="flex items-start space-x-3 cursor-pointer">
+                                    <label htmlFor="privacy" className="flex items-center space-x-3 cursor-pointer">
                                         <Checkbox
                                             id="privacy"
                                             checked={privacyAccepted}
                                             onCheckedChange={(checked) => setPrivacyAccepted(checked as boolean)}
                                         />
-                                        <div className="space-y-1">
-                                            <div className="font-medium text-gray-900 dark:text-white">
-                                                プライバシーポリシーに同意する
-                                            </div>
-                                            <p className="text-sm">
-                                                <Link
-                                                    href={`${MARKETING_URL}/privacy-policy`}
-                                                    target="_blank"
-                                                    className="text-blue-600 dark:text-blue-400 underline hover:text-blue-700 dark:hover:text-blue-300"
-                                                    onClick={(e) => e.stopPropagation()}
-                                                >
-                                                    プライバシーポリシーを確認する
-                                                </Link>
-                                            </p>
-                                        </div>
+                                        <span className="text-sm text-gray-900 dark:text-white">
+                                            <Link
+                                                href={`${MARKETING_URL}/privacy-policy`}
+                                                target="_blank"
+                                                className="text-blue-600 dark:text-blue-400 underline hover:text-blue-700 dark:hover:text-blue-300"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                プライバシーポリシー
+                                            </Link>
+                                            に同意する
+                                        </span>
                                     </label>
                                 </div>
 
@@ -320,14 +326,20 @@ export default function SignupPage() {
                                 )}
                             </div>
                         )}
+
+                        {/* Login link */}
+                        <div className="border-t border-gray-200 dark:border-gray-700 pt-6 mt-2">
+                            <div className="text-center space-y-1">
+                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                    既にアカウントをお持ちですか？
+                                </p>
+                                <Link href={redirectTo ? `/login?redirect=${encodeURIComponent(redirectTo)}` : "/login"} className="block text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">
+                                    ログイン
+                                </Link>
+                            </div>
+                        </div>
                     </CardContent>
                 </Card>
-
-                <div className="text-center">
-                    <Link href={redirectTo ? `/login?redirect=${encodeURIComponent(redirectTo)}` : "/login"} className="text-sm text-gray-600 dark:text-gray-400 hover:text-primary">
-                        既にアカウントをお持ちの方はこちら
-                    </Link>
-                </div>
             </div>
         </div>
     );

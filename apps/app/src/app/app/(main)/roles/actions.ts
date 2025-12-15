@@ -2,22 +2,9 @@
 
 import { createServerClient } from "@/lib/supabaseServerClient";
 import { revalidatePath } from "next/cache";
+import type { RoleFormData } from "./constants";
 
-export type RoleFormData = {
-    name: string;
-    permissions: {
-        can_manage_roles: boolean;
-        can_manage_users: boolean;
-        can_manage_settings: boolean;
-        can_use_timecard: boolean;
-        can_manage_attendance: boolean;
-        can_view_dashboard: boolean;
-        can_manage_menus: boolean;
-        target?: "staff" | "cast";
-    };
-};
-
-async function getStoreId() {
+async function getStoreIdAndProfile() {
     const supabase = await createServerClient() as any;
     const {
         data: { user },
@@ -35,22 +22,28 @@ async function getStoreId() {
 
     const { data: profile } = await supabase
         .from("profiles")
-        .select("store_id")
+        .select("store_id, role")
         .eq("id", appUser.current_profile_id)
         .single();
 
     if (!profile?.store_id) throw new Error("No store found");
 
-    return profile.store_id;
+    return { storeId: profile.store_id, role: profile.role, profileId: appUser.current_profile_id };
 }
 
 export async function createRole(data: RoleFormData) {
     const supabase = await createServerClient() as any;
-    const storeId = await getStoreId();
+    const { storeId, role } = await getStoreIdAndProfile();
+
+    // adminのみ作成可能
+    if (role !== "admin") {
+        throw new Error("権限がありません");
+    }
 
     const { error } = await supabase.from("store_roles").insert({
         store_id: storeId,
         name: data.name,
+        for_role: data.for_role,
         permissions: data.permissions,
     });
 
@@ -61,30 +54,24 @@ export async function createRole(data: RoleFormData) {
 
 export async function updateRole(id: string, data: RoleFormData) {
     const supabase = await createServerClient() as any;
-    const storeId = await getStoreId();
+    const { storeId, role } = await getStoreIdAndProfile();
+
+    // adminのみ更新可能
+    if (role !== "admin") {
+        throw new Error("権限がありません");
+    }
 
     // Check if role is a system role
-    const { data: role, error: fetchError } = await supabase
+    const { data: existingRole, error: fetchError } = await supabase
         .from("store_roles")
         .select("is_system_role")
         .eq("id", id)
         .eq("store_id", storeId)
         .single();
 
-    if (fetchError || !role) throw new Error("Role not found");
+    if (fetchError || !existingRole) throw new Error("Role not found");
 
-    if (role.is_system_role) {
-        // For system roles, we might want to allow name changes but strictly prevent permission changes
-        // Or just block all updates. The user said "Default permissions cannot be deleted, unchecked".
-        // Let's block permission changes but allow name changes? Or just block everything for simplicity first.
-        // "Default permissions... cannot be unchecked".
-        // If I allow updates, I need to make sure permissions aren't removed.
-        // Safest is to block updates for now, or at least block permission updates.
-        // Let's check if permissions are being changed.
-        // Actually, the requirement is "Default permissions... cannot be unchecked".
-        // This implies we can ADD permissions but not remove them?
-        // Or simply "Default roles are immutable regarding their default permissions".
-        // Let's prevent updating system roles for now to be safe and strict.
+    if (existingRole.is_system_role) {
         throw new Error("システムロールは変更できません");
     }
 
@@ -92,6 +79,7 @@ export async function updateRole(id: string, data: RoleFormData) {
         .from("store_roles")
         .update({
             name: data.name,
+            for_role: data.for_role,
             permissions: data.permissions,
         })
         .eq("id", id)
@@ -104,19 +92,24 @@ export async function updateRole(id: string, data: RoleFormData) {
 
 export async function deleteRole(id: string) {
     const supabase = await createServerClient() as any;
-    const storeId = await getStoreId();
+    const { storeId, role } = await getStoreIdAndProfile();
+
+    // adminのみ削除可能
+    if (role !== "admin") {
+        throw new Error("権限がありません");
+    }
 
     // Check if role is a system role
-    const { data: role, error: fetchError } = await supabase
+    const { data: existingRole, error: fetchError } = await supabase
         .from("store_roles")
         .select("is_system_role")
         .eq("id", id)
         .eq("store_id", storeId)
         .single();
 
-    if (fetchError || !role) throw new Error("Role not found");
+    if (fetchError || !existingRole) throw new Error("Role not found");
 
-    if (role.is_system_role) {
+    if (existingRole.is_system_role) {
         throw new Error("システムロールは削除できません");
     }
 
@@ -131,11 +124,14 @@ export async function deleteRole(id: string) {
     return { success: true };
 }
 
-export async function assignRole(profileId: string, roleId: string | null) {
+export async function assignRoleToProfile(profileId: string, roleId: string | null) {
     const supabase = await createServerClient() as any;
-    const storeId = await getStoreId();
-    
-    console.log('assignRole called with:', { profileId, roleId, storeId });
+    const { storeId, role } = await getStoreIdAndProfile();
+
+    // adminのみ割り当て可能
+    if (role !== "admin") {
+        throw new Error("権限がありません");
+    }
 
     // Verify profile belongs to store
     const { data: profile } = await supabase
@@ -148,40 +144,70 @@ export async function assignRole(profileId: string, roleId: string | null) {
         throw new Error("Invalid profile");
     }
 
-    // First check if profile exists and current role_id
-    const { data: currentProfile } = await supabase
-        .from("profiles")
-        .select("id, role_id, store_id")
-        .eq("id", profileId)
-        .single();
-    
-    console.log('Current profile before update:', currentProfile);
-
-    const { data, error, count } = await supabase
+    const { error } = await supabase
         .from("profiles")
         .update({ role_id: roleId })
-        .eq("id", profileId)
-        .select();
-
-    console.log('assignRole result:', { profileId, roleId, data, error, count, updatedRows: data?.length });
+        .eq("id", profileId);
 
     if (error) throw new Error(error.message);
     revalidatePath("/app/roles");
-    return { success: true, data };
+    return { success: true };
+}
+
+// スタッフにadmin権限を付与/剥奪
+export async function setAdminRole(profileId: string, isAdmin: boolean) {
+    const supabase = await createServerClient() as any;
+    const { storeId, role, profileId: currentProfileId } = await getStoreIdAndProfile();
+
+    // adminのみ変更可能
+    if (role !== "admin") {
+        throw new Error("権限がありません");
+    }
+
+    // 自分自身のadminは剥奪できない
+    if (profileId === currentProfileId && !isAdmin) {
+        throw new Error("自分自身のadmin権限は剥奪できません");
+    }
+
+    // Verify profile belongs to store
+    const { data: profile } = await supabase
+        .from("profiles")
+        .select("store_id, role")
+        .eq("id", profileId)
+        .single();
+
+    if (!profile || profile.store_id !== storeId) {
+        throw new Error("Invalid profile");
+    }
+
+    // staffにのみadminを付与可能（cast/guestには付与不可）
+    if (isAdmin && profile.role !== "staff" && profile.role !== "admin") {
+        throw new Error("スタッフ以外にはadmin権限を付与できません");
+    }
+
+    const { error } = await supabase
+        .from("profiles")
+        .update({ role: isAdmin ? "admin" : "staff" })
+        .eq("id", profileId);
+
+    if (error) throw new Error(error.message);
+    revalidatePath("/app/roles");
+    return { success: true };
 }
 
 export async function getRoles(storeId?: string) {
     const supabase = await createServerClient() as any;
 
     if (!storeId) {
-        storeId = await getStoreId();
+        const { storeId: currentStoreId } = await getStoreIdAndProfile();
+        storeId = currentStoreId;
     }
 
     const { data: roles, error } = await supabase
         .from("store_roles")
         .select("*")
         .eq("store_id", storeId)
-        .order("name");
+        .order("created_at", { ascending: true });
 
     if (error) {
         console.error("Error fetching roles:", error);
@@ -191,7 +217,7 @@ export async function getRoles(storeId?: string) {
     return roles;
 }
 
-export async function getRolesData() {
+export async function getRolesPageData() {
     const supabase = await createServerClient() as any;
     const {
         data: { user },
@@ -222,13 +248,8 @@ export async function getRolesData() {
         return { redirect: "/app/me" };
     }
 
-    const store = currentProfile.stores as any;
-    if (store && store.show_roles === false) {
-        return { redirect: "/app/timecard" };
-    }
-
-    // Role check
-    if (currentProfile.role !== "staff") {
+    // Role check - admin または staff のみアクセス可能
+    if (!["admin", "staff"].includes(currentProfile.role)) {
         return { redirect: "/app/timecard" };
     }
 
@@ -241,8 +262,9 @@ export async function getRolesData() {
             .order("created_at", { ascending: true }),
         supabase
             .from("profiles")
-            .select("id, display_name, real_name, role_id, role")
+            .select("id, display_name, real_name, role_id, role, avatar_url")
             .eq("store_id", currentProfile.store_id)
+            .in("role", ["admin", "staff", "cast"])
     ]);
 
     const roles = rolesResult.data;
@@ -263,6 +285,8 @@ export async function getRolesData() {
         data: {
             roles: roles || [],
             profiles: profiles || [],
+            currentProfileId: appUser.current_profile_id,
+            currentRole: currentProfile.role,
         }
     };
 }

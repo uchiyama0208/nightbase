@@ -394,28 +394,33 @@ export async function getInvitationsData() {
         return { redirect: "/app/me" };
     }
 
-    // Role check
-    if (currentProfile.role !== "staff") {
+    // Role check - staff and admin can access
+    if (currentProfile.role !== "staff" && currentProfile.role !== "admin") {
         return { redirect: "/app/timecard" };
     }
 
     const storeId = currentProfile.store_id;
 
     // Parallelize independent fetches
-    const [invitations, uninvitedProfiles, roles, joinRequests] = await Promise.all([
+    const [invitations, uninvitedProfiles, roles, joinRequests, storeSettings] = await Promise.all([
         getInvitations(undefined, storeId),
         getUninvitedProfiles(storeId),
         getRoles(storeId),
         supabase
-            .from("profiles")
-            .select("id, display_name, real_name, role, created_at, approval_status")
+            .from("join_requests")
+            .select("id, profile_id, display_name, display_name_kana, real_name, real_name_kana, requested_role, status, created_at")
             .eq("store_id", storeId)
-            .eq("approval_status", "pending")
             .order("created_at", { ascending: false })
-            .then(res => res.data || [])
+            .then(res => res.data || []),
+        supabase
+            .from("stores")
+            .select("id, allow_join_requests, allow_join_by_code, allow_join_by_url")
+            .eq("id", storeId)
+            .single()
+            .then(res => res.data)
     ]);
 
-    const joinRequestsCount = joinRequests.length;
+    const joinRequestsCount = joinRequests.filter(jr => jr.status === "pending").length;
 
     return {
         data: {
@@ -424,6 +429,7 @@ export async function getInvitationsData() {
             roles,
             joinRequestsCount,
             joinRequests,
+            storeSettings,
         }
     };
 }
@@ -458,7 +464,7 @@ export async function getJoinRequestsData() {
         return { redirect: "/app/me" };
     }
 
-    if (currentProfile.role !== "staff") {
+    if (currentProfile.role !== "staff" && currentProfile.role !== "admin") {
         return { redirect: "/app/timecard" };
     }
 
@@ -470,10 +476,9 @@ export async function getJoinRequestsData() {
             .eq("id", currentProfile.store_id)
             .single(),
         supabase
-            .from("profiles")
-            .select("id, display_name, real_name, role, created_at, approval_status")
+            .from("join_requests")
+            .select("id, profile_id, display_name, display_name_kana, real_name, real_name_kana, requested_role, status, created_at")
             .eq("store_id", currentProfile.store_id)
-            .eq("approval_status", "pending")
             .order("created_at", { ascending: false })
     ]);
 
@@ -481,6 +486,53 @@ export async function getJoinRequestsData() {
         data: {
             joinRequests: joinRequestsResult.data || [],
             store: storeResult.data,
+        }
+    };
+}
+
+export async function getJoinRequestSettings() {
+    const supabase = await createServerClient() as any;
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { redirect: "/login" };
+    }
+
+    const { data: appUser } = await supabase
+        .from("users")
+        .select("current_profile_id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+    if (!appUser?.current_profile_id) {
+        return { redirect: "/app/me" };
+    }
+
+    const { data: currentProfile } = await supabase
+        .from("profiles")
+        .select("store_id, role")
+        .eq("id", appUser.current_profile_id)
+        .maybeSingle();
+
+    if (!currentProfile || !currentProfile.store_id) {
+        return { redirect: "/app/me" };
+    }
+
+    if (currentProfile.role !== "staff" && currentProfile.role !== "admin") {
+        return { redirect: "/app/timecard" };
+    }
+
+    const { data: store } = await supabase
+        .from("stores")
+        .select("id, allow_join_requests, allow_join_by_code, allow_join_by_url")
+        .eq("id", currentProfile.store_id)
+        .single();
+
+    return {
+        data: {
+            store,
         }
     };
 }
@@ -515,7 +567,7 @@ export async function updateJoinRequestSettings(settings: {
         .eq("id", appUser.current_profile_id)
         .maybeSingle();
 
-    if (!currentProfile || !currentProfile.store_id || currentProfile.role !== "staff") {
+    if (!currentProfile || !currentProfile.store_id || (currentProfile.role !== "staff" && currentProfile.role !== "admin")) {
         return { success: false, error: "Permission denied" };
     }
 

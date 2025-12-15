@@ -50,17 +50,27 @@ export async function submitJoinRequestFromMe(data: {
     // Check if user already has a profile for this store
     const { data: existingProfile } = await supabase
         .from("profiles")
-        .select("id, approval_status")
+        .select("id, role")
         .eq("user_id", user.id)
         .eq("store_id", data.storeId)
         .maybeSingle();
 
+    // Only block if user is already an approved member (cast or staff)
+    if (existingProfile && existingProfile.role && existingProfile.role !== "guest") {
+        return { success: false, error: "既にこの店舗のメンバーです" };
+    }
+
+    // Check for pending join request
     if (existingProfile) {
-        if (existingProfile.approval_status === "pending") {
+        const { data: existingJoinRequest } = await supabase
+            .from("join_requests")
+            .select("id")
+            .eq("profile_id", existingProfile.id)
+            .eq("status", "pending")
+            .maybeSingle();
+
+        if (existingJoinRequest) {
             return { success: false, error: "既にこの店舗への参加申請が承認待ちです" };
-        }
-        if (existingProfile.approval_status === "approved") {
-            return { success: false, error: "既にこの店舗のメンバーです" };
         }
     }
 
@@ -73,40 +83,63 @@ export async function submitJoinRequestFromMe(data: {
         .limit(1)
         .maybeSingle();
 
-    // Create profile with pending status
-    const insertData: Record<string, unknown> = {
-        user_id: user.id,
-        store_id: data.storeId,
-        display_name: data.displayName,
-        display_name_kana: data.displayNameKana,
-        role: data.role,
-        approval_status: "pending",
-    };
+    let profileId: string;
 
-    // Copy avatar if available
-    if (existingUserProfile?.avatar_url) {
-        insertData.avatar_url = existingUserProfile.avatar_url;
+    if (existingProfile) {
+        profileId = existingProfile.id;
+    } else {
+        // Create profile without role (role will be set on approval)
+        const insertData: Record<string, unknown> = {
+            user_id: user.id,
+            store_id: data.storeId,
+            display_name: data.displayName,
+            display_name_kana: data.displayNameKana,
+        };
+
+        // Copy avatar if available
+        if (existingUserProfile?.avatar_url) {
+            insertData.avatar_url = existingUserProfile.avatar_url;
+        }
+
+        const { data: profile, error: profileError } = await supabase
+            .from("profiles")
+            .insert(insertData)
+            .select()
+            .single();
+
+        if (profileError) {
+            console.error("Profile creation error:", profileError);
+            return { success: false, error: profileError.message };
+        }
+
+        profileId = profile.id;
+
+        // Update user's current_profile_id
+        await supabase
+            .from("users")
+            .update({ current_profile_id: profile.id })
+            .eq("id", user.id);
     }
 
-    const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .insert(insertData)
-        .select()
-        .single();
+    // Create join request
+    const { error: joinRequestError } = await supabase
+        .from("join_requests")
+        .insert({
+            store_id: data.storeId,
+            profile_id: profileId,
+            display_name: data.displayName,
+            display_name_kana: data.displayNameKana,
+            requested_role: data.role,
+            status: "pending",
+        });
 
-    if (profileError) {
-        console.error("Profile creation error:", profileError);
-        return { success: false, error: profileError.message };
+    if (joinRequestError) {
+        console.error("Join request creation error:", joinRequestError);
+        return { success: false, error: joinRequestError.message };
     }
-
-    // Update user's current_profile_id
-    await supabase
-        .from("users")
-        .update({ current_profile_id: profile.id })
-        .eq("id", user.id);
 
     revalidatePath("/");
-    return { success: true, profileId: profile.id };
+    return { success: true, profileId };
 }
 
 export async function createNewStore(data: {
@@ -205,7 +238,6 @@ export async function createNewStore(data: {
         display_name_kana: data.ownerDisplayNameKana,
         role: "staff",
         role_id: staffRole.id,
-        approval_status: "approved",
     };
 
     // Copy avatar if available

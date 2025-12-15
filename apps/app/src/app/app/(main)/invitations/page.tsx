@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { InvitationList } from "./invitation-list";
 import { getInvitationsData } from "./actions";
-import { PageTitle } from "@/components/page-title";
+import { getAppDataWithPermissionCheck, getAccessDeniedRedirectUrl } from "../../data-access";
 
 function InvitationsSkeleton() {
     return (
@@ -15,6 +15,20 @@ function InvitationsSkeleton() {
 }
 
 export default async function InvitationsPage() {
+    const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("invitations", "view");
+
+    if (!user) {
+        redirect("/login");
+    }
+
+    if (!profile || !profile.store_id) {
+        redirect("/app/me");
+    }
+
+    if (!hasAccess) {
+        redirect(getAccessDeniedRedirectUrl("invitations"));
+    }
+
     const response = await getInvitationsData();
 
     if (response.redirect) {
@@ -25,19 +39,16 @@ export default async function InvitationsPage() {
         return null;
     }
 
-    const { invitations, uninvitedProfiles, roles } = response.data;
+    const { invitations, uninvitedProfiles, roles, joinRequests, storeSettings } = response.data;
 
     return (
         <div className="space-y-6">
-            <PageTitle
-                title="招待"
-                description="スタッフやキャストを招待し、参加申請を管理します。"
-                backTab="user"
-            />
             <InvitationList
                 initialInvitations={invitations}
                 uninvitedProfiles={uninvitedProfiles}
                 roles={roles}
+                initialJoinRequests={joinRequests}
+                initialStoreSettings={storeSettings}
             />
         </div>
     );

@@ -1,11 +1,10 @@
 import { redirect } from "next/navigation";
-import { getAppData } from "../../data-access";
+import { getAppDataWithPermissionCheck, getAccessDeniedRedirectUrl } from "../../data-access";
 import { getBoardPosts, getAllBoardPosts, getManuals, getAllManuals, getManualTags, getPostLikeCounts, getManualLikeCounts, getPostReadStatus, getManualReadStatus } from "./actions";
 import { BoardClient } from "./BoardClient";
-import { PageTitle } from "@/components/page-title";
 
 export default async function BoardPage() {
-    const { user, profile } = await getAppData();
+    const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("board", "view");
 
     if (!user) {
         redirect("/login");
@@ -13,6 +12,10 @@ export default async function BoardPage() {
 
     if (!profile || !profile.store_id) {
         redirect("/app/me");
+    }
+
+    if (!hasAccess) {
+        redirect(getAccessDeniedRedirectUrl("board"));
     }
 
     const isStaff = profile.role === "staff" || profile.role === "admin";
@@ -37,23 +40,17 @@ export default async function BoardPage() {
     ]);
 
     return (
-        <div className="space-y-4">
-            <PageTitle
-                title="掲示板"
-                backTab="community"
-            />
-            <BoardClient
-                posts={posts}
-                manuals={manuals}
-                tags={tags}
-                storeId={profile.store_id}
-                isStaff={isStaff}
-                userRole={profile.role}
-                postLikeCounts={postLikeCounts}
-                manualLikeCounts={manualLikeCounts}
-                postReadStatus={postReadStatus}
-                manualReadStatus={manualReadStatus}
-            />
-        </div>
+        <BoardClient
+            posts={posts}
+            manuals={manuals}
+            tags={tags}
+            storeId={profile.store_id}
+            isStaff={isStaff}
+            userRole={profile.role}
+            postLikeCounts={postLikeCounts}
+            manualLikeCounts={manualLikeCounts}
+            postReadStatus={postReadStatus}
+            manualReadStatus={manualReadStatus}
+        />
     );
 }

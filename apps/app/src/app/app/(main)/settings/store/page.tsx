@@ -1,37 +1,22 @@
-import { createServerClient } from "@/lib/supabaseServerClient";
 import { redirect } from "next/navigation";
 import { StoreSettingsForm } from "./store-settings-form";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
+import { getAppDataWithPermissionCheck, getAccessDeniedRedirectUrl } from "@/app/app/data-access";
 
 export default async function StoreSettingsPage() {
-    const supabase = await createServerClient() as any;
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
+    const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("settings", "edit");
 
     if (!user) {
         redirect("/login");
     }
 
-    const { data: appUser } = await supabase
-        .from("users")
-        .select("current_profile_id")
-        .eq("id", user.id)
-        .maybeSingle();
-
-    if (!appUser?.current_profile_id) {
+    if (!profile) {
         redirect("/app/me");
     }
 
-    const { data: profile } = await supabase
-        .from("profiles")
-        .select("*, stores(*)")
-        .eq("id", appUser.current_profile_id)
-        .maybeSingle();
-
-    if (!profile) {
-        redirect("/app/me");
+    if (!hasAccess) {
+        redirect(getAccessDeniedRedirectUrl("settings"));
     }
 
     const store = profile.stores as any;

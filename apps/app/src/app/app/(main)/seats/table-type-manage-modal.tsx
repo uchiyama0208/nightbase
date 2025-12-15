@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TableType } from "@/types/floor";
 import { createTableType, updateTableType, deleteTableType, updateTableTypeSortOrders } from "./actions";
-import { Trash2, Edit2, Plus, ArrowUp, ArrowDown, X, Check } from "lucide-react";
+import { Trash2, Edit2, Plus, ArrowUp, ArrowDown, X, Check, ChevronLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 interface TableTypeManageModalProps {
@@ -21,14 +21,15 @@ export function TableTypeManageModal({ open, onOpenChange, tableTypes, onUpdate 
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editName, setEditName] = useState("");
     const [newTypeName, setNewTypeName] = useState("");
+    const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
     const router = useRouter();
 
     const handleCreate = async () => {
         if (!newTypeName.trim()) return;
         setIsSubmitting(true);
         try {
-            const maxSortOrder = tableTypes.length > 0 
-                ? Math.max(...tableTypes.map(t => t.sort_order)) + 1 
+            const maxSortOrder = tableTypes.length > 0
+                ? Math.max(...tableTypes.map(t => t.sort_order)) + 1
                 : 0;
             await createTableType(newTypeName, maxSortOrder);
             setNewTypeName("");
@@ -36,7 +37,6 @@ export function TableTypeManageModal({ open, onOpenChange, tableTypes, onUpdate 
             onUpdate?.();
         } catch (error) {
             console.error(error);
-            alert("席タイプの作成に失敗しました");
         } finally {
             setIsSubmitting(false);
         }
@@ -54,22 +54,20 @@ export function TableTypeManageModal({ open, onOpenChange, tableTypes, onUpdate 
             onUpdate?.();
         } catch (error) {
             console.error(error);
-            alert("席タイプの更新に失敗しました");
         } finally {
             setIsSubmitting(false);
         }
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm("この席タイプを削除しますか？\n紐づいているテーブルは席タイプなしになります。")) return;
         setIsSubmitting(true);
         try {
             await deleteTableType(id);
+            setDeleteConfirm(null);
             router.refresh();
             onUpdate?.();
         } catch (error) {
             console.error(error);
-            alert("席タイプの削除に失敗しました");
         } finally {
             setIsSubmitting(false);
         }
@@ -97,7 +95,6 @@ export function TableTypeManageModal({ open, onOpenChange, tableTypes, onUpdate 
             onUpdate?.();
         } catch (error) {
             console.error(error);
-            alert("並び替えに失敗しました");
         } finally {
             setIsSubmitting(false);
         }
@@ -114,134 +111,186 @@ export function TableTypeManageModal({ open, onOpenChange, tableTypes, onUpdate 
     };
 
     return (
-        <Dialog open={open} onOpenChange={(value) => { if (!value) onOpenChange(false); }}>
-            <DialogContent 
-                className="sm:max-w-[500px] bg-white dark:bg-slate-900 text-slate-900 dark:text-white max-h-[80vh] overflow-hidden flex flex-col rounded-2xl border border-slate-200/80 dark:border-slate-800"
-                onPointerDownOutside={(e) => e.stopPropagation()}
-                onInteractOutside={(e) => e.stopPropagation()}
-                onEscapeKeyDown={(e) => e.stopPropagation()}
-            >
-                <DialogHeader>
-                    <DialogTitle>席タイプ管理</DialogTitle>
-                </DialogHeader>
-
-                <div className="flex-1 overflow-y-auto py-4 space-y-4">
-                    {/* Create New */}
-                    <div className="flex gap-2 items-center p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
-                        <Input
-                            placeholder="新しい席タイプ名"
-                            value={newTypeName}
-                            onChange={(e) => setNewTypeName(e.target.value)}
-                            className="flex-1"
-                            onKeyDown={(e) => {
-                                if (e.key === "Enter") handleCreate();
-                            }}
-                        />
-                        <Button
-                            size="sm"
-                            onClick={handleCreate}
-                            disabled={isSubmitting || !newTypeName.trim()}
+        <>
+            <Dialog open={open} onOpenChange={(value) => { if (!value) onOpenChange(false); }}>
+                <DialogContent
+                    className="max-w-md max-h-[80vh] overflow-y-auto p-0 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
+                    onPointerDownOutside={(e) => e.stopPropagation()}
+                    onInteractOutside={(e) => e.stopPropagation()}
+                    onEscapeKeyDown={(e) => e.stopPropagation()}
+                >
+                    <DialogHeader className="px-4 py-2 border-b border-gray-200 dark:border-gray-700 flex flex-row items-center justify-between gap-2 relative">
+                        <button
+                            type="button"
+                            onClick={() => onOpenChange(false)}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-0"
+                            aria-label="戻る"
                         >
-                            <Plus className="h-4 w-4 mr-1" />
-                            追加
-                        </Button>
-                    </div>
+                            <ChevronLeft className="h-5 w-5" />
+                        </button>
+                        <DialogTitle className="flex-1 text-center text-lg font-bold text-gray-900 dark:text-white">席タイプ管理</DialogTitle>
+                        <DialogDescription className="sr-only">席タイプの追加・編集・削除</DialogDescription>
+                        <div className="w-8" />
+                    </DialogHeader>
 
-                    {/* List */}
-                    <div className="space-y-2">
-                        {tableTypes.map((tableType, index) => (
-                            <div
-                                key={tableType.id}
-                                className="flex items-center gap-2 p-2 border border-slate-100 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+                    <div className="p-4 space-y-4">
+                        {/* Create New */}
+                        <div className="flex gap-2 items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                            <Input
+                                placeholder="新しい席タイプ名"
+                                value={newTypeName}
+                                onChange={(e) => setNewTypeName(e.target.value)}
+                                className="flex-1 h-10 rounded-lg border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") handleCreate();
+                                }}
+                            />
+                            <Button
+                                size="sm"
+                                onClick={handleCreate}
+                                disabled={isSubmitting || !newTypeName.trim()}
+                                className="h-10 px-4 bg-blue-600 text-white hover:bg-blue-700 rounded-lg"
                             >
-                                {/* Sort Controls */}
-                                <div className="flex flex-col gap-0.5">
-                                    <button
-                                        type="button"
-                                        onClick={() => handleMove(index, "up")}
-                                        disabled={index === 0 || isSubmitting}
-                                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 disabled:opacity-30"
-                                    >
-                                        <ArrowUp className="h-4 w-4" />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => handleMove(index, "down")}
-                                        disabled={index === tableTypes.length - 1 || isSubmitting}
-                                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 disabled:opacity-30"
-                                    >
-                                        <ArrowDown className="h-4 w-4" />
-                                    </button>
-                                </div>
+                                <Plus className="h-4 w-4 mr-1" />
+                                追加
+                            </Button>
+                        </div>
 
-                                {/* Content */}
-                                <div className="flex-1">
-                                    {editingId === tableType.id ? (
-                                        <div className="flex gap-2">
-                                            <Input
-                                                value={editName}
-                                                onChange={(e) => setEditName(e.target.value)}
-                                                className="h-8"
-                                                autoFocus
-                                            />
-                                            <Button size="icon" variant="ghost" className="h-8 w-8 text-green-600" onClick={() => handleUpdate(tableType.id)}>
-                                                <Check className="h-4 w-4" />
+                        {/* List */}
+                        <div className="space-y-2">
+                            {tableTypes.map((tableType, index) => (
+                                <div
+                                    key={tableType.id}
+                                    className="flex items-center gap-2 p-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                                >
+                                    {/* Sort Controls */}
+                                    <div className="flex flex-col gap-0.5">
+                                        <button
+                                            type="button"
+                                            onClick={() => handleMove(index, "up")}
+                                            disabled={index === 0 || isSubmitting}
+                                            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 disabled:opacity-30 p-0.5"
+                                        >
+                                            <ArrowUp className="h-4 w-4" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleMove(index, "down")}
+                                            disabled={index === tableTypes.length - 1 || isSubmitting}
+                                            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 disabled:opacity-30 p-0.5"
+                                        >
+                                            <ArrowDown className="h-4 w-4" />
+                                        </button>
+                                    </div>
+
+                                    {/* Content */}
+                                    <div className="flex-1">
+                                        {editingId === tableType.id ? (
+                                            <div className="flex gap-2">
+                                                <Input
+                                                    value={editName}
+                                                    onChange={(e) => setEditName(e.target.value)}
+                                                    className="h-9 rounded-lg"
+                                                    autoFocus
+                                                />
+                                                <Button
+                                                    size="icon"
+                                                    variant="ghost"
+                                                    className="h-9 w-9 text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-900/20"
+                                                    onClick={() => handleUpdate(tableType.id)}
+                                                >
+                                                    <Check className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    size="icon"
+                                                    variant="ghost"
+                                                    className="h-9 w-9 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                                    onClick={cancelEdit}
+                                                >
+                                                    <X className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        ) : (
+                                            <span className="text-sm font-medium text-gray-900 dark:text-white pl-2">{tableType.name}</span>
+                                        )}
+                                    </div>
+
+                                    {/* Actions */}
+                                    {editingId !== tableType.id && (
+                                        <div className="flex gap-1">
+                                            <Button
+                                                size="icon"
+                                                variant="ghost"
+                                                className="h-9 w-9 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                                                onClick={() => startEdit(tableType)}
+                                                disabled={isSubmitting}
+                                            >
+                                                <Edit2 className="h-4 w-4" />
                                             </Button>
-                                            <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-500" onClick={cancelEdit}>
-                                                <X className="h-4 w-4" />
+                                            <Button
+                                                size="icon"
+                                                variant="ghost"
+                                                className="h-9 w-9 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                                onClick={() => setDeleteConfirm({ id: tableType.id, name: tableType.name })}
+                                                disabled={isSubmitting}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
                                             </Button>
                                         </div>
-                                    ) : (
-                                        <span className="text-sm font-medium pl-2">{tableType.name}</span>
                                     )}
                                 </div>
+                            ))}
+                            {tableTypes.length === 0 && (
+                                <div className="text-center text-sm text-gray-500 dark:text-gray-400 py-8">
+                                    席タイプがありません
+                                </div>
+                            )}
+                        </div>
 
-                                {/* Actions */}
-                                {editingId !== tableType.id && (
-                                    <div className="flex gap-1">
-                                        <Button
-                                            size="icon"
-                                            variant="ghost"
-                                            className="h-8 w-8 text-slate-500 hover:text-blue-600"
-                                            onClick={() => startEdit(tableType)}
-                                            disabled={isSubmitting}
-                                        >
-                                            <Edit2 className="h-4 w-4" />
-                                        </Button>
-                                        <Button
-                                            size="icon"
-                                            variant="ghost"
-                                            className="h-8 w-8 text-slate-500 hover:text-red-600"
-                                            onClick={() => handleDelete(tableType.id)}
-                                            disabled={isSubmitting}
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                        {tableTypes.length === 0 && (
-                            <div className="text-center text-sm text-slate-500 py-4">
-                                席タイプがありません
-                            </div>
-                        )}
+                        <div className="pt-2">
+                            <Button
+                                variant="outline"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onOpenChange(false);
+                                }}
+                                className="w-full h-11 rounded-lg"
+                            >
+                                閉じる
+                            </Button>
+                        </div>
                     </div>
-                </div>
+                </DialogContent>
+            </Dialog>
 
-                <DialogFooter>
-                    <Button 
-                        variant="outline" 
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onOpenChange(false);
-                        }} 
-                        className="w-full h-11"
-                    >
-                        閉じる
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+            {/* Delete Confirmation Modal */}
+            <Dialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
+                <DialogContent className="max-w-sm rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
+                    <DialogHeader className="space-y-1.5">
+                        <DialogTitle className="text-lg font-semibold text-gray-900 dark:text-white">削除確認</DialogTitle>
+                        <DialogDescription className="text-sm text-gray-600 dark:text-gray-400">
+                            「{deleteConfirm?.name}」を削除しますか？紐づいているテーブルは席タイプなしになります。
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="mt-4 flex flex-col-reverse gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => setDeleteConfirm(null)}
+                            className="w-full h-11 rounded-lg"
+                        >
+                            キャンセル
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={() => deleteConfirm && handleDelete(deleteConfirm.id)}
+                            disabled={isSubmitting}
+                            className="w-full h-11 rounded-lg"
+                        >
+                            {isSubmitting ? "削除中..." : "削除"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
     );
 }

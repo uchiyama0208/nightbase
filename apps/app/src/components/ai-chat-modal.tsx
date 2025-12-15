@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useChat, type Message } from "ai/react";
-import { X, Send, Sparkles, Loader2, Mic, MicOff } from "lucide-react";
+import { X, Send, Sparkles, Loader2, Mic, MicOff, User } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -11,6 +11,34 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { UserEditModal } from "@/app/app/(main)/users/user-edit-modal";
+
+// アクション情報の型
+interface ParsedAction {
+    type: string;
+    id: string;
+    label: string;
+}
+
+// メッセージからアクション情報をパースする
+function parseActions(content: string): { text: string; actions: ParsedAction[] } {
+    const actionPattern = /\[\[ACTION:([^:]+):([^:]+):([^\]]+)\]\]/g;
+    const actions: ParsedAction[] = [];
+    let match;
+
+    while ((match = actionPattern.exec(content)) !== null) {
+        actions.push({
+            type: match[1],
+            id: match[2],
+            label: match[3],
+        });
+    }
+
+    // アクションマーカーを除去したテキスト
+    const text = content.replace(actionPattern, "").trim();
+
+    return { text, actions };
+}
 
 interface AIChatModalProps {
     isOpen: boolean;
@@ -21,6 +49,10 @@ export function AIChatModal({ isOpen, onClose }: AIChatModalProps) {
     const [initialLoading, setInitialLoading] = useState(true);
     const [isRecording, setIsRecording] = useState(false);
     const [isTranscribing, setIsTranscribing] = useState(false);
+    const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
+    const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+    const [profileForModal, setProfileForModal] = useState<any>(null);
+    const [isLoadingProfile, setIsLoadingProfile] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -205,8 +237,28 @@ export function AIChatModal({ isOpen, onClose }: AIChatModalProps) {
         });
     };
 
+    // アクションボタンのクリックハンドラー
+    const handleActionClick = async (action: ParsedAction) => {
+        if (action.type === "open_profile") {
+            setIsLoadingProfile(true);
+            try {
+                const res = await fetch(`/api/profiles/${action.id}`);
+                if (res.ok) {
+                    const profile = await res.json();
+                    setProfileForModal(profile);
+                    setIsProfileModalOpen(true);
+                }
+            } catch (error) {
+                console.error("Failed to load profile:", error);
+            } finally {
+                setIsLoadingProfile(false);
+            }
+        }
+    };
+
     return (
-        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+        <>
+            <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <DialogContent className="max-w-2xl h-[80vh] flex flex-col p-0 gap-0 overflow-hidden">
                 <DialogHeader className="flex flex-row items-center justify-between border-b px-4 py-3 flex-shrink-0 mb-0">
                     <div className="flex items-center gap-2">
@@ -271,33 +323,56 @@ export function AIChatModal({ isOpen, onClose }: AIChatModalProps) {
                         <div className="space-y-4">
                             {messages
                                 .filter((message: Message) => message.content && message.content.trim() !== "")
-                                .map((message: Message) => (
-                                <div
-                                    key={message.id}
-                                    className={cn(
-                                        "flex",
-                                        message.role === "user" ? "justify-end" : "justify-start"
-                                    )}
-                                >
-                                    <div
-                                        className={cn(
-                                            "max-w-[80%] rounded-2xl px-4 py-2",
-                                            message.role === "user"
-                                                ? "bg-blue-600"
-                                                : "bg-gray-100 dark:bg-gray-800"
-                                        )}
-                                    >
-                                        <p className={cn(
-                                            "whitespace-pre-wrap text-sm",
-                                            message.role === "user"
-                                                ? "text-white"
-                                                : "text-gray-900 dark:text-white"
-                                        )}>
-                                            {message.content}
-                                        </p>
-                                    </div>
-                                </div>
-                            ))}
+                                .map((message: Message) => {
+                                    // アシスタントメッセージの場合はアクションをパース
+                                    const { text, actions } = message.role === "assistant"
+                                        ? parseActions(message.content)
+                                        : { text: message.content, actions: [] };
+
+                                    return (
+                                        <div
+                                            key={message.id}
+                                            className={cn(
+                                                "flex flex-col",
+                                                message.role === "user" ? "items-end" : "items-start"
+                                            )}
+                                        >
+                                            <div
+                                                className={cn(
+                                                    "max-w-[80%] rounded-2xl px-4 py-2",
+                                                    message.role === "user"
+                                                        ? "bg-blue-600"
+                                                        : "bg-gray-100 dark:bg-gray-800"
+                                                )}
+                                            >
+                                                <p className={cn(
+                                                    "whitespace-pre-wrap text-sm",
+                                                    message.role === "user"
+                                                        ? "text-white"
+                                                        : "text-gray-900 dark:text-white"
+                                                )}>
+                                                    {text}
+                                                </p>
+                                            </div>
+                                            {/* アクションボタン */}
+                                            {actions.length > 0 && (
+                                                <div className="flex flex-wrap gap-2 mt-2 max-w-[80%]">
+                                                    {actions.map((action, index) => (
+                                                        <button
+                                                            key={index}
+                                                            onClick={() => handleActionClick(action)}
+                                                            disabled={isLoadingProfile}
+                                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors disabled:opacity-50"
+                                                        >
+                                                            <User className="h-3 w-3" />
+                                                            {action.label}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
                             {isLoading && (
                                 <div className="flex justify-start">
                                     <div className="max-w-[80%] rounded-2xl px-4 py-2 bg-gray-100 dark:bg-gray-800">
@@ -366,5 +441,18 @@ export function AIChatModal({ isOpen, onClose }: AIChatModalProps) {
                 </div>
             </DialogContent>
         </Dialog>
+
+            {/* Profile Edit Modal */}
+            <UserEditModal
+                profile={profileForModal}
+                open={isProfileModalOpen}
+                onOpenChange={(open) => {
+                    setIsProfileModalOpen(open);
+                    if (!open) {
+                        setProfileForModal(null);
+                    }
+                }}
+            />
+        </>
     );
 }

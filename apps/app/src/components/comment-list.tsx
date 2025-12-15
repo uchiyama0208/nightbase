@@ -33,6 +33,7 @@ interface Comment {
 interface CommentListProps {
     comments: Comment[];
     currentUserId: string | null;
+    isAdmin?: boolean;
     onAddComment: (content: string) => Promise<{ success: boolean; error?: string }>;
     onEditComment: (commentId: string, content: string) => Promise<{ success: boolean; error?: string }>;
     onDeleteComment: (commentId: string) => Promise<{ success: boolean; error?: string }>;
@@ -42,6 +43,7 @@ interface CommentListProps {
 export function CommentList({
     comments: initialComments,
     currentUserId,
+    isAdmin = false,
     onAddComment,
     onEditComment,
     onDeleteComment,
@@ -193,8 +195,8 @@ export function CommentList({
     };
 
     return (
-        <div className="space-y-4">
-            <div className="space-y-4">
+        <div className="space-y-3">
+            <div className="space-y-3">
                 {optimisticComments.map((comment) => (
                     <div key={comment.id} className="flex gap-3 items-start group">
                         <Avatar className="h-8 w-8 mt-1 flex-shrink-0">
@@ -210,7 +212,7 @@ export function CommentList({
                                 </span>
                                 <div className="flex items-center gap-2 flex-shrink-0 text-xs text-gray-500">
                                     <span>{formatJSTDate(comment.created_at)}</span>
-                                    {comment.author_profile_id === currentUserId && (
+                                    {(comment.author_profile_id === currentUserId || isAdmin) && (
                                         <div className="relative">
                                             <button
                                                 type="button"
@@ -230,18 +232,20 @@ export function CommentList({
                                                         onClick={() => setCommentMenuOpen(null)}
                                                     />
                                                     <div className="absolute right-0 top-6 z-50 w-32 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg p-1 flex flex-col gap-1 text-xs">
-                                                        <button
-                                                            type="button"
-                                                            className="w-full text-left px-2 py-1.5 rounded flex items-center gap-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                                                            onClick={() => {
-                                                                setEditingCommentId(comment.id);
-                                                                setEditingCommentText(comment.content);
-                                                                setCommentMenuOpen(null);
-                                                            }}
-                                                        >
-                                                            <Edit2 className="h-3 w-3" />
-                                                            編集
-                                                        </button>
+                                                        {comment.author_profile_id === currentUserId && (
+                                                            <button
+                                                                type="button"
+                                                                className="w-full text-left px-2 py-1.5 rounded flex items-center gap-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                                                onClick={() => {
+                                                                    setEditingCommentId(comment.id);
+                                                                    setEditingCommentText(comment.content);
+                                                                    setCommentMenuOpen(null);
+                                                                }}
+                                                            >
+                                                                <Edit2 className="h-3 w-3" />
+                                                                編集
+                                                            </button>
+                                                        )}
                                                         <button
                                                             type="button"
                                                             className="w-full text-left px-2 py-1.5 rounded flex items-center gap-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
@@ -324,7 +328,7 @@ export function CommentList({
                 ))}
             </div>
 
-            <div className="flex gap-2 items-end pt-2">
+            <div className="flex gap-2 items-start">
                 <div className="relative flex-1">
                     <Textarea
                         ref={textareaRef}
@@ -337,7 +341,7 @@ export function CommentList({
                             target.style.height = `${Math.min(target.scrollHeight, 120)}px`;
                         }}
                         placeholder="コメントを入力..."
-                        className="min-h-[40px] max-h-[120px] py-2 pr-10 resize-none rounded-2xl bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 focus:ring-0 overflow-hidden"
+                        className="min-h-[40px] max-h-[120px] py-2 pr-10 resize-none rounded-2xl bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 focus:ring-0 overflow-hidden text-base"
                         rows={1}
                         style={{ height: '40px' }}
                         onKeyDown={(e) => {
@@ -353,9 +357,9 @@ export function CommentList({
                     onClick={handleAdd}
                     disabled={!newComment.trim()}
                     size="icon"
-                    className="h-11 w-11 rounded-full flex-shrink-0"
+                    className="h-10 w-10 rounded-full flex-shrink-0"
                 >
-                    <Send className="h-5 w-5" />
+                    <Send className="h-4 w-4" />
                 </Button>
             </div>
 

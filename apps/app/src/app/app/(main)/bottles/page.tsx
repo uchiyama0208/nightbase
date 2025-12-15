@@ -4,39 +4,28 @@ import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabaseServerClient";
 import { BottleList } from "./bottle-list";
 import { getMenus } from "../menus/actions";
-import { PageTitle } from "@/components/page-title";
+import { getAppDataWithPermissionCheck, getAccessDeniedRedirectUrl } from "../../data-access";
 
 export const metadata: Metadata = {
     title: "ボトルキープ管理",
 };
 
 async function getBottlesPageData() {
-    const supabase = await createServerClient() as any;
-    const { data: { user } } = await supabase.auth.getUser();
+    const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("bottles", "view");
 
     if (!user) {
         redirect("/login");
     }
 
-    const { data: appUser } = await supabase
-        .from("users")
-        .select("current_profile_id")
-        .eq("id", user.id)
-        .maybeSingle();
-
-    if (!appUser?.current_profile_id) {
+    if (!profile || !profile.store_id) {
         redirect("/app/me");
     }
 
-    const { data: currentProfile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("id", appUser.current_profile_id)
-        .maybeSingle();
-
-    if (!currentProfile?.store_id) {
-        redirect("/app/me");
+    if (!hasAccess) {
+        redirect(getAccessDeniedRedirectUrl("bottles"));
     }
+
+    const supabase = await createServerClient() as any;
 
     // Fetch menus for bottle selection
     const menus = await getMenus();
@@ -45,11 +34,11 @@ async function getBottlesPageData() {
     const { data: profiles } = await supabase
         .from("profiles")
         .select("id, display_name, role")
-        .eq("store_id", currentProfile.store_id)
+        .eq("store_id", profile.store_id)
         .order("display_name");
 
     return {
-        storeId: currentProfile.store_id,
+        storeId: profile.store_id,
         menus: menus || [],
         profiles: profiles || [],
     };
@@ -69,20 +58,13 @@ export default async function BottlesPage() {
     const data = await getBottlesPageData();
 
     return (
-        <div className="space-y-4">
-            <PageTitle
-                title="ボトルキープ管理"
-                description="お客様のボトルキープを管理します。"
-                backTab="floor"
+        <Suspense fallback={<BottlesSkeleton />}>
+            <BottleList
+                storeId={data.storeId}
+                menus={data.menus}
+                profiles={data.profiles}
             />
-            <Suspense fallback={<BottlesSkeleton />}>
-                <BottleList
-                    storeId={data.storeId}
-                    menus={data.menus}
-                    profiles={data.profiles}
-                />
-            </Suspense>
-        </div>
+        </Suspense>
     );
 }
 

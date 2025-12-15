@@ -3,8 +3,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getAppData } from "../../data-access";
 import { MyShiftsClient } from "./my-shifts-client";
-import { getMyShiftRequests, getStoreDefaults } from "./actions";
-import { PageTitle } from "@/components/page-title";
+import { getMyShiftRequests, getStoreDefaults, getApprovedShifts, getSubmittedRequestIds } from "./actions";
 
 export const metadata: Metadata = {
     title: "マイシフト",
@@ -31,27 +30,28 @@ export default async function MyShiftsPage() {
         redirect("/app/me");
     }
 
-    const [shiftRequests, storeDefaults] = await Promise.all([
+    const [shiftRequests, storeDefaults, approvedShifts] = await Promise.all([
         getMyShiftRequests(profile.id, profile.store_id, profile.role),
         getStoreDefaults(profile.store_id),
+        getApprovedShifts(profile.id, profile.store_id),
     ]);
 
+    // 提出済みのシフトリクエストIDを取得
+    const requestIds = shiftRequests.map((r: any) => r.id);
+    const submittedRequestIdsSet = await getSubmittedRequestIds(profile.id, requestIds);
+    const submittedRequestIds = Array.from(submittedRequestIdsSet) as string[];
+
     return (
-        <div className="space-y-4">
-            <PageTitle
-                title="マイシフト"
-                description="シフト希望を提出できます。"
-                backTab="shift"
+        <Suspense fallback={<MyShiftsSkeleton />}>
+            <MyShiftsClient
+                shiftRequests={shiftRequests}
+                profileId={profile.id}
+                profileRole={profile.role}
+                storeDefaults={storeDefaults}
+                approvedShifts={approvedShifts}
+                submittedRequestIds={submittedRequestIds}
             />
-            <Suspense fallback={<MyShiftsSkeleton />}>
-                <MyShiftsClient
-                    shiftRequests={shiftRequests}
-                    profileId={profile.id}
-                    profileRole={profile.role}
-                    storeDefaults={storeDefaults}
-                />
-            </Suspense>
-        </div>
+        </Suspense>
     );
 }
 

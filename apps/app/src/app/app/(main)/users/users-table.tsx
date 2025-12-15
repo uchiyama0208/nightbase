@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Plus, Filter, Settings, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import {
@@ -14,8 +14,13 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 
 // Lazy load the modal - only when user clicks
 const UserEditModal = dynamic(() => import("./user-edit-modal").then(mod => ({ default: mod.UserEditModal })), {
@@ -46,12 +51,14 @@ interface UsersTableProps {
     profiles: Profile[];
     roleFilter: string;
     hidePersonalInfo?: boolean;
+    canEdit?: boolean;
 }
 
-export function UsersTable({ profiles: initialProfiles, roleFilter, hidePersonalInfo = false }: UsersTableProps) {
+export function UsersTable({ profiles: initialProfiles, roleFilter, hidePersonalInfo = false, canEdit = false }: UsersTableProps) {
     const router = useRouter();
     const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [nameQuery, setNameQuery] = useState("");
     const [optimisticRole, setOptimisticRole] = useState(roleFilter);
     const [profiles, setProfiles] = useState(initialProfiles);
@@ -150,192 +157,228 @@ export function UsersTable({ profiles: initialProfiles, roleFilter, hidePersonal
         setIsModalOpen(true);
     }, []);
 
-    const roleIndex = useMemo(() => {
-        if (optimisticRole === "cast") return 0;
-        if (optimisticRole === "staff") return 1;
-        if (optimisticRole === "guest") return 2;
-        if (optimisticRole === "partner") return 3;
-        return 0;
+    // Vercel-style tabs with animated underline
+    const tabsRef = useRef<{ [key: string]: HTMLButtonElement | null }>({});
+    const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
+
+    useEffect(() => {
+        const activeButton = tabsRef.current[optimisticRole];
+        if (activeButton) {
+            setIndicatorStyle({
+                left: activeButton.offsetLeft,
+                width: activeButton.offsetWidth,
+            });
+        }
     }, [optimisticRole]);
+
+    const tabs = [
+        { key: "cast", label: "キャスト" },
+        { key: "staff", label: "スタッフ" },
+        { key: "guest", label: "ゲスト" },
+        { key: "partner", label: "パートナー" },
+    ];
 
     return (
         <>
-            <div className="flex items-center justify-between mb-4">
-                <div className="relative inline-flex h-9 items-center rounded-full bg-gray-100 dark:bg-gray-800 p-1">
-                    <div
-                        className="absolute h-7 rounded-full bg-white dark:bg-gray-700 shadow-sm transition-transform duration-300 ease-in-out"
-                        style={{
-                            width: "64px",
-                            left: "4px",
-                            transform: `translateX(calc(${roleIndex} * 64px))`
-                        }}
-                    />
-                    <button
-                        type="button"
-                        onClick={() => handleRoleChange("cast")}
-                        className={`relative z-10 w-16 flex items-center justify-center h-7 rounded-full text-xs font-medium transition-colors duration-200 ${optimisticRole === "cast" ? "text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
-                    >
-                        キャスト
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => handleRoleChange("staff")}
-                        className={`relative z-10 w-16 flex items-center justify-center h-7 rounded-full text-xs font-medium transition-colors duration-200 ${optimisticRole === "staff" ? "text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
-                    >
-                        スタッフ
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => handleRoleChange("guest")}
-                        className={`relative z-10 w-16 flex items-center justify-center h-7 rounded-full text-xs font-medium transition-colors duration-200 ${optimisticRole === "guest" ? "text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
-                    >
-                        ゲスト
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => handleRoleChange("partner")}
-                        className={`relative z-10 w-16 flex items-center justify-center h-7 rounded-full text-xs font-medium transition-colors duration-200 ${optimisticRole === "partner" ? "text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
-                    >
-                        パートナー
-                    </button>
-                </div>
-
-                <Button
-                    size="icon"
-                    className="h-10 w-10 shrink-0 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
-                    onClick={() => {
-                        setSelectedProfile(null);
-                        setIsModalOpen(true);
-                    }}
+            <div className="flex items-center gap-2 mb-4">
+                <button
+                    type="button"
+                    className={`flex items-center gap-1 px-1 py-1 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 ${
+                        hasFilters ? "text-blue-600" : "text-gray-500 dark:text-gray-400"
+                    }`}
+                    onClick={() => setIsFilterOpen(true)}
                 >
-                    <Plus className="h-5 w-5" />
+                    <Filter className="h-5 w-5 shrink-0" />
+                    <span className="text-sm text-gray-600 dark:text-gray-300 truncate">
+                        フィルター: {hasFilters ? nameQuery : "なし"}
+                    </span>
+                </button>
+                <div className="flex-1" />
+                <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-10 w-10 shrink-0 rounded-full bg-white text-gray-600 border-gray-300 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-400 dark:border-gray-600 dark:hover:bg-gray-800 shadow-sm transition-all hover:scale-105 active:scale-95"
+                    onClick={() => router.push("/app/settings")}
+                >
+                    <Settings className="h-5 w-5" />
                 </Button>
+                {canEdit && (
+                    <Button
+                        size="icon"
+                        className="h-10 w-10 shrink-0 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
+                        onClick={() => {
+                            setSelectedProfile(null);
+                            setIsModalOpen(true);
+                        }}
+                    >
+                        <Plus className="h-5 w-5" />
+                    </Button>
+                )}
             </div>
 
-            <Accordion type="single" collapsible className="w-full mb-4">
-                <AccordionItem
-                    value="filters"
-                    className="rounded-2xl border border-gray-200 bg-white px-2 dark:border-gray-700 dark:bg-gray-800"
-                >
-                    <AccordionTrigger className="px-2 text-sm font-semibold text-gray-900 dark:text-white">
-                        <div className="flex w-full items-center justify-between pr-2">
-                            <span>フィルター</span>
-                            {hasFilters && (
-                                <span className="text-xs text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/40 px-2 py-0.5 rounded-full">
-                                    {activeFilters.join("・")}
-                                </span>
-                            )}
-                        </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="px-2">
-                        <div className="flex flex-col gap-3 pt-2 pb-2">
-                            <Input
-                                placeholder="名前で検索"
-                                value={nameQuery}
-                                onChange={(e) => setNameQuery(e.target.value)}
-                                className="w-full h-10 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 text-xs md:text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                        </div>
-                    </AccordionContent>
-                </AccordionItem>
-            </Accordion>
+            {/* Vercel-style Tab Navigation */}
+            <div className="relative mb-4">
+                <div className="flex border-b border-gray-200 dark:border-gray-700">
+                    {tabs.map((tab) => (
+                        <button
+                            key={tab.key}
+                            ref={(el) => { tabsRef.current[tab.key] = el; }}
+                            type="button"
+                            onClick={() => handleRoleChange(tab.key)}
+                            className={`flex-1 px-2 py-2 text-xs sm:text-sm font-medium transition-colors duration-200 whitespace-nowrap ${
+                                optimisticRole === tab.key
+                                    ? "text-gray-900 dark:text-white"
+                                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                            }`}
+                        >
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
+                <span
+                    className="absolute bottom-0 h-0.5 bg-gray-900 dark:bg-white transition-all duration-300 ease-out"
+                    style={{ left: indicatorStyle.left, width: indicatorStyle.width }}
+                />
+            </div>
 
-            <div className="rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-x-auto">
+            <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
                 <Table>
                     <TableHeader>
-                        <TableRow className="border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                            <TableHead className="px-3 sm:px-4 text-center text-gray-500 dark:text-gray-400">表示名</TableHead>
-                            {(roleFilter === "cast" || roleFilter === "staff") && (
-                                <TableHead className="px-3 sm:px-4 text-center text-gray-500 dark:text-gray-400">ひらがな</TableHead>
+                        <TableRow className="bg-gray-50 dark:bg-gray-800/50">
+                            <TableHead className="w-1/3 text-center text-gray-900 dark:text-gray-100">表示名</TableHead>
+                            {(optimisticRole === "cast" || optimisticRole === "staff") && (
+                                <TableHead className="w-1/3 text-center text-gray-900 dark:text-gray-100">ひらがな</TableHead>
                             )}
-                            {(roleFilter === "cast" || roleFilter === "staff") && (
-                                <TableHead className="px-3 sm:px-4 text-center text-gray-500 dark:text-gray-400">状態</TableHead>
+                            {(optimisticRole === "cast" || optimisticRole === "staff") && (
+                                <TableHead className="w-1/3 text-center text-gray-900 dark:text-gray-100">状態</TableHead>
                             )}
-                            {roleFilter === "partner" && (
-                                <TableHead className="px-3 sm:px-4 text-center text-gray-500 dark:text-gray-400">電話番号</TableHead>
+                            {optimisticRole === "partner" && (
+                                <TableHead className="w-1/3 text-center text-gray-900 dark:text-gray-100">電話番号</TableHead>
                             )}
-                            {roleFilter === "partner" && (
-                                <TableHead className="px-3 sm:px-4 text-center text-gray-500 dark:text-gray-400">住所</TableHead>
+                            {optimisticRole === "partner" && (
+                                <TableHead className="w-1/3 text-center text-gray-900 dark:text-gray-100">住所</TableHead>
                             )}
-                            {roleFilter === "guest" && (
-                                <TableHead className="px-3 sm:px-4 text-center text-gray-500 dark:text-gray-400">宛名</TableHead>
+                            {optimisticRole === "guest" && (
+                                <TableHead className="w-1/3 text-center text-gray-900 dark:text-gray-100">宛名</TableHead>
                             )}
-                            {roleFilter === "guest" && (
-                                <TableHead className="px-3 sm:px-4 text-center text-gray-500 dark:text-gray-400">領収書</TableHead>
+                            {optimisticRole === "guest" && (
+                                <TableHead className="w-1/3 text-center text-gray-900 dark:text-gray-100">領収書</TableHead>
                             )}
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {filteredProfiles.map((profile) => (
-                            <TableRow
-                                key={profile.id}
-                                className="cursor-pointer border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                                onClick={() => handleRowClick(profile)}
-                            >
-                                <TableCell className="px-3 sm:px-4 text-center font-medium text-sm text-gray-900 dark:text-white truncate">
-                                    <div className="flex items-center justify-center gap-2">
-                                        {profile.avatar_url && (
-                                            <Image
-                                                src={profile.avatar_url}
-                                                alt={profile.display_name || "avatar"}
-                                                width={32}
-                                                height={32}
-                                                className="h-8 w-8 rounded-full object-cover"
-                                            />
-                                        )}
-                                        <span>{profile.display_name || "-"}</span>
-                                    </div>
-                                </TableCell>
-                                {(roleFilter === "cast" || roleFilter === "staff") && (
-                                    <TableCell className="px-3 sm:px-4 text-center text-sm text-gray-500 dark:text-gray-400 truncate">
-                                        {profile.display_name_kana || "-"}
-                                    </TableCell>
-                                )}
-                                {(roleFilter === "cast" || roleFilter === "staff") && (
-                                    <TableCell className="px-3 sm:px-4 text-center text-sm text-gray-500 dark:text-gray-400 truncate">
-                                        {profile.status || "在籍中"}
-                                    </TableCell>
-                                )}
-                                {roleFilter === "partner" && (
-                                    <TableCell className="px-3 sm:px-4 text-center text-sm text-gray-500 dark:text-gray-400 truncate">
-                                        {profile.phone_number || "-"}
-                                    </TableCell>
-                                )}
-                                {roleFilter === "partner" && (
-                                    <TableCell className="px-3 sm:px-4 text-center text-sm text-gray-500 dark:text-gray-400 truncate">
-                                        {profile.prefecture || profile.city || profile.street
-                                            ? `${profile.prefecture || ""}${profile.city || ""}${profile.street || ""}`
-                                            : "-"}
-                                    </TableCell>
-                                )}
-                                {roleFilter === "guest" && (
-                                    <TableCell className="px-3 sm:px-4 text-center text-sm text-gray-900 dark:text-white truncate">
-                                        {profile.guest_addressee || "-"}
-                                    </TableCell>
-                                )}
-                                {roleFilter === "guest" && (
-                                    <TableCell className="px-3 sm:px-4 text-center text-sm text-gray-900 dark:text-white truncate">
-                                        {profile.guest_receipt_type === "amount_only"
-                                            ? "金額のみ"
-                                            : profile.guest_receipt_type === "with_date"
-                                                ? "日付入り"
-                                                : profile.guest_receipt_type === "none"
-                                                    ? "なし"
-                                                    : "-"}
-                                    </TableCell>
-                                )}
-                            </TableRow>
-                        ))}
-                        {filteredProfiles.length === 0 && (
+                        {filteredProfiles.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={roleFilter === "guest" ? 3 : 3} className="h-24 text-center text-xs md:text-sm text-gray-500 dark:text-gray-400">
+                                <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
                                     ユーザーが見つかりません
                                 </TableCell>
                             </TableRow>
+                        ) : (
+                            filteredProfiles.map((profile) => (
+                                <TableRow
+                                    key={profile.id}
+                                    className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                                    onClick={() => handleRowClick(profile)}
+                                >
+                                    <TableCell className="text-center text-gray-900 dark:text-gray-100">
+                                        <div className="flex items-center justify-center gap-2">
+                                            {profile.avatar_url && (
+                                                <Image
+                                                    src={profile.avatar_url}
+                                                    alt={profile.display_name || "avatar"}
+                                                    width={32}
+                                                    height={32}
+                                                    className="h-8 w-8 rounded-full object-cover"
+                                                />
+                                            )}
+                                            <span>{profile.display_name || "-"}</span>
+                                        </div>
+                                    </TableCell>
+                                    {(optimisticRole === "cast" || optimisticRole === "staff") && (
+                                        <TableCell className="text-center text-gray-900 dark:text-gray-100">
+                                            {profile.display_name_kana || "-"}
+                                        </TableCell>
+                                    )}
+                                    {(optimisticRole === "cast" || optimisticRole === "staff") && (
+                                        <TableCell className="text-center text-gray-900 dark:text-gray-100">
+                                            {profile.status || "在籍中"}
+                                        </TableCell>
+                                    )}
+                                    {optimisticRole === "partner" && (
+                                        <TableCell className="text-center text-gray-900 dark:text-gray-100">
+                                            {profile.phone_number || "-"}
+                                        </TableCell>
+                                    )}
+                                    {optimisticRole === "partner" && (
+                                        <TableCell className="text-center text-gray-900 dark:text-gray-100">
+                                            {profile.prefecture || profile.city || profile.street
+                                                ? `${profile.prefecture || ""}${profile.city || ""}${profile.street || ""}`
+                                                : "-"}
+                                        </TableCell>
+                                    )}
+                                    {optimisticRole === "guest" && (
+                                        <TableCell className="text-center text-gray-900 dark:text-gray-100">
+                                            {profile.guest_addressee || "-"}
+                                        </TableCell>
+                                    )}
+                                    {optimisticRole === "guest" && (
+                                        <TableCell className="text-center text-gray-900 dark:text-gray-100">
+                                            {profile.guest_receipt_type === "amount_only"
+                                                ? "金額のみ"
+                                                : profile.guest_receipt_type === "with_date"
+                                                    ? "日付入り"
+                                                    : profile.guest_receipt_type === "none"
+                                                        ? "なし"
+                                                        : "-"}
+                                        </TableCell>
+                                    )}
+                                </TableRow>
+                            ))
                         )}
                     </TableBody>
                 </Table>
             </div>
+
+            {/* Filter Modal */}
+            <Dialog open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+                <DialogContent className="max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900">
+                    <DialogHeader>
+                        <DialogTitle className="text-base font-semibold text-gray-900 dark:text-white">
+                            フィルター
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-4 mt-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                名前で検索
+                            </label>
+                            <div className="relative">
+                                <Input
+                                    placeholder="名前を入力..."
+                                    value={nameQuery}
+                                    onChange={(e) => setNameQuery(e.target.value)}
+                                    className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 pr-9 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                {nameQuery && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setNameQuery("")}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                        <Button
+                            className="w-full rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                            onClick={() => setIsFilterOpen(false)}
+                        >
+                            適用
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             {/* Modal is only loaded when isModalOpen is true */}
             {isModalOpen && (
@@ -344,6 +387,7 @@ export function UsersTable({ profiles: initialProfiles, roleFilter, hidePersonal
                     open={isModalOpen}
                     onOpenChange={setIsModalOpen}
                     hidePersonalInfo={hidePersonalInfo}
+                    canEdit={canEdit}
                     onDelete={handleDeleteProfile}
                     onUpdate={handleUpdateProfile}
                 />

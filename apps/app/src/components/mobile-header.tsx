@@ -1,8 +1,8 @@
 "use client";
 
-import { Menu, User } from "lucide-react";
+import { Menu, User, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { useDashboardTab } from "@/contexts/dashboard-tab-context";
@@ -28,51 +28,107 @@ const getPageTitle = (pathname: string, activeTab: string | null): string => {
         return tabTitles[activeTab];
     }
     if (pathname.includes("/dashboard")) return "シフト";
+    if (pathname.includes("/settings/qr-order")) return "QRコード注文設定";
+    if (pathname.includes("/settings/timecard")) return "タイムカード設定";
+    if (pathname.includes("/settings/shift")) return "シフト設定";
     if (pathname.includes("/timecard")) return "タイムカード";
     if (pathname.includes("/pickup")) return "送迎管理";
     if (pathname.includes("/attendance")) return "出勤管理";
+    if (pathname.includes("/resumes")) return "履歴書";
     if (pathname.includes("/users")) return "プロフィール情報";
     if (pathname.includes("/invitations")) return "招待";
     if (pathname.includes("/roles")) return "権限";
     if (pathname.includes("/features")) return "機能追加";
     if (pathname.includes("/settings")) return "設定";
-    if (pathname.includes("/me")) return "マイページ";
     if (pathname.includes("/floor")) return "フロア管理";
     if (pathname.includes("/seats")) return "席エディター";
     if (pathname.includes("/assignments")) return "付け回し";
-    if (pathname.includes("/orders")) return "注文";
+    if (pathname.includes("/orders")) return "注文一覧";
     if (pathname.includes("/slips")) return "伝票";
-    if (pathname.includes("/bottles")) return "ボトル";
+    if (pathname.includes("/bottles")) return "ボトルキープ";
     if (pathname.includes("/menus")) return "メニュー";
-    if (pathname.includes("/pricing-systems")) return "料金体系";
-    if (pathname.includes("/salary-systems")) return "給与体系";
+    if (pathname.includes("/pricing-systems")) return "料金システム";
+    if (pathname.includes("/salary-systems")) return "給与システム";
+    if (pathname.includes("/payroll")) return "給与";
+    if (pathname.includes("/sales")) return "売上";
+    if (pathname.includes("/ranking")) return "ランキング";
     if (pathname.includes("/my-shifts")) return "マイシフト";
     if (pathname.includes("/shifts")) return "シフト";
     if (pathname.includes("/board")) return "掲示板";
     if (pathname.includes("/sns")) return "SNS";
-    return "シフト";
+    if (pathname.includes("/queue")) return "順番待ち";
+    if (pathname.includes("/reservations")) return "予約";
+    if (pathname.includes("/shopping")) return "買い出し";
+    if (pathname.includes("/ai-create")) return "AIクリエイト";
+    if (pathname.includes("/me")) return "マイページ";
+    return "ダッシュボード";
 };
 
 export function MobileHeader({ onMenuClick, profileName, avatarUrl, hasSidebar }: MobileHeaderProps) {
     const pathname = usePathname();
+    const router = useRouter();
     const dashboardTab = useDashboardTab();
     const activeTab = dashboardTab?.activeTab ?? null;
     const pageTitle = getPageTitle(pathname, activeTab);
+
+    // ダッシュボードかどうかを判定
+    const isDashboard = pathname === "/app/dashboard" || pathname.startsWith("/app/dashboard?");
+
+    // router.back()を使うべきページ（サブページからの遷移）
+    const shouldUseRouterBack = (): boolean => {
+        // ordersはfloorからの遷移なのでrouter.back()を使う
+        if (pathname.includes("/orders")) return true;
+        return false;
+    };
+
+    // 戻り先のタブを決定
+    const getBackTab = (): string | null => {
+        if (isDashboard) return null;
+        if (shouldUseRouterBack()) return null;
+        if (pathname.includes("/shifts") || pathname.includes("/my-shifts")) return "shift";
+        if (pathname.includes("/users") || pathname.includes("/resumes") || pathname.includes("/invitations") || pathname.includes("/roles")) return "user";
+        if (pathname.includes("/floor") || pathname.includes("/seats") || pathname.includes("/assignments") || pathname.includes("/slips") || pathname.includes("/bottles") || pathname.includes("/shopping")) return "floor";
+        if (pathname.includes("/menus") || pathname.includes("/pricing-systems") || pathname.includes("/salary-systems") || pathname.includes("/payroll") || pathname.includes("/sales") || pathname.includes("/ranking")) return "salary";
+        if (pathname.includes("/board") || pathname.includes("/sns") || pathname.includes("/ai-create")) return "community";
+        if (pathname.includes("/queue") || pathname.includes("/reservations")) return "floor";
+        return null;
+    };
+
+    const backTab = getBackTab();
+
+    const handleBack = () => {
+        if (backTab) {
+            router.push(`/app/dashboard?tab=${backTab}`);
+        } else {
+            router.back();
+        }
+    };
 
     return (
         <header
             className={`fixed top-0 left-0 right-0 z-40 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 h-12 ${hasSidebar ? "lg:pl-72" : ""}`}
         >
             <div className="flex items-center justify-between h-full px-3">
-                {/* Left: Hamburger Menu */}
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={onMenuClick}
-                    className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 lg:hidden"
-                >
-                    <Menu className="h-5 w-5" />
-                </Button>
+                {/* Left: Hamburger Menu (Dashboard only) or Back Button */}
+                {isDashboard ? (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={onMenuClick}
+                        className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 lg:hidden"
+                    >
+                        <Menu className="h-5 w-5" />
+                    </Button>
+                ) : (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleBack}
+                        className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 lg:hidden"
+                    >
+                        <ChevronLeft className="h-5 w-5" />
+                    </Button>
+                )}
 
                 {/* Center: Page Title */}
                 <h1 className="text-base font-semibold text-gray-900 dark:text-white truncate max-w-[200px]">

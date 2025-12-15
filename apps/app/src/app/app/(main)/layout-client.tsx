@@ -37,14 +37,12 @@ export function AppLayoutClient({ children, userRole, profileName, avatarUrl, st
   return (
     <DashboardTabProvider>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        <Suspense fallback={<div className="fixed top-0 left-0 right-0 z-40 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 h-12" />}>
-          <MobileHeader
-            onMenuClick={hideSidebar ? () => { } : () => setSidebarOpen(true)}
-            profileName={profileName}
-            avatarUrl={avatarUrl}
-            hasSidebar={!hideSidebar}
-          />
-        </Suspense>
+        <MobileHeader
+          onMenuClick={hideSidebar ? () => { } : () => setSidebarOpen(true)}
+          profileName={profileName}
+          avatarUrl={avatarUrl}
+          hasSidebar={!hideSidebar}
+        />
         {!hideSidebar && (
           <AppSidebar
             userRole={userRole}

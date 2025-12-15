@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { MenuList } from "./menu-list";
 import { getMenusData } from "./actions";
-import { PageTitle } from "@/components/page-title";
+import { getAppDataWithPermissionCheck, getAccessDeniedRedirectUrl } from "../../data-access";
 
 export const metadata: Metadata = {
     title: "メニュー管理",
@@ -20,6 +20,20 @@ function MenusSkeleton() {
 }
 
 export default async function MenusPage() {
+    const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("menus", "view");
+
+    if (!user) {
+        redirect("/login");
+    }
+
+    if (!profile || !profile.store_id) {
+        redirect("/app/me");
+    }
+
+    if (!hasAccess) {
+        redirect(getAccessDeniedRedirectUrl("menus"));
+    }
+
     const result = await getMenusData();
 
     // Handle redirects
@@ -34,16 +48,9 @@ export default async function MenusPage() {
     const { menus, categories } = result.data;
 
     return (
-        <div className="space-y-4">
-            <PageTitle
-                title="メニュー管理"
-                description="お店のメニューの登録・編集・削除ができます。"
-                backTab="floor"
-            />
-            <Suspense fallback={<MenusSkeleton />}>
-                <MenuList initialMenus={menus} categories={categories} />
-            </Suspense>
-        </div>
+        <Suspense fallback={<MenusSkeleton />}>
+            <MenuList initialMenus={menus} categories={categories} />
+        </Suspense>
     );
 }
 

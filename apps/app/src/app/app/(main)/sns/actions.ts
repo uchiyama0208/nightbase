@@ -88,7 +88,7 @@ async function checkSnsPermission() {
         .maybeSingle();
 
     if (!profile?.store_id) throw new Error("No store found");
-    if (profile.role !== "staff") throw new Error("Insufficient permissions");
+    if (profile.role !== "staff" && profile.role !== "admin") throw new Error("Insufficient permissions");
 
     return { supabase, profile, profileId: appUser.current_profile_id };
 }
@@ -748,7 +748,7 @@ export async function getSnsPageData(): Promise<SnsPageDataResult> {
         return { redirect: "/app/me" };
     }
 
-    if (currentProfile.role !== "staff") {
+    if (currentProfile.role !== "staff" && currentProfile.role !== "admin") {
         return { redirect: "/app/timecard" };
     }
 

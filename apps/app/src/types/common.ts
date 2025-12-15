@@ -1,18 +1,15 @@
-import { Database } from "./supabase";
+import { Database } from "@/lib/supabase";
 
 // Base types from database
 export type StoreRow = Database["public"]["Tables"]["stores"]["Row"];
 export type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 
-// Store with extended fields (from store_settings)
+// Store with extended fields (fields not in StoreRow but used in the app)
 export interface Store extends StoreRow {
-    show_dashboard?: boolean;
-    show_attendance?: boolean;
-    show_timecard?: boolean;
-    show_users?: boolean;
-    show_roles?: boolean;
+    // Only include fields that are NOT in StoreRow
+    // show_dashboard, show_attendance, show_timecard, show_users, show_roles, show_menus
+    // are already defined in StoreRow from lib/supabase.ts
     show_floor?: boolean;
-    show_menus?: boolean;
     show_invitations?: boolean;
     show_join_requests?: boolean;
     show_settings?: boolean;

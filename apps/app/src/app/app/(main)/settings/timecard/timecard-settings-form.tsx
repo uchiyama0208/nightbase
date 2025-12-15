@@ -14,14 +14,17 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { QRCodeSVG } from "qrcode.react";
-import { Copy, Check, ExternalLink } from "lucide-react";
+import { Copy, Check, ExternalLink, ChevronRight } from "lucide-react";
 
 interface TimecardSettingsFormProps {
     store: any;
 }
 
+type DetailView = "break" | "location" | "tablet" | "rounding" | "autoclockout" | null;
+
 export function TimecardSettingsForm({ store }: TimecardSettingsFormProps) {
     const [isPending, startTransition] = useTransition();
+    const [activeDetail, setActiveDetail] = useState<DetailView>(null);
 
     // State for all fields
     const [showBreakColumns, setShowBreakColumns] = useState(store.show_break_columns ?? false);
@@ -158,51 +161,61 @@ export function TimecardSettingsForm({ store }: TimecardSettingsFormProps) {
         );
     };
 
-    return (
-        <div className="space-y-6">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden p-6 space-y-6">
-                <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                        <Label htmlFor="showBreakColumns" className="text-base font-medium text-gray-900 dark:text-white">
-                            休憩ボタンを表示
-                        </Label>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                            タイムカードで休憩開始・終了ボタンを表示します
-                        </p>
+    // Detail view for Break Button Settings
+    const renderBreakDetail = () => (
+        <div className="bg-gray-50 dark:bg-gray-950">
+            <div className="space-y-4">
+                <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 space-y-4">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">休憩ボタンを表示</h2>
+                        <Switch
+                            id="showBreakColumns"
+                            checked={showBreakColumns}
+                            onCheckedChange={(checked) => {
+                                setShowBreakColumns(checked);
+                                handleSave({ showBreakColumns: checked });
+                            }}
+                            disabled={isPending}
+                        />
                     </div>
-                    <Switch
-                        id="showBreakColumns"
-                        checked={showBreakColumns}
-                        onCheckedChange={(checked) => {
-                            setShowBreakColumns(checked);
-                            handleSave({ showBreakColumns: checked });
-                        }}
-                        disabled={isPending}
-                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                        タイムカードで休憩開始・終了ボタンを表示します
+                    </p>
                 </div>
 
-                <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                        <Label htmlFor="locationCheckEnabled" className="text-base font-medium text-gray-900 dark:text-white">
-                            位置情報による打刻制限
-                        </Label>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                            店舗から離れた場所での打刻を禁止します
-                        </p>
-                    </div>
-                    <Switch
-                        id="locationCheckEnabled"
-                        checked={locationCheckEnabled}
-                        onCheckedChange={(checked) => {
-                            setLocationCheckEnabled(checked);
-                            handleSave({ locationCheckEnabled: checked });
-                        }}
-                        disabled={isPending}
-                    />
-                </div>
+                <Button
+                    variant="outline"
+                    onClick={() => setActiveDetail(null)}
+                    className="w-full rounded-lg"
+                >
+                    戻る
+                </Button>
+            </div>
+        </div>
+    );
 
-                {locationCheckEnabled && (
-                    <div className="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+    // Detail view for Location Settings
+    const renderLocationDetail = () => (
+        <div className="bg-gray-50 dark:bg-gray-950">
+            <div className="space-y-4">
+                <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 space-y-4">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">位置情報による打刻制限</h2>
+                        <Switch
+                            id="locationCheckEnabled"
+                            checked={locationCheckEnabled}
+                            onCheckedChange={(checked) => {
+                                setLocationCheckEnabled(checked);
+                                handleSave({ locationCheckEnabled: checked });
+                            }}
+                            disabled={isPending}
+                        />
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                        店舗から離れた場所での打刻を禁止します
+                    </p>
+
+                    <div className={`space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700 ${!locationCheckEnabled ? "opacity-50 pointer-events-none" : ""}`}>
                         <div className="flex items-center justify-between">
                             <Label className="text-gray-900 dark:text-gray-200">位置情報 (緯度・経度)</Label>
                             <Button
@@ -210,26 +223,26 @@ export function TimecardSettingsForm({ store }: TimecardSettingsFormProps) {
                                 variant="outline"
                                 size="sm"
                                 onClick={handleGetCurrentLocation}
-                                disabled={loadingLocation}
+                                disabled={loadingLocation || !locationCheckEnabled}
                             >
-                                {loadingLocation ? "取得中..." : "現在位置を取得して設定"}
+                                {loadingLocation ? "取得中..." : "現在位置を取得"}
                             </Button>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
-                            <div className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg text-center">
+                            <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-center">
                                 <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">緯度</div>
-                                <div className="font-mono text-sm">{latitude?.toFixed(6) ?? "未設定"}</div>
+                                <div className="font-mono text-sm text-gray-900 dark:text-white">{latitude?.toFixed(6) ?? "未設定"}</div>
                             </div>
-                            <div className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg text-center">
+                            <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-center">
                                 <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">経度</div>
-                                <div className="font-mono text-sm">{longitude?.toFixed(6) ?? "未設定"}</div>
+                                <div className="font-mono text-sm text-gray-900 dark:text-white">{longitude?.toFixed(6) ?? "未設定"}</div>
                             </div>
                         </div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
                             現在地を店舗の位置として設定します
                         </p>
 
-                        <div className="space-y-2">
+                        <div className="space-y-2 pt-4 border-t border-gray-200 dark:border-gray-700">
                             <Label htmlFor="locationRadius" className="text-sm font-medium text-gray-900 dark:text-white">許可範囲 (メートル)</Label>
                             <div className="flex items-center space-x-2">
                                 <Input
@@ -242,36 +255,48 @@ export function TimecardSettingsForm({ store }: TimecardSettingsFormProps) {
                                         handleSave({ locationRadius: val });
                                     }}
                                     min="10"
-                                    className="w-32 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
+                                    disabled={!locationCheckEnabled}
+                                    className="w-32 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
                                 />
                                 <span className="text-sm text-gray-500 dark:text-gray-400">m 以内での打刻を許可</span>
                             </div>
                         </div>
                     </div>
-                )}
-
-                <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
-                    <div className="space-y-0.5">
-                        <Label htmlFor="tabletTimecardEnabled" className="text-base font-medium text-gray-900 dark:text-white">
-                            タブレット用タイムカードを有効化
-                        </Label>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                            ログイン無しで使える店舗専用のタブレット打刻画面を有効にします
-                        </p>
-                    </div>
-                    <Switch
-                        id="tabletTimecardEnabled"
-                        checked={tabletTimecardEnabled}
-                        onCheckedChange={(checked) => {
-                            setTabletTimecardEnabled(checked);
-                            handleSave({ tabletTimecardEnabled: checked });
-                        }}
-                        disabled={isPending}
-                    />
                 </div>
 
-                {tabletTimecardEnabled && (
-                    <div className="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <Button
+                    variant="outline"
+                    onClick={() => setActiveDetail(null)}
+                    className="w-full rounded-lg"
+                >
+                    戻る
+                </Button>
+            </div>
+        </div>
+    );
+
+    // Detail view for Tablet Settings
+    const renderTabletDetail = () => (
+        <div className="bg-gray-50 dark:bg-gray-950">
+            <div className="space-y-4">
+                <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 space-y-4">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">タブレット用タイムカード</h2>
+                        <Switch
+                            id="tabletTimecardEnabled"
+                            checked={tabletTimecardEnabled}
+                            onCheckedChange={(checked) => {
+                                setTabletTimecardEnabled(checked);
+                                handleSave({ tabletTimecardEnabled: checked });
+                            }}
+                            disabled={isPending}
+                        />
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                        ログイン無しで使える店舗専用の打刻画面を有効にします
+                    </p>
+
+                    <div className={`space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700 ${!tabletTimecardEnabled ? "opacity-50 pointer-events-none" : ""}`}>
                         <div className="space-y-2">
                             <Label className="text-sm font-medium text-gray-900 dark:text-white">
                                 受付時間
@@ -290,7 +315,7 @@ export function TimecardSettingsForm({ store }: TimecardSettingsFormProps) {
                                             handleSave({ tabletAcceptanceStartTime: e.target.value });
                                         }}
                                         step={60}
-                                        className="mt-1 w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-base"
+                                        className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-base text-gray-900 dark:text-white"
                                     />
                                 </div>
                                 <div>
@@ -306,7 +331,7 @@ export function TimecardSettingsForm({ store }: TimecardSettingsFormProps) {
                                             handleSave({ tabletAcceptanceEndTime: e.target.value });
                                         }}
                                         step={60}
-                                        className="mt-1 w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-base"
+                                        className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-base text-gray-900 dark:text-white"
                                     />
                                 </div>
                             </div>
@@ -315,7 +340,7 @@ export function TimecardSettingsForm({ store }: TimecardSettingsFormProps) {
                             </p>
                         </div>
 
-                        <div className="space-y-2">
+                        <div className="space-y-2 pt-4 border-t border-gray-200 dark:border-gray-700">
                             <Label className="text-sm font-medium text-gray-900 dark:text-white">
                                 表示する役職
                             </Label>
@@ -345,9 +370,6 @@ export function TimecardSettingsForm({ store }: TimecardSettingsFormProps) {
                                     <span className="text-sm text-gray-700 dark:text-gray-300">キャスト</span>
                                 </label>
                             </div>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                                タブレット打刻画面に表示する役職を選択してください
-                            </p>
                             {isRoleSelectionInvalid && (
                                 <p className="text-xs text-red-500">
                                     スタッフまたはキャストのいずれかは必ず選択してください
@@ -355,7 +377,7 @@ export function TimecardSettingsForm({ store }: TimecardSettingsFormProps) {
                             )}
                         </div>
 
-                        <div className="space-y-2">
+                        <div className="space-y-2 pt-4 border-t border-gray-200 dark:border-gray-700">
                             <Label className="text-sm font-medium text-gray-900 dark:text-white">
                                 テーマ
                             </Label>
@@ -372,7 +394,7 @@ export function TimecardSettingsForm({ store }: TimecardSettingsFormProps) {
                                         }}
                                         className="h-4 w-4"
                                     />
-                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">ライトモード</span>
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">ライト</span>
                                 </label>
                                 <label className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 border-gray-300 dark:border-gray-600 cursor-pointer hover:border-blue-400 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 dark:has-[:checked]:bg-blue-900/20">
                                     <input
@@ -386,12 +408,9 @@ export function TimecardSettingsForm({ store }: TimecardSettingsFormProps) {
                                         }}
                                         className="h-4 w-4"
                                     />
-                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">ダークモード</span>
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">ダーク</span>
                                 </label>
                             </div>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                                タブレット打刻画面の表示テーマを選択してください
-                            </p>
                         </div>
 
                         {/* Tablet Link Section */}
@@ -404,7 +423,7 @@ export function TimecardSettingsForm({ store }: TimecardSettingsFormProps) {
                                 <Input
                                     value={tabletUrl}
                                     readOnly
-                                    className="bg-gray-50 dark:bg-gray-900 font-mono text-xs"
+                                    className="bg-gray-50 dark:bg-gray-800 font-mono text-xs"
                                 />
                                 <Button
                                     variant="outline"
@@ -416,21 +435,19 @@ export function TimecardSettingsForm({ store }: TimecardSettingsFormProps) {
                                 </Button>
                             </div>
 
-                            <div className="flex flex-col sm:flex-row gap-6 items-center sm:items-start bg-gray-50 dark:bg-gray-900/50 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                            <div className="flex flex-col gap-4 items-center bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
                                 <div className="bg-white p-2 rounded shadow-sm shrink-0">
                                     <QRCodeSVG value={tabletUrl} size={140} level="H" />
                                 </div>
-                                <div className="space-y-3 flex-1 w-full">
-                                    <div className="space-y-1">
-                                        <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                            QRコードでアクセス
-                                        </p>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                                            iPadなどのタブレット端末でこのQRコードを読み取ると、直接タイムカード画面にアクセスできます。
-                                        </p>
-                                    </div>
-                                    <Button asChild variant="default" className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white">
-                                        <a href={tabletUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2">
+                                <div className="space-y-2 w-full text-center">
+                                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                        QRコードでアクセス
+                                    </p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                        iPadなどのタブレット端末でこのQRコードを読み取ると、直接タイムカード画面にアクセスできます。
+                                    </p>
+                                    <Button asChild variant="default" className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+                                        <a href={tabletUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2">
                                             <ExternalLink className="h-4 w-4" />
                                             ブラウザで開く
                                         </a>
@@ -439,32 +456,41 @@ export function TimecardSettingsForm({ store }: TimecardSettingsFormProps) {
                             </div>
                         </div>
                     </div>
-                )}
-            </div>
-
-            {/* Time Rounding Settings */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden p-6 space-y-6">
-                <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                        <Label htmlFor="timeRoundingEnabled" className="text-base font-medium text-gray-900 dark:text-white">
-                            打刻時間の自動修正
-                        </Label>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                            出勤・退勤時刻を指定した単位で自動的に修正します
-                        </p>
-                    </div>
-                    <Switch
-                        id="timeRoundingEnabled"
-                        checked={timeRoundingEnabled}
-                        onCheckedChange={(checked) => {
-                            setTimeRoundingEnabled(checked);
-                            handleSave({ timeRoundingEnabled: checked });
-                        }}
-                    />
                 </div>
 
-                {timeRoundingEnabled && (
-                    <div className="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <Button
+                    variant="outline"
+                    onClick={() => setActiveDetail(null)}
+                    className="w-full rounded-lg"
+                >
+                    戻る
+                </Button>
+            </div>
+        </div>
+    );
+
+    // Detail view for Time Rounding Settings
+    const renderRoundingDetail = () => (
+        <div className="bg-gray-50 dark:bg-gray-950">
+            <div className="space-y-4">
+                <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 space-y-4">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">打刻時間の自動修正</h2>
+                        <Switch
+                            id="timeRoundingEnabled"
+                            checked={timeRoundingEnabled}
+                            onCheckedChange={(checked) => {
+                                setTimeRoundingEnabled(checked);
+                                handleSave({ timeRoundingEnabled: checked });
+                            }}
+                            disabled={isPending}
+                        />
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                        出勤・退勤時刻を指定した単位で自動的に修正します
+                    </p>
+
+                    <div className={`space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700 ${!timeRoundingEnabled ? "opacity-50 pointer-events-none" : ""}`}>
                         <div className="space-y-2">
                             <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                                 修正方法
@@ -475,8 +501,9 @@ export function TimecardSettingsForm({ store }: TimecardSettingsFormProps) {
                                     setTimeRoundingMethod(value);
                                     handleSave({ timeRoundingMethod: value });
                                 }}
+                                disabled={!timeRoundingEnabled}
                             >
-                                <SelectTrigger className="w-full dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                                <SelectTrigger className="w-full bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -492,7 +519,7 @@ export function TimecardSettingsForm({ store }: TimecardSettingsFormProps) {
                             </p>
                         </div>
 
-                        <div className="space-y-2">
+                        <div className="space-y-2 pt-4 border-t border-gray-200 dark:border-gray-700">
                             <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                                 修正単位（分）
                             </Label>
@@ -503,11 +530,13 @@ export function TimecardSettingsForm({ store }: TimecardSettingsFormProps) {
                                     setTimeRoundingMinutes(minutes);
                                     handleSave({ timeRoundingMinutes: minutes });
                                 }}
+                                disabled={!timeRoundingEnabled}
                             >
-                                <SelectTrigger className="w-full dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                                <SelectTrigger className="w-full bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
+                                    <SelectItem value="1">1分</SelectItem>
                                     <SelectItem value="5">5分</SelectItem>
                                     <SelectItem value="10">10分</SelectItem>
                                     <SelectItem value="15">15分</SelectItem>
@@ -518,32 +547,200 @@ export function TimecardSettingsForm({ store }: TimecardSettingsFormProps) {
                             </Select>
                         </div>
                     </div>
-                )}
-            </div>
-
-            {/* Auto Clock-Out Settings */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden p-6 space-y-6">
-                <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                        <Label htmlFor="autoClockoutEnabled" className="text-base font-medium text-gray-900 dark:text-white">
-                            退勤忘れ時の自動退勤
-                        </Label>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                            日にち切り替え時間に退勤打刻がない場合、自動的に退勤処理を行います
-                        </p>
-                    </div>
-                    <Switch
-                        id="autoClockoutEnabled"
-                        checked={autoClockoutEnabled}
-                        onCheckedChange={(checked) => {
-                            setAutoClockoutEnabled(checked);
-                            handleSave({ autoClockoutEnabled: checked });
-                        }}
-                    />
                 </div>
+
+                <Button
+                    variant="outline"
+                    onClick={() => setActiveDetail(null)}
+                    className="w-full rounded-lg"
+                >
+                    戻る
+                </Button>
             </div>
+        </div>
+    );
 
+    // Detail view for Auto Clock-Out Settings
+    const renderAutoClockoutDetail = () => (
+        <div className="bg-gray-50 dark:bg-gray-950">
+            <div className="space-y-4">
+                <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 space-y-4">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">退勤忘れ時の自動退勤</h2>
+                        <Switch
+                            id="autoClockoutEnabled"
+                            checked={autoClockoutEnabled}
+                            onCheckedChange={(checked) => {
+                                setAutoClockoutEnabled(checked);
+                                handleSave({ autoClockoutEnabled: checked });
+                            }}
+                            disabled={isPending}
+                        />
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                        日にち切り替え時間に退勤打刻がない場合、自動的に退勤処理を行います
+                    </p>
+                </div>
 
+                <Button
+                    variant="outline"
+                    onClick={() => setActiveDetail(null)}
+                    className="w-full rounded-lg"
+                >
+                    戻る
+                </Button>
+            </div>
+        </div>
+    );
+
+    // メイン画面か詳細画面かで切り替え
+    if (activeDetail === "break") {
+        return renderBreakDetail();
+    }
+    if (activeDetail === "location") {
+        return renderLocationDetail();
+    }
+    if (activeDetail === "tablet") {
+        return renderTabletDetail();
+    }
+    if (activeDetail === "rounding") {
+        return renderRoundingDetail();
+    }
+    if (activeDetail === "autoclockout") {
+        return renderAutoClockoutDetail();
+    }
+
+    return (
+        <div className="space-y-4">
+                <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                    {/* 休憩ボタン */}
+                    <button
+                        type="button"
+                        onClick={() => setActiveDetail("break")}
+                        className="flex items-center justify-between p-4 w-full text-left hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                    >
+                        <div className="flex-1 space-y-0.5">
+                            <div className="flex items-center gap-2">
+                                <span className="text-base font-medium text-gray-900 dark:text-white">
+                                    休憩ボタンを表示
+                                </span>
+                                {showBreakColumns && (
+                                    <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                        オン
+                                    </span>
+                                )}
+                            </div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                タイムカードで休憩開始・終了ボタンを表示します
+                            </p>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-gray-400" />
+                    </button>
+
+                    {/* 位置情報による打刻制限 */}
+                    <button
+                        type="button"
+                        onClick={() => setActiveDetail("location")}
+                        className="flex items-center justify-between p-4 w-full text-left hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                    >
+                        <div className="flex-1 space-y-0.5">
+                            <div className="flex items-center gap-2">
+                                <span className="text-base font-medium text-gray-900 dark:text-white">
+                                    位置情報による打刻制限
+                                </span>
+                                {locationCheckEnabled && (
+                                    <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                        オン
+                                    </span>
+                                )}
+                            </div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                店舗から離れた場所での打刻を禁止します
+                            </p>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-gray-400" />
+                    </button>
+
+                    {/* タブレット用タイムカード */}
+                    <button
+                        type="button"
+                        onClick={() => setActiveDetail("tablet")}
+                        className="flex items-center justify-between p-4 w-full text-left hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                    >
+                        <div className="flex-1 space-y-0.5">
+                            <div className="flex items-center gap-2">
+                                <span className="text-base font-medium text-gray-900 dark:text-white">
+                                    タブレット用タイムカード
+                                </span>
+                                {tabletTimecardEnabled && (
+                                    <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                        オン
+                                    </span>
+                                )}
+                            </div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                ログイン無しで使える店舗専用の打刻画面を有効にします
+                            </p>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-gray-400" />
+                    </button>
+
+                    {/* 打刻時間の自動修正 */}
+                    <button
+                        type="button"
+                        onClick={() => setActiveDetail("rounding")}
+                        className="flex items-center justify-between p-4 w-full text-left hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                    >
+                        <div className="flex-1 space-y-0.5">
+                            <div className="flex items-center gap-2">
+                                <span className="text-base font-medium text-gray-900 dark:text-white">
+                                    打刻時間の自動修正
+                                </span>
+                                {timeRoundingEnabled && (
+                                    <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                        オン
+                                    </span>
+                                )}
+                            </div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                出勤・退勤時刻を指定した単位で自動的に修正します
+                            </p>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-gray-400" />
+                    </button>
+
+                    {/* 退勤忘れ時の自動退勤 */}
+                    <button
+                        type="button"
+                        onClick={() => setActiveDetail("autoclockout")}
+                        className="flex items-center justify-between p-4 w-full text-left hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                    >
+                        <div className="flex-1 space-y-0.5">
+                            <div className="flex items-center gap-2">
+                                <span className="text-base font-medium text-gray-900 dark:text-white">
+                                    退勤忘れ時の自動退勤
+                                </span>
+                                {autoClockoutEnabled && (
+                                    <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                        オン
+                                    </span>
+                                )}
+                            </div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                日にち切り替え時間に退勤打刻がない場合、自動的に退勤処理を行います
+                            </p>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-gray-400" />
+                    </button>
+                </div>
+
+                <Button
+                    variant="outline"
+                    onClick={() => window.history.back()}
+                    className="w-full rounded-lg"
+                >
+                    戻る
+                </Button>
         </div>
     );
 }

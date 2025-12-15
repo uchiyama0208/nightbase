@@ -3,8 +3,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabaseServerClient";
 import { UsersTable } from "./users-table";
-import { PageTitle } from "@/components/page-title";
-import { getAppData } from "../../data-access";
+import { getAppDataWithPermissionCheck, getAccessDeniedRedirectUrl } from "../../data-access";
 
 export const metadata: Metadata = {
     title: "プロフィール情報",
@@ -59,7 +58,7 @@ export default async function UsersPage({
     const params = await searchParams;
     const roleParam = params.role || "cast";
 
-    const { user, profile } = await getAppData();
+    const { user, profile, hasAccess, canEdit } = await getAppDataWithPermissionCheck("users", "view");
 
     if (!user) {
         redirect("/login");
@@ -69,19 +68,16 @@ export default async function UsersPage({
         redirect("/app/me");
     }
 
+    if (!hasAccess) {
+        redirect(getAccessDeniedRedirectUrl("users"));
+    }
+
     const { profiles, hidePersonalInfo } = await getUsersData(profile.store_id, profile.id);
 
     return (
-        <div className="space-y-4">
-            <PageTitle
-                title="プロフィール情報"
-                description="キャスト・スタッフ・ゲスト・パートナーのプロフィールを管理します。"
-                backTab="user"
-            />
-            <Suspense fallback={<UsersSkeleton />}>
-                <UsersTable profiles={profiles} roleFilter={roleParam} hidePersonalInfo={hidePersonalInfo} />
-            </Suspense>
-        </div>
+        <Suspense fallback={<UsersSkeleton />}>
+            <UsersTable profiles={profiles} roleFilter={roleParam} hidePersonalInfo={hidePersonalInfo} canEdit={canEdit} />
+        </Suspense>
     );
 }
 

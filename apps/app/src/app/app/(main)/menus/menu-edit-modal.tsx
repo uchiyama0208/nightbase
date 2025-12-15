@@ -28,6 +28,9 @@ export function MenuEditModal({ menu, open, onOpenChange, categories }: MenuEdit
     const [imageUrl, setImageUrl] = useState<string | null>(null);
     const [isUploadingImage, setIsUploadingImage] = useState(false);
     const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+    const [stockEnabled, setStockEnabled] = useState(false);
+    const [stockQuantity, setStockQuantity] = useState(0);
+    const [stockAlertThreshold, setStockAlertThreshold] = useState(3);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const cameraInputRef = useRef<HTMLInputElement>(null);
     const router = useRouter();
@@ -40,12 +43,18 @@ export function MenuEditModal({ menu, open, onOpenChange, categories }: MenuEdit
                 setNewCategoryName("");
                 setTargetType(menu.target_type || "guest");
                 setImageUrl(menu.image_url || null);
+                setStockEnabled(menu.stock_enabled || false);
+                setStockQuantity(menu.stock_quantity || 0);
+                setStockAlertThreshold(menu.stock_alert_threshold ?? 3);
             } else {
                 setSelectedCategoryId("");
                 setNewCategoryName("");
                 setCategoryMode(categories.length > 0 ? "select" : "create");
                 setTargetType("guest");
                 setImageUrl(null);
+                setStockEnabled(false);
+                setStockQuantity(0);
+                setStockAlertThreshold(3);
             }
         }
     }, [open, menu, categories]);
@@ -433,6 +442,69 @@ export function MenuEditModal({ menu, open, onOpenChange, categories }: MenuEdit
                                 className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                             />
                             <Label htmlFor="hide_from_slip" className="font-normal cursor-pointer">伝票で非表示にする</Label>
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                            <input
+                                type="checkbox"
+                                id="is_hidden"
+                                name="is_hidden"
+                                defaultChecked={menu ? menu.is_hidden : false}
+                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <Label htmlFor="is_hidden" className="font-normal cursor-pointer">注文一覧から非表示にする</Label>
+                        </div>
+
+                        {/* 在庫管理 */}
+                        <div className="space-y-3 pt-2 border-t border-gray-200 dark:border-gray-700">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <Label className="font-medium">在庫管理</Label>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                        在庫数を管理します
+                                    </p>
+                                </div>
+                                <input
+                                    type="checkbox"
+                                    id="stock_enabled"
+                                    name="stock_enabled"
+                                    checked={stockEnabled}
+                                    onChange={(e) => setStockEnabled(e.target.checked)}
+                                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                            </div>
+
+                            {stockEnabled && (
+                                <div className="space-y-3">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="stock_quantity">残り在庫数</Label>
+                                        <Input
+                                            id="stock_quantity"
+                                            name="stock_quantity"
+                                            type="number"
+                                            value={stockQuantity}
+                                            onChange={(e) => setStockQuantity(parseInt(e.target.value) || 0)}
+                                            placeholder="0"
+                                            min="0"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="stock_alert_threshold">低在庫アラート閾値</Label>
+                                        <Input
+                                            id="stock_alert_threshold"
+                                            name="stock_alert_threshold"
+                                            type="number"
+                                            value={stockAlertThreshold}
+                                            onChange={(e) => setStockAlertThreshold(parseInt(e.target.value) || 0)}
+                                            placeholder="3"
+                                            min="0"
+                                        />
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                                            この数以下になるとアラートが表示されます
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 

@@ -8,6 +8,7 @@ export interface HourlySettings {
     is_monthly: boolean;
     amount: number;
     time_unit_minutes?: number; // 時給の場合のみ
+    time_rounding_type?: 'round' | 'up' | 'down'; // 時間丸め: 四捨五入、繰り上げ、繰り下げ
     during_service_only?: boolean; // 時給の場合のみ
     includes_break?: boolean; // 時給の場合のみ
 }

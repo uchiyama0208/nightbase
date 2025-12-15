@@ -244,9 +244,9 @@ const PRIORITY_COLUMNS: Record<string, string[]> = {
     bottle_keeps: ["menu_id", "remaining_amount", "opened_at", "expiration_date", "store_id"],
     // ボトル所有者
     bottle_keep_holders: ["profile_id", "bottle_keep_id"],
-    // 料金体系
+    // 料金システム
     pricing_systems: ["name", "set_fee", "set_duration_minutes", "extension_fee", "extension_duration_minutes", "nomination_fee", "companion_fee", "service_rate", "tax_rate", "is_default", "store_id"],
-    // 給与体系
+    // 給与システム
     salary_systems: ["name", "target_type", "hourly_settings", "store_back_settings", "shimei_back_settings", "douhan_back_settings", "deductions", "store_id"],
     // 給与設定
     profile_salary_systems: ["profile_id", "salary_system_id"],
