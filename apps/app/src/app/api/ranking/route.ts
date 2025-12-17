@@ -67,12 +67,13 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        // Get cast profiles
+        // Get cast profiles (在籍中・体入のみ)
         const { data: castProfiles } = await supabase
             .from("profiles")
-            .select("id, display_name, avatar_url")
+            .select("id, display_name, avatar_url, status")
             .eq("store_id", storeId)
-            .eq("role", "cast");
+            .eq("role", "cast")
+            .in("status", ["在籍中", "体入"]);
 
         if (!castProfiles || castProfiles.length === 0) {
             return NextResponse.json({ rankings: [], period });
@@ -120,6 +121,7 @@ export async function GET(request: NextRequest) {
             profileId: string;
             name: string;
             avatarUrl: string | null;
+            status: string | null;
             totalSales: number;
             orderCount: number;
             shimeiCount: number;
@@ -133,6 +135,7 @@ export async function GET(request: NextRequest) {
                 profileId: id,
                 name: profile.display_name || "不明",
                 avatarUrl: profile.avatar_url,
+                status: profile.status,
                 totalSales: 0,
                 orderCount: 0,
                 shimeiCount: 0,

@@ -33,6 +33,7 @@ import { CastSelectorModal, SelectedCast, NominationType } from "@/components/se
 interface Profile {
     id: string;
     display_name: string;
+    status?: string | null;
 }
 
 interface TableInfo {
@@ -467,6 +468,11 @@ export function ReservationEditModal({
                                                     {casts.map((cast) => (
                                                         <SelectItem key={cast.id} value={cast.id}>
                                                             {cast.display_name}
+                                                            {cast.status === "体入" && (
+                                                                <span className="ml-1 text-[10px] px-1 py-0.5 rounded bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400">
+                                                                    体入
+                                                                </span>
+                                                            )}
                                                         </SelectItem>
                                                     ))}
                                                 </SelectContent>

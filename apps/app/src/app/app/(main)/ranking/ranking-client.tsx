@@ -8,6 +8,7 @@ interface RankingEntry {
     profileId: string;
     name: string;
     avatarUrl: string | null;
+    status: string | null;
     totalSales: number;
     orderCount: number;
     shimeiCount: number;
@@ -56,7 +57,11 @@ function getRankBgClass(rank: number) {
     }
 }
 
-export function RankingClient() {
+interface RankingClientProps {
+    canEdit?: boolean;
+}
+
+export function RankingClient({ canEdit = false }: RankingClientProps) {
     const [data, setData] = useState<RankingData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -198,8 +203,13 @@ export function RankingClient() {
 
                                     {/* Name & Stats */}
                                     <div className="flex-1 min-w-0">
-                                        <h3 className="font-semibold text-gray-900 dark:text-white truncate">
+                                        <h3 className="font-semibold text-gray-900 dark:text-white truncate flex items-center gap-1">
                                             {entry.name}
+                                            {entry.status === "体入" && (
+                                                <span className="text-[9px] px-1 py-0.5 rounded bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 flex-shrink-0">
+                                                    体入
+                                                </span>
+                                            )}
                                         </h3>
                                         <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-gray-500 dark:text-gray-400">
                                             <span>接客 {entry.sessionCount}回</span>

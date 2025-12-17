@@ -15,6 +15,8 @@ export async function getAuthenticatedStoreId(): Promise<{
     supabase: SupabaseClient;
     storeId: string;
     userId: string;
+    role: string;
+    profileId: string;
 }> {
     const supabase = await createServerClient() as SupabaseClient;
     const { data: { user } } = await supabase.auth.getUser();
@@ -22,13 +24,13 @@ export async function getAuthenticatedStoreId(): Promise<{
 
     const { data: profile } = await supabase
         .from("profiles")
-        .select("store_id")
+        .select("store_id, role")
         .eq("user_id", user.id)
         .single();
 
     if (!profile?.store_id) throw new Error("No store found");
 
-    return { supabase, storeId: profile.store_id, userId: user.id };
+    return { supabase, storeId: profile.store_id, userId: user.id, role: profile.role, profileId: profile.id };
 }
 
 /**

@@ -20,6 +20,7 @@ interface SnsClientProps {
     scheduledPosts: SnsScheduledPost[];
     postHistory: SnsScheduledPost[];
     recurringSchedules: SnsRecurringSchedule[];
+    canEdit?: boolean;
 }
 
 type Tab = "posts" | "schedule";
@@ -32,6 +33,7 @@ export function SnsClient({
     scheduledPosts,
     postHistory,
     recurringSchedules,
+    canEdit = false,
 }: SnsClientProps) {
     const [activeTab, setActiveTab] = useState<Tab>("posts");
     const [postModalOpen, setPostModalOpen] = useState(false);
@@ -62,15 +64,17 @@ export function SnsClient({
     return (
         <div className="space-y-2">
             {/* Plus button */}
-            <div className="flex justify-end">
-                <Button
-                    size="icon"
-                    className="h-10 w-10 shrink-0 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
-                    onClick={handlePlusClick}
-                >
-                    <Plus className="h-5 w-5" />
-                </Button>
-            </div>
+            {canEdit && (
+                <div className="flex justify-end">
+                    <Button
+                        size="icon"
+                        className="h-10 w-10 shrink-0 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
+                        onClick={handlePlusClick}
+                    >
+                        <Plus className="h-5 w-5" />
+                    </Button>
+                </div>
+            )}
 
             {/* Vercel-style Tab Navigation */}
             <div className="relative">

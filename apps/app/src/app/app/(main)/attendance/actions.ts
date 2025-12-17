@@ -85,46 +85,56 @@ export async function createAttendance(formData: FormData): Promise<{ success: b
 
     // ペイロードを作成
     const payload: AttendancePayload = {
-        user_id: targetProfileId,
+        profile_id: targetProfileId,
+        store_id: storeId,
         work_date: date,
         pickup_destination: pickupDestination || null,
+        pickup_required: !!pickupDestination,
         clock_in: null,
         clock_out: null,
+        source: "timecard",
     };
 
     // 開始時刻の設定
     if (startTime) {
         const clockInTime = timeToISO(startTime, date);
         payload.clock_in = clockInTime;
-        payload.scheduled_start_time = clockInTime;
+        // scheduled_start_time は time型なので HH:MM:SS 形式で渡す
+        payload.scheduled_start_time = normalizeTime(startTime);
+        payload.status = "working";
     } else if (status === "working" || status === "finished") {
         const clockInTime = new Date(`${date}T00:00:00+09:00`).toISOString();
         payload.clock_in = clockInTime;
-        payload.scheduled_start_time = clockInTime;
+        payload.scheduled_start_time = "00:00:00";
+        payload.status = "working";
     } else {
         payload.clock_in = null;
         payload.scheduled_start_time = null;
+        payload.status = "scheduled";
     }
 
     // 終了時刻の設定
     if (endTime) {
         const clockOutTime = timeToISO(endTime, date);
         payload.clock_out = clockOutTime;
-        payload.scheduled_end_time = clockOutTime;
+        // scheduled_end_time は time型なので HH:MM:SS 形式で渡す
+        payload.scheduled_end_time = normalizeTime(endTime);
+        payload.status = "completed";
     } else if (status === "finished") {
         const clockOutTime = new Date(`${date}T23:59:59+09:00`).toISOString();
         payload.clock_out = clockOutTime;
-        payload.scheduled_end_time = clockOutTime;
+        payload.scheduled_end_time = "23:59:59";
+        payload.status = "completed";
     } else {
         payload.clock_out = null;
         payload.scheduled_end_time = null;
     }
 
     // Service Role Clientを使用してRLSをバイパス（管理者が他のメンバーの勤怠を作成するため）
-    const { error } = await serviceSupabase.from("time_cards").insert(payload);
+    const { error } = await serviceSupabase.from("work_records").insert(payload);
 
     if (error) {
-        console.error("Error creating time card:", error);
+        console.error("Error creating work record:", error);
         throw new Error(`勤怠の作成に失敗しました: ${error.message}`);
     }
 
@@ -164,33 +174,39 @@ export async function updateAttendance(formData: FormData): Promise<{ success: b
     }
 
     // ペイロードを作成
-    const payload: AttendancePayload = {
-        user_id: profileId || currentProfileId,
+    const payload: Partial<AttendancePayload> = {
+        profile_id: profileId || currentProfileId,
         work_date: date,
         pickup_destination: pickupDestination || null,
+        pickup_required: !!pickupDestination,
         clock_in: startTime ? timeToISO(startTime, date) : null,
         clock_out: endTime ? timeToISO(endTime, date) : null,
     };
 
     if (startTime) {
-        payload.scheduled_start_time = payload.clock_in;
+        // scheduled_start_time は time型なので HH:MM:SS 形式で渡す
+        payload.scheduled_start_time = normalizeTime(startTime);
     } else {
         payload.scheduled_start_time = null;
     }
 
     if (endTime) {
-        payload.scheduled_end_time = payload.clock_out;
+        // scheduled_end_time は time型なので HH:MM:SS 形式で渡す
+        payload.scheduled_end_time = normalizeTime(endTime);
+        payload.status = "completed";
+    } else if (startTime) {
+        payload.status = "working";
     } else {
         payload.scheduled_end_time = null;
     }
 
     const { error } = await (serviceSupabase as any)
-        .from("time_cards")
+        .from("work_records")
         .update(payload)
         .eq("id", id);
 
     if (error) {
-        console.error("Error updating time card:", error);
+        console.error("Error updating work record:", error);
         throw new Error(`勤怠の更新に失敗しました: ${error.message}`);
     }
 
@@ -208,14 +224,14 @@ export async function deleteAttendance(id: string): Promise<{ success: boolean }
         throw new Error("勤怠IDが必要です");
     }
 
-    // タイムカードを取得
-    const { data: timeCard } = await supabase
-        .from("time_cards")
-        .select("user_id")
+    // 勤務記録を取得
+    const { data: workRecord } = await supabase
+        .from("work_records")
+        .select("profile_id")
         .eq("id", id)
         .maybeSingle();
 
-    if (!timeCard) {
+    if (!workRecord) {
         throw new Error("勤怠レコードが見つかりません");
     }
 
@@ -223,7 +239,7 @@ export async function deleteAttendance(id: string): Promise<{ success: boolean }
     const { data: targetProfile } = await supabase
         .from("profiles")
         .select("store_id")
-        .eq("id", timeCard.user_id)
+        .eq("id", workRecord.profile_id)
         .maybeSingle();
 
     if (!targetProfile || targetProfile.store_id !== storeId) {
@@ -231,12 +247,12 @@ export async function deleteAttendance(id: string): Promise<{ success: boolean }
     }
 
     const { error } = await supabase
-        .from("time_cards")
+        .from("work_records")
         .delete()
         .eq("id", id);
 
     if (error) {
-        console.error("Error deleting time card:", error);
+        console.error("Error deleting work record:", error);
         throw new Error("勤怠の削除に失敗しました");
     }
 
@@ -320,11 +336,14 @@ export async function importAttendanceFromCsv(formData: FormData): Promise<void>
         const endTime = colIndex.end_time !== -1 ? columns[colIndex.end_time] : undefined;
 
         const payload: AttendancePayload = {
-            user_id: profileId,
+            profile_id: profileId,
+            store_id: storeId,
             work_date: date,
             pickup_destination: null,
             clock_in: null,
             clock_out: null,
+            source: "timecard",
+            status: "scheduled",
         };
 
         if (status === "working" || status === "finished") {
@@ -332,6 +351,7 @@ export async function importAttendanceFromCsv(formData: FormData): Promise<void>
             payload.clock_in = normalizedStart
                 ? new Date(`${date}T${normalizedStart}`).toISOString()
                 : new Date(`${date}T00:00:00`).toISOString();
+            payload.status = "working";
         }
 
         if (status === "finished") {
@@ -339,6 +359,7 @@ export async function importAttendanceFromCsv(formData: FormData): Promise<void>
             payload.clock_out = normalizedEnd
                 ? new Date(`${date}T${normalizedEnd}`).toISOString()
                 : new Date(`${date}T23:59:59`).toISOString();
+            payload.status = "completed";
         }
 
         toInsert.push(payload);
@@ -349,10 +370,10 @@ export async function importAttendanceFromCsv(formData: FormData): Promise<void>
         return;
     }
 
-    const { error } = await supabase.from("time_cards").insert(toInsert);
+    const { error } = await supabase.from("work_records").insert(toInsert);
 
     if (error) {
-        console.error("Error importing time cards from CSV:", error);
+        console.error("Error importing work records from CSV:", error);
         throw new Error("CSVのインポート中にエラーが発生しました");
     }
 
@@ -367,12 +388,25 @@ export async function importAttendanceFromCsv(formData: FormData): Promise<void>
  * プロフィールの勤怠履歴を取得
  */
 export async function getAttendanceRecords(profileId: string) {
-    const { supabase } = await getAuthContext();
+    // 勤怠閲覧はスタッフ/管理者のみ許可し、同一店舗のプロフィールに限定する
+    const { supabase, storeId, role } = await getAuthContext({ requireStaff: true });
+
+    // 対象プロフィールが同一店舗か確認
+    const { data: targetProfile } = await supabase
+        .from("profiles")
+        .select("id, store_id")
+        .eq("id", profileId)
+        .maybeSingle();
+
+    if (!targetProfile || targetProfile.store_id !== storeId) {
+        throw new Error("アクセス権限がありません");
+    }
 
     const { data: records, error } = await supabase
-        .from("time_cards")
+        .from("work_records")
         .select("*")
-        .eq("user_id", profileId)
+        .eq("profile_id", profileId)
+        .neq("status", "cancelled")
         .order("work_date", { ascending: false });
 
     if (error) {
@@ -399,13 +433,13 @@ export async function getAttendanceData(
     const { supabase, storeId } = context;
 
     // 店舗設定を確認
-    const { data: store } = await supabase
-        .from("stores")
+    const { data: settings } = await supabase
+        .from("store_settings")
         .select("show_attendance")
-        .eq("id", storeId)
+        .eq("store_id", storeId)
         .single();
 
-    if (store && store.show_attendance === false) {
+    if (settings && settings.show_attendance === false) {
         return { redirect: "/app/timecard" };
     }
 
@@ -430,7 +464,7 @@ export async function getAttendanceData(
         profileIds.push(p.id);
     }
 
-    // 過去30日間のタイムカードを取得
+    // 過去30日間の勤務記録を取得
     const serviceSupabase = createServiceRoleClient();
     const today = new Date();
     const from = new Date();
@@ -440,41 +474,41 @@ export async function getAttendanceData(
     let allRecords: AttendanceRecord[] = [];
 
     if (profileIds.length > 0) {
-        const { data: timeCardRows, error: timeCardsError } = await (serviceSupabase as any)
-            .from("time_cards")
-            .select("id, user_id, work_date, clock_in, clock_out, scheduled_start_time, scheduled_end_time, forgot_clockout, pickup_destination")
-            .in("user_id", profileIds)
+        const { data: workRecordRows, error: workRecordsError } = await (serviceSupabase as any)
+            .from("work_records")
+            .select("id, profile_id, work_date, clock_in, clock_out, scheduled_start_time, scheduled_end_time, forgot_clockout, pickup_destination, status")
+            .in("profile_id", profileIds)
             .gte("work_date", fromStr)
             .order("work_date", { ascending: false });
 
-        if (timeCardsError) {
-            console.error("Error fetching time cards for attendance:", timeCardsError);
+        if (workRecordsError) {
+            console.error("Error fetching work records for attendance:", workRecordsError);
         } else {
-            const timeCards = (timeCardRows || []) as any[];
+            const workRecords = (workRecordRows || []) as any[];
 
-            allRecords = timeCards.map((tc) => {
+            allRecords = workRecords.map((wr) => {
                 let status: AttendanceRecord["status"] = "scheduled";
-                if (tc.forgot_clockout) {
+                if (wr.forgot_clockout) {
                     status = "forgot_clockout";
-                } else if (tc.clock_out) {
+                } else if (wr.clock_out || wr.status === "completed") {
                     status = "finished";
-                } else if (tc.clock_in) {
+                } else if (wr.clock_in || wr.status === "working") {
                     status = "working";
                 }
 
-                const prof = profileMap[tc.user_id];
+                const prof = profileMap[wr.profile_id];
 
                 return {
-                    id: tc.id,
-                    user_id: tc.user_id,
-                    date: tc.work_date,
+                    id: wr.id,
+                    profile_id: wr.profile_id,
+                    date: wr.work_date,
                     name: prof ? prof.display_name : "不明",
                     status,
-                    start_time: formatTimeStr(tc.scheduled_start_time || tc.clock_in),
-                    end_time: formatTimeStr(tc.scheduled_end_time || tc.clock_out),
-                    clock_in: formatTimeStr(tc.clock_in),
-                    clock_out: formatTimeStr(tc.clock_out),
-                    pickup_destination: tc.pickup_destination,
+                    start_time: formatTimeStr(wr.scheduled_start_time || wr.clock_in),
+                    end_time: formatTimeStr(wr.scheduled_end_time || wr.clock_out),
+                    clock_in: formatTimeStr(wr.clock_in),
+                    clock_out: formatTimeStr(wr.clock_out),
+                    pickup_destination: wr.pickup_destination,
                 };
             });
 

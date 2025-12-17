@@ -32,9 +32,10 @@ interface RolesPageClientProps {
     profiles: Profile[];
     currentProfileId: string;
     currentRole: string;
+    canEdit?: boolean;
 }
 
-export function RolesPageClient({ roles, profiles, currentProfileId, currentRole }: RolesPageClientProps) {
+export function RolesPageClient({ roles, profiles, currentProfileId, currentRole, canEdit = false }: RolesPageClientProps) {
     const [activeTab, setActiveTab] = useState<TabType>("staff");
     const [createModalOpen, setCreateModalOpen] = useState(false);
 
@@ -62,7 +63,7 @@ export function RolesPageClient({ roles, profiles, currentProfileId, currentRole
     return (
         <div className="space-y-2">
             {/* Create Button */}
-            {isAdmin && (
+            {isAdmin && canEdit && (
                 <div className="flex items-center justify-end">
                     <Button
                         size="icon"

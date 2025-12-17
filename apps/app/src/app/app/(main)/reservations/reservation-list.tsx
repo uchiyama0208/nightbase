@@ -43,12 +43,13 @@ interface ReservationListProps {
         reservation_enabled: boolean;
     };
     daySwitchTime: string;
+    canEdit?: boolean;
 }
 
 type StatusFilter = "all" | "waiting" | "visited" | "cancelled";
 type DateFilter = "today" | "all";
 
-export function ReservationList({ reservations, storeId, storeName, settings, daySwitchTime }: ReservationListProps) {
+export function ReservationList({ reservations, storeId, storeName, settings, daySwitchTime, canEdit = false }: ReservationListProps) {
     const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
     const [dateFilter, setDateFilter] = useState<DateFilter>("today");
     const [selectedDate, setSelectedDate] = useState<string>("");
@@ -188,21 +189,25 @@ export function ReservationList({ reservations, storeId, storeName, settings, da
                     </span>
                 </button>
                 <div className="flex-1" />
-                <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-10 w-10 rounded-full"
-                    onClick={() => setIsSettingsOpen(true)}
-                >
-                    <Settings className="h-5 w-5" />
-                </Button>
-                <Button
-                    size="icon"
-                    className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
-                    onClick={() => setIsAddOpen(true)}
-                >
-                    <Plus className="h-5 w-5" />
-                </Button>
+{canEdit && (
+                    <>
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-10 w-10 rounded-full"
+                            onClick={() => setIsSettingsOpen(true)}
+                        >
+                            <Settings className="h-5 w-5" />
+                        </Button>
+                        <Button
+                            size="icon"
+                            className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
+                            onClick={() => setIsAddOpen(true)}
+                        >
+                            <Plus className="h-5 w-5" />
+                        </Button>
+                    </>
+                )}
             </div>
 
             {/* 有効/無効ステータス */}

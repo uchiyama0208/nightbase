@@ -1,7 +1,19 @@
 import { z } from "zod";
-import { tool } from "ai";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { getJSTDateString } from "./utils";
+
+// AI SDK v5互換のツール作成関数
+function tool<TParams extends z.ZodType>(config: {
+    description: string;
+    parameters: TParams;
+    execute: (params: z.infer<TParams>) => Promise<{ success: boolean; message: string; data?: unknown }>;
+}) {
+    return {
+        description: config.description,
+        parameters: config.parameters,
+        execute: config.execute,
+    };
+}
 
 // ========== ツール定義 ==========
 
@@ -52,9 +64,9 @@ export function createAITools(supabase: SupabaseClient, storeId: string) {
 
                 // 既存の出勤チェック
                 const { data: existing } = await supabase
-                    .from("time_cards")
+                    .from("work_records")
                     .select("id, clock_in, clock_out")
-                    .eq("user_id", profile.id)
+                    .eq("profile_id", profile.id)
                     .eq("work_date", today)
                     .maybeSingle();
 
@@ -64,9 +76,9 @@ export function createAITools(supabase: SupabaseClient, storeId: string) {
 
                 // 新規出勤レコードを作成
                 const { error: insertError } = await supabase
-                    .from("time_cards")
+                    .from("work_records")
                     .insert({
-                        user_id: profile.id,
+                        profile_id: profile.id,
                         work_date: today,
                         clock_in: clockInTime,
                         pickup_required: !!pickupDestination,
@@ -121,9 +133,9 @@ export function createAITools(supabase: SupabaseClient, storeId: string) {
                 }
 
                 const { data: existing } = await supabase
-                    .from("time_cards")
+                    .from("work_records")
                     .select("id, clock_out")
-                    .eq("user_id", profile.id)
+                    .eq("profile_id", profile.id)
                     .eq("work_date", today)
                     .is("clock_out", null)
                     .maybeSingle();
@@ -133,7 +145,7 @@ export function createAITools(supabase: SupabaseClient, storeId: string) {
                 }
 
                 const { error: updateError } = await supabase
-                    .from("time_cards")
+                    .from("work_records")
                     .update({ clock_out: clockOutTime })
                     .eq("id", existing.id);
 
@@ -219,6 +231,7 @@ export function createAITools(supabase: SupabaseClient, storeId: string) {
                     .from("orders")
                     .insert({
                         table_session_id: session.id,
+                        store_id: storeId,
                         menu_id: menu.id,
                         quantity,
                         amount: menu.price * quantity,
@@ -432,8 +445,8 @@ export function createAITools(supabase: SupabaseClient, storeId: string) {
                 const today = getJSTDateString();
 
                 const { data: timeCards } = await supabase
-                    .from("time_cards")
-                    .select("user_id, clock_in, profiles(display_name, role)")
+                    .from("work_records")
+                    .select("profile_id, clock_in, profiles(display_name, role)")
                     .eq("work_date", today)
                     .is("clock_out", null);
 
@@ -551,9 +564,9 @@ export function createAITools(supabase: SupabaseClient, storeId: string) {
                 const today = getJSTDateString();
 
                 const { data: timeCard } = await supabase
-                    .from("time_cards")
+                    .from("work_records")
                     .select("id")
-                    .eq("user_id", profile.id)
+                    .eq("profile_id", profile.id)
                     .eq("work_date", today)
                     .is("clock_out", null)
                     .maybeSingle();
@@ -563,7 +576,7 @@ export function createAITools(supabase: SupabaseClient, storeId: string) {
                 }
 
                 const { error: updateError } = await supabase
-                    .from("time_cards")
+                    .from("work_records")
                     .update({
                         pickup_required: true,
                         pickup_destination: destination,
@@ -589,8 +602,8 @@ export function createAITools(supabase: SupabaseClient, storeId: string) {
                 const today = getJSTDateString();
 
                 const { data: timeCards } = await supabase
-                    .from("time_cards")
-                    .select("user_id, pickup_destination, profiles(display_name)")
+                    .from("work_records")
+                    .select("profile_id, pickup_destination, profiles(display_name)")
                     .eq("work_date", today)
                     .eq("pickup_required", true)
                     .is("clock_out", null);
@@ -642,9 +655,9 @@ export function createAITools(supabase: SupabaseClient, storeId: string) {
                 const today = getJSTDateString();
 
                 const { data: timeCard } = await supabase
-                    .from("time_cards")
+                    .from("work_records")
                     .select("id")
-                    .eq("user_id", profile.id)
+                    .eq("profile_id", profile.id)
                     .eq("work_date", today)
                     .eq("pickup_required", true)
                     .is("clock_out", null)
@@ -655,7 +668,7 @@ export function createAITools(supabase: SupabaseClient, storeId: string) {
                 }
 
                 const { error: updateError } = await supabase
-                    .from("time_cards")
+                    .from("work_records")
                     .update({
                         pickup_required: false,
                         pickup_destination: null,

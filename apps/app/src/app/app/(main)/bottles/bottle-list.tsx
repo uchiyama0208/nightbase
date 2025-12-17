@@ -31,13 +31,23 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 
+interface PagePermissions {
+    bottles: boolean;
+    resumes: boolean;
+    salarySystems: boolean;
+    attendance: boolean;
+    personalInfo: boolean;
+}
+
 interface BottleListProps {
     storeId: string;
     menus: any[];
     profiles: any[];
+    canEdit?: boolean;
+    pagePermissions?: PagePermissions;
 }
 
-export function BottleList({ storeId, menus, profiles }: BottleListProps) {
+export function BottleList({ storeId, menus, profiles, canEdit = false, pagePermissions }: BottleListProps) {
     const [bottles, setBottles] = useState<any[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingBottle, setEditingBottle] = useState<any | null>(null);
@@ -150,13 +160,15 @@ export function BottleList({ storeId, menus, profiles }: BottleListProps) {
                     </span>
                 </button>
 
-                <Button
-                    size="icon"
-                    className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
-                    onClick={handleCreateNew}
-                >
-                    <Plus className="h-5 w-5" />
-                </Button>
+                {canEdit && (
+                    <Button
+                        size="icon"
+                        className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
+                        onClick={handleCreateNew}
+                    >
+                        <Plus className="h-5 w-5" />
+                    </Button>
+                )}
             </div>
 
             <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
@@ -167,7 +179,7 @@ export function BottleList({ storeId, menus, profiles }: BottleListProps) {
                             <TableHead className="px-3 sm:px-4 text-center text-gray-500 dark:text-gray-400 w-1/5">ボトル</TableHead>
                             <TableHead className="px-3 sm:px-4 text-center text-gray-500 dark:text-gray-400 w-1/5">残量</TableHead>
                             <TableHead className="hidden md:table-cell px-3 sm:px-4 text-center text-gray-500 dark:text-gray-400 w-1/5">開栓日</TableHead>
-                            <TableHead className="hidden md:table-cell px-3 sm:px-4 text-center text-gray-500 dark:text-gray-400 w-1/5">操作</TableHead>
+                            {canEdit && <TableHead className="hidden md:table-cell px-3 sm:px-4 text-center text-gray-500 dark:text-gray-400 w-1/5">操作</TableHead>}
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -217,24 +229,26 @@ export function BottleList({ storeId, menus, profiles }: BottleListProps) {
                                             ? formatJSTDate(bottle.opened_at)
                                             : "-"}
                                     </TableCell>
-                                    <TableCell className="hidden md:table-cell text-center" onClick={(e) => e.stopPropagation()}>
-                                        <div className="flex justify-center gap-2">
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => handleEdit(bottle)}
-                                            >
-                                                <Edit className="h-4 w-4" />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => handleDeleteClick(bottle.id)}
-                                            >
-                                                <Trash2 className="h-4 w-4 text-red-500" />
-                                            </Button>
-                                        </div>
-                                    </TableCell>
+                                    {canEdit && (
+                                        <TableCell className="hidden md:table-cell text-center" onClick={(e) => e.stopPropagation()}>
+                                            <div className="flex justify-center gap-2">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => handleEdit(bottle)}
+                                                >
+                                                    <Edit className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => handleDeleteClick(bottle.id)}
+                                                >
+                                                    <Trash2 className="h-4 w-4 text-red-500" />
+                                                </Button>
+                                            </div>
+                                        </TableCell>
+                                    )}
                                 </TableRow>
                             ))
                         )}
@@ -249,6 +263,7 @@ export function BottleList({ storeId, menus, profiles }: BottleListProps) {
                 bottle={editingBottle}
                 menus={menus}
                 profiles={profiles}
+                pagePermissions={pagePermissions}
             />
 
             {/* 削除確認ダイアログ */}

@@ -14,6 +14,7 @@ interface OrdersContentProps {
     initialOrders: OrderWithDetails[];
     initialTableCalls: TableCall[];
     storeId: string;
+    canEdit?: boolean;
 }
 
 type TabType = "pending" | "completed";
@@ -85,7 +86,7 @@ function playCallNotificationSound() {
     }
 }
 
-export function OrdersContent({ initialOrders, initialTableCalls, storeId }: OrdersContentProps) {
+export function OrdersContent({ initialOrders, initialTableCalls, storeId, canEdit = false }: OrdersContentProps) {
     const [orders, setOrders] = useState(initialOrders);
     const [tableCalls, setTableCalls] = useState(initialTableCalls);
     const [currentTab, setCurrentTab] = useState<TabType>("pending");

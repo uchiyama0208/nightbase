@@ -8,7 +8,7 @@ export default async function PickupPage({
 }: {
     searchParams: Promise<{ date?: string }>;
 }) {
-    const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("pickup", "view");
+    const { user, profile, hasAccess, canEdit } = await getAppDataWithPermissionCheck("pickup", "view");
 
     if (!user) {
         redirect("/login");
@@ -29,15 +29,20 @@ export default async function PickupPage({
         redirect(result.redirect);
     }
 
-    const { routes, todayAttendees, staffProfiles, targetDate, storeId } = result.data;
+    const { routes, todayAttendees, staffProfiles, allProfiles, currentProfileId, targetDate, storeId, storeLocation, daySwitchTime } = result.data;
 
     return (
         <PickupClient
             initialRoutes={routes}
             initialAttendees={todayAttendees}
             staffProfiles={staffProfiles}
+            allProfiles={allProfiles}
+            currentProfileId={currentProfileId}
             initialDate={targetDate}
             storeId={storeId}
+            storeAddress={storeLocation.address || undefined}
+            canEdit={canEdit}
+            daySwitchTime={daySwitchTime}
         />
     );
 }

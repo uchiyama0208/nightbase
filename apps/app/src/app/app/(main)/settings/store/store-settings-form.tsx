@@ -13,12 +13,20 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { updateStore, uploadStoreIcon, deleteStoreIcon, searchAddressByPostalCode } from "../actions";
-import { ChevronLeft, Upload, Download, Trash2, Store as StoreIcon } from "lucide-react";
-import Link from "next/link";
+import { Upload, Download, Trash2, Store as StoreIcon, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useRouter } from "next/navigation";
-import React, { useState } from "react";
+import React, { useState, useTransition } from "react";
+import { useToast } from "@/components/ui/use-toast";
 
 const INDUSTRIES = [
     "バー",
@@ -71,6 +79,8 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
             : "05:00";
 
     const router = useRouter();
+    const { toast } = useToast();
+    const [isPending, startTransition] = useTransition();
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     // Address State
@@ -79,6 +89,33 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
     const [city, setCity] = useState<string>(store.city || "");
     const [addressLine1, setAddressLine1] = useState<string>(store.address_line1 || "");
     const [addressLine2, setAddressLine2] = useState<string>(store.address_line2 || "");
+
+    // 削除確認ダイアログ用
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    // フォーム送信処理
+    async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+        e.preventDefault();
+        const formData = new FormData(e.currentTarget);
+
+        startTransition(async () => {
+            try {
+                await updateStore(formData);
+                toast({
+                    title: "保存しました",
+                    description: "店舗情報を更新しました",
+                });
+                router.refresh();
+            } catch (error) {
+                toast({
+                    title: "エラー",
+                    description: error instanceof Error ? error.message : "保存に失敗しました",
+                    variant: "destructive",
+                });
+            }
+        });
+    }
 
     const handlePostalCodeSearch = async () => {
         if (!postalCode || postalCode.length < 7) return;
@@ -90,11 +127,19 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
                 setCity(result.city || "");
                 setAddressLine1(result.addressLine1 || "");
             } else {
-                alert("住所が見つかりませんでした。");
+                toast({
+                    title: "住所が見つかりません",
+                    description: "郵便番号を確認してください",
+                    variant: "destructive",
+                });
             }
         } catch (error) {
             console.error("Error searching address:", error);
-            alert("住所検索に失敗しました。");
+            toast({
+                title: "エラー",
+                description: "住所検索に失敗しました",
+                variant: "destructive",
+            });
         }
     };
 
@@ -111,26 +156,45 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
 
         try {
             await uploadStoreIcon(formData);
+            toast({
+                title: "アップロード完了",
+                description: "アイコンを更新しました",
+            });
             router.refresh();
         } catch (error) {
             console.error("Icon upload failed:", error);
-            alert("アップロードに失敗しました");
+            toast({
+                title: "エラー",
+                description: "アップロードに失敗しました",
+                variant: "destructive",
+            });
         }
     };
 
     const handleDeleteIcon = async () => {
-        if (!confirm("アイコンを削除しますか？")) return;
+        setIsDeleting(true);
         try {
             await deleteStoreIcon();
+            toast({
+                title: "削除完了",
+                description: "アイコンを削除しました",
+            });
             router.refresh();
         } catch (error) {
             console.error("Icon delete failed:", error);
-            alert("削除に失敗しました");
+            toast({
+                title: "エラー",
+                description: "削除に失敗しました",
+                variant: "destructive",
+            });
+        } finally {
+            setIsDeleting(false);
+            setIsDeleteDialogOpen(false);
         }
     };
 
     return (
-        <form action={updateStore} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden p-6 space-y-6 border border-gray-200 dark:border-gray-700">
 
                 <div className="flex flex-col items-center gap-4 mb-6">
@@ -166,7 +230,7 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
                             </a>
                             <button
                                 type="button"
-                                onClick={handleDeleteIcon}
+                                onClick={() => setIsDeleteDialogOpen(true)}
                                 className="p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 transition-colors"
                                 title="削除"
                             >
@@ -388,11 +452,53 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
                 </div>
 
                 <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
-                    <Button type="submit" className="w-full">
-                        保存する
+                    <Button type="submit" className="w-full" disabled={isPending}>
+                        {isPending ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                保存中...
+                            </>
+                        ) : (
+                            "保存する"
+                        )}
                     </Button>
                 </div>
             </div>
+
+            {/* アイコン削除確認ダイアログ */}
+            <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <DialogContent className="max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle className="text-gray-900 dark:text-white">アイコンを削除</DialogTitle>
+                        <DialogDescription className="text-gray-600 dark:text-gray-400">
+                            店舗アイコンを削除しますか？この操作は取り消せません。
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsDeleteDialogOpen(false)}
+                            disabled={isDeleting}
+                        >
+                            キャンセル
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={handleDeleteIcon}
+                            disabled={isDeleting}
+                        >
+                            {isDeleting ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    削除中...
+                                </>
+                            ) : (
+                                "削除する"
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </form>
     );
 }

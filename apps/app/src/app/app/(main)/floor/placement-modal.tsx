@@ -4,6 +4,14 @@ import { ChevronLeft } from "lucide-react";
 import { createTempGuestV2 } from "./actions/guest";
 import { UserEditModal } from "../users/user-edit-modal";
 
+interface PagePermissions {
+    bottles: boolean;
+    resumes: boolean;
+    salarySystems: boolean;
+    attendance: boolean;
+    personalInfo: boolean;
+}
+
 interface PlacementModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -11,9 +19,10 @@ interface PlacementModalProps {
     mode?: "guest" | "cast";
     sessionId?: string; // For creating temp guests
     profiles?: any[]; // Optional pre-loaded profiles to avoid server fetch
+    pagePermissions?: PagePermissions;
 }
 
-export function PlacementModal({ isOpen, onClose, onProfileSelect, mode = "guest", sessionId, profiles: initialProfiles }: PlacementModalProps) {
+export function PlacementModal({ isOpen, onClose, onProfileSelect, mode = "guest", sessionId, profiles: initialProfiles, pagePermissions }: PlacementModalProps) {
     const [allProfiles, setAllProfiles] = useState<any[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
     const [isCreatingTempGuest, setIsCreatingTempGuest] = useState(false);
@@ -228,7 +237,8 @@ export function PlacementModal({ isOpen, onClose, onProfileSelect, mode = "guest
                     }
                 }}
                 defaultRole="guest"
-                hidePersonalInfo={true}
+                hidePersonalInfo={!pagePermissions?.personalInfo}
+                pagePermissions={pagePermissions}
             />
         </>
     );

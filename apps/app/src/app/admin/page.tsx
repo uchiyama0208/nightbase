@@ -739,7 +739,7 @@ export default function AdminDashboardPage() {
                                                     fontSize: '12px',
                                                     color: '#fff',
                                                 }}
-                                                formatter={(value: number) => [`$${value.toFixed(4)}`, '費用']}
+                                                formatter={(value) => [`$${Number(value ?? 0).toFixed(4)}`, '費用']}
                                             />
                                             <Area
                                                 type="monotone"

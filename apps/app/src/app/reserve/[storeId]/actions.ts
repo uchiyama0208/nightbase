@@ -6,9 +6,10 @@ import { createServerClient } from "@/lib/supabaseServerClient";
 export async function getStoreForReservation(storeId: string) {
     const supabase = await createServerClient() as any;
 
+    // 店舗基本情報を取得
     const { data: store, error } = await supabase
         .from("stores")
-        .select("id, name, icon_url, reservation_enabled, business_start_time, business_end_time, closed_days")
+        .select("id, name, icon_url, closed_days")
         .eq("id", storeId)
         .maybeSingle();
 
@@ -16,14 +17,29 @@ export async function getStoreForReservation(storeId: string) {
         return { success: false, error: "店舗が見つかりませんでした" };
     }
 
-    if (!store.reservation_enabled) {
+    // 店舗設定を取得
+    const { data: storeSettings } = await supabase
+        .from("store_settings")
+        .select("reservation_enabled, business_start_time, business_end_time")
+        .eq("store_id", storeId)
+        .maybeSingle();
+
+    if (!storeSettings?.reservation_enabled) {
         return { success: false, error: "この店舗は予約を受け付けていません" };
     }
 
-    return { success: true, store };
+    return {
+        success: true,
+        store: {
+            ...store,
+            reservation_enabled: storeSettings.reservation_enabled,
+            business_start_time: storeSettings.business_start_time,
+            business_end_time: storeSettings.business_end_time,
+        }
+    };
 }
 
-// キャスト一覧取得（公開用）
+// キャスト一覧取得（公開用）- 在籍中のみ
 export async function getCastsForReservation(storeId: string) {
     const supabase = await createServerClient() as any;
 
@@ -32,6 +48,7 @@ export async function getCastsForReservation(storeId: string) {
         .select("id, display_name")
         .eq("store_id", storeId)
         .eq("role", "cast")
+        .eq("status", "在籍中")
         .order("display_name", { ascending: true });
 
     if (error) {
@@ -76,13 +93,13 @@ export async function submitReservation(formData: FormData) {
     }
 
     // 店舗が予約を受け付けているか確認
-    const { data: store } = await supabase
-        .from("stores")
-        .select("id, reservation_enabled")
-        .eq("id", storeId)
+    const { data: storeSettings } = await supabase
+        .from("store_settings")
+        .select("store_id, reservation_enabled")
+        .eq("store_id", storeId)
         .maybeSingle();
 
-    if (!store || !store.reservation_enabled) {
+    if (!storeSettings || !storeSettings.reservation_enabled) {
         return { success: false, error: "この店舗は予約を受け付けていません" };
     }
 

@@ -23,7 +23,7 @@ import { createBrowserClient } from "@supabase/ssr";
 
 interface AttendanceRecord {
     id: string;
-    user_id: string;
+    profile_id: string;
     name?: string;
     date: string;
     status: string;
@@ -42,6 +42,7 @@ interface Profile {
     display_name_kana?: string | null;
     real_name: string | null;
     role: string;
+    status?: string | null;
 }
 
 import Link from "next/link";
@@ -51,13 +52,23 @@ import { AttendanceModal } from "./attendance-modal";
 import { UserEditModal } from "../users/user-edit-modal";
 import { Input } from "@/components/ui/input";
 
+interface PagePermissions {
+    bottles: boolean;
+    resumes: boolean;
+    salarySystems: boolean;
+    attendance: boolean;
+    personalInfo: boolean;
+}
+
 interface AttendanceTableProps {
     attendanceRecords: AttendanceRecord[];
     profiles: Profile[];
     roleFilter: string;
+    canEdit?: boolean;
+    pagePermissions?: PagePermissions;
 }
 
-export function AttendanceTable({ attendanceRecords: initialRecords, profiles, roleFilter: initialRoleFilter }: AttendanceTableProps) {
+export function AttendanceTable({ attendanceRecords: initialRecords, profiles, roleFilter: initialRoleFilter, canEdit = false, pagePermissions }: AttendanceTableProps) {
     const router = useRouter();
     const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>(initialRecords);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -89,13 +100,13 @@ export function AttendanceTable({ attendanceRecords: initialRecords, profiles, r
         );
 
         const channel = supabase
-            .channel("time_cards_changes")
+            .channel("work_records_changes")
             .on(
                 "postgres_changes",
                 {
                     event: "*",
                     schema: "public",
-                    table: "time_cards",
+                    table: "work_records",
                 },
                 () => {
                     router.refresh();
@@ -174,8 +185,8 @@ export function AttendanceTable({ attendanceRecords: initialRecords, profiles, r
     };
 
     const filteredRecords = useMemo(() => attendanceRecords.filter((record) => {
-        if (!record.user_id) return false;
-        const profile = profileMap[record.user_id];
+        if (!record.profile_id) return false;
+        const profile = profileMap[record.profile_id];
         if (!profile) return false;
 
         // Filter by role for the table view
@@ -283,22 +294,26 @@ export function AttendanceTable({ attendanceRecords: initialRecords, profiles, r
                     </span>
                 </button>
                 <div className="flex-1" />
-                <Link href="/app/settings/timecard">
-                    <Button
-                        size="icon"
-                        variant="outline"
-                        className="h-10 w-10 rounded-full bg-white text-gray-600 border-gray-300 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-400 dark:border-gray-600 dark:hover:bg-gray-800 shadow-sm transition-all hover:scale-105 active:scale-95"
-                    >
-                        <Settings className="h-5 w-5" />
-                    </Button>
-                </Link>
-                <Button
-                    size="icon"
-                    className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
-                    onClick={() => handleModalOpen()}
-                >
-                    <Plus className="h-5 w-5" />
-                </Button>
+                {canEdit && (
+                    <>
+                        <Link href="/app/settings/timecard">
+                            <Button
+                                size="icon"
+                                variant="outline"
+                                className="h-10 w-10 rounded-full bg-white text-gray-600 border-gray-300 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-400 dark:border-gray-600 dark:hover:bg-gray-800 shadow-sm transition-all hover:scale-105 active:scale-95"
+                            >
+                                <Settings className="h-5 w-5" />
+                            </Button>
+                        </Link>
+                        <Button
+                            size="icon"
+                            className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
+                            onClick={() => handleModalOpen()}
+                        >
+                            <Plus className="h-5 w-5" />
+                        </Button>
+                    </>
+                )}
             </div>
 
             {/* Vercel-style Tab Navigation */}
@@ -309,7 +324,10 @@ export function AttendanceTable({ attendanceRecords: initialRecords, profiles, r
                             key={tab.key}
                             ref={(el) => { tabsRef.current[tab.key] = el; }}
                             type="button"
-                            onClick={() => setRoleFilter(tab.key)}
+                            onClick={() => {
+                                setRoleFilter(tab.key);
+                                router.push(`/app/attendance?role=${tab.key}`, { scroll: false });
+                            }}
                             className={`flex-1 px-4 py-2 text-sm font-medium transition-colors duration-200 ${
                                 roleFilter === tab.key
                                     ? "text-gray-900 dark:text-white"
@@ -345,8 +363,8 @@ export function AttendanceTable({ attendanceRecords: initialRecords, profiles, r
                             </TableRow>
                         ) : (
                             filteredRecords.map((record) => {
-                                if (!record.user_id) return null;
-                                const profile = profileMap[record.user_id];
+                                if (!record.profile_id) return null;
+                                const profile = profileMap[record.profile_id];
                                 const displayName = profile ? (profile.display_name || profile.real_name || "不明") : "不明";
 
                                 return (
@@ -357,7 +375,7 @@ export function AttendanceTable({ attendanceRecords: initialRecords, profiles, r
                                             if (record.isVirtual) {
                                                 handleModalOpen({
                                                     initialData: {
-                                                        profileId: record.user_id,
+                                                        profileId: record.profile_id,
                                                         date: record.date,
                                                         status: record.status,
                                                         startTime: record.clock_in_time ? record.clock_in_time.slice(0, 5) : "",
@@ -373,7 +391,14 @@ export function AttendanceTable({ attendanceRecords: initialRecords, profiles, r
                                             {formatDate(record.date)}
                                         </TableCell>
                                         <TableCell className="w-1/5 text-center text-gray-900 dark:text-gray-100">
-                                            {displayName}
+                                            <span className="inline-flex items-center gap-1 justify-center">
+                                                {displayName}
+                                                {profile?.status === "体入" && (
+                                                    <span className="text-[9px] px-1 py-0.5 rounded bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400">
+                                                        体入
+                                                    </span>
+                                                )}
+                                            </span>
                                         </TableCell>
                                         <TableCell className="w-1/5 text-center text-gray-900 dark:text-gray-100">
                                             {formatTime(record.start_time)}
@@ -414,6 +439,8 @@ export function AttendanceTable({ attendanceRecords: initialRecords, profiles, r
                         setProfileForEdit(null);
                     }
                 }}
+                hidePersonalInfo={!pagePermissions?.personalInfo}
+                pagePermissions={pagePermissions}
             />
 
             {/* Filter Modal */}

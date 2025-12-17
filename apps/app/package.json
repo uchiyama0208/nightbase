@@ -10,7 +10,8 @@
         "clean": "rm -rf .next"
     },
     "dependencies": {
-        "@ai-sdk/openai": "^1.2.9",
+        "@ai-sdk/openai": "^2.0.88",
+        "@ai-sdk/react": "^2.0.116",
         "@auth0/auth0-spa-js": "^2.9.1",
         "@blocknote/core": "^0.44.0",
         "@blocknote/mantine": "^0.44.0",
@@ -39,7 +40,7 @@
         "@supabase/supabase-js": "^2.86.2",
         "@types/qrcode": "^1.5.6",
         "@vis.gl/react-google-maps": "^1.7.1",
-        "ai": "^3.4.33",
+        "ai": "^5.0.114",
         "class-variance-authority": "^0.7.0",
         "clsx": "^2.1.1",
         "cmdk": "^1.1.1",
@@ -48,7 +49,7 @@
         "google-auth-library": "^10.5.0",
         "googleapis": "^167.0.0",
         "lucide-react": "^0.556.0",
-        "next": "16.0.7",
+        "next": "^16.0.10",
         "openai": "^4.104.0",
         "qrcode": "^1.5.4",
         "qrcode.react": "^4.2.0",
@@ -61,7 +62,6 @@
         "resend": "^6.6.0",
         "tailwind-merge": "^2.5.2",
         "tailwindcss-animate": "^1.0.7",
-        "twilio": "^5.10.7",
         "use-debounce": "^10.0.6",
         "zod": "^3.23.8"
     },

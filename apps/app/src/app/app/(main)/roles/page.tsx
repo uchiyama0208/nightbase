@@ -19,7 +19,7 @@ function RolesSkeleton() {
 }
 
 export default async function RolesPage() {
-    const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("roles", "view");
+    const { user, profile, hasAccess, canEdit } = await getAppDataWithPermissionCheck("roles", "view");
 
     if (!user) {
         redirect("/login");
@@ -52,6 +52,7 @@ export default async function RolesPage() {
                 profiles={profiles}
                 currentProfileId={currentProfileId}
                 currentRole={currentRole}
+                canEdit={canEdit}
             />
         </Suspense>
     );

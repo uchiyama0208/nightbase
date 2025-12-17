@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 };
 
 export default async function AICreatePage() {
-    const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("ai-create", "view");
+    const { user, profile, hasAccess, canEdit } = await getAppDataWithPermissionCheck("ai-create", "view");
 
     if (!user) {
         redirect("/login");
@@ -37,6 +37,7 @@ export default async function AICreatePage() {
             initialImages={images}
             templates={templates}
             sizePresets={sizePresets}
+            canEdit={canEdit}
         />
     );
 }

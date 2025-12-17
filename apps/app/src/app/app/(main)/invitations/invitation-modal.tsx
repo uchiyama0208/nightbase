@@ -43,11 +43,20 @@ interface Role {
     };
 }
 
+interface PagePermissions {
+    bottles: boolean;
+    resumes: boolean;
+    salarySystems: boolean;
+    attendance: boolean;
+    personalInfo: boolean;
+}
+
 interface InvitationModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     uninvitedProfiles: Profile[];
     roles: Role[];
+    pagePermissions?: PagePermissions;
 }
 
 export function InvitationModal({
@@ -55,6 +64,7 @@ export function InvitationModal({
     onOpenChange,
     uninvitedProfiles,
     roles,
+    pagePermissions,
 }: InvitationModalProps) {
     const [step, setStep] = useState<"form" | "result">("form");
     const [loading, setLoading] = useState(false);
@@ -330,6 +340,8 @@ export function InvitationModal({
                 onOpenChange={setShowCreateProfile}
                 profile={null}
                 isNested={true}
+                hidePersonalInfo={!pagePermissions?.personalInfo}
+                pagePermissions={pagePermissions}
             />
         </>
     );

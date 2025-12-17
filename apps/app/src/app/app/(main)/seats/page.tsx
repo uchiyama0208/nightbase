@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 };
 
 export default async function SeatsPage() {
-    const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("seats", "view");
+    const { user, profile, hasAccess, canEdit } = await getAppDataWithPermissionCheck("seats", "view");
 
     if (!user) {
         redirect("/login");
@@ -22,7 +22,7 @@ export default async function SeatsPage() {
         redirect(getAccessDeniedRedirectUrl("seats"));
     }
 
-    return <SeatsClient />;
+    return <SeatsClient canEdit={canEdit} />;
 }
 
 export const dynamic = 'force-dynamic';

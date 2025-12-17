@@ -48,8 +48,8 @@ export default async function MyPage() {
     // Fetch time cards for all user's profiles
     const profileIds = profiles.map(p => p.id);
     const { data: timeCardsRaw } = await supabase
-        .from("time_cards")
-        .select("id, work_date, clock_in, clock_out, user_id")
+        .from("work_records")
+        .select("id, work_date, clock_in, clock_out, profile_id")
         .in("user_id", profileIds)
         .order("work_date", { ascending: false });
 

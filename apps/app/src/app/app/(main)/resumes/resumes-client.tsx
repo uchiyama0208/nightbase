@@ -75,6 +75,7 @@ interface ResumesClientProps {
     submissions: ResumeSubmission[];
     templates: ResumeTemplate[];
     storeId: string;
+    canEdit?: boolean;
 }
 
 type TabType = "cast" | "staff" | "templates";
@@ -83,6 +84,7 @@ export function ResumesClient({
     submissions: initialSubmissions,
     templates,
     storeId,
+    canEdit = false,
 }: ResumesClientProps) {
     const [submissions, setSubmissions] = useState<ResumeSubmission[]>(initialSubmissions);
     const [activeTab, setActiveTab] = useState<TabType>("cast");
@@ -409,8 +411,8 @@ export function ResumesClient({
                     </button>
                 )}
                 <div className="flex-1" />
-                {/* Add button - only show for templates tab */}
-                {activeTab === "templates" && (
+                {/* Add button */}
+                {canEdit && (
                     <Button
                         size="icon"
                         onClick={() => handleOpenTemplateModal()}

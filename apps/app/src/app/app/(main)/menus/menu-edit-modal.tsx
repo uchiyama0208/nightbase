@@ -2,23 +2,27 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { MoreHorizontal, ChevronLeft, Trash2, Camera, Upload, Sparkles, X, Loader2 } from "lucide-react";
+import { MoreHorizontal, ChevronLeft, Trash2, Camera, Upload, Sparkles, X, Loader2, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { createMenu, updateMenu, deleteMenu, Menu, MenuCategory, createMenuCategory, uploadMenuImage, deleteMenuImage, generateMenuImage } from "./actions";
+import { createMenu, updateMenu, deleteMenu, Menu, MenuCategory, createMenuCategory, uploadMenuImage, deleteMenuImage, generateMenuImage, researchItemMarketPrice, ItemMarketPriceResult, StoreLocationInfo } from "./actions";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { useToast } from "@/components/ui/use-toast";
 
 interface MenuEditModalProps {
     menu: Menu | null;
     open: boolean;
     onOpenChange: (open: boolean) => void;
     categories: MenuCategory[];
+    canEdit?: boolean;
+    storeInfo?: StoreLocationInfo;
 }
 
-export function MenuEditModal({ menu, open, onOpenChange, categories }: MenuEditModalProps) {
+export function MenuEditModal({ menu, open, onOpenChange, categories, canEdit = false, storeInfo }: MenuEditModalProps) {
+    const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [categoryMode, setCategoryMode] = useState<"select" | "create">("select");
     const [selectedCategoryId, setSelectedCategoryId] = useState("");
@@ -31,12 +35,16 @@ export function MenuEditModal({ menu, open, onOpenChange, categories }: MenuEdit
     const [stockEnabled, setStockEnabled] = useState(false);
     const [stockQuantity, setStockQuantity] = useState(0);
     const [stockAlertThreshold, setStockAlertThreshold] = useState(3);
+    const [isResearchingPrice, setIsResearchingPrice] = useState(false);
+    const [marketPriceResult, setMarketPriceResult] = useState<ItemMarketPriceResult | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const cameraInputRef = useRef<HTMLInputElement>(null);
+    const priceInputRef = useRef<HTMLInputElement>(null);
     const router = useRouter();
 
     useEffect(() => {
         if (open) {
+            setMarketPriceResult(null);
             if (menu) {
                 setSelectedCategoryId(menu.category_id);
                 setCategoryMode("select");
@@ -68,7 +76,11 @@ export function MenuEditModal({ menu, open, onOpenChange, categories }: MenuEdit
             setImageUrl(url);
         } catch (error) {
             console.error("Failed to upload image:", error);
-            alert("画像のアップロードに失敗しました");
+            toast({
+                title: "エラー",
+                description: "画像のアップロードに失敗しました",
+                variant: "destructive",
+            });
         } finally {
             setIsUploadingImage(false);
         }
@@ -96,7 +108,11 @@ export function MenuEditModal({ menu, open, onOpenChange, categories }: MenuEdit
         const nameInput = document.getElementById("name") as HTMLInputElement;
         const menuName = nameInput?.value;
         if (!menuName?.trim()) {
-            alert("メニュー名を入力してください");
+            toast({
+                title: "入力エラー",
+                description: "メニュー名を入力してください",
+                variant: "destructive",
+            });
             return;
         }
         setIsGeneratingImage(true);
@@ -105,14 +121,87 @@ export function MenuEditModal({ menu, open, onOpenChange, categories }: MenuEdit
             setImageUrl(url);
         } catch (error) {
             console.error("Failed to generate image:", error);
-            alert("画像の生成に失敗しました");
+            toast({
+                title: "エラー",
+                description: "画像の生成に失敗しました",
+                variant: "destructive",
+            });
         } finally {
             setIsGeneratingImage(false);
         }
     };
 
+    const handleResearchPrice = async () => {
+        const nameInput = document.getElementById("name") as HTMLInputElement;
+        const menuName = nameInput?.value;
+        if (!menuName?.trim()) {
+            toast({
+                title: "入力エラー",
+                description: "メニュー名を入力してください",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        if (!storeInfo?.prefecture || !storeInfo?.industry) {
+            toast({
+                title: "設定が必要です",
+                description: "店舗設定で都道府県と業態を設定してください",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        setIsResearchingPrice(true);
+        setMarketPriceResult(null);
+        try {
+            // カテゴリー名を取得
+            let categoryName: string | undefined;
+            if (categoryMode === "select" && selectedCategoryId) {
+                const selectedCategory = categories.find(c => c.id === selectedCategoryId);
+                categoryName = selectedCategory?.name;
+            } else if (categoryMode === "create" && newCategoryName.trim()) {
+                categoryName = newCategoryName.trim();
+            }
+
+            const result = await researchItemMarketPrice(
+                menuName,
+                storeInfo.prefecture,
+                storeInfo.industry,
+                categoryName
+            );
+            setMarketPriceResult(result);
+        } catch (error) {
+            console.error("Failed to research price:", error);
+            toast({
+                title: "エラー",
+                description: "相場調査に失敗しました",
+                variant: "destructive",
+            });
+        } finally {
+            setIsResearchingPrice(false);
+        }
+    };
+
+    const applyRecommendedPrice = () => {
+        if (marketPriceResult && priceInputRef.current) {
+            priceInputRef.current.value = String(marketPriceResult.recommendedPrice);
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
+
+        // Check edit permission
+        if (!canEdit) {
+            toast({
+                title: "権限エラー",
+                description: "編集権限がありません",
+                variant: "destructive",
+            });
+            return;
+        }
+
         setIsSubmitting(true);
 
         const formData = new FormData(e.currentTarget);
@@ -122,7 +211,11 @@ export function MenuEditModal({ menu, open, onOpenChange, categories }: MenuEdit
             let categoryId = "";
             if (categoryMode === "create") {
                 if (!newCategoryName.trim()) {
-                    alert("カテゴリー名を入力してください");
+                    toast({
+                        title: "入力エラー",
+                        description: "カテゴリー名を入力してください",
+                        variant: "destructive",
+                    });
                     setIsSubmitting(false);
                     return;
                 }
@@ -138,7 +231,11 @@ export function MenuEditModal({ menu, open, onOpenChange, categories }: MenuEdit
             }
 
             if (!categoryId) {
-                alert("カテゴリーを選択してください");
+                toast({
+                    title: "入力エラー",
+                    description: "カテゴリーを選択してください",
+                    variant: "destructive",
+                });
                 setIsSubmitting(false);
                 return;
             }
@@ -155,7 +252,11 @@ export function MenuEditModal({ menu, open, onOpenChange, categories }: MenuEdit
             router.refresh();
         } catch (error) {
             console.error("Failed to save menu:", error);
-            alert("メニューの保存に失敗しました");
+            toast({
+                title: "エラー",
+                description: "メニューの保存に失敗しました",
+                variant: "destructive",
+            });
         } finally {
             setIsSubmitting(false);
         }
@@ -164,6 +265,16 @@ export function MenuEditModal({ menu, open, onOpenChange, categories }: MenuEdit
     const handleDelete = async () => {
         if (!menu) return;
 
+        // Check edit permission
+        if (!canEdit) {
+            toast({
+                title: "権限エラー",
+                description: "削除権限がありません",
+                variant: "destructive",
+            });
+            return;
+        }
+
         setIsSubmitting(true);
         try {
             await deleteMenu(menu.id);
@@ -171,7 +282,11 @@ export function MenuEditModal({ menu, open, onOpenChange, categories }: MenuEdit
             router.refresh();
         } catch (error) {
             console.error("Failed to delete menu:", error);
-            alert("削除に失敗しました");
+            toast({
+                title: "エラー",
+                description: "削除に失敗しました",
+                variant: "destructive",
+            });
         } finally {
             setIsSubmitting(false);
         }
@@ -285,8 +400,31 @@ export function MenuEditModal({ menu, open, onOpenChange, categories }: MenuEdit
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="price">金額 (円)</Label>
+                        <div className="flex items-center justify-between">
+                            <Label htmlFor="price">金額 (円)</Label>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20"
+                                onClick={handleResearchPrice}
+                                disabled={isResearchingPrice}
+                            >
+                                {isResearchingPrice ? (
+                                    <>
+                                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                        調査中...
+                                    </>
+                                ) : (
+                                    <>
+                                        <TrendingUp className="h-3 w-3 mr-1" />
+                                        相場を調べる
+                                    </>
+                                )}
+                            </Button>
+                        </div>
                         <Input
+                            ref={priceInputRef}
                             id="price"
                             name="price"
                             type="number"
@@ -295,6 +433,56 @@ export function MenuEditModal({ menu, open, onOpenChange, categories }: MenuEdit
                             required
                             min="0"
                         />
+
+                        {/* 相場調査結果 */}
+                        {marketPriceResult && (
+                            <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
+                                        {storeInfo?.prefecture} / {storeInfo?.industry}の相場
+                                    </span>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        className="h-6 px-2 text-xs bg-blue-600 hover:bg-blue-700 text-white"
+                                        onClick={applyRecommendedPrice}
+                                    >
+                                        推奨価格を適用
+                                    </Button>
+                                </div>
+                                <div className="grid grid-cols-4 gap-2 text-center text-xs">
+                                    <div>
+                                        <div className="text-gray-500 dark:text-gray-400">最低</div>
+                                        <div className="font-medium text-gray-700 dark:text-gray-300">
+                                            {marketPriceResult.minPrice.toLocaleString()}円
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div className="text-gray-500 dark:text-gray-400">平均</div>
+                                        <div className="font-medium text-gray-700 dark:text-gray-300">
+                                            {marketPriceResult.averagePrice.toLocaleString()}円
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div className="text-gray-500 dark:text-gray-400">最高</div>
+                                        <div className="font-medium text-gray-700 dark:text-gray-300">
+                                            {marketPriceResult.maxPrice.toLocaleString()}円
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div className="text-blue-600 dark:text-blue-400">推奨</div>
+                                        <div className="font-bold text-blue-700 dark:text-blue-300">
+                                            {marketPriceResult.recommendedPrice.toLocaleString()}円
+                                        </div>
+                                    </div>
+                                </div>
+                                {marketPriceResult.notes && (
+                                    <p className="text-xs text-gray-600 dark:text-gray-400 pt-1 border-t border-blue-100 dark:border-blue-800">
+                                        {marketPriceResult.notes}
+                                    </p>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     {/* 画像セクション */}
@@ -307,6 +495,7 @@ export function MenuEditModal({ menu, open, onOpenChange, categories }: MenuEdit
                                         src={imageUrl}
                                         alt="メニュー画像"
                                         fill
+                                        sizes="200px"
                                         className="object-cover"
                                     />
                                 </div>

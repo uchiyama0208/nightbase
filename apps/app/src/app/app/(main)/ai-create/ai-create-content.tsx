@@ -53,6 +53,7 @@ interface AICreateContentProps {
     initialImages: GeneratedImage[];
     templates: Template[];
     sizePresets: { name: string; width: number; height: number; ratio: string }[];
+    canEdit?: boolean;
 }
 
 const categoryIcons: Record<string, React.ReactNode> = {

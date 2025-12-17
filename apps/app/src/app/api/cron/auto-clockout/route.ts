@@ -32,13 +32,13 @@ export async function GET() {
 async function processAutoClockOut() {
     const supabase = createServiceRoleClient() as any;
 
-    // Get all stores with auto clock-out enabled
+    // Get all stores with auto clock-out enabled from store_settings
     const { data } = await supabase
-        .from("stores")
-        .select("id, day_switch_time, time_rounding_enabled, time_rounding_method, time_rounding_minutes, auto_clockout_enabled")
+        .from("store_settings")
+        .select("store_id, day_switch_time, time_rounding_enabled, time_rounding_method, time_rounding_minutes, auto_clockout_enabled")
         .eq("auto_clockout_enabled", true);
 
-    const stores = (data ?? []) as any[];
+    const stores = (data ?? []).map((s: any) => ({ ...s, id: s.store_id })) as any[];
 
     if (stores.length === 0) {
         console.log("No stores with auto clock-out enabled");
@@ -80,8 +80,8 @@ async function processAutoClockOut() {
 
         // Find all time cards that are still clocked in (no clock_out) for this work_date
         const { data: openTimeCards } = await supabase
-            .from("time_cards")
-            .select("id, user_id, clock_in, profiles(store_id)")
+            .from("work_records")
+            .select("id, profile_id, clock_in, profiles(store_id)")
             .eq("work_date", workDate)
             .is("clock_out", null);
 
@@ -111,7 +111,7 @@ async function processAutoClockOut() {
 
             const scheduledEndTime = store.time_rounding_enabled ? clockOutTime.toISOString() : null;
 
-            await (supabase.from("time_cards") as any)
+            await (supabase.from("work_records") as any)
                 .update({
                     clock_out: cutoffDate.toISOString(),
                     scheduled_end_time: scheduledEndTime,
@@ -121,7 +121,7 @@ async function processAutoClockOut() {
 
             results.push({
                 timeCardId: timeCard.id,
-                userId: timeCard.user_id,
+                profileId: timeCard.profile_id,
                 storeId: store.id,
                 workDate,
                 clockOutTime: cutoffDate.toISOString(),

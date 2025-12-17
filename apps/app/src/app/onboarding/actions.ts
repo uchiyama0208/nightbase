@@ -324,12 +324,8 @@ export async function createStoreAndLink(storeData: FormData) {
             name: storeName,
             industry,
             prefecture,
-            business_start_time: businessStartTime,
-            business_end_time: businessEndTime,
-            day_switch_time: daySwitchTime,
             closed_days: closedDays,
             referral_source: referralSource,
-            show_menus: true, // Install menus feature by default
         })
         .select()
         .single();
@@ -337,6 +333,24 @@ export async function createStoreAndLink(storeData: FormData) {
     if (storeError) {
         console.error("Store creation error:", storeError);
         return { success: false, error: storeError.message };
+    }
+
+    // Create store_settings record
+    const { error: settingsError } = await supabase
+        .from("store_settings")
+        .insert({
+            store_id: store.id,
+            business_start_time: businessStartTime,
+            business_end_time: businessEndTime,
+            day_switch_time: daySwitchTime,
+            show_menus: true, // Install menus feature by default
+        });
+
+    if (settingsError) {
+        console.error("Store settings creation error:", settingsError);
+        // Rollback: delete the store
+        await supabase.from("stores").delete().eq("id", store.id);
+        return { success: false, error: settingsError.message };
     }
 
     // Link store to profile using service role to bypass RLS

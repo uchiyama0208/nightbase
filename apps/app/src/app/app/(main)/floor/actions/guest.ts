@@ -10,12 +10,18 @@ import type { ProfileData, SessionGuestData } from "./types";
 async function getProfilesByRole(role: "cast" | "guest"): Promise<ProfileData[]> {
     try {
         const { supabase, storeId } = await getAuthenticatedStoreId();
-        const { data: profiles, error } = await supabase
+        let query = supabase
             .from("profiles")
             .select("*")
             .eq("store_id", storeId)
-            .eq("role", role)
-            .order("display_name", { ascending: true });
+            .eq("role", role);
+
+        // キャストの場合は在籍中・体入のみ表示
+        if (role === "cast") {
+            query = query.in("status", ["在籍中", "体入"]);
+        }
+
+        const { data: profiles, error } = await query.order("display_name", { ascending: true });
 
         if (error) {
             console.error(`Error fetching ${role}s:`, error);
@@ -208,7 +214,7 @@ async function updateSessionGuestCount(supabase: any, sessionId: string) {
 async function createSetFeeForGuest(supabase: any, sessionId: string, guestId: string) {
     const { data: session } = await supabase
         .from("table_sessions")
-        .select("pricing_system_id")
+        .select("pricing_system_id, store_id")
         .eq("id", sessionId)
         .single();
 
@@ -226,6 +232,7 @@ async function createSetFeeForGuest(supabase: any, sessionId: string, guestId: s
         .from("orders")
         .insert({
             table_session_id: sessionId,
+            store_id: session.store_id,
             item_name: 'セット料金',
             quantity: 1,
             amount: pricingSystem.set_fee || 0,

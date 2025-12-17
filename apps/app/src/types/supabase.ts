@@ -187,6 +187,7 @@ export type Database = {
           display_name: string | null;
           display_name_kana: string | null;
           role: string;
+          role_id: string | null;
           avatar_url: string | null;
           phone_number: string | null;
           real_name: string | null;
@@ -204,6 +205,7 @@ export type Database = {
           display_name?: string | null;
           display_name_kana?: string | null;
           role?: string;
+          role_id?: string | null;
           avatar_url?: string | null;
           phone_number?: string | null;
           real_name?: string | null;
@@ -221,6 +223,7 @@ export type Database = {
           display_name?: string | null;
           display_name_kana?: string | null;
           role?: string;
+          role_id?: string | null;
           avatar_url?: string | null;
           phone_number?: string | null;
           real_name?: string | null;

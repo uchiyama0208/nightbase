@@ -50,10 +50,10 @@ export async function tabletClockIn(formData: FormData) {
   }
 
   // Get store settings for time rounding
-  const { data: storeData } = await supabase
-    .from("stores")
+  const { data: settings } = await supabase
+    .from("store_settings")
     .select("time_rounding_enabled, time_rounding_method, time_rounding_minutes")
-    .eq("id", storeId)
+    .eq("store_id", storeId)
     .maybeSingle();
 
   const now = new Date();
@@ -61,11 +61,11 @@ export async function tabletClockIn(formData: FormData) {
 
   // Calculate scheduled start time if rounding is enabled
   let scheduledStartTime: string | null = null;
-  if (storeData?.time_rounding_enabled) {
+  if (settings?.time_rounding_enabled) {
     const rounded = roundTime(
       now,
-      storeData.time_rounding_method || "round",
-      storeData.time_rounding_minutes || 15
+      settings.time_rounding_method || "round",
+      settings.time_rounding_minutes || 15
     );
     scheduledStartTime = rounded.toISOString();
   }
@@ -74,10 +74,13 @@ export async function tabletClockIn(formData: FormData) {
   const pickupDestination = pickupCustom || pickupPreset || null;
 
   const payload: any = {
-    user_id: profileId,
+    profile_id: profileId,
+    store_id: storeId,
     work_date: workDate,
     clock_in: now.toISOString(),
     scheduled_start_time: scheduledStartTime,
+    status: "working",
+    source: "timecard",
   };
 
   if (pickupRequired) {
@@ -89,13 +92,13 @@ export async function tabletClockIn(formData: FormData) {
     payload.pickup_required = false;
   }
 
-  console.log("Inserting time card:", payload);
-  const { data, error } = await supabase.from("time_cards").insert(payload).select();
+  console.log("Inserting work record:", payload);
+  const { data, error } = await supabase.from("work_records").insert(payload).select();
 
   if (error) {
-    console.error("Error inserting time card:", error);
+    console.error("Error inserting work record:", error);
   } else {
-    console.log("Time card inserted successfully:", data);
+    console.log("Work record inserted successfully:", data);
   }
 
   // ダッシュボードの出勤中人数カードを更新
@@ -124,10 +127,10 @@ export async function tabletClockOut(formData: FormData) {
   }
 
   // Get store settings for time rounding
-  const { data: storeData } = await supabase
-    .from("stores")
+  const { data: settings } = await supabase
+    .from("store_settings")
     .select("time_rounding_enabled, time_rounding_method, time_rounding_minutes")
-    .eq("id", storeId)
+    .eq("store_id", storeId)
     .maybeSingle();
 
   const today = getTodayDate();
@@ -137,40 +140,41 @@ export async function tabletClockOut(formData: FormData) {
 
   // Calculate scheduled end time if rounding is enabled
   let scheduledEndTime: string | null = null;
-  if (storeData?.time_rounding_enabled) {
+  if (settings?.time_rounding_enabled) {
     const rounded = roundTime(
       now,
-      storeData.time_rounding_method || "round",
-      storeData.time_rounding_minutes || 15
+      settings.time_rounding_method || "round",
+      settings.time_rounding_minutes || 15
     );
     scheduledEndTime = rounded.toISOString();
   }
 
-  const { data: cards } = await supabase
-    .from("time_cards")
+  const { data: records } = await supabase
+    .from("work_records")
     .select("id, work_date, clock_in, clock_out, created_at")
-    .eq("user_id", profileId)
+    .eq("profile_id", profileId)
     .in("work_date", [yesterday, today])
     .is("clock_out", null)
     .order("created_at", { ascending: false })
     .limit(1);
 
-  const typedCards = (cards || []) as { id: string }[];
-  const card = typedCards.length > 0 ? typedCards[0] : null;
+  const typedRecords = (records || []) as { id: string }[];
+  const record = typedRecords.length > 0 ? typedRecords[0] : null;
 
-  if (card) {
+  if (record) {
     await supabase
-      .from("time_cards")
+      .from("work_records")
       .update({
         clock_out: now.toISOString(),
-        scheduled_end_time: scheduledEndTime
+        scheduled_end_time: scheduledEndTime,
+        status: "completed",
       } as any)
-      .eq("id", card.id);
+      .eq("id", record.id);
   }
 
   // ダッシュボードの出勤中人数カードを更新
   revalidatePath("/app/dashboard");
-  if (card) {
+  if (record) {
     revalidatePath("/app/attendance");
   }
 }

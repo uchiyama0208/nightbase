@@ -50,9 +50,10 @@ interface BoardClientProps {
     manualLikeCounts: Record<string, number>;
     postReadStatus: Record<string, boolean>;
     manualReadStatus: Record<string, boolean>;
+    canEdit?: boolean;
 }
 
-export function BoardClient({ posts, manuals, tags, storeId, isStaff, userRole, postLikeCounts, manualLikeCounts, postReadStatus, manualReadStatus }: BoardClientProps) {
+export function BoardClient({ posts, manuals, tags, storeId, isStaff, userRole, postLikeCounts, manualLikeCounts, postReadStatus, manualReadStatus, canEdit = false }: BoardClientProps) {
     const router = useRouter();
     const [viewingPost, setViewingPost] = useState<StorePost | null>(null);
     const [viewingManual, setViewingManual] = useState<StoreManual | null>(null);
@@ -115,7 +116,7 @@ export function BoardClient({ posts, manuals, tags, storeId, isStaff, userRole, 
     return (
         <div className="space-y-2">
             {/* Plus button */}
-            {isStaff && (
+            {isStaff && canEdit && (
                 <div className="flex justify-end">
                     <Button
                         size="icon"

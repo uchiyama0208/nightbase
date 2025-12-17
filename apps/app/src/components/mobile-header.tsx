@@ -85,7 +85,7 @@ export function MobileHeader({ onMenuClick, profileName, avatarUrl, hasSidebar }
     const getBackTab = (): string | null => {
         if (isDashboard) return null;
         if (shouldUseRouterBack()) return null;
-        if (pathname.includes("/shifts") || pathname.includes("/my-shifts")) return "shift";
+        if (pathname.includes("/shifts") || pathname.includes("/my-shifts") || pathname.includes("/pickup") || pathname.includes("/attendance") || pathname.includes("/timecard")) return "shift";
         if (pathname.includes("/users") || pathname.includes("/resumes") || pathname.includes("/invitations") || pathname.includes("/roles")) return "user";
         if (pathname.includes("/floor") || pathname.includes("/seats") || pathname.includes("/assignments") || pathname.includes("/slips") || pathname.includes("/bottles") || pathname.includes("/shopping")) return "floor";
         if (pathname.includes("/menus") || pathname.includes("/pricing-systems") || pathname.includes("/salary-systems") || pathname.includes("/payroll") || pathname.includes("/sales") || pathname.includes("/ranking")) return "salary";

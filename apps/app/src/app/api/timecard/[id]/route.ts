@@ -28,10 +28,10 @@ export async function GET(
 
     // Get the timecard with profile info
     const { data: timeCard, error } = await supabase
-        .from("time_cards")
+        .from("work_records")
         .select(`
             id,
-            user_id,
+            profile_id,
             work_date,
             clock_in,
             clock_out,
@@ -39,7 +39,7 @@ export async function GET(
             break_end,
             pickup_required,
             pickup_destination,
-            profiles!time_cards_user_id_fkey(
+            profiles!work_records_profile_id_fkey(
                 id,
                 display_name,
                 store_id
@@ -68,7 +68,7 @@ export async function GET(
     // Format as AttendanceRecord for the modal
     const attendanceRecord = {
         id: timeCard.id,
-        user_id: timeCard.user_id,
+        profile_id: timeCard.profile_id,
         date: timeCard.work_date,
         status: timeCard.clock_out ? "completed" : "working",
         start_time: timeCard.clock_in,

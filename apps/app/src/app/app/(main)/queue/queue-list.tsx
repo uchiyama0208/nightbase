@@ -33,9 +33,10 @@ interface QueueListProps {
     storeName: string;
     settings: QueueSettings;
     daySwitchTime: string;
+    canEdit?: boolean;
 }
 
-export function QueueList({ entries, storeId, storeName, settings, daySwitchTime }: QueueListProps) {
+export function QueueList({ entries, storeId, storeName, settings, daySwitchTime, canEdit = false }: QueueListProps) {
     const [dateFilter, setDateFilter] = useState<"today" | "all">("today");
     const [statusFilter, setStatusFilter] = useState<QueueStatusFilter>("all");
     const [selectedDate, setSelectedDate] = useState<string>("");
@@ -134,7 +135,7 @@ export function QueueList({ entries, storeId, storeName, settings, daySwitchTime
                     );
                     toast({
                         title: "通知を送信しました",
-                        description: `${notifyTarget.guest_name}さんに${notifyTarget.contact_type === "phone" ? "SMS" : "メール"}を送信しました`,
+                        description: `${notifyTarget.guest_name}さんにメールを送信しました`,
                     });
                 } else {
                     toast({
@@ -177,21 +178,25 @@ export function QueueList({ entries, storeId, storeName, settings, daySwitchTime
                     </span>
                 </button>
                 <div className="flex-1" />
-                <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-10 w-10 rounded-full"
-                    onClick={() => setIsSettingsOpen(true)}
-                >
-                    <Settings className="h-5 w-5" />
-                </Button>
-                <Button
-                    size="icon"
-                    className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
-                    onClick={() => setIsAddOpen(true)}
-                >
-                    <Plus className="h-5 w-5" />
-                </Button>
+                {canEdit && (
+                    <>
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-10 w-10 rounded-full"
+                            onClick={() => setIsSettingsOpen(true)}
+                        >
+                            <Settings className="h-5 w-5" />
+                        </Button>
+                        <Button
+                            size="icon"
+                            className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
+                            onClick={() => setIsAddOpen(true)}
+                        >
+                            <Plus className="h-5 w-5" />
+                        </Button>
+                    </>
+                )}
             </div>
 
             {/* 有効/無効ステータス */}
@@ -358,7 +363,7 @@ export function QueueList({ entries, storeId, storeName, settings, daySwitchTime
                             {notifyTarget?.guest_name}さんに通知を送信しますか？
                             <br />
                             <span className="text-xs mt-1 block">
-                                {notifyTarget?.contact_type === "phone" ? "SMS" : "メール"}で通知されます
+                                メールで通知されます
                             </span>
                         </DialogDescription>
                     </DialogHeader>

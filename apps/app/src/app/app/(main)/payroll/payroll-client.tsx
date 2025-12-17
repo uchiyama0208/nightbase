@@ -77,7 +77,11 @@ function formatCurrency(amount: number): string {
     }).format(amount);
 }
 
-export function PayrollClient() {
+interface PayrollClientProps {
+    canEdit?: boolean;
+}
+
+export function PayrollClient({ canEdit = false }: PayrollClientProps) {
     const [data, setData] = useState<PayrollData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -248,14 +252,16 @@ export function PayrollClient() {
         <div className="space-y-2">
 
             {/* Plus Button */}
-            <div className="flex items-center justify-end">
-                <Button
-                    size="icon"
-                    className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
-                >
-                    <Plus className="h-5 w-5" />
-                </Button>
-            </div>
+            {canEdit && (
+                <div className="flex items-center justify-end">
+                    <Button
+                        size="icon"
+                        className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
+                    >
+                        <Plus className="h-5 w-5" />
+                    </Button>
+                </div>
+            )}
 
             {/* Vercel-style Tab Navigation */}
             <div className="relative">

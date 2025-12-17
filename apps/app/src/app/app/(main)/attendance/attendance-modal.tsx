@@ -32,7 +32,7 @@ interface Profile {
 
 interface AttendanceRecord {
     id: string;
-    user_id: string;
+    profile_id: string;
     date: string;
     status: string;
     start_time: string | null;
@@ -84,7 +84,7 @@ export function AttendanceModal({
     const [selectedProfileId, setSelectedProfileId] = useState<string>("");
 
     const editingProfile = editingRecord
-        ? profiles.find((p) => p.id === editingRecord.user_id) || null
+        ? profiles.find((p) => p.id === editingRecord.profile_id) || null
         : null;
 
     // When editing, use the editing profile's role; otherwise use defaultRole

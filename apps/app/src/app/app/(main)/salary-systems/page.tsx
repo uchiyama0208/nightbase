@@ -24,7 +24,7 @@ export default async function SalarySystemsPage({
 }: {
     searchParams: Promise<{ type?: string }>;
 }) {
-    const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("salary-systems", "view");
+    const { user, profile, hasAccess, canEdit } = await getAppDataWithPermissionCheck("salary-systems", "view");
 
     if (!user) {
         redirect("/login");
@@ -56,6 +56,7 @@ export default async function SalarySystemsPage({
                 storeShowBreakColumns={storeShowBreakColumns}
                 storeTimeRoundingEnabled={storeTimeRoundingEnabled}
                 storeTimeRoundingMinutes={storeTimeRoundingMinutes}
+                canEdit={canEdit}
             />
         </Suspense>
     );

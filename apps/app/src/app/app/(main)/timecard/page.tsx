@@ -27,7 +27,7 @@ export default async function TimecardPage({
 }: {
     searchParams: Promise<{ openModal?: string; clockOut?: string }>;
 }) {
-    const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("timecard", "view");
+    const { user, profile, hasAccess, canEdit } = await getAppDataWithPermissionCheck("timecard", "view");
 
     if (!user) {
         redirect("/login");

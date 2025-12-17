@@ -109,6 +109,7 @@ async function processGuestExtensionFees(
                 for (let i = 0; i < toAdd; i++) {
                     await supabase.from("orders").insert({
                         table_session_id: session.id,
+                        store_id: session.store_id,
                         item_name: '延長料金',
                         quantity: 1,
                         amount: extensionFee,
@@ -189,6 +190,7 @@ async function processCastExtensionFees(
                 for (let i = 0; i < toAdd; i++) {
                     await supabase.from("orders").insert({
                         table_session_id: session.id,
+                        store_id: session.store_id,
                         item_name: itemName,
                         quantity: 1,
                         amount: castFee,

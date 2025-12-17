@@ -46,7 +46,11 @@ function formatCurrency(amount: number): string {
     }).format(amount);
 }
 
-export function SalesClient() {
+interface SalesClientProps {
+    canEdit?: boolean;
+}
+
+export function SalesClient({ canEdit = false }: SalesClientProps) {
     const [data, setData] = useState<SalesData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);

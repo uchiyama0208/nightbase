@@ -54,6 +54,18 @@ export async function createResumeTemplate(formData: FormData) {
 // 履歴書フォーマット更新
 export async function updateResumeTemplate(formData: FormData) {
     const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("認証が必要です");
+
+    const { data: profile } = await supabase
+        .from("profiles")
+        .select("store_id, role")
+        .eq("user_id", user.id)
+        .single();
+
+    if (!profile || !["admin", "staff"].includes((profile as any).role)) {
+        throw new Error("権限がありません");
+    }
 
     const id = formData.get("id") as string;
     const name = formData.get("name") as string;

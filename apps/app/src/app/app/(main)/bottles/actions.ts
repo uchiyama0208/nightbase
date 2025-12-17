@@ -47,7 +47,8 @@ export async function getBottleKeeps(filters?: {
         profile_id,
         profiles (
           id,
-          display_name
+          display_name,
+          display_name_kana
         )
       )
     `)
@@ -73,7 +74,10 @@ export async function getBottleKeeps(filters?: {
             const guestNames = bottle.bottle_keep_holders
                 ?.map((h: any) => h.profiles?.display_name?.toLowerCase() || "")
                 .join(" ");
-            return bottleName.includes(searchLower) || guestNames.includes(searchLower);
+            const guestNamesKana = bottle.bottle_keep_holders
+                ?.map((h: any) => h.profiles?.display_name_kana?.toLowerCase() || "")
+                .join(" ");
+            return bottleName.includes(searchLower) || guestNames.includes(searchLower) || guestNamesKana.includes(searchLower);
         });
     }
 

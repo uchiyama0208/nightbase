@@ -272,7 +272,7 @@ export async function getWorkRecordsForDate(storeId: string, date: string) {
 
     const { data, error } = await supabase
         .from("work_records")
-        .select("*, profiles:profile_id(id, display_name, avatar_url, role, line_is_friend)")
+        .select("*, profiles:profile_id(id, display_name, display_name_kana, avatar_url, role, line_is_friend)")
         .eq("store_id", storeId)
         .eq("work_date", date)
         .neq("status", "cancelled")
@@ -322,6 +322,25 @@ export async function createWorkRecord(data: {
 
     revalidatePath("/app/shifts");
     return { success: true, record };
+}
+
+// 特定のユーザーの特定日の提出データを取得
+export async function getUserSubmissionForDate(requestDateId: string, profileId: string) {
+    const supabase = await createServerClient() as any;
+
+    const { data, error } = await supabase
+        .from("shift_submissions")
+        .select("id, status, availability, preferred_start_time, preferred_end_time")
+        .eq("request_date_id", requestDateId)
+        .eq("profile_id", profileId)
+        .single();
+
+    if (error && error.code !== "PGRST116") {
+        console.error("Error fetching user submission:", error);
+        return null;
+    }
+
+    return data;
 }
 
 // シフトを更新
@@ -408,14 +427,33 @@ export async function getCalendarData(storeId: string, year: number, month: numb
     const nextYear = month === 12 ? year + 1 : year;
     const endDate = `${nextYear}-${String(nextMonth).padStart(2, "0")}-01`;
 
-    // work_records から出勤予定を取得
-    const { data: workRecords } = await supabase
-        .from("work_records")
-        .select("*, profiles:profile_id(role)")
-        .eq("store_id", storeId)
-        .gte("work_date", startDate)
-        .lt("work_date", endDate)
-        .neq("status", "cancelled");
+    const [
+        // work_records から出勤予定を取得
+        { data: workRecords },
+        // shift_submissions から不可を含む提出を取得
+        { data: shiftSubmissions },
+    ] = await Promise.all([
+        supabase
+            .from("work_records")
+            .select("*, profiles:profile_id(role)")
+            .eq("store_id", storeId)
+            .gte("work_date", startDate)
+            .lt("work_date", endDate)
+            .neq("status", "cancelled"),
+        supabase
+            .from("shift_submissions")
+            .select(`
+                id,
+                availability,
+                status,
+                request_date_id,
+                shift_request_dates!inner(target_date, shift_requests!inner(store_id)),
+                profiles:profile_id(role)
+            `)
+            .eq("shift_request_dates.shift_requests.store_id", storeId)
+            .gte("shift_request_dates.target_date", startDate)
+            .lt("shift_request_dates.target_date", endDate),
+    ]);
 
     // 募集日付も取得（募集中・募集終了の表示用）
     const { data: requestDates } = await supabase
@@ -512,6 +550,52 @@ export async function getCalendarData(storeId: string, year: number, month: numb
         }
     }
 
+    // shift_submissions（不可も含む）をカウント
+    if (shiftSubmissions) {
+        for (const submission of shiftSubmissions) {
+            const date = (submission.shift_request_dates as any)?.target_date;
+            if (!date) continue;
+
+            const role = submission.profiles?.role;
+            const isCast = role === "cast";
+            const isStaff = role === "staff" || role === "admin";
+
+            if (!calendarData.has(date)) {
+                calendarData.set(date, {
+                    hasRequest: true,
+                    requestClosed: false,
+                    castCount: 0,
+                    staffCount: 0,
+                    castConfirmed: 0,
+                    castSubmitted: 0,
+                    castNotSubmitted: 0,
+                    staffConfirmed: 0,
+                    staffSubmitted: 0,
+                    staffNotSubmitted: 0,
+                });
+            }
+
+            const existing = calendarData.get(date)!;
+
+            // availability が available なら既存ロジック同様に提出済み扱い
+            const isAvailable = submission.availability === "available";
+            if (isAvailable) {
+                if (isCast) {
+                    existing.castSubmitted++;
+                } else if (isStaff) {
+                    existing.staffSubmitted++;
+                }
+            } else {
+                // 不可回答も提出済みとしてカウント（不可は confirmed には加算しない）
+                if (isCast) {
+                    existing.castSubmitted++;
+                } else if (isStaff) {
+                    existing.staffSubmitted++;
+                }
+            }
+        }
+    }
+
     return Object.fromEntries(calendarData);
 }
 
@@ -538,18 +622,32 @@ export async function getDateSubmissions(requestDateId: string) {
     const date = requestDate.target_date;
 
     // その日の出勤記録を取得
-    const { data: workRecords } = await supabase
-        .from("work_records")
-        .select("*, profiles:profile_id(id, display_name, avatar_url, role, line_is_friend)")
-        .eq("store_id", request.store_id)
-        .eq("work_date", date)
-        .neq("status", "cancelled")
-        .order("scheduled_start_time", { ascending: true });
+    const [{ data: workRecords }, { data: shiftSubmissions }] = await Promise.all([
+        supabase
+            .from("work_records")
+            .select("*, profiles:profile_id(id, display_name, display_name_kana, avatar_url, role, line_is_friend)")
+            .eq("store_id", request.store_id)
+            .eq("work_date", date)
+            .neq("status", "cancelled")
+            .order("scheduled_start_time", { ascending: true }),
+        supabase
+            .from("shift_submissions")
+            .select(`
+                id,
+                availability,
+                status,
+                request_date_id,
+                shift_request_dates!inner(target_date, shift_requests!inner(store_id)),
+                profiles:profile_id(id, display_name, display_name_kana, avatar_url, role, line_is_friend)
+            `)
+            .eq("shift_request_dates.target_date", date)
+            .eq("shift_request_dates.shift_requests.store_id", request.store_id),
+    ]);
 
     // 対象プロフィールを取得（未登録者の表示用）
     let profilesQuery = supabase
         .from("profiles")
-        .select("id, display_name, avatar_url, role, line_is_friend")
+        .select("id, display_name, display_name_kana, avatar_url, role, line_is_friend")
         .eq("store_id", request.store_id);
 
     if (request.target_profile_ids && request.target_profile_ids.length > 0) {
@@ -563,8 +661,11 @@ export async function getDateSubmissions(requestDateId: string) {
 
     const { data: targetProfiles } = await profilesQuery;
 
-    // 登録済みのプロフィールIDを取得
-    const registeredProfileIds = new Set(workRecords?.map((r: any) => r.profile_id) || []);
+    // 登録済みのプロフィールIDを取得（work_records だけでなく shift_submissions も）
+    const registeredProfileIds = new Set([
+        ...(workRecords?.map((r: any) => r.profile_id) || []),
+        ...(shiftSubmissions?.map((s: any) => (s.profiles as any)?.id) || []),
+    ]);
 
     // 未登録者を仮想的なレコードとして追加
     const notRegisteredProfiles = (targetProfiles || []).filter(
@@ -607,17 +708,159 @@ export async function getDateSubmissions(requestDateId: string) {
     }));
 
     // 既存レコードを旧インターフェースに変換
-    const convertedRecords = (workRecords || []).map((r: any) => ({
-        ...r,
-        // 旧インターフェース互換フィールド
-        availability: "available",
-        preferred_start_time: r.scheduled_start_time,
-        preferred_end_time: r.scheduled_end_time,
-        status: "approved", // work_records に入っている = 確定済み
-        shift_request_date_id: requestDateId,
-    }));
+    const convertedRecords = (workRecords || []).map((r: any) => {
+        // ステータス変換:
+        // - pending = 提出済み（未確認）
+        // - rejected = 否認
+        // - scheduled/working/completed = 確定済み
+        let convertedStatus: string;
+        if (r.status === "pending") {
+            convertedStatus = "pending"; // 提出済み
+        } else if (r.status === "rejected") {
+            convertedStatus = "rejected"; // 否認
+        } else if (r.status === "scheduled" || r.status === "working" || r.status === "completed") {
+            convertedStatus = "approved"; // 確定済み
+        } else {
+            convertedStatus = "pending"; // その他 = 提出済みとして扱う
+        }
 
-    return [...convertedRecords, ...notRegisteredRecords];
+        return {
+            ...r,
+            // 旧インターフェース互換フィールド
+            availability: "available",
+            preferred_start_time: r.scheduled_start_time,
+            preferred_end_time: r.scheduled_end_time,
+            status: convertedStatus,
+            shift_request_date_id: requestDateId,
+        };
+    });
+
+    // shift_submissions から「不可」など work_records にない提出も表示（旧インターフェースに合わせる）
+    const submissionRecords = (shiftSubmissions || [])
+        .filter((s: any) => !(workRecords || []).some((r: any) => r.profile_id === (s.profiles as any)?.id))
+        .map((s: any) => {
+            const profile = s.profiles as any;
+            return {
+                id: `submission_${s.id}`,
+                profile_id: profile?.id,
+                store_id: request.store_id,
+                work_date: date,
+                scheduled_start_time: null,
+                scheduled_end_time: null,
+                shift_request_id: request.id,
+                clock_in: null,
+                clock_out: null,
+                break_start: null,
+                break_end: null,
+                status: s.status === "rejected" ? "rejected" : "pending",
+                source: "shift_request" as const,
+                approved_by: null,
+                approved_at: null,
+                note: null,
+                pickup_required: false,
+                pickup_destination: null,
+                forgot_clockout: false,
+                created_at: null,
+                updated_at: null,
+                profiles: {
+                    id: profile?.id,
+                    display_name: profile?.display_name,
+                    display_name_kana: profile?.display_name_kana,
+                    avatar_url: profile?.avatar_url,
+                    role: profile?.role,
+                    line_is_friend: profile?.line_is_friend,
+                },
+                // 旧インターフェース互換
+                availability: s.availability || "unavailable",
+                preferred_start_time: null,
+                preferred_end_time: null,
+                shift_request_date_id: requestDateId,
+            };
+        });
+
+    return [...convertedRecords, ...submissionRecords, ...notRegisteredRecords];
+}
+
+// 複数の募集日付の提出状況カウントを取得
+export async function getRequestDateCounts(requestDateIds: string[]): Promise<{
+    [dateId: string]: {
+        pendingCount: number;
+        notSubmittedCount: number;
+        confirmedCount: number;
+    };
+}> {
+    if (requestDateIds.length === 0) return {};
+
+    const supabase = await createServerClient() as any;
+
+    // 各日付の情報を取得
+    const { data: requestDates } = await supabase
+        .from("shift_request_dates")
+        .select(`
+            id,
+            target_date,
+            shift_requests!inner(id, store_id, target_roles, target_profile_ids)
+        `)
+        .in("id", requestDateIds);
+
+    if (!requestDates || requestDates.length === 0) return {};
+
+    const results: { [dateId: string]: { pendingCount: number; notSubmittedCount: number; confirmedCount: number } } = {};
+
+    for (const rd of requestDates) {
+        const request = rd.shift_requests as any;
+        const date = rd.target_date;
+
+        // 出勤記録を取得
+        const { data: workRecords } = await supabase
+            .from("work_records")
+            .select("id, profile_id, status")
+            .eq("store_id", request.store_id)
+            .eq("work_date", date)
+            .neq("status", "cancelled");
+
+        // 対象プロフィール取得
+        let profilesQuery = supabase
+            .from("profiles")
+            .select("id, role")
+            .eq("store_id", request.store_id)
+            .in("status", ["在籍中", "体入"]);
+
+        if (request.target_roles && request.target_roles.length > 0) {
+            profilesQuery = profilesQuery.in("role", request.target_roles);
+        }
+        if (request.target_profile_ids && request.target_profile_ids.length > 0) {
+            profilesQuery = profilesQuery.in("id", request.target_profile_ids);
+        }
+
+        const { data: profiles } = await profilesQuery;
+
+        const workRecordProfileIds = new Set((workRecords || []).map((r: any) => r.profile_id));
+
+        let pendingCount = 0;
+        let confirmedCount = 0;
+        let notSubmittedCount = 0;
+
+        // 出勤記録のステータスをカウント
+        for (const r of workRecords || []) {
+            if (r.status === "pending") {
+                pendingCount++;
+            } else if (r.status === "scheduled" || r.status === "working" || r.status === "completed") {
+                confirmedCount++;
+            }
+        }
+
+        // 未提出（出勤記録がないプロフィール）をカウント
+        for (const p of profiles || []) {
+            if (!workRecordProfileIds.has(p.id)) {
+                notSubmittedCount++;
+            }
+        }
+
+        results[rd.id] = { pendingCount, notSubmittedCount, confirmedCount };
+    }
+
+    return results;
 }
 
 // シフト（出勤予定）を承認・作成
@@ -634,10 +877,11 @@ export async function approveSubmission(
 
     const supabase = await createServerClient() as any;
 
-    // work_record の時間を更新
+    // work_record のステータスと時間を更新
     const { error } = await supabase
         .from("work_records")
         .update({
+            status: "scheduled",
             scheduled_start_time: startTime || null,
             scheduled_end_time: endTime || null,
             approved_by: approvedBy,
@@ -655,15 +899,50 @@ export async function approveSubmission(
     return { success: true };
 }
 
-// シフトを却下（キャンセル）
+// シフトを却下（否認）
 export async function rejectSubmission(submissionId: string, approvedBy: string) {
-    return cancelWorkRecord(submissionId);
+    const supabase = await createServerClient() as any;
+
+    const { error } = await supabase
+        .from("work_records")
+        .update({
+            status: "rejected",
+            approved_by: approvedBy,
+            approved_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+        })
+        .eq("id", submissionId);
+
+    if (error) {
+        console.error("Error rejecting submission:", error);
+        return { success: false, error: error.message };
+    }
+
+    revalidatePath("/app/shifts");
+    return { success: true };
 }
 
-// シフトをキャンセルから戻す（再登録が必要）
+// シフトを提出済み（pending）に戻す
 export async function revertSubmissionToPending(submissionId: string) {
-    // work_records では「キャンセル」するだけなので、戻す = 削除
-    return deleteWorkRecord(submissionId);
+    const supabase = await createServerClient() as any;
+
+    const { error } = await supabase
+        .from("work_records")
+        .update({
+            status: "pending",
+            approved_by: null,
+            approved_at: null,
+            updated_at: new Date().toISOString(),
+        })
+        .eq("id", submissionId);
+
+    if (error) {
+        console.error("Error reverting submission to pending:", error);
+        return { success: false, error: error.message };
+    }
+
+    revalidatePath("/app/shifts");
+    return { success: true };
 }
 
 // 一括承認
@@ -1059,4 +1338,133 @@ ${request.title}
 function formatDateJP(dateStr: string): string {
     const [year, month, day] = dateStr.split("-").map(Number);
     return `${month}/${day}`;
+}
+
+// =====================================================
+// グリッド表示用
+// =====================================================
+
+export interface GridCellData {
+    status: "scheduled" | "working" | "completed" | "absent" | "cancelled" | "pending" | "rejected" | "none";
+    startTime: string | null;
+    endTime: string | null;
+    recordId: string | null;
+}
+
+export interface GridData {
+    profiles: Array<{
+        id: string;
+        display_name: string | null;
+        avatar_url: string | null;
+        role: string;
+        status: string | null;
+    }>;
+    dates: string[];
+    cells: Record<string, Record<string, GridCellData>>; // cells[profileId][date]
+    requestDateIds: Record<string, string>; // requestDateIds[date] = requestDateId
+}
+
+// グリッド表示用のデータを取得
+export async function getGridData(
+    storeId: string,
+    year: number,
+    month: number,
+    roleFilter?: "cast" | "staff" | "all"
+): Promise<GridData> {
+    const supabase = await createServerClient() as any;
+
+    const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
+    const lastDay = new Date(year, month, 0).getDate();
+    const endDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+    // 日付リストを生成
+    const dates: string[] = [];
+    for (let d = 1; d <= lastDay; d++) {
+        dates.push(`${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
+    }
+
+    // プロフィールを取得（在籍中・体入のみ）
+    let profileQuery = supabase
+        .from("profiles")
+        .select("id, display_name, avatar_url, role, status")
+        .eq("store_id", storeId)
+        .in("status", ["在籍中", "体入"])
+        .in("role", ["cast", "staff", "admin"])
+        .order("role", { ascending: true })
+        .order("display_name", { ascending: true });
+
+    if (roleFilter === "cast") {
+        profileQuery = supabase
+            .from("profiles")
+            .select("id, display_name, avatar_url, role, status")
+            .eq("store_id", storeId)
+            .in("status", ["在籍中", "体入"])
+            .eq("role", "cast")
+            .order("display_name", { ascending: true });
+    } else if (roleFilter === "staff") {
+        profileQuery = supabase
+            .from("profiles")
+            .select("id, display_name, avatar_url, role, status")
+            .eq("store_id", storeId)
+            .in("status", ["在籍中", "体入"])
+            .in("role", ["staff", "admin"])
+            .order("display_name", { ascending: true });
+    }
+
+    const { data: profiles } = await profileQuery;
+
+    // work_records を取得
+    const { data: workRecords } = await supabase
+        .from("work_records")
+        .select("id, profile_id, work_date, scheduled_start_time, scheduled_end_time, status")
+        .eq("store_id", storeId)
+        .gte("work_date", startDate)
+        .lte("work_date", endDate)
+        .neq("status", "cancelled");
+
+    // セルデータを構築
+    const cells: Record<string, Record<string, GridCellData>> = {};
+
+    for (const profile of profiles || []) {
+        cells[profile.id] = {};
+        for (const date of dates) {
+            cells[profile.id][date] = {
+                status: "none",
+                startTime: null,
+                endTime: null,
+                recordId: null,
+            };
+        }
+    }
+
+    for (const record of workRecords || []) {
+        if (cells[record.profile_id] && cells[record.profile_id][record.work_date]) {
+            cells[record.profile_id][record.work_date] = {
+                status: record.status,
+                startTime: record.scheduled_start_time,
+                endTime: record.scheduled_end_time,
+                recordId: record.id,
+            };
+        }
+    }
+
+    // shift_request_dates を取得してマッピングを作成
+    const { data: requestDates } = await supabase
+        .from("shift_request_dates")
+        .select("id, target_date, shift_requests!inner(store_id)")
+        .eq("shift_requests.store_id", storeId)
+        .gte("target_date", startDate)
+        .lte("target_date", endDate);
+
+    const requestDateIds: Record<string, string> = {};
+    for (const rd of requestDates || []) {
+        requestDateIds[rd.target_date] = rd.id;
+    }
+
+    return {
+        profiles: profiles || [],
+        dates,
+        cells,
+        requestDateIds,
+    };
 }

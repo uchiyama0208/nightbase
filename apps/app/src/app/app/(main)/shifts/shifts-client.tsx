@@ -1,13 +1,18 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { Plus, Settings, Calendar, ClipboardList } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Plus, Settings, Calendar, Clock } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ShiftsCalendar } from "./shifts-calendar";
-import { ShiftsList } from "./shifts-list";
-import { getDateSubmissions } from "./actions";
+import { ShiftsGrid } from "./shifts-grid";
+import { type GridCellData, type ShiftRequestWithDates } from "./actions";
+
+// 日付を短い形式でフォーマット (M/D)
+function formatDateShort(dateStr: string): string {
+    const [, month, day] = dateStr.split("-").map(Number);
+    return `${month}/${day}`;
+}
 
 // Lazy load modals
 const ShiftRequestModal = dynamic(
@@ -16,6 +21,18 @@ const ShiftRequestModal = dynamic(
 );
 const ShiftDateModal = dynamic(
     () => import("./shift-date-modal").then((mod) => ({ default: mod.ShiftDateModal })),
+    { loading: () => null, ssr: false }
+);
+const ShiftCellModal = dynamic(
+    () => import("./shift-cell-modal").then((mod) => ({ default: mod.ShiftCellModal })),
+    { loading: () => null, ssr: false }
+);
+const UserEditModal = dynamic(
+    () => import("../users/user-edit-modal").then((mod) => ({ default: mod.UserEditModal })),
+    { loading: () => null, ssr: false }
+);
+const ShiftRequestDetailModal = dynamic(
+    () => import("./shift-request-detail-modal").then((mod) => ({ default: mod.ShiftRequestDetailModal })),
     { loading: () => null, ssr: false }
 );
 
@@ -52,6 +69,14 @@ interface CalendarData {
     };
 }
 
+interface PagePermissions {
+    bottles: boolean;
+    resumes: boolean;
+    salarySystems: boolean;
+    attendance: boolean;
+    personalInfo: boolean;
+}
+
 interface ShiftsClientProps {
     initialCalendarData: CalendarData;
     profiles: Profile[];
@@ -61,6 +86,10 @@ interface ShiftsClientProps {
     storeName: string;
     existingDates: string[];
     closedDays: string[];
+    daySwitchTime: string;
+    openShiftRequests: ShiftRequestWithDates[];
+    canEdit?: boolean;
+    pagePermissions?: PagePermissions;
 }
 
 export function ShiftsClient({
@@ -72,31 +101,79 @@ export function ShiftsClient({
     storeName,
     existingDates,
     closedDays,
+    daySwitchTime,
+    openShiftRequests,
+    canEdit = false,
+    pagePermissions,
 }: ShiftsClientProps) {
-    const [viewMode, setViewMode] = useState<"calendar" | "shifts">("shifts");
     const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+    const [selectedRequest, setSelectedRequest] = useState<ShiftRequestWithDates | null>(null);
+
+    // 今日の営業日を計算
+    const todayBusinessDate = useMemo(() => {
+        const now = new Date();
+        const jstNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
+        const currentHour = jstNow.getHours();
+        const currentMinute = jstNow.getMinutes();
+
+        const [switchHour, switchMinute] = daySwitchTime.split(":").map(Number);
+
+        let businessDate = new Date(jstNow);
+        if (currentHour < switchHour || (currentHour === switchHour && currentMinute < switchMinute)) {
+            businessDate.setDate(businessDate.getDate() - 1);
+        }
+
+        return businessDate.toLocaleDateString("ja-JP", {
+            timeZone: "Asia/Tokyo",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+        }).replace(/\//g, "-");
+    }, [daySwitchTime]);
+
+    // 今日のカレンダーデータ
+    const todayData = initialCalendarData[todayBusinessDate];
     const [selectedDateInfo, setSelectedDateInfo] = useState<{
         date: string;
         requestDateId?: string;
     } | null>(null);
+    const [selectedCellInfo, setSelectedCellInfo] = useState<{
+        date: string;
+        profileId: string;
+        profileName: string;
+        cell: GridCellData | null;
+        requestDateId?: string;
+    } | null>(null);
+    const [gridRefreshKey, setGridRefreshKey] = useState(0);
+    const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
 
-    // Vercel-style tabs
-    const viewTabsRef = useRef<{ [key: string]: HTMLButtonElement | null }>({});
-    const [viewIndicatorStyle, setViewIndicatorStyle] = useState({ left: 0, width: 0 });
+    const handleGridRefresh = () => {
+        setGridRefreshKey((prev) => prev + 1);
+    };
 
-    useEffect(() => {
-        const activeButton = viewTabsRef.current[viewMode];
-        if (activeButton) {
-            setViewIndicatorStyle({
-                left: activeButton.offsetLeft,
-                width: activeButton.offsetWidth,
-            });
-        }
-    }, [viewMode]);
+    const handleProfileClick = (profileId: string) => {
+        setSelectedProfileId(profileId);
+    };
 
+    const selectedProfile = selectedProfileId
+        ? (() => {
+            const p = profiles.find((p) => p.id === selectedProfileId);
+            return p ? {
+                ...p,
+                store_id: storeId,
+                display_name_kana: null,
+                real_name: null,
+                real_name_kana: null,
+            } : null;
+          })()
+        : null;
 
     const handleDateClick = (date: string, requestDateId?: string) => {
         setSelectedDateInfo({ date, requestDateId });
+    };
+
+    const handleCellClick = (date: string, profileId: string, profileName: string, cell: GridCellData | null, requestDateId?: string) => {
+        setSelectedCellInfo({ date, profileId, profileName, cell, requestDateId });
     };
 
     // 前日・翌日に移動
@@ -128,77 +205,105 @@ export function ShiftsClient({
 
     return (
         <>
-            {/* Header: Icons */}
-            <div className="flex items-center justify-end gap-2 mb-4">
-                <Link
-                    href="/app/settings/shift"
-                    className="h-10 w-10 rounded-full bg-white text-gray-600 border border-gray-300 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-400 dark:border-gray-600 dark:hover:bg-gray-800 shadow-sm transition-all hover:scale-105 active:scale-95 flex items-center justify-center"
+            {/* Header: Today's counts & Icons */}
+            <div className="flex items-center justify-between mb-4">
+                {/* Today's Attendance Counts */}
+                <button
+                    type="button"
+                    onClick={() => handleDateClick(todayBusinessDate, todayData?.requestDateId)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-sm shadow-sm"
+                    style={{ backgroundColor: "white" }}
                 >
-                    <Settings className="h-5 w-5" />
-                </Link>
-                <Button
-                    size="icon"
-                    className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
-                    onClick={() => setIsRequestModalOpen(true)}
-                >
-                    <Plus className="h-5 w-5" />
-                </Button>
+                    <span className="text-gray-500 dark:text-gray-400">本日</span>
+                    <span className="font-medium text-gray-900 dark:text-white">
+                        キャスト {todayData?.castCount ?? 0}
+                    </span>
+                    <span className="text-gray-300 dark:text-gray-600">|</span>
+                    <span className="font-medium text-gray-900 dark:text-white">
+                        スタッフ {todayData?.staffCount ?? 0}
+                    </span>
+                </button>
+
+                {/* Icons */}
+                {canEdit && (
+                    <div className="flex items-center gap-2">
+                        <Link
+                            href="/app/settings/shift"
+                            className="h-10 w-10 rounded-full bg-white text-gray-600 border border-gray-300 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-400 dark:border-gray-600 dark:hover:bg-gray-800 shadow-sm transition-all hover:scale-105 active:scale-95 flex items-center justify-center"
+                        >
+                            <Settings className="h-5 w-5" />
+                        </Link>
+                        <Button
+                            size="icon"
+                            className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
+                            onClick={() => setIsRequestModalOpen(true)}
+                        >
+                            <Plus className="h-5 w-5" />
+                        </Button>
+                    </div>
+                )}
             </div>
 
-            {/* Vercel-style View Toggle */}
-            <div className="relative mb-4">
-                <div className="flex">
-                    <button
-                        ref={(el) => { viewTabsRef.current["shifts"] = el; }}
-                        type="button"
-                        onClick={() => setViewMode("shifts")}
-                        className={`flex-1 py-2 text-sm font-medium transition-colors relative flex items-center justify-center gap-1.5 ${
-                            viewMode === "shifts"
-                                ? "text-gray-900 dark:text-white"
-                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                        }`}
-                    >
-                        <ClipboardList className="h-4 w-4" />
-                        シフト
-                    </button>
-                    <button
-                        ref={(el) => { viewTabsRef.current["calendar"] = el; }}
-                        type="button"
-                        onClick={() => setViewMode("calendar")}
-                        className={`flex-1 py-2 text-sm font-medium transition-colors relative flex items-center justify-center gap-1.5 ${
-                            viewMode === "calendar"
-                                ? "text-gray-900 dark:text-white"
-                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                        }`}
-                    >
-                        <Calendar className="h-4 w-4" />
-                        カレンダー
-                    </button>
+            {/* 募集中のシフト */}
+            {openShiftRequests.length > 0 && (
+                <div className="mb-4 space-y-2">
+                    {openShiftRequests.map((request) => {
+                        const dates = request.shift_request_dates || [];
+                        const sortedDates = [...dates].sort((a, b) =>
+                            a.target_date.localeCompare(b.target_date)
+                        );
+                        const dateRange = sortedDates.length > 0
+                            ? sortedDates.length === 1
+                                ? formatDateShort(sortedDates[0].target_date)
+                                : `${formatDateShort(sortedDates[0].target_date)} 〜 ${formatDateShort(sortedDates[sortedDates.length - 1].target_date)}`
+                            : "";
+                        const deadline = new Date(request.deadline);
+                        const deadlineStr = deadline.toLocaleString("ja-JP", {
+                            timeZone: "Asia/Tokyo",
+                            month: "numeric",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                        });
+
+                        return (
+                            <button
+                                key={request.id}
+                                type="button"
+                                onClick={() => setSelectedRequest(request)}
+                                className="w-full flex items-center justify-between px-4 py-3 rounded-2xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors text-left"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="flex items-center justify-center h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/40">
+                                        <Calendar className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                            {request.title || "シフト募集"}
+                                        </p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                                            {dateRange}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                                    <Clock className="h-3 w-3" />
+                                    <span>〆 {deadlineStr}</span>
+                                </div>
+                            </button>
+                        );
+                    })}
                 </div>
-                <div
-                    className="absolute bottom-0 h-0.5 bg-gray-900 dark:bg-white transition-all duration-200"
-                    style={{ left: viewIndicatorStyle.left, width: viewIndicatorStyle.width }}
-                />
-                <div className="absolute bottom-0 left-0 right-0 h-px bg-gray-200 dark:bg-gray-700" />
-            </div>
-
-            {/* Content */}
-            {viewMode === "calendar" ? (
-                <ShiftsCalendar
-                    initialData={initialCalendarData}
-                    storeId={storeId}
-                    onDateClick={handleDateClick}
-                />
-            ) : (
-                <ShiftsList
-                    calendarData={initialCalendarData}
-                    storeId={storeId}
-                    profileId={profileId}
-                    storeName={storeName}
-                    onLoadDateSubmissions={getDateSubmissions}
-                    onDateClick={handleDateClick}
-                />
             )}
+
+            {/* Grid */}
+            <ShiftsGrid
+                storeId={storeId}
+                refreshKey={gridRefreshKey}
+                onDateClick={handleDateClick}
+                onCellClick={handleCellClick}
+                onProfileClick={handleProfileClick}
+            />
 
             {/* Modals */}
             {isRequestModalOpen && (
@@ -222,8 +327,48 @@ export function ShiftsClient({
                     date={selectedDateInfo.date}
                     requestDateId={selectedDateInfo.requestDateId}
                     profileId={profileId}
+                    storeId={storeId}
                     storeName={storeName}
                     onNavigate={handleNavigate}
+                    pagePermissions={pagePermissions}
+                />
+            )}
+
+            {selectedCellInfo && (
+                <ShiftCellModal
+                    isOpen={selectedCellInfo !== null}
+                    onClose={() => setSelectedCellInfo(null)}
+                    onSuccess={handleGridRefresh}
+                    date={selectedCellInfo.date}
+                    targetProfileId={selectedCellInfo.profileId}
+                    targetProfileName={selectedCellInfo.profileName}
+                    cell={selectedCellInfo.cell}
+                    requestDateId={selectedCellInfo.requestDateId}
+                    storeId={storeId}
+                    approverProfileId={profileId}
+                />
+            )}
+
+            {selectedProfile && (
+                <UserEditModal
+                    profile={selectedProfile}
+                    open={selectedProfileId !== null}
+                    onOpenChange={(open) => !open && setSelectedProfileId(null)}
+                    canEdit={canEdit}
+                    hidePersonalInfo={!pagePermissions?.personalInfo}
+                    pagePermissions={pagePermissions}
+                />
+            )}
+
+            {selectedRequest && (
+                <ShiftRequestDetailModal
+                    isOpen={selectedRequest !== null}
+                    onClose={() => setSelectedRequest(null)}
+                    request={selectedRequest}
+                    onDateClick={(date, requestDateId) => {
+                        setSelectedRequest(null);
+                        handleDateClick(date, requestDateId);
+                    }}
                 />
             )}
         </>

@@ -1,4 +1,5 @@
 // ページキーの一覧（権限設定に使用）
+// 注意: 設定ページ（settings）は管理者（admin）専用のため権限セットに含めない
 export const PAGE_KEYS = [
     // シフト
     "attendance",
@@ -8,6 +9,7 @@ export const PAGE_KEYS = [
     "my-shifts",
     // ユーザー
     "users",
+    "users-personal-info",
     "roles",
     "invitations",
     "resumes",
@@ -31,8 +33,6 @@ export const PAGE_KEYS = [
     "board",
     "sns",
     "ai-create",
-    // 設定
-    "settings",
 ] as const;
 
 export type PageKey = typeof PAGE_KEYS[number];
@@ -57,6 +57,7 @@ export const PAGE_LABELS: Record<PageKey, string> = {
     shifts: "シフト管理",
     "my-shifts": "マイシフト",
     users: "プロフィール情報",
+    "users-personal-info": "└ 個人情報",
     roles: "権限",
     invitations: "招待",
     resumes: "履歴書",
@@ -77,17 +78,15 @@ export const PAGE_LABELS: Record<PageKey, string> = {
     board: "掲示板",
     sns: "SNS",
     "ai-create": "AIクリエイト",
-    settings: "店舗設定",
 };
 
 // ページをカテゴリごとにグループ化
 export const PAGE_CATEGORIES = {
     shift: ["attendance", "pickup", "timecard", "shifts", "my-shifts"] as PageKey[],
-    user: ["users", "roles", "invitations", "resumes"] as PageKey[],
+    user: ["users", "users-personal-info", "roles", "invitations", "resumes"] as PageKey[],
     floor: ["floor", "seats", "slips", "menus", "bottles", "queue", "reservations", "shopping", "orders"] as PageKey[],
     salary: ["sales", "payroll", "ranking", "pricing-systems", "salary-systems"] as PageKey[],
     community: ["board", "sns", "ai-create"] as PageKey[],
-    settings: ["settings"] as PageKey[],
 };
 
 export const CATEGORY_LABELS: Record<keyof typeof PAGE_CATEGORIES, string> = {
@@ -96,5 +95,4 @@ export const CATEGORY_LABELS: Record<keyof typeof PAGE_CATEGORIES, string> = {
     floor: "フロア",
     salary: "料金給与",
     community: "コミュニティ",
-    settings: "設定",
 };

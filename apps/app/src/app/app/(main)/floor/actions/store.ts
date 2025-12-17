@@ -34,11 +34,11 @@ export async function getStoreSettings(): Promise<StoreSettings | null> {
 
     if (!profile?.store_id) return null;
 
-    const { data: store } = await supabase
-        .from("stores")
+    const { data: storeSettings } = await supabase
+        .from("store_settings")
         .select("day_switch_time, slip_rounding_enabled, slip_rounding_method, slip_rounding_unit")
-        .eq("id", profile.store_id)
+        .eq("store_id", profile.store_id)
         .single();
 
-    return store;
+    return storeSettings;
 }

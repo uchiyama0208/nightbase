@@ -35,11 +35,12 @@ import {
 interface ShoppingListProps {
     initialItems: ShoppingItem[];
     lowStockMenus: LowStockMenu[];
+    canEdit?: boolean;
 }
 
 type TabType = "list" | "lowstock";
 
-export function ShoppingList({ initialItems, lowStockMenus }: ShoppingListProps) {
+export function ShoppingList({ initialItems, lowStockMenus, canEdit = false }: ShoppingListProps) {
     const router = useRouter();
     const { toast } = useToast();
     const [activeTab, setActiveTab] = useState<TabType>("list");
@@ -192,13 +193,15 @@ export function ShoppingList({ initialItems, lowStockMenus }: ShoppingListProps)
                         {pendingItems.length}件の買い出し
                     </span>
                 </div>
-                <Button
-                    size="icon"
-                    className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
-                    onClick={() => setIsAddDialogOpen(true)}
-                >
-                    <Plus className="h-5 w-5" />
-                </Button>
+                {canEdit && (
+                    <Button
+                        size="icon"
+                        className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
+                        onClick={() => setIsAddDialogOpen(true)}
+                    >
+                        <Plus className="h-5 w-5" />
+                    </Button>
+                )}
             </div>
 
             {/* Vercel-style Tab Navigation */}

@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { InvitationList } from "./invitation-list";
 import { getInvitationsData } from "./actions";
-import { getAppDataWithPermissionCheck, getAccessDeniedRedirectUrl } from "../../data-access";
+import { getAppDataWithPermissionCheck, getAccessDeniedRedirectUrl, hasPagePermission } from "../../data-access";
 
 function InvitationsSkeleton() {
     return (
@@ -15,7 +15,7 @@ function InvitationsSkeleton() {
 }
 
 export default async function InvitationsPage() {
-    const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("invitations", "view");
+    const { user, profile, hasAccess, canEdit, permissions } = await getAppDataWithPermissionCheck("invitations", "view");
 
     if (!user) {
         redirect("/login");
@@ -41,6 +41,15 @@ export default async function InvitationsPage() {
 
     const { invitations, uninvitedProfiles, roles, joinRequests, storeSettings } = response.data;
 
+    // 各ページの権限をチェック
+    const pagePermissions = {
+        bottles: hasPagePermission("bottles", "view", profile, permissions ?? null),
+        resumes: hasPagePermission("resumes", "view", profile, permissions ?? null),
+        salarySystems: hasPagePermission("salary-systems", "view", profile, permissions ?? null),
+        attendance: hasPagePermission("attendance", "view", profile, permissions ?? null),
+        personalInfo: hasPagePermission("users-personal-info", "view", profile, permissions ?? null),
+    };
+
     return (
         <div className="space-y-6">
             <InvitationList
@@ -49,6 +58,8 @@ export default async function InvitationsPage() {
                 roles={roles}
                 initialJoinRequests={joinRequests}
                 initialStoreSettings={storeSettings}
+                canEdit={canEdit}
+                pagePermissions={pagePermissions}
             />
         </div>
     );

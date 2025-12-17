@@ -3,14 +3,14 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabaseServerClient";
 import { UsersTable } from "./users-table";
-import { getAppDataWithPermissionCheck, getAccessDeniedRedirectUrl } from "../../data-access";
+import { getAppDataWithPermissionCheck, getAccessDeniedRedirectUrl, hasPagePermission } from "../../data-access";
 
 export const metadata: Metadata = {
     title: "プロフィール情報",
 };
 
 // Server-side data fetching
-async function getUsersData(storeId: string, currentProfileId: string) {
+async function getUsersData(storeId: string) {
     const supabase = await createServerClient() as any;
 
     // Build query - exclude temporary guests
@@ -26,17 +26,7 @@ async function getUsersData(storeId: string, currentProfileId: string) {
         throw new Error(error.message);
     }
 
-    // Get current user's role permissions
-    const { data: currentProfile } = await supabase
-        .from("profiles")
-        .select("role_id, store_roles(permissions)")
-        .eq("id", currentProfileId)
-        .single();
-
-    const storeRoles = currentProfile?.store_roles as any;
-    const hidePersonalInfo = storeRoles?.permissions?.hide_personal_info || false;
-
-    return { profiles: profiles || [], hidePersonalInfo };
+    return { profiles: profiles || [] };
 }
 
 function UsersSkeleton() {
@@ -58,7 +48,7 @@ export default async function UsersPage({
     const params = await searchParams;
     const roleParam = params.role || "cast";
 
-    const { user, profile, hasAccess, canEdit } = await getAppDataWithPermissionCheck("users", "view");
+    const { user, profile, hasAccess, canEdit, permissions } = await getAppDataWithPermissionCheck("users", "view");
 
     if (!user) {
         redirect("/login");
@@ -72,11 +62,23 @@ export default async function UsersPage({
         redirect(getAccessDeniedRedirectUrl("users"));
     }
 
-    const { profiles, hidePersonalInfo } = await getUsersData(profile.store_id, profile.id);
+    const { profiles } = await getUsersData(profile.store_id);
+
+    // 各ページの権限をチェック
+    const pagePermissions = {
+        bottles: hasPagePermission("bottles", "view", profile, permissions ?? null),
+        resumes: hasPagePermission("resumes", "view", profile, permissions ?? null),
+        salarySystems: hasPagePermission("salary-systems", "view", profile, permissions ?? null),
+        attendance: hasPagePermission("attendance", "view", profile, permissions ?? null),
+        personalInfo: hasPagePermission("users-personal-info", "view", profile, permissions ?? null),
+    };
+
+    // 個人情報の表示/非表示は users-personal-info 権限で制御
+    const hidePersonalInfo = !pagePermissions.personalInfo;
 
     return (
         <Suspense fallback={<UsersSkeleton />}>
-            <UsersTable profiles={profiles} roleFilter={roleParam} hidePersonalInfo={hidePersonalInfo} canEdit={canEdit} />
+            <UsersTable profiles={profiles} roleFilter={roleParam} hidePersonalInfo={hidePersonalInfo} canEdit={canEdit} pagePermissions={pagePermissions} />
         </Suspense>
     );
 }

@@ -6,9 +6,10 @@ import { createServerClient } from "@/lib/supabaseServerClient";
 export async function getStoreForQueue(storeId: string) {
     const supabase = await createServerClient() as any;
 
+    // 店舗基本情報を取得
     const { data: store, error } = await supabase
         .from("stores")
-        .select("id, name, icon_url, queue_enabled")
+        .select("id, name, icon_url")
         .eq("id", storeId)
         .maybeSingle();
 
@@ -16,11 +17,24 @@ export async function getStoreForQueue(storeId: string) {
         return { success: false, error: "店舗が見つかりませんでした" };
     }
 
-    if (!store.queue_enabled) {
+    // 店舗設定を取得
+    const { data: storeSettings } = await supabase
+        .from("store_settings")
+        .select("queue_enabled")
+        .eq("store_id", storeId)
+        .maybeSingle();
+
+    if (!storeSettings?.queue_enabled) {
         return { success: false, error: "この店舗は順番待ち登録を受け付けていません" };
     }
 
-    return { success: true, store };
+    return {
+        success: true,
+        store: {
+            ...store,
+            queue_enabled: storeSettings.queue_enabled,
+        }
+    };
 }
 
 // 待ち組数を取得
@@ -71,18 +85,18 @@ export async function submitQueueEntry(formData: FormData) {
     }
 
     // 店舗が順番待ちを受け付けているか確認
-    const { data: store } = await supabase
-        .from("stores")
-        .select("id, queue_enabled, day_switch_time")
-        .eq("id", storeId)
+    const { data: storeSettings } = await supabase
+        .from("store_settings")
+        .select("store_id, queue_enabled, day_switch_time")
+        .eq("store_id", storeId)
         .maybeSingle();
 
-    if (!store || !store.queue_enabled) {
+    if (!storeSettings || !storeSettings.queue_enabled) {
         return { success: false, error: "この店舗は順番待ち登録を受け付けていません" };
     }
 
     // 店舗の切り替え時間を考慮して営業日を計算
-    const daySwitchTime = store.day_switch_time || "05:00";
+    const daySwitchTime = storeSettings.day_switch_time || "05:00";
     const switchHour = parseInt(daySwitchTime.split(":")[0], 10) || 5;
     const switchMinute = parseInt(daySwitchTime.split(":")[1], 10) || 0;
 

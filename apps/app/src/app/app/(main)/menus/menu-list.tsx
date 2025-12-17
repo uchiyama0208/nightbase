@@ -15,6 +15,7 @@ import {
 import { Plus, Search, Sparkles, Filter, AlertTriangle, Package } from "lucide-react";
 import { MenuEditModal } from "./menu-edit-modal";
 import { MenuAIModal } from "./menu-ai-modal";
+import { StoreLocationInfo } from "./actions";
 import {
     Select,
     SelectContent,
@@ -34,11 +35,13 @@ import { Input } from "@/components/ui/input";
 interface MenuListProps {
     initialMenus: Menu[];
     categories: MenuCategory[];
+    canEdit?: boolean;
+    storeInfo?: StoreLocationInfo;
 }
 
 type VisibilityFilter = "visible" | "hidden";
 
-export function MenuList({ initialMenus, categories }: MenuListProps) {
+export function MenuList({ initialMenus, categories, canEdit = false, storeInfo }: MenuListProps) {
     const router = useRouter();
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedCategoryId, setSelectedCategoryId] = useState<string>("all");
@@ -110,24 +113,26 @@ export function MenuList({ initialMenus, categories }: MenuListProps) {
                     </span>
                 </button>
 
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="rounded-lg gap-1.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white border-none hover:from-purple-600 hover:to-pink-600 hover:text-white"
-                        onClick={() => setIsAIModalOpen(true)}
-                    >
-                        <Sparkles className="h-4 w-4" />
-                        AI読取
-                    </Button>
-                    <Button
-                        size="icon"
-                        className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
-                        onClick={handleCreate}
-                    >
-                        <Plus className="h-5 w-5" />
-                    </Button>
-                </div>
+                {canEdit && (
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-lg gap-1.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white border-none hover:from-purple-600 hover:to-pink-600 hover:text-white"
+                            onClick={() => setIsAIModalOpen(true)}
+                        >
+                            <Sparkles className="h-4 w-4" />
+                            AI読取
+                        </Button>
+                        <Button
+                            size="icon"
+                            className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
+                            onClick={handleCreate}
+                        >
+                            <Plus className="h-5 w-5" />
+                        </Button>
+                    </div>
+                )}
             </div>
 
             {/* Vercel-style Tab Navigation */}
@@ -237,6 +242,8 @@ export function MenuList({ initialMenus, categories }: MenuListProps) {
                 open={isModalOpen}
                 onOpenChange={setIsModalOpen}
                 categories={categories}
+                canEdit={canEdit}
+                storeInfo={storeInfo}
             />
 
             <MenuAIModal

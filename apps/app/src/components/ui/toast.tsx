@@ -15,7 +15,7 @@ const ToastViewport = React.forwardRef<
   <ToastPrimitives.Viewport
     ref={ref}
     className={cn(
-      "fixed top-4 left-4 right-4 z-[100] flex flex-col gap-3 sm:top-6 sm:left-auto sm:right-6 sm:w-[360px]",
+      "fixed top-4 left-4 right-4 z-[10000] flex flex-col gap-3 sm:top-6 sm:left-auto sm:right-6 sm:w-[360px]",
       className
     )}
     {...props}
@@ -31,7 +31,7 @@ const Toast = React.forwardRef<
     <ToastPrimitives.Root
       ref={ref}
       className={cn(
-        "relative flex w-full items-start gap-3 rounded-2xl border border-white/10 bg-slate-950/95 px-4 py-3 text-slate-100 shadow-lg backdrop-blur transition-all data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[120%] data-[state=closed]:animate-toastOut data-[state=open]:animate-toastIn",
+        "relative flex w-full items-start gap-3 rounded-2xl border px-4 py-3 text-slate-100 shadow-lg backdrop-blur transition-all data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[120%] data-[state=closed]:animate-toastOut data-[state=open]:animate-toastIn",
         className
       )}
       {...props}
@@ -76,8 +76,15 @@ const Toaster = () => {
 
   return (
     <ToastProvider swipeDirection="right">
-      {toasts.map(({ id, title, description }) => (
-        <Toast key={id}>
+      {toasts.map(({ id, title, description, variant }) => (
+        <Toast
+          key={id}
+          className={cn(
+            variant === "destructive"
+              ? "border-red-500/40 bg-red-950/90 text-red-50"
+              : "border-white/10 bg-slate-950/95"
+          )}
+        >
           <div className="flex flex-col gap-1">
             {title ? <ToastTitle>{title}</ToastTitle> : null}
             {description ? <ToastDescription>{description}</ToastDescription> : null}

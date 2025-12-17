@@ -41,6 +41,14 @@ import { toggleCommentLike } from "../users/actions";
 import { CommentList } from "@/components/comment-list";
 
 
+interface PagePermissions {
+    bottles: boolean;
+    resumes: boolean;
+    salarySystems: boolean;
+    attendance: boolean;
+    personalInfo: boolean;
+}
+
 interface BottleModalProps {
     isOpen: boolean;
     onClose: (shouldRefresh?: boolean) => void;
@@ -48,6 +56,7 @@ interface BottleModalProps {
     menus: any[];
     profiles: any[];
     initialProfileIds?: string[];
+    pagePermissions?: PagePermissions;
 }
 
 export function BottleModal({
@@ -57,6 +66,7 @@ export function BottleModal({
     menus,
     profiles,
     initialProfileIds = [],
+    pagePermissions,
 }: BottleModalProps) {
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -643,6 +653,8 @@ export function BottleModal({
                 profile={null}
                 defaultRole="guest"
                 isNested={true}
+                hidePersonalInfo={!pagePermissions?.personalInfo}
+                pagePermissions={pagePermissions}
             />
 
             {/* Menu Edit Modal */}

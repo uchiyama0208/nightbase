@@ -1,9 +1,8 @@
 "use server";
 
-import { createServerClient } from "@/lib/supabaseServerClient";
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getAuthContextWithPermission } from "@/lib/auth";
+import { createServerClient } from "@/lib/supabaseServerClient";
 
 export async function createUser(formData: FormData): Promise<{ success: boolean; error?: string }> {
     try {
@@ -106,30 +105,8 @@ export async function importUsersFromCsv(formData: FormData) {
 
     const roleOverride = (formData.get("userRole") as string | null) ?? null;
 
-    const supabase = await createServerClient() as any;
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-        redirect("/login");
-    }
-
-    const { data: appUser } = await supabase
-        .from("users")
-        .select("current_profile_id")
-        .eq("id", user.id)
-        .maybeSingle();
-
-    if (!appUser?.current_profile_id) {
-        throw new Error("店舗情報が見つかりません");
-    }
-
-    const { data: currentProfile } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("id", appUser.current_profile_id)
-        .maybeSingle();
+    // 権限チェック
+    const { supabase, profile: currentProfile } = await getAuthContextWithPermission("users", "edit");
 
     if (!currentProfile?.store_id) {
         throw new Error("店舗情報が見つかりません");

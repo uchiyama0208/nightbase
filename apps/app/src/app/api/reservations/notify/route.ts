@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabaseServerClient";
 import { sendReservationNotificationEmail } from "@/lib/notifications/email";
-import { sendReservationNotificationSMS } from "@/lib/notifications/sms";
 
 export async function POST(request: NextRequest) {
     try {
@@ -55,6 +54,14 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // メール以外の連絡先タイプの場合はエラー
+        if (reservation.contact_type !== "email") {
+            return NextResponse.json(
+                { success: false, error: "メール通知のみ対応しています" },
+                { status: 400 }
+            );
+        }
+
         const storeName = reservation.stores?.name || "店舗";
         const customMessage = reservation.stores?.reservation_notification_message || "ご予約ありがとうございます。当日のご来店をお待ちしております。";
 
@@ -66,28 +73,14 @@ export async function POST(request: NextRequest) {
         });
         const reservationTime = reservation.reservation_time.slice(0, 5);
 
-        // 連絡先タイプに応じて通知を送信
-        let notificationResult: { success: boolean; error?: string };
-
-        if (reservation.contact_type === "email") {
-            notificationResult = await sendReservationNotificationEmail({
-                to: reservation.contact_value,
-                storeName,
-                guestName: reservation.guest_name,
-                reservationDate,
-                reservationTime,
-                customMessage,
-            });
-        } else {
-            notificationResult = await sendReservationNotificationSMS({
-                to: reservation.contact_value,
-                storeName,
-                guestName: reservation.guest_name,
-                reservationDate,
-                reservationTime,
-                customMessage,
-            });
-        }
+        const notificationResult = await sendReservationNotificationEmail({
+            to: reservation.contact_value,
+            storeName,
+            guestName: reservation.guest_name,
+            reservationDate,
+            reservationTime,
+            customMessage,
+        });
 
         if (!notificationResult.success) {
             return NextResponse.json(

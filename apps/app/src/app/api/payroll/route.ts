@@ -121,8 +121,8 @@ export async function GET(request: NextRequest) {
 
         // Get time cards for the period
         const { data: timeCards } = await supabase
-            .from("time_cards")
-            .select("id, user_id, work_date, clock_in, clock_out")
+            .from("work_records")
+            .select("id, profile_id, user_id, work_date, clock_in, clock_out")
             .in("user_id", profileIds)
             .gte("work_date", getJSTDateString(startDate))
             .lte("work_date", getJSTDateString(endDate))

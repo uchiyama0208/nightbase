@@ -15,7 +15,11 @@ export async function createSession(
     mainGuestId?: string,
     pricingSystemId?: string
 ) {
-    const { supabase, storeId } = await getAuthenticatedStoreId();
+    const { supabase, storeId, role } = await getAuthenticatedStoreId();
+
+    if (role !== "admin" && role !== "staff") {
+        throw new Error("権限がありません");
+    }
 
     // デフォルトの料金システムを取得
     let finalPricingSystemId = pricingSystemId;
@@ -58,7 +62,22 @@ export async function updateSession(
     sessionId: string,
     updates: SessionUpdateData
 ) {
-    const supabase = await createServerClient() as SupabaseClient;
+    const { supabase, storeId, role } = await getAuthenticatedStoreId();
+
+    if (role !== "admin" && role !== "staff") {
+        throw new Error("権限がありません");
+    }
+
+    // セッションの店舗を確認
+    const { data: session } = await supabase
+        .from("table_sessions")
+        .select("store_id")
+        .eq("id", sessionId)
+        .maybeSingle();
+
+    if (!session || session.store_id !== storeId) {
+        throw new Error("Invalid session");
+    }
 
     const dbUpdates: Record<string, unknown> = {};
     if (updates.tableId) dbUpdates.table_id = updates.tableId;
@@ -86,7 +105,22 @@ export async function updateSessionTimes(
     startTime?: string,
     endTime?: string | null
 ) {
-    const supabase = await createServerClient() as SupabaseClient;
+    const { supabase, storeId, role } = await getAuthenticatedStoreId();
+
+    if (role !== "admin" && role !== "staff") {
+        throw new Error("権限がありません");
+    }
+
+    // セッションの店舗を確認
+    const { data: session } = await supabase
+        .from("table_sessions")
+        .select("store_id")
+        .eq("id", sessionId)
+        .maybeSingle();
+
+    if (!session || session.store_id !== storeId) {
+        throw new Error("Invalid session");
+    }
 
     const updates: Record<string, unknown> = {};
     if (startTime !== undefined) updates.start_time = startTime;
@@ -106,7 +140,11 @@ export async function updateSessionTimes(
  * セッションを会計完了にする
  */
 export async function checkoutSession(sessionId: string) {
-    const supabase = await createServerClient() as SupabaseClient;
+    const { supabase, storeId, role } = await getAuthenticatedStoreId();
+
+    if (role !== "admin" && role !== "staff") {
+        throw new Error("権限がありません");
+    }
 
     // セッション情報を取得
     const { data: session } = await supabase
@@ -115,7 +153,7 @@ export async function checkoutSession(sessionId: string) {
         .eq("id", sessionId)
         .single();
 
-    if (!session) throw new Error("Session not found");
+    if (!session || session.store_id !== storeId) throw new Error("Session not found");
 
     // 合計金額を計算
     const { data: orders } = await supabase
@@ -162,7 +200,21 @@ export async function closeSession(sessionId: string) {
  * セッションを再開する
  */
 export async function reopenSession(sessionId: string) {
-    const supabase = await createServerClient() as SupabaseClient;
+    const { supabase, storeId, role } = await getAuthenticatedStoreId();
+
+    if (role !== "admin" && role !== "staff") {
+        throw new Error("権限がありません");
+    }
+
+    const { data: session } = await supabase
+        .from("table_sessions")
+        .select("store_id")
+        .eq("id", sessionId)
+        .maybeSingle();
+
+    if (!session || session.store_id !== storeId) {
+        throw new Error("Session not found");
+    }
 
     const { error } = await supabase
         .from("table_sessions")
@@ -182,7 +234,21 @@ export async function reopenSession(sessionId: string) {
  * セッションを削除する
  */
 export async function deleteSession(sessionId: string) {
-    const supabase = await createServerClient() as SupabaseClient;
+    const { supabase, storeId, role } = await getAuthenticatedStoreId();
+
+    if (role !== "admin" && role !== "staff") {
+        throw new Error("権限がありません");
+    }
+
+    const { data: session } = await supabase
+        .from("table_sessions")
+        .select("store_id")
+        .eq("id", sessionId)
+        .maybeSingle();
+
+    if (!session || session.store_id !== storeId) {
+        throw new Error("Invalid session");
+    }
 
     if (!sessionId || typeof sessionId !== 'string') {
         throw new Error("Invalid session ID");

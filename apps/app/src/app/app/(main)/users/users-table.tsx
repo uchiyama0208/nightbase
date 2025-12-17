@@ -47,14 +47,23 @@ interface Profile {
     street?: string | null;
 }
 
+interface PagePermissions {
+    bottles: boolean;
+    resumes: boolean;
+    salarySystems: boolean;
+    attendance: boolean;
+    personalInfo: boolean;
+}
+
 interface UsersTableProps {
     profiles: Profile[];
     roleFilter: string;
     hidePersonalInfo?: boolean;
     canEdit?: boolean;
+    pagePermissions?: PagePermissions;
 }
 
-export function UsersTable({ profiles: initialProfiles, roleFilter, hidePersonalInfo = false, canEdit = false }: UsersTableProps) {
+export function UsersTable({ profiles: initialProfiles, roleFilter, hidePersonalInfo = false, canEdit = false, pagePermissions }: UsersTableProps) {
     const router = useRouter();
     const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -390,6 +399,7 @@ export function UsersTable({ profiles: initialProfiles, roleFilter, hidePersonal
                     canEdit={canEdit}
                     onDelete={handleDeleteProfile}
                     onUpdate={handleUpdateProfile}
+                    pagePermissions={pagePermissions}
                 />
             )}
         </>

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabaseServerClient";
 import { sendQueueNotificationEmail } from "@/lib/notifications/email";
-import { sendQueueNotificationSMS } from "@/lib/notifications/sms";
 
 export async function POST(request: NextRequest) {
     try {
@@ -55,27 +54,23 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // メール以外の連絡先タイプの場合はエラー
+        if (entry.contact_type !== "email") {
+            return NextResponse.json(
+                { success: false, error: "メール通知のみ対応しています" },
+                { status: 400 }
+            );
+        }
+
         const storeName = entry.stores?.name || "店舗";
         const customMessage = entry.stores?.queue_notification_message || "お待たせいたしました。まもなくご案内できます。";
 
-        // 連絡先タイプに応じて通知を送信
-        let notificationResult: { success: boolean; error?: string };
-
-        if (entry.contact_type === "email") {
-            notificationResult = await sendQueueNotificationEmail({
-                to: entry.contact_value,
-                storeName,
-                guestName: entry.guest_name,
-                customMessage,
-            });
-        } else {
-            notificationResult = await sendQueueNotificationSMS({
-                to: entry.contact_value,
-                storeName,
-                guestName: entry.guest_name,
-                customMessage,
-            });
-        }
+        const notificationResult = await sendQueueNotificationEmail({
+            to: entry.contact_value,
+            storeName,
+            guestName: entry.guest_name,
+            customMessage,
+        });
 
         if (!notificationResult.success) {
             return NextResponse.json(

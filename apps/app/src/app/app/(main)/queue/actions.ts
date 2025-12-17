@@ -87,9 +87,9 @@ export async function getQueueSettings(
     const supabase: SupabaseClientAny = await createServerClient();
 
     const { data, error } = await supabase
-        .from("stores")
+        .from("store_settings")
         .select("queue_enabled, queue_notification_message")
-        .eq("id", storeId)
+        .eq("store_id", storeId)
         .single();
 
     if (error) {
@@ -123,12 +123,12 @@ export async function updateQueueSettings(
     const supabase: SupabaseClientAny = await createServerClient();
 
     const { error } = await supabase
-        .from("stores")
+        .from("store_settings")
         .update({
             queue_enabled: settings.queue_enabled,
             queue_notification_message: settings.queue_notification_message,
         })
-        .eq("id", storeId);
+        .eq("store_id", storeId);
 
     if (error) {
         console.error("Error updating queue settings:", error);
@@ -150,13 +150,13 @@ export async function addQueueEntry(data: {
     const supabase: SupabaseClientAny = await createServerClient();
 
     // 店舗の切り替え時間を取得
-    const { data: store } = await supabase
-        .from("stores")
+    const { data: storeSettings } = await supabase
+        .from("store_settings")
         .select("day_switch_time")
-        .eq("id", data.storeId)
+        .eq("store_id", data.storeId)
         .single();
 
-    const daySwitchTime = store?.day_switch_time || "05:00";
+    const daySwitchTime = storeSettings?.day_switch_time || "05:00";
     const businessDayStart = getBusinessDayStart(daySwitchTime);
 
     // 次の順番番号を取得（店舗ごとの営業日の最大値 + 1）

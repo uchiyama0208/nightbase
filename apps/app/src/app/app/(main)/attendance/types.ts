@@ -1,7 +1,7 @@
 // 勤怠レコードの型定義
 export interface AttendanceRecord {
     id: string;
-    user_id: string;
+    profile_id: string;
     date: string;
     name: string;
     status: "scheduled" | "working" | "finished" | "forgot_clockout";
@@ -12,10 +12,11 @@ export interface AttendanceRecord {
     pickup_destination: string | null;
 }
 
-// タイムカードの型定義
-export interface TimeCard {
+// 勤務記録の型定義（旧TimeCard）
+export interface WorkRecord {
     id: string;
-    user_id: string;
+    profile_id: string;
+    store_id: string;
     work_date: string;
     clock_in: string | null;
     clock_out: string | null;
@@ -23,6 +24,9 @@ export interface TimeCard {
     scheduled_end_time: string | null;
     forgot_clockout?: boolean;
     pickup_destination: string | null;
+    pickup_required?: boolean;
+    status: string;
+    source: string;
     created_at?: string;
     updated_at?: string;
 }
@@ -48,11 +52,15 @@ export interface AttendanceDataResult {
 
 // 勤怠作成/更新のペイロード
 export interface AttendancePayload {
-    user_id: string;
+    profile_id: string;
+    store_id: string;
     work_date: string;
     clock_in: string | null;
     clock_out: string | null;
     scheduled_start_time?: string | null;
     scheduled_end_time?: string | null;
     pickup_destination: string | null;
+    pickup_required?: boolean;
+    status?: string;
+    source?: string;
 }

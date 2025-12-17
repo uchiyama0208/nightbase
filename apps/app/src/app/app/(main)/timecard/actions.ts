@@ -2,6 +2,7 @@
 
 import { createServerClient } from "@/lib/supabaseServerClient";
 import { revalidatePath } from "next/cache";
+import { getBusinessDate } from "../queue/utils";
 
 // Helper to get JST date string (YYYY-MM-DD)
 function getJSTDateString(date: Date = new Date()): string {
@@ -55,7 +56,8 @@ export async function clockIn(pickupRequired?: boolean, pickupDestination?: stri
         .maybeSingle();
 
     const now = new Date();
-    const workDate = getJSTDateString(now);
+    const daySwitchTime = (profile?.stores as any)?.day_switch_time || "05:00";
+    const workDate = getBusinessDate(daySwitchTime);
     const store = profile?.stores as any;
 
     // Calculate scheduled start time
@@ -151,12 +153,34 @@ export async function clockIn(pickupRequired?: boolean, pickupDestination?: stri
 
 export async function clockOut(workRecordId: string) {
     const supabase = await createServerClient() as any;
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+        throw new Error("User not authenticated");
+    }
+
+    const { data: appUser } = await supabase
+        .from("users")
+        .select("current_profile_id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+    if (!appUser?.current_profile_id) {
+        throw new Error("No active profile found for current user");
+    }
 
     const { data: workRecord } = await supabase
         .from("work_records")
         .select("profile_id, profiles(store_id, stores(time_rounding_enabled, time_rounding_method, time_rounding_minutes))")
         .eq("id", workRecordId)
         .maybeSingle();
+
+    // 自分の勤怠以外は更新させない
+    if (!workRecord || workRecord.profile_id !== appUser.current_profile_id) {
+        throw new Error("Unauthorized to clock out this record");
+    }
 
     const now = new Date();
 
@@ -439,8 +463,9 @@ export async function getTimecardData() {
     const showBreakColumns = store ? (store.show_break_columns ?? false) : false;
 
     // Get today's latest work record
-    const today = getJSTDateString();
-    const latestTimeCard = workRecords?.find((record: any) => record.work_date === today) || null;
+    const daySwitchTime = (store as any)?.day_switch_time || "05:00";
+    const businessDate = getBusinessDate(daySwitchTime);
+    const latestTimeCard = workRecords?.find((record: any) => record.work_date === businessDate) || null;
 
     // Fetch pickup history
     const { data: pickupRows } = await supabase

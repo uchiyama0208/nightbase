@@ -19,11 +19,12 @@ export function WaitingCastSidebar({ onDragStart }: WaitingCastSidebarProps) {
 
     const loadCasts = async () => {
         const supabase = createBrowserClient() as any;
-        // In a real app, filter by attendance status
+        // 在籍中・体入のキャストのみを取得
         const { data } = await supabase
             .from("profiles")
             .select("*")
-            .eq("role", "cast");
+            .eq("role", "cast")
+            .in("status", ["在籍中", "体入"]);
 
         if (data) setCasts(data);
     };
@@ -46,7 +47,14 @@ export function WaitingCastSidebar({ onDragStart }: WaitingCastSidebarProps) {
                             <AvatarFallback>{cast.display_name?.[0] || cast.name?.[0]}</AvatarFallback>
                         </Avatar>
                         <div>
-                            <div className="font-medium text-sm">{cast.display_name || cast.name}</div>
+                            <div className="flex items-center gap-1">
+                                <span className="font-medium text-sm">{cast.display_name || cast.name}</span>
+                                {cast.status === "体入" && (
+                                    <span className="text-[9px] px-1 py-0.5 rounded bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400">
+                                        体入
+                                    </span>
+                                )}
+                            </div>
                             <Badge variant="outline" className="text-[10px] h-5">待機中</Badge>
                         </div>
                     </div>

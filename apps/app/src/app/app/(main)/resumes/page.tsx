@@ -5,7 +5,7 @@ import { ResumesClient } from "./resumes-client";
 import { getAppDataWithPermissionCheck } from "../../data-access";
 
 export default async function ResumesPage() {
-    const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("resumes", "view");
+    const { user, profile, hasAccess, canEdit } = await getAppDataWithPermissionCheck("resumes", "view");
 
     if (!user) {
         redirect("/login");
@@ -83,6 +83,7 @@ export default async function ResumesPage() {
                 submissions={submissions || []}
                 templates={templatesWithCount}
                 storeId={profile.store_id}
+                canEdit={canEdit}
             />
         </div>
     );

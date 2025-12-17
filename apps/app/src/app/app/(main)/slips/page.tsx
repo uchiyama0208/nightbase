@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 };
 
 export default async function SlipsPage() {
-    const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("slips", "view");
+    const { user, profile, hasAccess, canEdit } = await getAppDataWithPermissionCheck("slips", "view");
 
     if (!user) {
         redirect("/login");
@@ -22,7 +22,7 @@ export default async function SlipsPage() {
         redirect(getAccessDeniedRedirectUrl("slips"));
     }
 
-    return <SlipsClient />;
+    return <SlipsClient canEdit={canEdit} />;
 }
 
 export const dynamic = 'force-dynamic';

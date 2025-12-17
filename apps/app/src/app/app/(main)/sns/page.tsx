@@ -4,7 +4,7 @@ import { SnsClient } from "./SnsClient";
 import { getAppDataWithPermissionCheck, getAccessDeniedRedirectUrl } from "../../data-access";
 
 export default async function SnsPage() {
-    const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("sns", "view");
+    const { user, profile, hasAccess, canEdit } = await getAppDataWithPermissionCheck("sns", "view");
 
     if (!user) {
         redirect("/login");
@@ -35,6 +35,7 @@ export default async function SnsPage() {
             scheduledPosts={data.scheduledPosts}
             postHistory={data.postHistory}
             recurringSchedules={data.recurringSchedules}
+            canEdit={canEdit}
         />
     );
 }

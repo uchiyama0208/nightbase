@@ -44,7 +44,6 @@ export async function createStore(formData: FormData): Promise<void> {
         .from("stores")
         .insert({
             name: storeName,
-            show_menus: true,
         })
         .select()
         .single();
@@ -52,6 +51,20 @@ export async function createStore(formData: FormData): Promise<void> {
     if (storeError) {
         console.error("Error creating store:", storeError);
         throw new Error("Failed to create store");
+    }
+
+    // 1.5. 店舗設定を作成
+    const { error: settingsError } = await supabase
+        .from("store_settings")
+        .insert({
+            store_id: store.id,
+            show_menus: true,
+        });
+
+    if (settingsError) {
+        console.error("Error creating store settings:", settingsError);
+        await supabase.from("stores").delete().eq("id", store.id);
+        throw new Error("Failed to create store settings");
     }
 
     // 2. プロフィール（管理者）を作成
@@ -164,29 +177,53 @@ export async function updateStore(formData: FormData): Promise<void> {
 
     const closedDays = formData.getAll("closed_days") as string[];
 
-    const payload: StoreUpdatePayload = {
+    // stores テーブル用のペイロード
+    const storePayload = {
         name: formData.get("name") as string,
-        business_start_time: (formData.get("business_start_time") as string) || null,
-        business_end_time: (formData.get("business_end_time") as string) || null,
-        day_switch_time: (formData.get("day_switch_time") as string) || null,
         industry: (formData.get("industry") as string) || null,
         prefecture: (formData.get("prefecture") as string) || null,
         city: (formData.get("city") as string) || null,
         address_line1: (formData.get("address_line1") as string) || null,
         address_line2: (formData.get("address_line2") as string) || null,
         postal_code: (formData.get("postal_code") as string) || null,
+        updated_at: new Date().toISOString(),
+    };
+
+    // store_settings テーブル用のペイロード
+    const settingsPayload = {
+        business_start_time: (formData.get("business_start_time") as string) || null,
+        business_end_time: (formData.get("business_end_time") as string) || null,
+        day_switch_time: (formData.get("day_switch_time") as string) || null,
         closed_days: closedDays.length > 0 ? closedDays : null,
         allow_join_requests: formData.get("allow_join_requests") === "on",
         updated_at: new Date().toISOString(),
     };
 
-    await supabase
+    // stores テーブルを更新
+    const { error: storeError } = await supabase
         .from("stores")
-        .update(payload)
+        .update(storePayload)
         .eq("id", storeId);
 
+    if (storeError) {
+        console.error("Error updating store:", storeError);
+        throw new Error("店舗情報の更新に失敗しました");
+    }
+
+    // store_settings テーブルを更新
+    const { error: settingsError } = await supabase
+        .from("store_settings")
+        .update(settingsPayload)
+        .eq("store_id", storeId);
+
+    if (settingsError) {
+        console.error("Error updating store settings:", settingsError);
+        throw new Error("店舗設定の更新に失敗しました");
+    }
+
     revalidatePath("/app/settings/store");
-    redirect("/app/settings/store");
+    revalidatePath("/app/settings");
+    revalidatePath("/app/(main)", "layout");
 }
 
 // ============================================
@@ -223,9 +260,9 @@ export async function updateTimecardSettings(formData: FormData): Promise<void> 
     }
 
     const { error } = await supabase
-        .from("stores")
+        .from("store_settings")
         .update(payload)
-        .eq("id", storeId);
+        .eq("store_id", storeId);
 
     if (error) {
         console.error("Error updating store timecard settings:", error);
@@ -257,9 +294,9 @@ export async function updateFeatureSettings(formData: FormData): Promise<void> {
     };
 
     const { error } = await supabase
-        .from("stores")
+        .from("store_settings")
         .update(payload)
-        .eq("id", storeId);
+        .eq("store_id", storeId);
 
     if (error) {
         console.error("Error updating feature settings:", error);
@@ -406,9 +443,9 @@ export async function updateSlipSettings(formData: FormData): Promise<void> {
     }
 
     const { error } = await supabase
-        .from("stores")
+        .from("store_settings")
         .update(payload)
-        .eq("id", storeId);
+        .eq("store_id", storeId);
 
     if (error) {
         console.error("Error updating slip settings:", error);

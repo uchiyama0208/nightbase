@@ -20,7 +20,7 @@ function ShoppingSkeleton() {
 }
 
 export default async function ShoppingPage() {
-    const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("shopping", "view");
+    const { user, profile, hasAccess, canEdit } = await getAppDataWithPermissionCheck("shopping", "view");
 
     if (!user) {
         redirect("/login");
@@ -52,6 +52,7 @@ export default async function ShoppingPage() {
             <ShoppingList
                 initialItems={shoppingList}
                 lowStockMenus={lowStockMenus}
+                canEdit={canEdit}
             />
         </Suspense>
     );

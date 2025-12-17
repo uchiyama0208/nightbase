@@ -177,9 +177,9 @@ export async function getReservationSettings(storeId: string) {
     const supabase = await createServerClient() as any;
 
     const { data, error } = await supabase
-        .from("stores")
+        .from("store_settings")
         .select("reservation_enabled")
-        .eq("id", storeId)
+        .eq("store_id", storeId)
         .single();
 
     if (error) {
@@ -206,11 +206,11 @@ export async function updateReservationSettings(storeId: string, settings: {
     const supabase = await createServerClient() as any;
 
     const { error } = await supabase
-        .from("stores")
+        .from("store_settings")
         .update({
             reservation_enabled: settings.reservation_enabled,
         })
-        .eq("id", storeId);
+        .eq("store_id", storeId);
 
     if (error) {
         console.error("Error updating reservation settings:", error);
@@ -374,15 +374,16 @@ export async function addReservationV2(data: {
     return { success: true, reservation: newReservation };
 }
 
-// キャスト一覧を取得
+// キャスト一覧を取得（在籍中・体入のみ）
 export async function getCastsForStore(storeId: string) {
     const supabase = await createServerClient() as any;
 
     const { data, error } = await supabase
         .from("profiles")
-        .select("id, display_name")
+        .select("id, display_name, status")
         .eq("store_id", storeId)
         .eq("role", "cast")
+        .in("status", ["在籍中", "体入"])
         .order("display_name", { ascending: true });
 
     if (error) {

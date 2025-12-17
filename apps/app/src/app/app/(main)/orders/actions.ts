@@ -69,13 +69,13 @@ export async function getAllOrders(): Promise<OrderWithDetails[]> {
         const { supabase, storeId } = await getAuthContext();
 
         // 店舗の日付切り替え時間を取得
-        const { data: store } = await supabase
-            .from("stores")
+        const { data: storeSettings } = await supabase
+            .from("store_settings")
             .select("day_switch_time")
-            .eq("id", storeId)
+            .eq("store_id", storeId)
             .single();
 
-        const daySwitchTime = store?.day_switch_time || "05:00";
+        const daySwitchTime = storeSettings?.day_switch_time || "05:00";
         const businessDayStart = getBusinessDayStart(daySwitchTime);
 
         // まず店舗のセッションIDを取得

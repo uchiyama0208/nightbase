@@ -15,13 +15,14 @@ import { Label } from "@/components/ui/label";
 import {
     Select,
     SelectContent,
-    SelectGroup,
     SelectItem,
-    SelectLabel,
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { GripVertical, X, Trash2, ArrowLeft, MoreHorizontal, ChevronUp, ChevronDown } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { X, Trash2, ChevronLeft, MoreHorizontal, ChevronUp, ChevronDown, ChevronRight, Plus } from "lucide-react";
+import { DriverSelectModal } from "./driver-select-modal";
+import { CastSelectModal } from "./cast-select-modal";
 import {
     Popover,
     PopoverContent,
@@ -41,7 +42,7 @@ interface PickupModalProps {
     editingRoute: PickupRouteWithPassengers | null;
     allRoutes: PickupRouteWithPassengers[];
     attendees: TodayAttendee[];
-    staffProfiles: { id: string; display_name: string; role: string }[];
+    staffProfiles: { id: string; display_name: string; display_name_kana: string | null; role: string }[];
     storeId: string;
     date: string;
 }
@@ -78,10 +79,22 @@ export function PickupModal({
         fromRouteName: string;
     } | null>(null);
 
+    // Driver select modal
+    const [isDriverModalOpen, setIsDriverModalOpen] = useState(false);
+
+    // Cast select modal
+    const [isCastModalOpen, setIsCastModalOpen] = useState(false);
+    const [castModalTripNumber, setCastModalTripNumber] = useState<number>(1);
+
     // Form state
     const [driverProfileId, setDriverProfileId] = useState<string>("");
+    const [driverName, setDriverName] = useState<string>("");
     const [roundTrips, setRoundTrips] = useState(0);
     const [capacity, setCapacity] = useState(3);
+    const [departureTime, setDepartureTime] = useState<string>("");
+    const [returnDepartureTime, setReturnDepartureTime] = useState<string>("");
+    const [avoidHighways, setAvoidHighways] = useState(false);
+    const [avoidTolls, setAvoidTolls] = useState(false);
     const [passengers, setPassengers] = useState<PassengerEntry[]>([]);
 
     // Drag state
@@ -92,13 +105,23 @@ export function PickupModal({
     useEffect(() => {
         if (editingRoute) {
             setDriverProfileId(editingRoute.driver_profile_id || "");
+            setDriverName(editingRoute.driver_name || "");
             setRoundTrips(editingRoute.round_trips);
             setCapacity(editingRoute.capacity);
+            setDepartureTime(editingRoute.departure_time || "");
+            setReturnDepartureTime(editingRoute.return_departure_time || "");
+            setAvoidHighways(editingRoute.avoid_highways || false);
+            setAvoidTolls(editingRoute.avoid_tolls || false);
             setPassengers(editingRoute.passengers.map((p) => ({ ...p })));
         } else {
             setDriverProfileId("");
+            setDriverName("");
             setRoundTrips(0);
             setCapacity(3);
+            setDepartureTime("");
+            setReturnDepartureTime("");
+            setAvoidHighways(false);
+            setAvoidTolls(false);
             setPassengers([]);
         }
     }, [editingRoute, isOpen]);
@@ -134,6 +157,10 @@ export function PickupModal({
             formData.append("driverProfileId", driverProfileId || "");
             formData.append("roundTrips", roundTrips.toString());
             formData.append("capacity", capacity.toString());
+            formData.append("departureTime", departureTime || "");
+            formData.append("returnDepartureTime", returnDepartureTime || "");
+            formData.append("avoidHighways", avoidHighways.toString());
+            formData.append("avoidTolls", avoidTolls.toString());
             formData.append(
                 "passengers",
                 JSON.stringify(
@@ -319,6 +346,21 @@ export function PickupModal({
         );
     };
 
+    // Get excluded IDs for a specific trip (already added to that trip)
+    const getExcludedIds = (tripNumber: number) => {
+        return new Set(
+            passengers
+                .filter((p) => p.trip_number === tripNumber)
+                .map((p) => p.cast_profile_id)
+        );
+    };
+
+    // Open cast select modal for a specific trip
+    const openCastModal = (tripNumber: number) => {
+        setCastModalTripNumber(tripNumber);
+        setIsCastModalOpen(true);
+    };
+
     // Get passengers for a specific trip
     const getTripPassengers = (tripNumber: number) => {
         return passengers
@@ -337,7 +379,7 @@ export function PickupModal({
                         onClick={handleClose}
                         className="absolute left-0 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                     >
-                        <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                        <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                     </button>
                     <DialogTitle className="text-base font-semibold text-gray-900 dark:text-gray-50">
                         {editingRoute ? "送迎ルート編集" : "送迎ルート作成"}
@@ -429,41 +471,16 @@ export function PickupModal({
                             <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                 ドライバー
                             </Label>
-                            <Select
-                                value={driverProfileId || "__none__"}
-                                onValueChange={(v) => setDriverProfileId(v === "__none__" ? "" : v)}
+                            <button
+                                type="button"
+                                onClick={() => setIsDriverModalOpen(true)}
+                                className="w-full h-10 px-3 rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                             >
-                                <SelectTrigger className="h-10 rounded-lg border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-                                    <SelectValue placeholder="未定" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="__none__">未定</SelectItem>
-                                    {staffProfiles.filter(s => s.role === "staff" || s.role === "admin").length > 0 && (
-                                        <SelectGroup>
-                                            <SelectLabel className="text-xs text-gray-500 dark:text-gray-400">スタッフ</SelectLabel>
-                                            {staffProfiles
-                                                .filter(s => s.role === "staff" || s.role === "admin")
-                                                .map((staff) => (
-                                                    <SelectItem key={staff.id} value={staff.id}>
-                                                        {staff.display_name}
-                                                    </SelectItem>
-                                                ))}
-                                        </SelectGroup>
-                                    )}
-                                    {staffProfiles.filter(s => s.role === "partner").length > 0 && (
-                                        <SelectGroup>
-                                            <SelectLabel className="text-xs text-gray-500 dark:text-gray-400">パートナー</SelectLabel>
-                                            {staffProfiles
-                                                .filter(s => s.role === "partner")
-                                                .map((partner) => (
-                                                    <SelectItem key={partner.id} value={partner.id}>
-                                                        {partner.display_name}
-                                                    </SelectItem>
-                                                ))}
-                                        </SelectGroup>
-                                    )}
-                                </SelectContent>
-                            </Select>
+                                <span className={`text-sm ${driverName ? "text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400"}`}>
+                                    {driverName || "未定"}
+                                </span>
+                                <ChevronRight className="h-4 w-4 text-gray-400" />
+                            </button>
                         </div>
 
                         {/* Round trips */}
@@ -503,6 +520,63 @@ export function PickupModal({
                             />
                         </div>
 
+                        {/* Departure Time */}
+                        <div className="space-y-1.5">
+                            <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                出発予定時間
+                            </Label>
+                            <Input
+                                type="time"
+                                value={departureTime}
+                                onChange={(e) => setDepartureTime(e.target.value)}
+                                className="h-10 rounded-lg border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
+                            />
+                        </div>
+
+                        {/* Return Departure Time (only when roundTrips > 0) */}
+                        {roundTrips > 0 && (
+                            <div className="space-y-1.5">
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                    戻り便の出発時間
+                                </Label>
+                                <Input
+                                    type="time"
+                                    value={returnDepartureTime}
+                                    onChange={(e) => setReturnDepartureTime(e.target.value)}
+                                    placeholder="指定しない場合は1便目の店舗着時間"
+                                    className="h-10 rounded-lg border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
+                                />
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    未指定の場合、出発便の店舗着時間に出発します
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Road Settings */}
+                        <div className="space-y-3 rounded-lg border border-gray-200 dark:border-gray-700 p-3 bg-gray-50 dark:bg-gray-800/50">
+                            <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                道路設定
+                            </Label>
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm text-gray-600 dark:text-gray-400">
+                                    高速道路を避ける
+                                </span>
+                                <Switch
+                                    checked={avoidHighways}
+                                    onCheckedChange={setAvoidHighways}
+                                />
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm text-gray-600 dark:text-gray-400">
+                                    有料道路を避ける
+                                </span>
+                                <Switch
+                                    checked={avoidTolls}
+                                    onCheckedChange={setAvoidTolls}
+                                />
+                            </div>
+                        </div>
+
                         {/* Passengers by trip */}
                         {Array.from({ length: tripCount }, (_, i) => i + 1).map((tripNum) => {
                             const tripPassengers = getTripPassengers(tripNum);
@@ -526,9 +600,11 @@ export function PickupModal({
                                         onDrop={(e) => handleDrop(e, tripNum, tripPassengers.length)}
                                     >
                                         {tripPassengers.length === 0 ? (
-                                            <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-2">
-                                                キャストを追加してください
-                                            </p>
+                                            availableAttendees.length > 0 ? (
+                                                <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-2">
+                                                    キャストを追加してください
+                                                </p>
+                                            ) : null
                                         ) : (
                                             tripPassengers.map((passenger, index) => (
                                                 <div
@@ -599,38 +675,18 @@ export function PickupModal({
                                         )}
                                     </div>
 
-                                    {/* Add passenger dropdown */}
+                                    {/* Add passenger button */}
                                     {availableAttendees.length > 0 && (
-                                        <Select
-                                            value={undefined}
-                                            onValueChange={(profileId) => {
-                                                const attendee = attendees.find(
-                                                    (a) => a.profile_id === profileId
-                                                );
-                                                if (attendee) {
-                                                    addPassenger(tripNum, attendee);
-                                                }
-                                            }}
+                                        <button
+                                            type="button"
+                                            onClick={() => openCastModal(tripNum)}
+                                            className="w-full h-9 px-3 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 flex items-center justify-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-colors"
                                         >
-                                            <SelectTrigger className="h-9 rounded-lg border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 text-sm">
-                                                <SelectValue placeholder="キャストを追加..." />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {availableAttendees.map((attendee) => (
-                                                    <SelectItem
-                                                        key={attendee.profile_id}
-                                                        value={attendee.profile_id}
-                                                    >
-                                                        {attendee.display_name}
-                                                        {attendee.pickup_destination && (
-                                                            <span className="text-gray-400 ml-2">
-                                                                ({attendee.pickup_destination})
-                                                            </span>
-                                                        )}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                            <Plus className="h-4 w-4 text-gray-400" />
+                                            <span className="text-sm text-gray-500 dark:text-gray-400">
+                                                キャストを追加
+                                            </span>
+                                        </button>
                                     )}
 
                                     {/* Capacity warning */}
@@ -671,6 +727,29 @@ export function PickupModal({
                     </div>
                 )}
             </DialogContent>
+
+            {/* Driver Select Modal */}
+            <DriverSelectModal
+                isOpen={isDriverModalOpen}
+                onClose={() => setIsDriverModalOpen(false)}
+                onSelect={(id, name) => {
+                    setDriverProfileId(id || "");
+                    setDriverName(name || "");
+                }}
+                staffProfiles={staffProfiles}
+                selectedDriverId={driverProfileId || null}
+            />
+
+            {/* Cast Select Modal */}
+            <CastSelectModal
+                isOpen={isCastModalOpen}
+                onClose={() => setIsCastModalOpen(false)}
+                onSelect={(attendee) => {
+                    addPassenger(castModalTripNumber, attendee);
+                }}
+                attendees={attendees}
+                excludeIds={getExcludedIds(castModalTripNumber)}
+            />
         </Dialog>
     );
 }

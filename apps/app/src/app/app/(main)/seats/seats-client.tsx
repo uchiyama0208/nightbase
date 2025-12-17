@@ -49,7 +49,11 @@ function GridEditor({ grid, onChange }: { grid: boolean[][]; onChange: (grid: bo
     );
 }
 
-export function SeatsClient() {
+interface SeatsClientProps {
+    canEdit?: boolean;
+}
+
+export function SeatsClient({ canEdit = false }: SeatsClientProps) {
     const [tables, setTables] = useState<Table[]>([]);
     const [tableTypes, setTableTypes] = useState<TableType[]>([]);
     const [pricingSystems, setPricingSystems] = useState<PricingSystem[]>([]);
@@ -198,15 +202,17 @@ export function SeatsClient() {
     return (
         <div className="h-full flex flex-col bg-background">
             {/* Header */}
-            <div className="flex justify-end items-center mb-4">
-                <Button
-                    onClick={() => handleOpenModal()}
-                    size="icon"
-                    className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 shadow-md"
-                >
-                    <Plus className="h-5 w-5" />
-                </Button>
-            </div>
+            {canEdit && (
+                <div className="flex justify-end items-center mb-4">
+                    <Button
+                        onClick={() => handleOpenModal()}
+                        size="icon"
+                        className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 shadow-md"
+                    >
+                        <Plus className="h-5 w-5" />
+                    </Button>
+                </div>
+            )}
 
             {/* Table Grid */}
             <div className="flex-1 overflow-auto">

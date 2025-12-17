@@ -214,11 +214,11 @@ ${storeContext}
         const serviceSupabase = createServiceRoleClient() as any;
         const tools = createAITools(serviceSupabase, profile.store_id);
 
-        const result = await streamText({
+        const result = streamText({
             model: openai("gpt-4o-mini") as any,
             system: systemPrompt,
             messages,
-            tools,
+            tools: tools as any,
             maxSteps: 5,
             onFinish: async ({ text }) => {
                 // Save assistant response to database
@@ -231,9 +231,9 @@ ${storeContext}
                     });
                 }
             },
-        });
+        } as any);
 
-        return result.toDataStreamResponse();
+        return result.toTextStreamResponse();
     } catch (error) {
         console.error("AI Chat error:", error);
         return new Response("Internal Server Error", { status: 500 });

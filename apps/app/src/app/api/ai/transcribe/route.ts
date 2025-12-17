@@ -3,7 +3,14 @@ import { createServerClient } from "@/lib/supabaseServerClient";
 
 export const maxDuration = 60;
 
-const openai = new OpenAI();
+// OpenAIクライアントを遅延初期化（ビルド時のエラーを防ぐ）
+let openai: OpenAI | null = null;
+function getOpenAI() {
+    if (!openai) {
+        openai = new OpenAI();
+    }
+    return openai;
+}
 
 export async function POST(req: Request) {
     try {
@@ -46,7 +53,7 @@ export async function POST(req: Request) {
         }
 
         // Call Whisper API
-        const transcription = await openai.audio.transcriptions.create({
+        const transcription = await getOpenAI().audio.transcriptions.create({
             file: audioFile,
             model: "whisper-1",
             language: "ja",

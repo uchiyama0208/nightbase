@@ -138,6 +138,7 @@ export async function getMenus(storeId: string): Promise<MenuItem[]> {
 // 注文を作成
 export async function createOrder(
     sessionId: string,
+    storeId: string,
     menuId: string,
     itemName: string,
     quantity: number,
@@ -149,6 +150,7 @@ export async function createOrder(
         .from("orders")
         .insert({
             table_session_id: sessionId,
+            store_id: storeId,
             menu_id: menuId,
             item_name: itemName,
             quantity,
@@ -167,12 +169,14 @@ export async function createOrder(
 // 複数の注文を一括作成
 export async function createOrders(
     sessionId: string,
+    storeId: string,
     items: { menuId: string; itemName: string; quantity: number; amount: number }[]
 ): Promise<{ success: boolean; error?: string }> {
     const supabase = getPublicSupabase();
 
     const orders = items.map(item => ({
         table_session_id: sessionId,
+        store_id: storeId,
         menu_id: item.menuId,
         item_name: item.itemName,
         quantity: item.quantity,

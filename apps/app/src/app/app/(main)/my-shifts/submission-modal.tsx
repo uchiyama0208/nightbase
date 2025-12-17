@@ -43,6 +43,7 @@ interface DatePreference {
     startTime: string;
     endTime: string;
     note: string;
+    status: "not_submitted" | "pending" | "approved" | "rejected";
 }
 
 interface SubmissionModalProps {
@@ -105,6 +106,16 @@ export function SubmissionModal({
                 );
 
                 if (existing) {
+                    // ステータスを変換
+                    let displayStatus: "not_submitted" | "pending" | "approved" | "rejected" = "pending";
+                    if (existing.status === "pending") {
+                        displayStatus = "pending";
+                    } else if (existing.status === "rejected") {
+                        displayStatus = "rejected";
+                    } else if (["scheduled", "working", "completed"].includes(existing.status)) {
+                        displayStatus = "approved";
+                    }
+
                     return {
                         dateId: date.id,
                         targetDate: date.target_date,
@@ -112,6 +123,7 @@ export function SubmissionModal({
                         startTime: existing.preferred_start_time?.slice(0, 5) || defaultTimes.start,
                         endTime: existing.preferred_end_time?.slice(0, 5) || defaultTimes.end,
                         note: existing.note || "",
+                        status: displayStatus,
                     };
                 }
 
@@ -122,6 +134,7 @@ export function SubmissionModal({
                     startTime: date.default_start_time?.slice(0, 5) || defaultTimes.start,
                     endTime: date.default_end_time?.slice(0, 5) || defaultTimes.end,
                     note: "",
+                    status: "not_submitted" as const,
                 };
             });
 
@@ -155,17 +168,25 @@ export function SubmissionModal({
         );
     };
 
-    const allSelected = preferences.every((p) => p.availability !== null);
+    // ロックされていない日付がすべて選択されているかチェック
+    const allSelected = preferences.every((p) =>
+        p.status === "approved" || p.status === "rejected" || p.availability !== null
+    );
 
     const handleSubmit = async () => {
         if (!allSelected) return;
 
         setIsSubmitting(true);
         try {
+            // ロックされていない日付のみ送信
+            const submittablePrefs = preferences.filter(
+                (p) => p.status !== "approved" && p.status !== "rejected"
+            );
+
             const result = await submitShiftPreferences(
                 profileId,
                 request.id,
-                preferences.map((p) => ({
+                submittablePrefs.map((p) => ({
                     dateId: p.dateId,
                     availability: p.availability as "available" | "unavailable",
                     startTime: p.startTime,
@@ -240,6 +261,7 @@ export function SubmissionModal({
                                         onUpdate={(field, value) =>
                                             updatePreference(pref.dateId, field, value)
                                         }
+                                        isLocked={pref.status === "approved" || pref.status === "rejected"}
                                     />
                                 ))}
                             </div>
@@ -271,15 +293,72 @@ function DatePreferenceItem({
     preference,
     onSetAvailability,
     onUpdate,
+    isLocked,
 }: {
     preference: DatePreference;
     onSetAvailability: (value: "available" | "unavailable") => void;
     onUpdate: (field: keyof DatePreference, value: string) => void;
+    isLocked: boolean;
 }) {
     const isAvailable = preference.availability === "available";
     const isUnavailable = preference.availability === "unavailable";
     const isUnselected = preference.availability === null;
     const formattedDate = formatDisplayDate(preference.targetDate);
+
+    const getStatusBadge = () => {
+        if (preference.status === "approved") {
+            return (
+                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                    確定
+                </span>
+            );
+        }
+        if (preference.status === "rejected") {
+            return (
+                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                    否認
+                </span>
+            );
+        }
+        if (preference.status === "pending") {
+            return (
+                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                    提出済み
+                </span>
+            );
+        }
+        return null;
+    };
+
+    // 確定・否認の場合はロックされた表示
+    if (isLocked) {
+        return (
+            <div
+                className={`p-3 rounded-xl border transition-colors ${
+                    preference.status === "approved"
+                        ? "bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800"
+                        : "bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800"
+                }`}
+            >
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                        <span className="font-medium text-gray-900 dark:text-white">
+                            {formattedDate}
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {preference.startTime && preference.endTime && (
+                            <span className="text-sm text-gray-500 dark:text-gray-400">
+                                {preference.startTime} 〜 {preference.endTime}
+                            </span>
+                        )}
+                        {getStatusBadge()}
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div
@@ -292,11 +371,14 @@ function DatePreferenceItem({
             }`}
         >
             {/* Date */}
-            <div className="flex items-center gap-2 mb-3">
-                <Calendar className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                <span className="font-medium text-gray-900 dark:text-white">
-                    {formattedDate}
-                </span>
+            <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                    <span className="font-medium text-gray-900 dark:text-white">
+                        {formattedDate}
+                    </span>
+                </div>
+                {getStatusBadge()}
             </div>
 
             {/* Selection Buttons */}

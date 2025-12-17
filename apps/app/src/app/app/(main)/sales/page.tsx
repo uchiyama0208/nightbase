@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 };
 
 export default async function SalesPage() {
-    const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("sales", "view");
+    const { user, profile, hasAccess, canEdit } = await getAppDataWithPermissionCheck("sales", "view");
 
     if (!user) {
         redirect("/login");
@@ -22,7 +22,7 @@ export default async function SalesPage() {
         redirect(getAccessDeniedRedirectUrl("sales"));
     }
 
-    return <SalesClient />;
+    return <SalesClient canEdit={canEdit} />;
 }
 
 export const dynamic = 'force-dynamic';

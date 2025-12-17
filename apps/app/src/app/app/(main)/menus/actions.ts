@@ -590,38 +590,73 @@ export async function extractMenusFromImage(base64Image: string): Promise<Extrac
 }
 
 /**
- * AIでメニュー画像を生成
+ * AIでメニュー画像を生成 (Gemini 2.5 Flash Image)
  */
 export async function generateMenuImage(menuName: string): Promise<string> {
     const { supabase } = await getAuthUser();
 
-    const openai = new OpenAI({
-        apiKey: process.env.OPENAI_API_KEY,
-    });
-
-    const response = await openai.images.generate({
-        model: "dall-e-3",
-        prompt: `A clean product photo of "${menuName}" on a bar counter. The item is very large, centered, and fills 70% of the frame. Simple blurred bar background with subtle warm ambient lighting. Minimal composition. The product is the sole focus. Sharp focus on the item, extremely blurred background. Professional bar photography style.`,
-        n: 1,
-        size: "1024x1024",
-        quality: "standard",
-    });
-
-    const generatedUrl = response.data?.[0]?.url;
-    if (!generatedUrl) {
-        throw new Error("画像の生成に失敗しました");
+    const apiKey = process.env.GOOGLE_API_KEY;
+    if (!apiKey) {
+        throw new Error("GOOGLE_API_KEY が設定されていません");
     }
 
-    // 生成された画像をダウンロードしてSupabase Storageに保存
-    const imageResponse = await fetch(generatedUrl);
-    const imageBlob = await imageResponse.blob();
+    const prompt = `A clean product photo of "${menuName}" on a bar counter. The item is very large, centered, and fills 70% of the frame. Simple blurred bar background with subtle warm ambient lighting. Minimal composition. The product is the sole focus. Sharp focus on the item, extremely blurred background. Professional bar photography style. No text, no labels, no watermarks, no words anywhere in the image. No garnishes, no leaves, no mint, no decorations, no toppings on drinks.`;
+
+    // Gemini 2.5 Flash Image API を呼び出し
+    const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent`,
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "x-goog-api-key": apiKey,
+            },
+            body: JSON.stringify({
+                contents: [
+                    {
+                        parts: [
+                            { text: prompt }
+                        ]
+                    }
+                ],
+                generationConfig: {
+                    responseModalities: ["Image"],
+                    imageConfig: {
+                        aspectRatio: "1:1"
+                    }
+                }
+            }),
+        }
+    );
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Gemini API error:", response.status, errorText);
+        throw new Error(`画像の生成に失敗しました (${response.status}): ${errorText.slice(0, 200)}`);
+    }
+
+    const result = await response.json();
+
+    // レスポンスから画像データを取得
+    const imagePart = result.candidates?.[0]?.content?.parts?.find(
+        (part: any) => part.inlineData?.mimeType?.startsWith("image/")
+    );
+
+    if (!imagePart?.inlineData?.data) {
+        console.error("No image in response:", JSON.stringify(result, null, 2));
+        throw new Error("画像が生成されませんでした");
+    }
+
+    // Base64をBlobに変換
+    const base64Data = imagePart.inlineData.data;
+    const binaryData = Buffer.from(base64Data, "base64");
 
     const fileName = `menu-ai-${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
     const filePath = `menu-images/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
         .from("avatars")
-        .upload(filePath, imageBlob, {
+        .upload(filePath, binaryData, {
             contentType: "image/png",
         });
 
@@ -635,4 +670,140 @@ export async function generateMenuImage(menuName: string): Promise<string> {
     } = supabase.storage.from("avatars").getPublicUrl(filePath);
 
     return publicUrl;
+}
+
+// ============================================
+// 相場価格調査
+// ============================================
+
+export interface ItemMarketPriceResult {
+    itemName: string;
+    minPrice: number;
+    maxPrice: number;
+    averagePrice: number;
+    recommendedPrice: number;
+    priceFactors: string[];
+    notes: string;
+}
+
+export interface StoreLocationInfo {
+    prefecture: string | null;
+    industry: string | null;
+}
+
+/**
+ * 店舗の県・ジャンル情報を取得
+ */
+export async function getStoreLocationInfo(): Promise<StoreLocationInfo> {
+    try {
+        const { supabase, storeId } = await getAuthContext();
+
+        const { data, error } = await supabase
+            .from("stores")
+            .select("prefecture, industry")
+            .eq("id", storeId)
+            .single();
+
+        if (error) {
+            logQueryError(error, "fetching store location info");
+            return { prefecture: null, industry: null };
+        }
+
+        return {
+            prefecture: data?.prefecture || null,
+            industry: data?.industry || null,
+        };
+    } catch {
+        return { prefecture: null, industry: null };
+    }
+}
+
+/**
+ * AIで商品の相場価格を調査 (Gemini 2.0 Flash)
+ */
+export async function researchItemMarketPrice(
+    itemName: string,
+    prefecture: string,
+    industry: string,
+    category?: string
+): Promise<ItemMarketPriceResult> {
+    await getAuthUser(); // 認証チェック
+
+    const apiKey = process.env.GOOGLE_API_KEY;
+    if (!apiKey) {
+        throw new Error("GOOGLE_API_KEY が設定されていません");
+    }
+
+    const systemPrompt = `あなたは日本のナイトエンターテインメント業界（キャバクラ、ラウンジ、ホストクラブ、ガールズバー等）に詳しい専門家です。
+
+指定された商品の相場価格を調査し、以下のJSON形式で返してください：
+
+{
+  "itemName": "商品名",
+  "minPrice": 最低価格（円、整数）,
+  "maxPrice": 最高価格（円、整数）,
+  "averagePrice": 平均価格（円、整数）,
+  "recommendedPrice": 推奨価格（円、整数、地域と業態を考慮）,
+  "priceFactors": ["価格に影響する要因1", "価格に影響する要因2"],
+  "notes": "この商品の価格設定に関するアドバイス"
+}
+
+注意点：
+- 指定された地域（県）の物価水準を考慮してください
+- 指定された業態（キャバクラ、ラウンジ等）の一般的な価格帯を考慮してください
+- カテゴリーが指定されている場合は、そのカテゴリー（ドリンク、ボトル、フード等）の価格帯も考慮してください
+- 東京・大阪などの大都市は高め、地方は低めに設定してください
+- 価格は税込で記載してください
+- 推奨価格は地域、業態、カテゴリーを総合的に判断して設定してください
+
+必ずJSON形式のみで返答してください。説明文は不要です。`;
+
+    const userPrompt = `「${itemName}」の相場価格を教えてください。
+地域: ${prefecture}
+業態: ${industry}${category ? `\nカテゴリー: ${category}` : ""}`;
+
+    const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`,
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "x-goog-api-key": apiKey,
+            },
+            body: JSON.stringify({
+                contents: [
+                    {
+                        parts: [
+                            { text: `${systemPrompt}\n\n${userPrompt}` }
+                        ]
+                    }
+                ],
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    temperature: 0.7,
+                }
+            }),
+        }
+    );
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Gemini API error:", response.status, errorText);
+        throw new Error("相場調査に失敗しました");
+    }
+
+    const result = await response.json();
+    const content = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!content) {
+        throw new Error("AIからの応答がありません");
+    }
+
+    try {
+        const parsed = JSON.parse(content) as ItemMarketPriceResult;
+        return parsed;
+    } catch {
+        console.error("Failed to parse AI response:", content);
+        throw new Error("AIの応答を解析できませんでした");
+    }
 }

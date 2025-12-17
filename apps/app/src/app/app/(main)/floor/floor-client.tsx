@@ -16,7 +16,20 @@ import { ReservationEditModal } from "../reservations/reservation-edit-modal";
 import { useFloorData, useTabIndicator } from "./hooks";
 import { FLOOR_TABS, EMPTY_MESSAGES } from "./constants";
 
-export function FloorClient() {
+interface PagePermissions {
+    bottles: boolean;
+    resumes: boolean;
+    salarySystems: boolean;
+    attendance: boolean;
+    personalInfo: boolean;
+}
+
+interface FloorClientProps {
+    canEdit?: boolean;
+    pagePermissions?: PagePermissions;
+}
+
+export function FloorClient({ canEdit = false, pagePermissions }: FloorClientProps) {
     const {
         tables,
         sessions,
@@ -59,24 +72,26 @@ export function FloorClient() {
                     <Button
                         size="icon"
                         variant="outline"
-                        className="h-10 w-10 rounded-full border-gray-300 dark:border-gray-600 shadow-sm transition-all hover:scale-105 active:scale-95"
+                        className="h-10 w-10 rounded-full bg-white dark:bg-gray-800 border-none shadow-md transition-all hover:scale-105 active:scale-95 hover:bg-gray-50 dark:hover:bg-gray-700"
                     >
                         <ClipboardList className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                     </Button>
                 </Link>
-                <Button
-                    size="icon"
-                    className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
-                    onClick={() => {
-                        if (currentTab === "reserved") {
-                            setIsReservationAddOpen(true);
-                        } else {
-                            setIsNewSessionOpen(true);
-                        }
-                    }}
-                >
-                    <Plus className="h-5 w-5" />
-                </Button>
+                {canEdit && (
+                    <Button
+                        size="icon"
+                        className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
+                        onClick={() => {
+                            if (currentTab === "reserved") {
+                                setIsReservationAddOpen(true);
+                            } else {
+                                setIsNewSessionOpen(true);
+                            }
+                        }}
+                    >
+                        <Plus className="h-5 w-5" />
+                    </Button>
+                )}
             </div>
 
             {/* Vercel-style Tab Navigation */}
@@ -198,6 +213,7 @@ export function FloorClient() {
                             setSlipSessionId(sessionId);
                         }}
                         slipIsOpen={!!slipSessionId}
+                        pagePermissions={pagePermissions}
                     />
                 )
             }

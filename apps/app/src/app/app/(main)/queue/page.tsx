@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 };
 
 export default async function QueuePage() {
-    const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("queue", "view");
+    const { user, profile, hasAccess, canEdit } = await getAppDataWithPermissionCheck("queue", "view");
 
     if (!user) {
         redirect("/login");
@@ -43,6 +43,7 @@ export default async function QueuePage() {
             storeName={store?.name || ""}
             settings={settingsResult.settings}
             daySwitchTime={store?.day_switch_time || "05:00"}
+            canEdit={canEdit}
         />
     );
 }

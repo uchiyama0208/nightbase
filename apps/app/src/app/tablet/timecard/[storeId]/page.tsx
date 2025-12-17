@@ -145,8 +145,8 @@ export default async function TabletTimecardPage(props: PageProps) {
   let todayCards: TodayCard[] = [];
   if (profileIds.length > 0) {
     const { data: cardRows } = await supabase
-      .from("time_cards")
-      .select("id, user_id, work_date, clock_in, clock_out")
+      .from("work_records")
+      .select("id, profile_id, work_date, clock_in, clock_out")
       .eq("work_date", today)
       .in("user_id", profileIds);
 
@@ -157,8 +157,8 @@ export default async function TabletTimecardPage(props: PageProps) {
   const pickupHistory: Record<string, string[]> = {};
   if (profileIds.length > 0) {
     const { data: pickupRows } = await supabase
-      .from("time_cards")
-      .select("user_id, pickup_destination")
+      .from("work_records")
+      .select("profile_id, pickup_destination")
       .not("pickup_destination", "is", null)
       .in("user_id", profileIds);
 

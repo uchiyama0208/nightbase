@@ -58,12 +58,22 @@ interface StoreSettings {
     allow_join_by_url: boolean;
 }
 
+interface PagePermissions {
+    bottles: boolean;
+    resumes: boolean;
+    salarySystems: boolean;
+    attendance: boolean;
+    personalInfo: boolean;
+}
+
 interface InvitationListProps {
     initialInvitations: Invitation[];
     uninvitedProfiles: any[];
     roles: any[];
     initialJoinRequests?: JoinRequest[];
     initialStoreSettings?: StoreSettings;
+    canEdit?: boolean;
+    pagePermissions?: PagePermissions;
 }
 
 type MainTabType = "invitations" | "join-requests";
@@ -75,6 +85,8 @@ export function InvitationList({
     roles,
     initialJoinRequests = [],
     initialStoreSettings,
+    canEdit = false,
+    pagePermissions,
 }: InvitationListProps) {
     const { toast } = useToast();
     const [invitations, setInvitations] = useState(initialInvitations);
@@ -196,18 +208,28 @@ export function InvitationList({
     }, [hasFilters, activeFilters]);
 
     const filteredInvitations = useMemo(() => invitations.filter((inv) => {
-        const matchesSearch = (inv.profile?.display_name || inv.profile?.real_name || "")
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase());
+        const query = searchQuery.toLowerCase();
+        const displayName = inv.profile?.display_name || "";
+        const displayNameKana = inv.profile?.display_name_kana || "";
+        const realName = inv.profile?.real_name || "";
+        const matchesSearch = displayName.toLowerCase().includes(query) ||
+                              displayNameKana.toLowerCase().includes(query) ||
+                              realName.toLowerCase().includes(query);
         const matchesStatus = statusFilter === "all" || inv.status === statusFilter;
         const matchesRole = roleFilter === "all" || inv.profile?.role === roleFilter;
         return matchesSearch && matchesStatus && matchesRole;
     }), [invitations, searchQuery, statusFilter, roleFilter]);
 
     const filteredJoinRequests = useMemo(() => joinRequests.filter((req) => {
-        const matchesSearch = (req.display_name || req.real_name || "")
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase());
+        const query = searchQuery.toLowerCase();
+        const displayName = req.display_name || "";
+        const displayNameKana = req.display_name_kana || "";
+        const realName = req.real_name || "";
+        const realNameKana = req.real_name_kana || "";
+        const matchesSearch = displayName.toLowerCase().includes(query) ||
+                              displayNameKana.toLowerCase().includes(query) ||
+                              realName.toLowerCase().includes(query) ||
+                              realNameKana.toLowerCase().includes(query);
         const matchesRole = roleFilter === "all" || req.requested_role === roleFilter;
         return matchesSearch && matchesRole;
     }), [joinRequests, searchQuery, roleFilter]);
@@ -315,28 +337,32 @@ export function InvitationList({
                     <Button
                         variant="outline"
                         size="icon"
-                        className="h-10 w-10 rounded-full border-gray-200 dark:border-gray-700"
+                        className="h-10 w-10 rounded-full border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-md"
                         onClick={handleRefresh}
                         disabled={isRefreshing}
                     >
                         <RefreshCw className={`h-5 w-5 text-gray-600 dark:text-gray-400 ${isRefreshing ? "animate-spin" : ""}`} />
                     </Button>
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-10 w-10 rounded-full border-gray-200 dark:border-gray-700"
-                        onClick={() => setIsSettingsModalOpen(true)}
-                    >
-                        <Settings className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                    </Button>
-                    {mainTab === "invitations" && (
-                        <Button
-                            onClick={() => setIsModalOpen(true)}
-                            size="icon"
-                            className="h-10 w-10 rounded-full bg-blue-600 hover:bg-blue-700 text-white border-none shadow-md transition-all hover:scale-105 active:scale-95"
-                        >
-                            <Plus className="h-5 w-5" />
-                        </Button>
+                    {canEdit && (
+                        <>
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-10 w-10 rounded-full border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-md"
+                                onClick={() => setIsSettingsModalOpen(true)}
+                            >
+                                <Settings className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                            </Button>
+                            {mainTab === "invitations" && (
+                                <Button
+                                    onClick={() => setIsModalOpen(true)}
+                                    size="icon"
+                                    className="h-10 w-10 rounded-full bg-blue-600 hover:bg-blue-700 text-white border-none shadow-md transition-all hover:scale-105 active:scale-95"
+                                >
+                                    <Plus className="h-5 w-5" />
+                                </Button>
+                            )}
+                        </>
                     )}
                 </div>
             </div>
@@ -537,6 +563,7 @@ export function InvitationList({
                 onOpenChange={setIsModalOpen}
                 uninvitedProfiles={uninvitedProfiles}
                 roles={roles}
+                pagePermissions={pagePermissions}
             />
 
             <InvitationDetailModal

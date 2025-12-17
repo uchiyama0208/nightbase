@@ -16,6 +16,7 @@ export interface Invitation {
     created_at: string;
     profile?: {
         display_name: string;
+        display_name_kana?: string;
         real_name?: string;
         avatar_url: string | null;
         role: string;
@@ -66,6 +67,7 @@ export async function getInvitations(filters?: { status?: string; search?: strin
             invite_expires_at,
             created_at,
             display_name,
+            display_name_kana,
             real_name,
             avatar_url
         `)
@@ -116,6 +118,7 @@ export async function getInvitations(filters?: { status?: string; search?: strin
             created_at: p.created_at,
             profile: {
                 display_name: p.display_name,
+                display_name_kana: p.display_name_kana,
                 real_name: p.real_name,
                 avatar_url: p.avatar_url,
                 role: p.role
@@ -125,9 +128,14 @@ export async function getInvitations(filters?: { status?: string; search?: strin
     // Client-side filtering for search
     if (filters?.search) {
         const searchLower = filters.search.toLowerCase();
-        invitations = invitations.filter((inv) =>
-            (inv.profile?.display_name || inv.profile?.real_name || "").toLowerCase().includes(searchLower)
-        );
+        invitations = invitations.filter((inv) => {
+            const displayName = inv.profile?.display_name || "";
+            const displayNameKana = inv.profile?.display_name_kana || "";
+            const realName = inv.profile?.real_name || "";
+            return displayName.toLowerCase().includes(searchLower) ||
+                   displayNameKana.toLowerCase().includes(searchLower) ||
+                   realName.toLowerCase().includes(searchLower);
+        });
     }
 
     return invitations;

@@ -36,13 +36,11 @@ export function QueueAddModal({
 }: QueueAddModalProps) {
     const [isPending, startTransition] = useTransition();
     const [guestName, setGuestName] = useState("");
-    const [contactType, setContactType] = useState<"email" | "phone">("phone");
     const [contactValue, setContactValue] = useState("");
     const [partySize, setPartySize] = useState(1);
 
     const resetForm = () => {
         setGuestName("");
-        setContactType("phone");
         setContactValue("");
         setPartySize(1);
     };
@@ -60,7 +58,7 @@ export function QueueAddModal({
                 storeId,
                 guestName: guestName.trim(),
                 contactValue: contactValue.trim(),
-                contactType,
+                contactType: "email",
                 partySize,
             });
 
@@ -125,41 +123,16 @@ export function QueueAddModal({
                         </Select>
                     </div>
 
-                    {/* 連絡方法 */}
+                    {/* メールアドレス入力 */}
                     <div className="space-y-1.5">
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-                            連絡方法
-                        </label>
-                        <div className="flex gap-2">
-                            <Button
-                                type="button"
-                                variant={contactType === "phone" ? "default" : "outline"}
-                                className="flex-1 h-10 rounded-lg"
-                                onClick={() => setContactType("phone")}
-                            >
-                                電話番号(SMS)
-                            </Button>
-                            <Button
-                                type="button"
-                                variant={contactType === "email" ? "default" : "outline"}
-                                className="flex-1 h-10 rounded-lg"
-                                onClick={() => setContactType("email")}
-                            >
-                                メール
-                            </Button>
-                        </div>
-                    </div>
-
-                    {/* 連絡先入力 */}
-                    <div className="space-y-1.5">
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-                            {contactType === "phone" ? "SMS用電話番号" : "メールアドレス"}
+                            メールアドレス
                         </label>
                         <Input
                             value={contactValue}
                             onChange={(e) => setContactValue(e.target.value)}
-                            type={contactType === "email" ? "email" : "tel"}
-                            placeholder={contactType === "phone" ? "090-1234-5678" : "example@mail.com"}
+                            type="email"
+                            placeholder="example@mail.com"
                             className="h-10 rounded-lg"
                         />
                     </div>

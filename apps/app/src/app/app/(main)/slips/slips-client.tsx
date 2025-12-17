@@ -53,7 +53,11 @@ interface Slip {
     pricingSystemId: string | null;
 }
 
-export function SlipsClient() {
+interface SlipsClientProps {
+    canEdit?: boolean;
+}
+
+export function SlipsClient({ canEdit = false }: SlipsClientProps) {
     const [tables, setTables] = useState<FloorTable[]>([]);
     const [sessions, setSessions] = useState<TableSession[]>([]);
     const [slips, setSlips] = useState<Slip[]>([]);
@@ -247,13 +251,15 @@ export function SlipsClient() {
                     </span>
                 </button>
                 <div className="flex-1" />
-                <Button
-                    size="icon"
-                    className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
-                    onClick={() => setIsNewSessionOpen(true)}
-                >
-                    <Plus className="h-5 w-5" />
-                </Button>
+                {canEdit && (
+                    <Button
+                        size="icon"
+                        className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
+                        onClick={() => setIsNewSessionOpen(true)}
+                    >
+                        <Plus className="h-5 w-5" />
+                    </Button>
+                )}
             </div>
 
             {/* Vercel-style Tab Navigation */}

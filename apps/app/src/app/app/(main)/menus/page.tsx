@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { MenuList } from "./menu-list";
-import { getMenusData } from "./actions";
+import { getMenusData, getStoreLocationInfo } from "./actions";
 import { getAppDataWithPermissionCheck, getAccessDeniedRedirectUrl } from "../../data-access";
 
 export const metadata: Metadata = {
@@ -20,7 +20,7 @@ function MenusSkeleton() {
 }
 
 export default async function MenusPage() {
-    const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("menus", "view");
+    const { user, profile, hasAccess, canEdit } = await getAppDataWithPermissionCheck("menus", "view");
 
     if (!user) {
         redirect("/login");
@@ -46,10 +46,11 @@ export default async function MenusPage() {
     }
 
     const { menus, categories } = result.data;
+    const storeInfo = await getStoreLocationInfo();
 
     return (
         <Suspense fallback={<MenusSkeleton />}>
-            <MenuList initialMenus={menus} categories={categories} />
+            <MenuList initialMenus={menus} categories={categories} canEdit={canEdit} storeInfo={storeInfo} />
         </Suspense>
     );
 }

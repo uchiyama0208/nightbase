@@ -103,7 +103,7 @@ export function OrderPageContent({ store, table, session: initialSession, catego
                 amount: item.menu.price * item.quantity,
             }));
 
-            const result = await createOrders(session.id, items);
+            const result = await createOrders(session.id, store.id, items);
 
             if (result.success) {
                 toast({ title: "注文を送信しました" });

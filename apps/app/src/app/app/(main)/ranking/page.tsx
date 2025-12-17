@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 };
 
 export default async function RankingPage() {
-    const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("ranking", "view");
+    const { user, profile, hasAccess, canEdit } = await getAppDataWithPermissionCheck("ranking", "view");
 
     if (!user) {
         redirect("/login");
@@ -22,7 +22,7 @@ export default async function RankingPage() {
         redirect(getAccessDeniedRedirectUrl("ranking"));
     }
 
-    return <RankingClient />;
+    return <RankingClient canEdit={canEdit} />;
 }
 
 export const dynamic = 'force-dynamic';

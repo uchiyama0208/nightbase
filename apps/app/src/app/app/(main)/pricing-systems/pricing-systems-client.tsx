@@ -50,7 +50,11 @@ const defaultFormData: PricingSystemFormData = {
     is_default: false,
 };
 
-export function PricingSystemsClient() {
+interface PricingSystemsClientProps {
+    canEdit?: boolean;
+}
+
+export function PricingSystemsClient({ canEdit = false }: PricingSystemsClientProps) {
     const [systems, setSystems] = useState<PricingSystem[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -184,15 +188,17 @@ export function PricingSystemsClient() {
     return (
         <div className="space-y-2">
             {/* Plus Button */}
-            <div className="flex justify-end">
-                <Button
-                    size="icon"
-                    className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
-                    onClick={() => handleOpenModal()}
-                >
-                    <Plus className="h-5 w-5" />
-                </Button>
-            </div>
+            {canEdit && (
+                <div className="flex justify-end">
+                    <Button
+                        size="icon"
+                        className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
+                        onClick={() => handleOpenModal()}
+                    >
+                        <Plus className="h-5 w-5" />
+                    </Button>
+                </div>
+            )}
 
             {systems.length === 0 ? (
                 <div className="text-center py-12 text-gray-500 dark:text-gray-400">

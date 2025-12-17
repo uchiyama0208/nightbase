@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 };
 
 export default async function PayrollPage() {
-    const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("payroll", "view");
+    const { user, profile, hasAccess, canEdit } = await getAppDataWithPermissionCheck("payroll", "view");
 
     if (!user) {
         redirect("/login");
@@ -22,7 +22,7 @@ export default async function PayrollPage() {
         redirect(getAccessDeniedRedirectUrl("payroll"));
     }
 
-    return <PayrollClient />;
+    return <PayrollClient canEdit={canEdit} />;
 }
 
 export const dynamic = 'force-dynamic';

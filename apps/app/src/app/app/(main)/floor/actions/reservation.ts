@@ -177,6 +177,7 @@ export async function createSessionFromReservation(reservationId: string) {
 
             await supabase.from("orders").insert({
                 table_session_id: session.id,
+                store_id: storeId,
                 guest_id: rc.guest_id,
                 cast_id: rc.cast_id,
                 item_name: itemName,

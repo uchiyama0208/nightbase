@@ -39,6 +39,23 @@ export async function POST(request: Request) {
             }
         }
 
+        // Check invitation expiration/status if available
+        if (invitation.invite_expires_at) {
+            const expiresAt = new Date(invitation.invite_expires_at);
+            if (new Date() > expiresAt) {
+                return NextResponse.json(
+                    { success: false, message: "招待リンクの有効期限が切れています" },
+                    { status: 400 }
+                );
+            }
+        }
+        if (invitation.status && invitation.status !== "pending") {
+            return NextResponse.json(
+                { success: false, message: "この招待は使用できません" },
+                { status: 400 }
+            );
+        }
+
         const supabase = await createServerClient() as any;
 
         // If isLogin flag is set, try to sign in existing user
@@ -72,7 +89,7 @@ export async function POST(request: Request) {
                     invite_token: null,
                     invite_expires_at: null,
                 })
-                .eq("id", inviteToken);
+                .eq("id", invitation.profile_id);
 
             if (linkError) {
                 console.error("Profile link error:", linkError);
@@ -87,7 +104,7 @@ export async function POST(request: Request) {
                 .from("users")
                 .upsert({
                     id: signInData.user.id,
-                    current_profile_id: inviteToken,
+                    current_profile_id: invitation.profile_id,
                 }, { onConflict: "id" });
 
             return NextResponse.json({

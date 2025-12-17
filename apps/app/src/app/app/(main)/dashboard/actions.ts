@@ -179,22 +179,22 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
     ] = await Promise.all([
         // シフトタブのクエリ
         serviceSupabase
-            .from("time_cards")
-            .select("user_id")
+            .from("work_records")
+            .select("profile_id, user_id")
             .eq("work_date", today)
             .is("clock_out", null)
             .in("user_id", storeProfileIds.length > 0 ? storeProfileIds : ["none"]),
         serviceSupabase
-            .from("time_cards")
+            .from("work_records")
             .select("clock_in")
-            .eq("user_id", profileId)
+            .eq("profile_id", profileId)
             .eq("work_date", today)
             .is("clock_out", null)
             .maybeSingle(),
         serviceSupabase
-            .from("time_cards")
+            .from("work_records")
             .select("work_date, clock_in, clock_out")
-            .eq("user_id", profileId)
+            .eq("profile_id", profileId)
             .not("clock_out", "is", null)
             .order("work_date", { ascending: false })
             .order("clock_in", { ascending: false })
@@ -223,8 +223,8 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
             .eq("status", "open")
             .gt("deadline", new Date().toISOString()),
         serviceSupabase
-            .from("time_cards")
-            .select("user_id, clock_in, pickup_destination")
+            .from("work_records")
+            .select("profile_id, user_id, clock_in, pickup_destination")
             .in("work_date", [businessDate, nextDate])
             .not("pickup_destination", "is", null)
             .in("user_id", storeProfileIds.length > 0 ? storeProfileIds : ["none"]),
@@ -285,7 +285,7 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
             .eq("store_id", storeId),
         // 給与計算用タイムカード
         serviceSupabase
-            .from("time_cards")
+            .from("work_records")
             .select(`
                 id, user_id, clock_in, clock_out,
                 profiles!inner(
@@ -405,14 +405,22 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
     const routeIds = todayRoutesResult.data?.map((r: { id: string }) => r.id) || [];
     const todaySessionIds = todaySalesResult.data?.map((s: { id: string }) => s.id) || [];
 
-    const [userSubmissionsResult, assignedPassengersResult, todayOrdersResult] = await Promise.all([
+    const [userWorkSubmissionsResult, userShiftSubmissionsResult, assignedPassengersResult, todayOrdersResult] = await Promise.all([
+        openRequestIds.length > 0
+            ? serviceSupabase
+                .from("work_records")
+                .select("shift_request_id")
+                .eq("profile_id", profileId)
+                .in("shift_request_id", openRequestIds)
+                .neq("status", "cancelled")
+            : Promise.resolve({ data: [] as { shift_request_id: string | null }[] }),
         openRequestIds.length > 0
             ? serviceSupabase
                 .from("shift_submissions")
-                .select("shift_request_id:shift_request_dates!inner(shift_request_id)")
+                .select("shift_request_dates!inner(shift_request_id)")
                 .eq("profile_id", profileId)
                 .in("shift_request_dates.shift_request_id", openRequestIds)
-            : Promise.resolve({ data: [] as { shift_request_id: { shift_request_id: string } }[] }),
+            : Promise.resolve({ data: [] as { shift_request_dates: { shift_request_id: string } | null }[] }),
         routeIds.length > 0
             ? serviceSupabase
                 .from("pickup_passengers")
@@ -438,7 +446,16 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
 
     const nextShiftDate = nextShiftResult.data?.shift_request_dates?.target_date || null;
 
-    const submittedRequestIds = new Set(userSubmissionsResult.data?.map((s: { shift_request_id: { shift_request_id: string } }) => s.shift_request_id.shift_request_id) || []);
+    const submittedRequestIds = new Set(
+        [
+            ...(userWorkSubmissionsResult.data || [])
+                .map((s: { shift_request_id: string | null }) => s.shift_request_id)
+                .filter((id): id is string => Boolean(id)),
+            ...(userShiftSubmissionsResult.data || [])
+                .map((s: { shift_request_dates: { shift_request_id: string } | null }) => s.shift_request_dates?.shift_request_id)
+                .filter((id): id is string => Boolean(id)),
+        ]
+    );
     const unsubmittedShiftRequestCount = openRequestIds.filter((id: string) => !submittedRequestIds.has(id)).length;
 
     // 送迎リクエストを営業日でフィルタリング

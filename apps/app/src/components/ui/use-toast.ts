@@ -3,7 +3,8 @@
 import * as React from "react";
 
 const TOAST_LIMIT = 5;
-const TOAST_REMOVE_DELAY = 1000000;
+// Delay before removing DOM nodes after dismiss (ms)
+const TOAST_REMOVE_DELAY = 5000;
 
 export type ToastActionElement = React.ReactNode;
 
@@ -34,7 +35,8 @@ type ToastState = {
   toasts: Toast[];
 };
 
-const toastTimeout = 2000;
+// Auto dismiss after this timeout (ms)
+const toastTimeout = 3000;
 
 const actionTypes = {
   ADD_TOAST: "ADD_TOAST",

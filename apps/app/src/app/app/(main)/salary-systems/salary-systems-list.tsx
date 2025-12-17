@@ -27,11 +27,12 @@ interface SalarySystemsListProps {
     storeShowBreakColumns: boolean;
     storeTimeRoundingEnabled: boolean;
     storeTimeRoundingMinutes: number;
+    canEdit?: boolean;
 }
 
 type TabType = "cast" | "staff";
 
-export function SalarySystemsList({ initialSystems, typeFilter, storeShowBreakColumns, storeTimeRoundingEnabled, storeTimeRoundingMinutes }: SalarySystemsListProps) {
+export function SalarySystemsList({ initialSystems, typeFilter, storeShowBreakColumns, storeTimeRoundingEnabled, storeTimeRoundingMinutes, canEdit = false }: SalarySystemsListProps) {
     const router = useRouter();
     const [systems, setSystems] = useState(initialSystems);
     const [selectedSystem, setSelectedSystem] = useState<SalarySystem | null>(null);
@@ -148,13 +149,15 @@ export function SalarySystemsList({ initialSystems, typeFilter, storeShowBreakCo
                     </span>
                 </button>
 
-                <Button
-                    size="icon"
-                    className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
-                    onClick={handleCreate}
-                >
-                    <Plus className="h-5 w-5" />
-                </Button>
+{canEdit && (
+                    <Button
+                        size="icon"
+                        className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
+                        onClick={handleCreate}
+                    >
+                        <Plus className="h-5 w-5" />
+                    </Button>
+                )}
             </div>
 
             {/* Vercel-style Tab Navigation */}

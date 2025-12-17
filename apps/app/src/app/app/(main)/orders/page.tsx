@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 };
 
 export default async function OrdersPage() {
-    const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("orders", "view");
+    const { user, profile, hasAccess, canEdit } = await getAppDataWithPermissionCheck("orders", "view");
 
     if (!user) {
         redirect("/login");
@@ -28,7 +28,7 @@ export default async function OrdersPage() {
         getTableCalls(),
     ]);
 
-    return <OrdersContent initialOrders={orders} initialTableCalls={tableCalls} storeId={profile.store_id} />;
+    return <OrdersContent initialOrders={orders} initialTableCalls={tableCalls} storeId={profile.store_id} canEdit={canEdit} />;
 }
 
 export const dynamic = "force-dynamic";

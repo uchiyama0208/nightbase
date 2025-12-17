@@ -4,7 +4,7 @@ import { getBoardPosts, getAllBoardPosts, getManuals, getAllManuals, getManualTa
 import { BoardClient } from "./BoardClient";
 
 export default async function BoardPage() {
-    const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("board", "view");
+    const { user, profile, hasAccess, canEdit } = await getAppDataWithPermissionCheck("board", "view");
 
     if (!user) {
         redirect("/login");
@@ -51,6 +51,7 @@ export default async function BoardPage() {
             manualLikeCounts={manualLikeCounts}
             postReadStatus={postReadStatus}
             manualReadStatus={manualReadStatus}
+            canEdit={canEdit}
         />
     );
 }

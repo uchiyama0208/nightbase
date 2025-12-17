@@ -2,7 +2,7 @@
 
 import { createServerClient } from "@/lib/supabaseServerClient";
 import { revalidatePath } from "next/cache";
-import { revalidateFloorAndSlips } from "./auth";
+import { revalidateFloorAndSlips, getAuthenticatedStoreId } from "./auth";
 import { SPECIAL_FEE_NAMES, SPECIAL_FEE_NAME_VALUES, type OrderItem, type OrderUpdateData, type OrderData } from "./types";
 
 /**
@@ -14,7 +14,7 @@ export async function createOrder(
     guestId?: string | null,
     castId?: string | null
 ) {
-    const supabase = await createServerClient() as any;
+    const { supabase, storeId } = await getAuthenticatedStoreId();
 
     const orders = items.map(item => {
         const isSpecialFee = SPECIAL_FEE_NAMES[item.menuId as keyof typeof SPECIAL_FEE_NAMES];
@@ -22,6 +22,7 @@ export async function createOrder(
 
         return {
             table_session_id: sessionId,
+            store_id: storeId,
             menu_id: (isSpecialFee || isTempItem) ? null : item.menuId,
             item_name: isSpecialFee
                 ? SPECIAL_FEE_NAMES[item.menuId as keyof typeof SPECIAL_FEE_NAMES]

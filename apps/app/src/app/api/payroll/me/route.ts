@@ -94,9 +94,9 @@ export async function GET() {
     try {
         // Get time cards
         const { data: timeCards } = await supabase
-            .from("time_cards")
+            .from("work_records")
             .select("id, work_date, clock_in, clock_out")
-            .eq("user_id", profileId)
+            .eq("profile_id", profileId)
             .gte("work_date", getJSTDateString(startDate))
             .lte("work_date", getJSTDateString(now))
             .order("work_date", { ascending: false });

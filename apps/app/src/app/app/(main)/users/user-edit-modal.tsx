@@ -90,6 +90,14 @@ interface Profile {
     avatar_url?: string | null;
 }
 
+interface PagePermissions {
+    bottles: boolean;
+    resumes: boolean;
+    salarySystems: boolean;
+    attendance: boolean;
+    personalInfo: boolean;
+}
+
 interface UserEditModalProps {
     profile: Profile | null;
     open: boolean;
@@ -100,9 +108,10 @@ interface UserEditModalProps {
     onDelete?: (profileId: string) => void;
     onUpdate?: (profile: Partial<Profile> & { id: string }) => void;
     canEdit?: boolean;
+    pagePermissions?: PagePermissions;
 }
 
-export function UserEditModal({ profile, open, onOpenChange, isNested = false, defaultRole: propDefaultRole, hidePersonalInfo = false, onDelete, onUpdate, canEdit = false }: UserEditModalProps) {
+export function UserEditModal({ profile, open, onOpenChange, isNested = false, defaultRole: propDefaultRole, hidePersonalInfo = false, onDelete, onUpdate, canEdit = false, pagePermissions }: UserEditModalProps) {
     const searchParams = useSearchParams();
     const defaultRole = propDefaultRole || searchParams.get("role") || "cast";
     const { toast } = useToast();
@@ -396,9 +405,28 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
         const form = formRef.current;
         if (!form || !profile) return;
 
+        // Check edit permission
+        if (!canEdit) {
+            toast({
+                title: "権限エラー",
+                description: "編集権限がありません",
+                variant: "destructive",
+            });
+            return;
+        }
+
         const formData = new FormData(form);
         try {
-            await updateUser(formData);
+            const result = await updateUser(formData);
+
+            if (!result.success) {
+                toast({
+                    title: "エラー",
+                    description: result.error || "保存に失敗しました",
+                    variant: "destructive",
+                });
+                return;
+            }
 
             // 履歴書セクションの場合は過去在籍店も保存
             if (section === 'resume') {
@@ -409,6 +437,11 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
             router.refresh();
         } catch (error) {
             console.error("Failed to save:", error);
+            toast({
+                title: "エラー",
+                description: "保存に失敗しました",
+                variant: "destructive",
+            });
         }
     };
 
@@ -676,6 +709,17 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
 
     const handleRelationshipChange = async (type: string, selectedIds: string[]) => {
         if (!profile) return;
+
+        // Check edit permission
+        if (!canEdit) {
+            toast({
+                title: "権限エラー",
+                description: "編集権限がありません",
+                variant: "destructive",
+            });
+            return;
+        }
+
         try {
             await updateProfileRelationships(profile.id, type, selectedIds);
             // Refresh local state
@@ -685,6 +729,11 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
             }
         } catch (error) {
             console.error(`Failed to update ${type}:`, error);
+            toast({
+                title: "エラー",
+                description: "更新に失敗しました",
+                variant: "destructive",
+            });
         }
     };
 
@@ -799,16 +848,18 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                         <>
                             <div className="fixed inset-0 z-40" onClick={() => setShowActions(false)} />
                             <div className="absolute right-4 top-14 z-50 w-40 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg p-2 flex flex-col gap-1 text-sm animate-in fade-in zoom-in-95 duration-100">
-                                <button
-                                    type="button"
-                                    className="w-full text-left px-3 py-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                                    onClick={() => {
-                                        setShowActions(false);
-                                        setShowAttendanceList(true);
-                                    }}
-                                >
-                                    勤怠一覧
-                                </button>
+                                {pagePermissions?.attendance !== false && (
+                                    <button
+                                        type="button"
+                                        className="w-full text-left px-3 py-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                        onClick={() => {
+                                            setShowActions(false);
+                                            setShowAttendanceList(true);
+                                        }}
+                                    >
+                                        勤怠一覧
+                                    </button>
+                                )}
                                 {profile?.id !== currentUserProfileId && (
                                     <button
                                         type="button"
@@ -826,7 +877,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                     )}
 
                     {/* Content */}
-                    <div className="px-4 py-4 space-y-6">
+                    <div className="px-4 pb-4 space-y-6">
                     <form
                             ref={formRef}
                             id="profile-form"
@@ -841,7 +892,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                             {profile && (
                                 <>
                                     {/* Vercel-style Tab Navigation - 基本情報 / レポート */}
-                                    <div className="relative mb-4">
+                                    <div className="relative mb-4 -mt-2">
                                         <div ref={tabToggleRef} className="flex">
                                             <button
                                                 type="button"
@@ -1439,7 +1490,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                             )}
 
                             {/* Bottle Keeps (Guest only) */}
-                            {profile && role === "guest" && (
+                            {profile && role === "guest" && pagePermissions?.bottles !== false && (
                                 <div className="border-t border-gray-200 dark:border-gray-700 pt-6 space-y-4">
                                     <div className="flex items-center justify-between">
                                         <h3 className="font-medium text-gray-900 dark:text-white text-sm">キープボトル</h3>
@@ -1503,13 +1554,15 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                     <div className="space-y-2">
                                                         <div className="flex items-center justify-between">
                                                             <span className="text-xs text-gray-500 dark:text-gray-400">相性 ◯</span>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setRelationshipSelectorOpen("compatibility_good")}
-                                                                className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
-                                                            >
-                                                                + 追加
-                                                            </button>
+                                                            {canEdit && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setRelationshipSelectorOpen("compatibility_good")}
+                                                                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                                                                >
+                                                                    + 追加
+                                                                </button>
+                                                            )}
                                                         </div>
                                                         <div className="flex flex-wrap gap-1">
                                                             {getSelectedProfiles("compatibility_good").length === 0 ? (
@@ -1532,13 +1585,15 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                     <div className="space-y-2">
                                                         <div className="flex items-center justify-between">
                                                             <span className="text-xs text-gray-500 dark:text-gray-400">相性 ✕</span>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setRelationshipSelectorOpen("compatibility_bad")}
-                                                                className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
-                                                            >
-                                                                + 追加
-                                                            </button>
+                                                            {canEdit && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setRelationshipSelectorOpen("compatibility_bad")}
+                                                                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                                                                >
+                                                                    + 追加
+                                                                </button>
+                                                            )}
                                                         </div>
                                                         <div className="flex flex-wrap gap-1">
                                                             {getSelectedProfiles("compatibility_bad").length === 0 ? (
@@ -1562,13 +1617,15 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                         <div className="space-y-2">
                                                             <div className="flex items-center justify-between">
                                                                 <span className="text-xs text-gray-500 dark:text-gray-400">指名</span>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => setRelationshipSelectorOpen("nomination")}
-                                                                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
-                                                                >
-                                                                    + 追加
-                                                                </button>
+                                                                {canEdit && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setRelationshipSelectorOpen("nomination")}
+                                                                        className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                                                                    >
+                                                                        + 追加
+                                                                    </button>
+                                                                )}
                                                             </div>
                                                             <div className="flex flex-wrap gap-1">
                                                                 {getSelectedProfiles("nomination").length === 0 ? (
@@ -1593,13 +1650,15 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                         <div className="space-y-2">
                                                             <div className="flex items-center justify-between">
                                                                 <span className="text-xs text-gray-500 dark:text-gray-400">担当</span>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => setRelationshipSelectorOpen("in_charge")}
-                                                                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
-                                                                >
-                                                                    + 追加
-                                                                </button>
+                                                                {canEdit && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setRelationshipSelectorOpen("in_charge")}
+                                                                        className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                                                                    >
+                                                                        + 追加
+                                                                    </button>
+                                                                )}
                                                             </div>
                                                             <div className="flex flex-wrap gap-1">
                                                                 {getSelectedProfiles("in_charge").length === 0 ? (
@@ -1627,7 +1686,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                             )}
 
                             {/* Resume Section (Cast only) */}
-                            {!hidePersonalInfo && role === "cast" && (
+                            {!hidePersonalInfo && role === "cast" && pagePermissions?.resumes !== false && (
                                 <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
                                     <Accordion type="single" collapsible className="w-full" value={isEditingSection('resume') ? 'resume' : resumeAccordionOpen} onValueChange={setResumeAccordionOpen}>
                                         <AccordionItem value="resume" className="border-none">
@@ -2198,7 +2257,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                             )}
 
                             {/* Salary Systems Section - for cast, staff, partner */}
-                            {(role === "cast" || role === "staff" || role === "partner") && (() => {
+                            {(role === "cast" || role === "staff" || role === "partner") && pagePermissions?.salarySystems !== false && (() => {
                                 const selectedSystem = salarySystems.find(s => s.id === selectedSalarySystemId);
                                 return (
                                     <div className="pt-4 border-t border-gray-100 dark:border-gray-800">

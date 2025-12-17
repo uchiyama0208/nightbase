@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 };
 
 export default async function PricingSystemsPage() {
-    const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("pricing-systems", "view");
+    const { user, profile, hasAccess, canEdit } = await getAppDataWithPermissionCheck("pricing-systems", "view");
 
     if (!user) {
         redirect("/login");
@@ -22,7 +22,7 @@ export default async function PricingSystemsPage() {
         redirect(getAccessDeniedRedirectUrl("pricing-systems"));
     }
 
-    return <PricingSystemsClient />;
+    return <PricingSystemsClient canEdit={canEdit} />;
 }
 
 export const dynamic = 'force-dynamic';

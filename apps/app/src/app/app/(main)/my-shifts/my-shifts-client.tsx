@@ -1,8 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { Calendar, Clock, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { Calendar, Clock, AlertCircle, ChevronLeft, ChevronRight, ClipboardList } from "lucide-react";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
+import { Input } from "@/components/ui/input";
+import { updateReservationType } from "./actions";
 
 const SubmissionModal = dynamic(
     () => import("./submission-modal").then((mod) => ({ default: mod.SubmissionModal })),
@@ -39,6 +42,9 @@ interface ApprovedShift {
     date: string;
     startTime: string | null;
     endTime: string | null;
+    status?: "approved" | "pending" | "rejected";
+    reservationType?: "douhan" | "shimei" | "none" | null;
+    guestName?: string | null;
 }
 
 interface MyShiftsClientProps {
@@ -59,10 +65,25 @@ export function MyShiftsClient({
     submittedRequestIds,
 }: MyShiftsClientProps) {
     const [selectedRequest, setSelectedRequest] = useState<ShiftRequest | null>(null);
+    const [viewMode, setViewMode] = useState<"shifts" | "calendar">("calendar");
     const [currentMonth, setCurrentMonth] = useState(() => {
         const now = new Date();
         return new Date(now.getFullYear(), now.getMonth(), 1);
     });
+
+    // Vercel-style tabs
+    const viewTabsRef = useRef<{ [key: string]: HTMLButtonElement | null }>({});
+    const [viewIndicatorStyle, setViewIndicatorStyle] = useState({ left: 0, width: 0 });
+
+    useEffect(() => {
+        const activeButton = viewTabsRef.current[viewMode];
+        if (activeButton) {
+            setViewIndicatorStyle({
+                left: activeButton.offsetLeft,
+                width: activeButton.offsetWidth,
+            });
+        }
+    }, [viewMode]);
 
     // 募集中のみフィルタ（締切が現在時刻より後）
     const openRequests = useMemo(() => {
@@ -96,6 +117,11 @@ export function MyShiftsClient({
         setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
     };
 
+    const goToToday = () => {
+        const now = new Date();
+        setCurrentMonth(new Date(now.getFullYear(), now.getMonth(), 1));
+    };
+
     return (
         <div className="space-y-4">
             {/* 募集中のシフト */}
@@ -112,13 +138,62 @@ export function MyShiftsClient({
                 </div>
             )}
 
-            {/* カレンダー */}
-            <ShiftCalendar
-                currentMonth={currentMonth}
-                approvedShiftMap={approvedShiftMap}
-                onPreviousMonth={goToPreviousMonth}
-                onNextMonth={goToNextMonth}
-            />
+            {/* Vercel-style View Toggle */}
+            <div className="relative">
+                <div className="flex">
+                    <button
+                        ref={(el) => { viewTabsRef.current["calendar"] = el; }}
+                        type="button"
+                        onClick={() => setViewMode("calendar")}
+                        className={`flex-1 py-2 text-sm font-medium transition-colors relative flex items-center justify-center gap-1.5 ${
+                            viewMode === "calendar"
+                                ? "text-gray-900 dark:text-white"
+                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                        }`}
+                    >
+                        <Calendar className="h-4 w-4" />
+                        カレンダー
+                    </button>
+                    <button
+                        ref={(el) => { viewTabsRef.current["shifts"] = el; }}
+                        type="button"
+                        onClick={() => setViewMode("shifts")}
+                        className={`flex-1 py-2 text-sm font-medium transition-colors relative flex items-center justify-center gap-1.5 ${
+                            viewMode === "shifts"
+                                ? "text-gray-900 dark:text-white"
+                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                        }`}
+                    >
+                        <ClipboardList className="h-4 w-4" />
+                        シフト
+                    </button>
+                </div>
+                <div
+                    className="absolute bottom-0 h-0.5 bg-gray-900 dark:bg-white transition-all duration-200"
+                    style={{ left: viewIndicatorStyle.left, width: viewIndicatorStyle.width }}
+                />
+                <div className="absolute bottom-0 left-0 right-0 h-px bg-gray-200 dark:bg-gray-700" />
+            </div>
+
+            {/* Content */}
+            {viewMode === "shifts" ? (
+                <ShiftsList
+                    currentMonth={currentMonth}
+                    approvedShiftMap={approvedShiftMap}
+                    onPreviousMonth={goToPreviousMonth}
+                    onNextMonth={goToNextMonth}
+                    onGoToToday={goToToday}
+                    profileRole={profileRole}
+                />
+            ) : (
+                <ShiftCalendar
+                    currentMonth={currentMonth}
+                    approvedShiftMap={approvedShiftMap}
+                    onPreviousMonth={goToPreviousMonth}
+                    onNextMonth={goToNextMonth}
+                    onGoToToday={goToToday}
+                />
+            )}
 
             {selectedRequest && (
                 <SubmissionModal
@@ -212,16 +287,355 @@ function ShiftRequestCard({
     );
 }
 
-function ShiftCalendar({
+type FilterType = "all" | "today";
+type ReservationType = "douhan" | "shimei" | "none" | null;
+
+function ShiftsList({
     currentMonth,
     approvedShiftMap,
     onPreviousMonth,
     onNextMonth,
+    onGoToToday,
+    profileRole,
 }: {
     currentMonth: Date;
     approvedShiftMap: Map<string, ApprovedShift>;
     onPreviousMonth: () => void;
     onNextMonth: () => void;
+    onGoToToday: () => void;
+    profileRole: string;
+}) {
+    const router = useRouter();
+    const [filter, setFilter] = useState<FilterType>("all");
+    const [editingShiftId, setEditingShiftId] = useState<string | null>(null);
+    const [editingType, setEditingType] = useState<"douhan" | "shimei" | null>(null);
+    const [guestNameInputs, setGuestNameInputs] = useState<{ [key: string]: string }>({});
+    const [savingShiftId, setSavingShiftId] = useState<string | null>(null);
+
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    const isCast = profileRole === "cast";
+
+    // 今日の日付を取得
+    const todayStr = new Date().toLocaleDateString("ja-JP", {
+        timeZone: "Asia/Tokyo",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+    }).replace(/\//g, "-");
+
+    // 月の全日付を生成
+    const monthDates = useMemo(() => {
+        const dates: { date: string; day: number; dayOfWeek: number }[] = [];
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+            const date = new Date(year, month, day);
+            dates.push({
+                date: dateStr,
+                day,
+                dayOfWeek: date.getDay(),
+            });
+        }
+        return dates;
+    }, [year, month, daysInMonth]);
+
+    // フィルター適用
+    const filteredDates = useMemo(() => {
+        if (filter === "today") {
+            return monthDates.filter((d) => d.date === todayStr);
+        }
+        return monthDates;
+    }, [monthDates, filter, todayStr]);
+
+    // 今日タグをクリックしたとき
+    const handleTodayFilter = () => {
+        onGoToToday();
+        setFilter("today");
+    };
+
+    // 同伴・指名タイプを変更
+    const handleReservationTypeChange = async (
+        shiftId: string,
+        newType: ReservationType,
+        currentGuestName: string | null
+    ) => {
+        if (newType === "none") {
+            // なしの場合は即座に保存
+            setSavingShiftId(shiftId);
+            await updateReservationType(shiftId, "none", null);
+            setSavingShiftId(null);
+            setEditingShiftId(null);
+            setEditingType(null);
+            router.refresh();
+        } else if (newType === "douhan" || newType === "shimei") {
+            // 同伴または指名の場合は入力欄を表示
+            setEditingShiftId(shiftId);
+            setEditingType(newType);
+            setGuestNameInputs((prev) => ({
+                ...prev,
+                [shiftId]: currentGuestName || "",
+            }));
+        }
+    };
+
+    // ゲスト名を保存
+    const handleSaveGuestName = async (shiftId: string, reservationType: ReservationType) => {
+        const guestName = guestNameInputs[shiftId] || "";
+        setSavingShiftId(shiftId);
+        await updateReservationType(shiftId, reservationType, guestName);
+        setSavingShiftId(null);
+        setEditingShiftId(null);
+        setEditingType(null);
+        router.refresh();
+    };
+
+    // 保存時のタイプを取得
+    const getReservationTypeForSave = (shift: ApprovedShift): ReservationType => {
+        if (editingShiftId === shift.id && editingType) {
+            return editingType;
+        }
+        return shift.reservationType || null;
+    };
+
+    return (
+        <div className="space-y-4">
+            {/* Month Navigation */}
+            <div className="flex items-center justify-between">
+                <button
+                    type="button"
+                    onClick={onPreviousMonth}
+                    className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                >
+                    <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                </button>
+                <div className="flex items-center gap-3">
+                    <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                        {year}年{month + 1}月
+                    </h2>
+                    <button
+                        type="button"
+                        onClick={onGoToToday}
+                        className="text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                    >
+                        今月
+                    </button>
+                </div>
+                <button
+                    type="button"
+                    onClick={onNextMonth}
+                    className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                >
+                    <ChevronRight className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                </button>
+            </div>
+
+            {/* Filter Tags */}
+            <div className="flex gap-2">
+                <button
+                    type="button"
+                    onClick={() => setFilter("all")}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                        filter === "all"
+                            ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
+                            : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                    }`}
+                >
+                    すべて
+                </button>
+                <button
+                    type="button"
+                    onClick={handleTodayFilter}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                        filter === "today"
+                            ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
+                            : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                    }`}
+                >
+                    今日
+                </button>
+            </div>
+
+            {/* Date Cards */}
+            <div className="space-y-2">
+                {filteredDates.length === 0 ? (
+                    <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                        シフトがありません
+                    </div>
+                ) : filteredDates.map(({ date, day, dayOfWeek }) => {
+                    const shift = approvedShiftMap.get(date);
+                    const isToday = date === todayStr;
+                    const isSunday = dayOfWeek === 0;
+                    const isSaturday = dayOfWeek === 6;
+                    const weekDays = ["日", "月", "火", "水", "木", "金", "土"];
+                    const isEditing = shift && editingShiftId === shift.id;
+                    const isSaving = shift && savingShiftId === shift.id;
+
+                    return (
+                        <div
+                            key={date}
+                            className={`bg-white dark:bg-gray-900 rounded-xl border p-3 ${
+                                isToday
+                                    ? "border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20"
+                                    : "border-gray-200 dark:border-gray-700"
+                            }`}
+                        >
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <span
+                                        className={`text-base font-semibold ${
+                                            isToday
+                                                ? "text-blue-600 dark:text-blue-400"
+                                                : isSunday
+                                                ? "text-red-500"
+                                                : isSaturday
+                                                ? "text-blue-500"
+                                                : "text-gray-900 dark:text-white"
+                                        }`}
+                                    >
+                                        {month + 1}/{day}（{weekDays[dayOfWeek]}）
+                                    </span>
+                                    {isToday && (
+                                        <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400">
+                                            今日
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    {shift ? (
+                                        <>
+                                            {shift.status === "approved" && (
+                                                <>
+                                                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                                                        {shift.startTime?.slice(0, 5) || "--:--"} 〜 {shift.endTime?.slice(0, 5) || "--:--"}
+                                                    </span>
+                                                    <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                                        確定
+                                                    </span>
+                                                </>
+                                            )}
+                                            {shift.status === "pending" && (
+                                                <>
+                                                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                                                        {shift.startTime?.slice(0, 5) || "--:--"} 〜 {shift.endTime?.slice(0, 5) || "--:--"}
+                                                    </span>
+                                                    <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                                                        提出済み
+                                                    </span>
+                                                </>
+                                            )}
+                                            {shift.status === "rejected" && (
+                                                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                                                    否認
+                                                </span>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <span className="text-sm text-gray-400 dark:text-gray-500">
+                                            -
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* キャストの場合、確定シフトに同伴・指名選択を表示 */}
+                            {isCast && shift && shift.status === "approved" && (
+                                <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
+                                    {/* 同伴・指名選択ボタン */}
+                                    <div className="flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => handleReservationTypeChange(shift.id, "douhan", shift.guestName || null)}
+                                            disabled={isSaving}
+                                            className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                                                shift.reservationType === "douhan"
+                                                    ? "bg-pink-600 text-white"
+                                                    : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                                            }`}
+                                        >
+                                            同伴
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleReservationTypeChange(shift.id, "shimei", shift.guestName || null)}
+                                            disabled={isSaving}
+                                            className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                                                shift.reservationType === "shimei"
+                                                    ? "bg-purple-600 text-white"
+                                                    : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                                            }`}
+                                        >
+                                            指名
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleReservationTypeChange(shift.id, "none", null)}
+                                            disabled={isSaving}
+                                            className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                                                shift.reservationType === "none" || !shift.reservationType
+                                                    ? "bg-gray-600 text-white dark:bg-gray-500"
+                                                    : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                                            }`}
+                                        >
+                                            なし
+                                        </button>
+                                    </div>
+
+                                    {/* ゲスト名入力欄（同伴または指名が選択されている場合） */}
+                                    {(shift.reservationType === "douhan" || shift.reservationType === "shimei" || isEditing) && (
+                                        <div className="mt-2 flex gap-2">
+                                            <Input
+                                                type="text"
+                                                placeholder="ゲスト名を入力"
+                                                value={guestNameInputs[shift.id] ?? shift.guestName ?? ""}
+                                                onChange={(e) =>
+                                                    setGuestNameInputs((prev) => ({
+                                                        ...prev,
+                                                        [shift.id]: e.target.value,
+                                                    }))
+                                                }
+                                                className="flex-1 h-8 text-sm"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => handleSaveGuestName(shift.id, getReservationTypeForSave(shift))}
+                                                disabled={isSaving}
+                                                className="px-3 py-1 text-xs font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                                            >
+                                                {isSaving ? "保存中..." : "保存"}
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* 保存済みのゲスト名表示 */}
+                                    {shift.guestName && !isEditing && (shift.reservationType === "douhan" || shift.reservationType === "shimei") && (
+                                        <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                                            ゲスト: {shift.guestName}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
+function ShiftCalendar({
+    currentMonth,
+    approvedShiftMap,
+    onPreviousMonth,
+    onNextMonth,
+    onGoToToday,
+}: {
+    currentMonth: Date;
+    approvedShiftMap: Map<string, ApprovedShift>;
+    onPreviousMonth: () => void;
+    onNextMonth: () => void;
+    onGoToToday: () => void;
 }) {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
@@ -260,11 +674,6 @@ function ShiftCalendar({
         );
     };
 
-    const goToToday = () => {
-        // This would need state management to work properly
-        // For now, we'll just use the month navigation
-    };
-
     return (
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
             {/* Calendar Header */}
@@ -280,6 +689,13 @@ function ShiftCalendar({
                     <h2 className="text-base font-semibold text-gray-900 dark:text-white">
                         {year}年{month + 1}月
                     </h2>
+                    <button
+                        type="button"
+                        onClick={onGoToToday}
+                        className="text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                    >
+                        今月
+                    </button>
                 </div>
                 <button
                     type="button"
@@ -348,11 +764,21 @@ function ShiftCalendar({
                                 {day}
                             </div>
 
-                            {/* Shift Time */}
-                            {shift && (
+                            {/* Shift Display */}
+                            {shift && shift.status === "approved" && (
                                 <div className="flex items-center gap-0.5 text-[10px] leading-tight px-1 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
                                     <Clock className="h-2.5 w-2.5" />
                                     <span className="truncate">{formatTimeRange(shift.startTime, shift.endTime)}</span>
+                                </div>
+                            )}
+                            {shift && shift.status === "pending" && (
+                                <div className="flex justify-center">
+                                    <span className="w-2 h-2 rounded-full bg-blue-500 dark:bg-blue-400" />
+                                </div>
+                            )}
+                            {shift && shift.status === "rejected" && (
+                                <div className="flex justify-center">
+                                    <span className="w-2 h-2 rounded-full bg-red-500 dark:bg-red-400" />
                                 </div>
                             )}
                         </div>
@@ -364,7 +790,15 @@ function ShiftCalendar({
             <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
                 <div className="flex items-center gap-1.5">
                     <span className="w-3 h-3 rounded bg-green-100 dark:bg-green-900/30" />
-                    <span>出勤予定</span>
+                    <span>確定</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-blue-500 dark:bg-blue-400" />
+                    <span>提出済み</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-red-500 dark:bg-red-400" />
+                    <span>否認</span>
                 </div>
             </div>
         </div>

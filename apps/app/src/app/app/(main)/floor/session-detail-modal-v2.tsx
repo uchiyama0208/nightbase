@@ -31,6 +31,14 @@ import { UserEditModal } from "../users/user-edit-modal";
 import { TAG_OPTIONS, getCurrentTag, getTagOption, type TagValue } from "./constants/tag-options";
 import { formatTimeForInput, timeInputToISO, formatTimeSafe } from "./utils/format";
 
+interface PagePermissions {
+    bottles: boolean;
+    resumes: boolean;
+    salarySystems: boolean;
+    attendance: boolean;
+    personalInfo: boolean;
+}
+
 interface SessionDetailModalV2Props {
     isOpen: boolean;
     onClose: () => void;
@@ -39,9 +47,10 @@ interface SessionDetailModalV2Props {
     onUpdate: () => void;
     onOpenSlip?: (sessionId: string) => void;
     slipIsOpen?: boolean;
+    pagePermissions?: PagePermissions;
 }
 
-export function SessionDetailModalV2({ isOpen, onClose, session, table, onUpdate, onOpenSlip, slipIsOpen = false }: SessionDetailModalV2Props) {
+export function SessionDetailModalV2({ isOpen, onClose, session, table, onUpdate, onOpenSlip, slipIsOpen = false, pagePermissions }: SessionDetailModalV2Props) {
     const [daySwitchTime, setDaySwitchTime] = useState<string>("05:00:00");
 
     useEffect(() => {
@@ -567,6 +576,7 @@ export function SessionDetailModalV2({ isOpen, onClose, session, table, onUpdate
                 onProfileSelect={handleCastSelected}
                 mode={placementMode}
                 sessionId={session?.id}
+                pagePermissions={pagePermissions}
             />
 
             {/* Delete Confirmation Modal */}
@@ -738,6 +748,8 @@ export function SessionDetailModalV2({ isOpen, onClose, session, table, onUpdate
                         if (!open) setProfileViewUser(null);
                     }}
                     isNested={true}
+                    hidePersonalInfo={!pagePermissions?.personalInfo}
+                    pagePermissions={pagePermissions}
                 />
             )}
 

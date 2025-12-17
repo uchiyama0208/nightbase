@@ -99,7 +99,34 @@ export async function getGeneratedImages(limit = 50): Promise<GeneratedImage[]> 
     }
 }
 
-// 画像生成（実際のAPI呼び出しは別途実装）
+// Pollinations.ai (Flux) で画像生成
+async function generateWithPollinations(
+    prompt: string,
+    width: number,
+    height: number
+): Promise<{ success: boolean; imageUrl?: string; error?: string }> {
+    try {
+        // プロンプトをURLエンコード
+        const encodedPrompt = encodeURIComponent(prompt);
+
+        // Pollinations.ai API URL
+        const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&nologo=true&model=flux`;
+
+        // 画像が生成されるか確認（HEADリクエスト）
+        const response = await fetch(imageUrl, { method: "HEAD" });
+
+        if (!response.ok) {
+            return { success: false, error: "画像生成に失敗しました" };
+        }
+
+        return { success: true, imageUrl };
+    } catch (error) {
+        console.error("Pollinations API error:", error);
+        return { success: false, error: "画像生成APIでエラーが発生しました" };
+    }
+}
+
+// 画像生成
 export async function generateImage(
     prompt: string,
     imageType: GeneratedImage["image_type"],
@@ -117,24 +144,12 @@ export async function generateImage(
             return { success: false, error: "クレジットが不足しています" };
         }
 
-        // TODO: ナノバナナプロAPI呼び出し
-        // const response = await fetch("https://api.nanobanana.pro/v1/generate", {
-        //     method: "POST",
-        //     headers: {
-        //         "Authorization": `Bearer ${process.env.NANOBANANA_API_KEY}`,
-        //         "Content-Type": "application/json",
-        //     },
-        //     body: JSON.stringify({
-        //         model: "flux-1.1-pro",
-        //         prompt,
-        //         width,
-        //         height,
-        //     }),
-        // });
-        // const result = await response.json();
+        // Pollinations.ai (Flux) で画像生成
+        const result = await generateWithPollinations(prompt, width, height);
 
-        // 仮の画像URL（API実装後に置き換え）
-        const mockImageUrl = `https://placehold.co/${width}x${height}/1a1a2e/ffffff?text=AI+Generated`;
+        if (!result.success || !result.imageUrl) {
+            return { success: false, error: result.error || "画像生成に失敗しました" };
+        }
 
         // クレジット消費
         const { error: creditError } = await supabase
@@ -156,11 +171,11 @@ export async function generateImage(
                 template_id: templateId || null,
                 template_name: templateName || null,
                 prompt,
-                image_url: mockImageUrl,
+                image_url: result.imageUrl,
                 image_type: imageType,
                 size_width: width,
                 size_height: height,
-                model_used: "flux-1.1-pro",
+                model_used: "flux",
                 credits_used: 1,
             })
             .select()

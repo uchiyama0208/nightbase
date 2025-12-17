@@ -46,6 +46,7 @@ function isClosedDay(dateString: string, closedDays: string[] | null): boolean {
 interface Cast {
     id: string;
     display_name: string;
+    status?: string | null;
 }
 
 interface ReservationFormProps {

@@ -19,6 +19,13 @@ export async function addCastFeeV2(
 
     const isWaiting = initialStatus === 'waiting';
 
+    // セッションからstore_idを取得
+    const { data: session } = await supabase
+        .from("table_sessions")
+        .select("store_id")
+        .eq("id", sessionId)
+        .single();
+
     // 料金システムを取得
     let pricingSystem: PricingSystemData | null = null;
     if (pricingSystemId && !isWaiting) {
@@ -42,6 +49,7 @@ export async function addCastFeeV2(
         .from("orders")
         .insert({
             table_session_id: sessionId,
+            store_id: session?.store_id,
             menu_id: null,
             item_name: isWaiting ? '' : getCastFeeItemName(feeType),
             quantity: 1,
@@ -181,6 +189,7 @@ export async function changeCastFeeTypeV2(
         .from("orders")
         .insert({
             table_session_id: existingOrder.table_session_id,
+            store_id: existingOrder.store_id,
             menu_id: null,
             item_name: getCastFeeItemName(newFeeType),
             quantity: 1,

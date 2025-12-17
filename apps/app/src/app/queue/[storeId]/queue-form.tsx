@@ -29,7 +29,6 @@ export function QueueForm({ store, waitingCount }: QueueFormProps) {
     const [isSuccess, setIsSuccess] = useState(false);
     const [queueNumber, setQueueNumber] = useState<number | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const [contactType, setContactType] = useState<"email" | "phone">("phone");
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -38,7 +37,7 @@ export function QueueForm({ store, waitingCount }: QueueFormProps) {
 
         const formData = new FormData(e.currentTarget);
         formData.set("store_id", store.id);
-        formData.set("contact_type", contactType);
+        formData.set("contact_type", "email");
 
         const result = await submitQueueEntry(formData);
 
@@ -149,40 +148,15 @@ export function QueueForm({ store, waitingCount }: QueueFormProps) {
                     </Select>
                 </div>
 
-                {/* 連絡先種類 */}
+                {/* メールアドレス入力 */}
                 <div className="space-y-1.5">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-                        連絡方法 <span className="text-red-500">*</span>
-                    </label>
-                    <div className="flex gap-2">
-                        <Button
-                            type="button"
-                            variant={contactType === "phone" ? "default" : "outline"}
-                            className="flex-1 h-12 rounded-xl"
-                            onClick={() => setContactType("phone")}
-                        >
-                            電話番号
-                        </Button>
-                        <Button
-                            type="button"
-                            variant={contactType === "email" ? "default" : "outline"}
-                            className="flex-1 h-12 rounded-xl"
-                            onClick={() => setContactType("email")}
-                        >
-                            メール
-                        </Button>
-                    </div>
-                </div>
-
-                {/* 連絡先入力 */}
-                <div className="space-y-1.5">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-                        {contactType === "phone" ? "電話番号" : "メールアドレス"} <span className="text-red-500">*</span>
+                        メールアドレス <span className="text-red-500">*</span>
                     </label>
                     <Input
                         name="contact_value"
-                        type={contactType === "email" ? "email" : "tel"}
-                        placeholder={contactType === "phone" ? "090-1234-5678" : "example@mail.com"}
+                        type="email"
+                        placeholder="example@mail.com"
                         required
                         className="h-12 rounded-xl border-gray-200 bg-white text-base
                                    focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0

@@ -388,7 +388,7 @@ export const TABLE_LABELS: Record<string, string> = {
     shift_submissions: "シフト提出",
     shift_automation_settings: "シフト自動化設定",
     // 勤怠
-    time_cards: "タイムカード",
+    work_records: "勤怠記録",
     attendance: "出勤管理",
     pickup_routes: "送迎ルート",
     pickup_passengers: "送迎乗客",
@@ -464,7 +464,7 @@ const navSections: NavSection[] = [
         title: "勤怠",
         icon: <Clock className="h-4 w-4" />,
         items: [
-            { label: "タイムカード", href: "/admin/tables/time_cards", table: "time_cards" },
+            { label: "勤怠記録", href: "/admin/tables/work_records", table: "work_records" },
             { label: "出勤管理", href: "/admin/tables/attendance", table: "attendance" },
             { label: "送迎ルート", href: "/admin/tables/pickup_routes", table: "pickup_routes" },
             { label: "送迎乗客", href: "/admin/tables/pickup_passengers", table: "pickup_passengers" },

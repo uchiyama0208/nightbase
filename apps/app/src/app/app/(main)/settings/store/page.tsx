@@ -3,6 +3,7 @@ import { StoreSettingsForm } from "./store-settings-form";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { getAppDataWithPermissionCheck, getAccessDeniedRedirectUrl } from "@/app/app/data-access";
+import { createServerClient } from "@/lib/supabaseServerClient";
 
 export default async function StoreSettingsPage() {
     const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("settings", "edit");
@@ -21,6 +22,24 @@ export default async function StoreSettingsPage() {
 
     const store = profile.stores as any;
 
+    // store_settings からも設定を取得
+    const supabase = await createServerClient() as any;
+    const { data: storeSettings } = await supabase
+        .from("store_settings")
+        .select("business_start_time, business_end_time, day_switch_time, closed_days, allow_join_requests")
+        .eq("store_id", store.id)
+        .single();
+
+    // storeオブジェクトにstore_settingsのデータをマージ
+    const storeWithSettings = {
+        ...store,
+        business_start_time: storeSettings?.business_start_time || null,
+        business_end_time: storeSettings?.business_end_time || null,
+        day_switch_time: storeSettings?.day_switch_time || null,
+        closed_days: storeSettings?.closed_days || [],
+        allow_join_requests: storeSettings?.allow_join_requests || false,
+    };
+
     return (
         <div className="max-w-2xl mx-auto space-y-4">
             <div className="flex items-center space-x-4">
@@ -33,7 +52,7 @@ export default async function StoreSettingsPage() {
                 <h1 className="text-xl font-bold text-gray-900 dark:text-white">店舗情報</h1>
             </div>
 
-            <StoreSettingsForm store={store} />
+            <StoreSettingsForm store={storeWithSettings} />
         </div>
     );
 }
