@@ -57,6 +57,7 @@ export async function getInvitations(filters?: { status?: string; search?: strin
     }
 
     // Query profiles table for invitations
+    // Get all profiles for this store - we'll filter client-side
     let query = supabase
         .from("profiles")
         .select(`
@@ -70,22 +71,10 @@ export async function getInvitations(filters?: { status?: string; search?: strin
             display_name,
             display_name_kana,
             real_name,
-            avatar_url
+            avatar_url,
+            user_id
         `)
-        .eq("store_id", storeId)
-        .in("invite_status", ["pending", "accepted", "canceled"]); // Fetch all invitation statuses
-
-    // Apply status filter if specified
-    if (filters?.status) {
-        query = query.eq("invite_status", filters.status);
-    }
-
-    // Only apply these constraints for pending/active invitations
-    if (filters?.status === "pending") {
-        query = query
-            .not("invite_token", "is", null)
-            .not("invite_expires_at", "is", null);
-    }
+        .eq("store_id", storeId);
 
     if (filters?.role) {
         query = query.eq("role", filters.role);
@@ -99,32 +88,57 @@ export async function getInvitations(filters?: { status?: string; search?: strin
     }
 
     // Map profiles to Invitation interface
-    let invitations: Invitation[] = profiles
-        .filter(p => {
-            // Filter out invalid pending invitations (pending but no expiration)
-            // This prevents showing uninvited profiles as "expired" invitations
-            if (p.invite_status === 'pending' && !p.invite_expires_at) {
-                return false;
+    // Determine status based on user_id and invite_status
+    let invitations: Invitation[] = (profiles || [])
+        .map(p => {
+            // Determine effective status:
+            // - If user_id is set, they have joined (accepted)
+            // - If invite_status is pending with valid expiration, they are pending
+            // - If invite_status is canceled, they are canceled
+            // - Otherwise, skip (uninvited placeholder profiles)
+            let effectiveStatus: "pending" | "accepted" | "expired" | "canceled" | null = null;
+
+            if (p.user_id) {
+                // Has a linked user account - they are participating
+                effectiveStatus = "accepted";
+            } else if (p.invite_status === "pending" && p.invite_expires_at) {
+                // Has a pending invitation with expiration
+                effectiveStatus = "pending";
+            } else if (p.invite_status === "canceled") {
+                // Invitation was canceled
+                effectiveStatus = "canceled";
+            } else if (p.invite_status === "accepted") {
+                // Legacy: invite_status is accepted
+                effectiveStatus = "accepted";
             }
-            return true;
+            // If effectiveStatus is still null, this is an uninvited placeholder - skip it
+
+            if (!effectiveStatus) return null;
+
+            return {
+                id: p.id, // Using profile ID as invitation ID
+                token: p.id, // Use Profile ID as token
+                store_id: p.store_id,
+                profile_id: p.id,
+                role_id: null, // Role is directly on profile now
+                status: effectiveStatus,
+                expires_at: p.invite_expires_at,
+                created_at: p.created_at,
+                profile: {
+                    display_name: p.display_name,
+                    display_name_kana: p.display_name_kana,
+                    real_name: p.real_name,
+                    avatar_url: p.avatar_url,
+                    role: p.role
+                }
+            };
         })
-        .map(p => ({
-            id: p.id, // Using profile ID as invitation ID
-            token: p.id, // Use Profile ID as token
-            store_id: p.store_id,
-            profile_id: p.id,
-            role_id: null, // Role is directly on profile now
-            status: p.invite_status as any,
-            expires_at: p.invite_expires_at,
-            created_at: p.created_at,
-            profile: {
-                display_name: p.display_name,
-                display_name_kana: p.display_name_kana,
-                real_name: p.real_name,
-                avatar_url: p.avatar_url,
-                role: p.role
-            }
-        }));
+        .filter((inv): inv is Invitation => inv !== null);
+
+    // Client-side filtering for status
+    if (filters?.status) {
+        invitations = invitations.filter((inv) => inv.status === filters.status);
+    }
 
     // Client-side filtering for search
     if (filters?.search) {

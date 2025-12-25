@@ -99,6 +99,7 @@ export function InvitationModal({
     const [showProfileSelector, setShowProfileSelector] = useState(false);
     const [targetType, setTargetType] = useState<"staff" | "cast">("cast");
     const [profileSearchQuery, setProfileSearchQuery] = useState("");
+    const [previewProfileId, setPreviewProfileId] = useState<string | null>(null);
 
     // Settings state
     const [allowJoinByUrl, setAllowJoinByUrl] = useState(storeSettings?.allow_join_by_url ?? false);
@@ -601,6 +602,15 @@ export function InvitationModal({
                     </DialogHeader>
 
                     <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 space-y-3">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <Input
+                                placeholder="名前で検索..."
+                                value={profileSearchQuery}
+                                onChange={(e) => setProfileSearchQuery(e.target.value)}
+                                className="pl-9"
+                            />
+                        </div>
                         {/* Cast/Staff Filter Tabs */}
                         <div className="flex gap-2">
                             <button
@@ -626,15 +636,6 @@ export function InvitationModal({
                                 スタッフ
                             </button>
                         </div>
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            <Input
-                                placeholder="名前で検索..."
-                                value={profileSearchQuery}
-                                onChange={(e) => setProfileSearchQuery(e.target.value)}
-                                className="pl-9"
-                            />
-                        </div>
                     </div>
 
                     <div className="flex-1 overflow-y-auto">
@@ -649,34 +650,45 @@ export function InvitationModal({
                         ) : (
                             <div className="divide-y divide-gray-100 dark:divide-gray-800">
                                 {searchFilteredProfiles.map((profile) => (
-                                    <button
+                                    <div
                                         key={profile.id}
-                                        type="button"
-                                        onClick={() => {
-                                            setSelectedProfileId(profile.id);
-                                            setShowProfileSelector(false);
-                                            setProfileSearchQuery("");
-                                        }}
                                         className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${
                                             selectedProfileId === profile.id ? "bg-blue-50 dark:bg-blue-900/20" : ""
                                         }`}
                                     >
-                                        {profile.avatar_url ? (
-                                            <Image
-                                                src={profile.avatar_url}
-                                                alt={profile.display_name}
-                                                width={40}
-                                                height={40}
-                                                className="rounded-full object-cover"
-                                            />
-                                        ) : (
-                                            <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                                                <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                                                    {profile.display_name.charAt(0)}
-                                                </span>
-                                            </div>
-                                        )}
-                                        <div className="flex-1 min-w-0">
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setPreviewProfileId(profile.id);
+                                            }}
+                                            className="flex-shrink-0 rounded-full hover:ring-2 hover:ring-blue-400 transition-all"
+                                        >
+                                            {profile.avatar_url ? (
+                                                <Image
+                                                    src={profile.avatar_url}
+                                                    alt={profile.display_name}
+                                                    width={40}
+                                                    height={40}
+                                                    className="rounded-full object-cover"
+                                                />
+                                            ) : (
+                                                <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                                                    <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                                                        {profile.display_name.charAt(0)}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setSelectedProfileId(profile.id);
+                                                setShowProfileSelector(false);
+                                                setProfileSearchQuery("");
+                                            }}
+                                            className="flex-1 min-w-0 text-left"
+                                        >
                                             <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                                                 {profile.display_name}
                                             </p>
@@ -685,17 +697,30 @@ export function InvitationModal({
                                                     {profile.display_name_kana}
                                                 </p>
                                             )}
-                                        </div>
+                                        </button>
                                         {selectedProfileId === profile.id && (
                                             <Check className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
                                         )}
-                                    </button>
+                                    </div>
                                 ))}
                             </div>
                         )}
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {/* Profile Preview Modal */}
+            <UserEditModal
+                open={!!previewProfileId}
+                onOpenChange={(open) => {
+                    if (!open) setPreviewProfileId(null);
+                }}
+                profile={uninvitedProfiles.find(p => p.id === previewProfileId) || null}
+                isNested={true}
+                hidePersonalInfo={!pagePermissions?.personalInfo}
+                pagePermissions={pagePermissions}
+                canEdit={false}
+            />
         </>
     );
 }
