@@ -1434,11 +1434,11 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                         </div>
                                     )}
 
-                            {(role === "staff" || role === "admin") && (
+                            {profile && (role === "staff" || role === "admin") && (
                                 <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
                                     <div className="flex items-center justify-between">
                                         <h3 className="font-medium text-gray-900 dark:text-white text-sm">スタッフ情報</h3>
-                                        {profile && !isEditingSection('staffInfo') && (
+                                        {!isEditingSection('staffInfo') && (
                                             <button
                                                 type="button"
                                                 onClick={() => setEditingSection('staffInfo')}

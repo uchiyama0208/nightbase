@@ -454,13 +454,9 @@ export function InvitationList({
                                             <Badge variant="outline" className={
                                                 inv.profile?.role === "cast"
                                                     ? "bg-pink-50 text-pink-700 border-pink-200"
-                                                    : inv.profile?.role === "staff"
-                                                        ? "bg-blue-50 text-blue-700 border-blue-200"
-                                                        : inv.profile?.role === "admin"
-                                                            ? "bg-purple-50 text-purple-700 border-purple-200"
-                                                            : "bg-gray-50 text-gray-500 border-gray-200"
+                                                    : "bg-blue-50 text-blue-700 border-blue-200"
                                             }>
-                                                {inv.profile?.role === "cast" ? "キャスト" : inv.profile?.role === "staff" ? "スタッフ" : inv.profile?.role === "admin" ? "管理者" : inv.profile?.role}
+                                                {inv.profile?.role === "cast" ? "キャスト" : "スタッフ"}
                                             </Badge>
                                         </TableCell>
                                     </TableRow>
