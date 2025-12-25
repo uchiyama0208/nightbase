@@ -13,13 +13,6 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Search, Filter, RefreshCw, ChevronLeft } from "lucide-react";
 import { InvitationModal } from "./invitation-modal";
@@ -77,6 +70,7 @@ interface InvitationListProps {
 
 type MainTabType = "members" | "invitations-requests";
 type RoleTabType = "all" | "cast" | "staff";
+type InvitationStatusTabType = "pending" | "all";
 
 export function InvitationList({
     initialInvitations,
@@ -92,8 +86,8 @@ export function InvitationList({
     const [joinRequests, setJoinRequests] = useState(initialJoinRequests);
     const [uninvitedProfiles, setUninvitedProfiles] = useState(initialUninvitedProfiles);
     const [searchQuery, setSearchQuery] = useState("");
-    const [statusFilter, setStatusFilter] = useState<string>("all");
     const [roleFilter, setRoleFilter] = useState<RoleTabType>("all");
+    const [invitationStatusFilter, setInvitationStatusFilter] = useState<InvitationStatusTabType>("pending");
     const [mainTab, setMainTab] = useState<MainTabType>("members");
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isPending, startTransition] = useTransition();
@@ -136,13 +130,7 @@ export function InvitationList({
 
     const activeFilters = useMemo(() => [
         searchQuery.trim() && `"${searchQuery}"`,
-        statusFilter !== "all" && {
-            pending: "招待中",
-            accepted: "参加済み",
-            canceled: "キャンセル",
-            expired: "期限切れ",
-        }[statusFilter],
-    ].filter(Boolean) as string[], [searchQuery, statusFilter]);
+    ].filter(Boolean) as string[], [searchQuery]);
 
     const hasFilters = activeFilters.length > 0;
 
@@ -173,10 +161,12 @@ export function InvitationList({
         const matchesSearch = displayName.toLowerCase().includes(query) ||
                               displayNameKana.toLowerCase().includes(query) ||
                               realName.toLowerCase().includes(query);
-        const matchesStatus = statusFilter === "all" || inv.status === statusFilter;
         const matchesRole = roleFilter === "all" || inv.profile?.role === roleFilter;
-        return matchesSearch && matchesStatus && matchesRole;
-    }), [pendingInvitations, searchQuery, statusFilter, roleFilter]);
+        // Check if pending (not expired)
+        const isPending = inv.status === "pending" && new Date(inv.expires_at) >= new Date();
+        const matchesInvitationStatus = invitationStatusFilter === "all" || isPending;
+        return matchesSearch && matchesRole && matchesInvitationStatus;
+    }), [pendingInvitations, searchQuery, roleFilter, invitationStatusFilter]);
 
     const filteredJoinRequests = useMemo(() => joinRequests.filter((req) => {
         const query = searchQuery.toLowerCase();
@@ -189,8 +179,9 @@ export function InvitationList({
                               realName.toLowerCase().includes(query) ||
                               realNameKana.toLowerCase().includes(query);
         const matchesRole = roleFilter === "all" || req.requested_role === roleFilter;
-        return matchesSearch && matchesRole;
-    }), [joinRequests, searchQuery, roleFilter]);
+        const matchesInvitationStatus = invitationStatusFilter === "all" || req.status === "pending";
+        return matchesSearch && matchesRole && matchesInvitationStatus;
+    }), [joinRequests, searchQuery, roleFilter, invitationStatusFilter]);
 
     // Count for tabs
     const membersCount = useMemo(() => acceptedMembers.length, [acceptedMembers]);
@@ -354,42 +345,72 @@ export function InvitationList({
                 <div className="absolute bottom-0 left-0 right-0 h-px bg-gray-200 dark:bg-gray-700" />
             </div>
 
-            {/* Role Filter Tags */}
-            <div className="flex gap-2">
-                <button
-                    type="button"
-                    onClick={() => setRoleFilter("all")}
-                    className={`px-3 py-1 text-sm font-medium rounded-full transition-colors ${
-                        roleFilter === "all"
-                            ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
-                            : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-                    }`}
-                >
-                    全て
-                </button>
-                <button
-                    type="button"
-                    onClick={() => setRoleFilter("cast")}
-                    className={`px-3 py-1 text-sm font-medium rounded-full transition-colors ${
-                        roleFilter === "cast"
-                            ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
-                            : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-                    }`}
-                >
-                    キャスト
-                </button>
-                <button
-                    type="button"
-                    onClick={() => setRoleFilter("staff")}
-                    className={`px-3 py-1 text-sm font-medium rounded-full transition-colors ${
-                        roleFilter === "staff"
-                            ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
-                            : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-                    }`}
-                >
-                    スタッフ
-                </button>
-            </div>
+            {/* Role Filter Tags - only show for members tab */}
+            {mainTab === "members" && (
+                <div className="flex gap-2">
+                    <button
+                        type="button"
+                        onClick={() => setRoleFilter("all")}
+                        className={`px-3 py-1 text-sm font-medium rounded-full transition-colors ${
+                            roleFilter === "all"
+                                ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
+                                : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                        }`}
+                    >
+                        全て
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setRoleFilter("cast")}
+                        className={`px-3 py-1 text-sm font-medium rounded-full transition-colors ${
+                            roleFilter === "cast"
+                                ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
+                                : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                        }`}
+                    >
+                        キャスト
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setRoleFilter("staff")}
+                        className={`px-3 py-1 text-sm font-medium rounded-full transition-colors ${
+                            roleFilter === "staff"
+                                ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
+                                : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                        }`}
+                    >
+                        スタッフ
+                    </button>
+                </div>
+            )}
+
+            {/* Status Filter Tags - only show for invitations-requests tab */}
+            {mainTab === "invitations-requests" && (
+                <div className="flex gap-2">
+                    <button
+                        type="button"
+                        onClick={() => setInvitationStatusFilter("pending")}
+                        className={`px-3 py-1 text-sm font-medium rounded-full transition-colors ${
+                            invitationStatusFilter === "pending"
+                                ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
+                                : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                        }`}
+                    >
+                        保留中
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setInvitationStatusFilter("all")}
+                        className={`px-3 py-1 text-sm font-medium rounded-full transition-colors ${
+                            invitationStatusFilter === "all"
+                                ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
+                                : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                        }`}
+                    >
+                        すべて
+                    </button>
+                </div>
+            )}
 
             {/* Members Table (Accepted Invitations) */}
             {mainTab === "members" && (
@@ -631,24 +652,6 @@ export function InvitationList({
                                 />
                             </div>
                         </div>
-                        {mainTab === "invitations-requests" && (
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                                    ステータス
-                                </label>
-                                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                    <SelectTrigger className="w-full bg-white dark:bg-gray-800">
-                                        <SelectValue placeholder="ステータス" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">全て</SelectItem>
-                                        <SelectItem value="pending">招待中</SelectItem>
-                                        <SelectItem value="canceled">キャンセル</SelectItem>
-                                        <SelectItem value="expired">期限切れ</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        )}
                     </div>
                     <DialogFooter className="flex flex-col gap-2 px-6 pb-6">
                         <Button
