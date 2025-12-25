@@ -512,10 +512,8 @@ export function InvitationList({
                                                     {inv.profile?.display_name}
                                                 </div>
                                             </TableCell>
-                                            <TableCell className="text-sm text-center w-1/3">
-                                                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                                                    招待
-                                                </Badge>
+                                            <TableCell className="text-sm text-center w-1/3 text-gray-600 dark:text-gray-400">
+                                                招待
                                             </TableCell>
                                             <TableCell className="text-center w-1/3">
                                                 <div className="flex justify-center">
@@ -534,10 +532,8 @@ export function InvitationList({
                                             <TableCell className="font-medium text-center w-1/3">
                                                 {req.display_name || req.real_name}
                                             </TableCell>
-                                            <TableCell className="text-sm text-center w-1/3">
-                                                <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
-                                                    申請
-                                                </Badge>
+                                            <TableCell className="text-sm text-center w-1/3 text-gray-600 dark:text-gray-400">
+                                                申請
                                             </TableCell>
                                             <TableCell className="text-sm text-center w-1/3">
                                                 <Badge variant="outline" className={
