@@ -1,5 +1,5 @@
 import { Metadata } from "next";
-import { getStoreForReservation, getCastsForReservation } from "./actions";
+import { getStoreForReservation, getCastsForReservation, getCustomFieldsForReservation } from "./actions";
 import { ReservationForm } from "./reservation-form";
 
 interface ReservePageProps {
@@ -44,10 +44,14 @@ export default async function ReservePage({ params }: ReservePageProps) {
     const castsResult = await getCastsForReservation(storeId);
     const casts = castsResult.casts || [];
 
+    // カスタム質問を取得
+    const customFieldsResult = await getCustomFieldsForReservation(storeId);
+    const customFields = customFieldsResult.fields || [];
+
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
             <div className="max-w-md w-full">
-                <ReservationForm store={storeResult.store} casts={casts} />
+                <ReservationForm store={storeResult.store} casts={casts} customFields={customFields} />
             </div>
         </div>
     );

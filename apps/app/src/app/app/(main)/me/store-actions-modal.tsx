@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Building2, Search, Loader2 } from "lucide-react";
+import { Building2, Search, Loader2, ChevronLeft } from "lucide-react";
 import { searchStoreByCode, createNewStore, submitJoinRequestFromMe } from "./store-actions";
 
 const INDUSTRIES = [
@@ -187,24 +187,34 @@ export function StoreActionsModal() {
     if (mode === "join") {
         return (
             <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-                <DialogContent className="sm:max-w-[500px] bg-white dark:bg-gray-900">
-                    <DialogHeader>
-                        <DialogTitle className="text-gray-900 dark:text-white">
+                <DialogContent className="sm:max-w-lg bg-white dark:bg-gray-900 p-0 overflow-hidden flex flex-col max-h-[90vh]">
+                    <DialogHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900 flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
+                        <button
+                            type="button"
+                            onClick={step === "search" ? handleClose : step === "found" ? () => setStep("search") : () => setStep("found")}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
+                            aria-label="戻る"
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                        </button>
+                        <DialogTitle className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white truncate">
                             {step === "search" && "店舗に参加"}
                             {step === "found" && "店舗が見つかりました"}
                             {step === "profile" && "プロフィール入力"}
                         </DialogTitle>
-                        <DialogDescription className="text-gray-600 dark:text-gray-400">
+                        <div className="w-8 h-8" />
+                    </DialogHeader>
+                    <div className="flex-1 overflow-y-auto">
+                        <p className="text-sm text-gray-600 dark:text-gray-400 px-4 pt-4">
                             {step === "search" && "店舗コードを入力して参加申請を送信します"}
                             {step === "found" && "この店舗に参加申請を送信しますか？"}
                             {step === "profile" && "参加時のプロフィールを入力してください"}
-                        </DialogDescription>
-                    </DialogHeader>
+                        </p>
 
                     {step === "search" && (
-                        <div className="space-y-4 py-4">
+                        <div className="space-y-4 p-4">
                             <div className="space-y-2">
-                                <Label htmlFor="store-code" className="text-gray-900 dark:text-white">
+                                <Label htmlFor="store-code" className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                     店舗コード
                                 </Label>
                                 <div className="flex gap-2">
@@ -222,7 +232,7 @@ export function StoreActionsModal() {
                                         {isLoading ? (
                                             <Loader2 className="h-4 w-4 animate-spin" />
                                         ) : (
-                                            <Search className="h-4 w-4" />
+                                            <Search className="h-5 w-5" />
                                         )}
                                     </Button>
                                 </div>
@@ -237,7 +247,7 @@ export function StoreActionsModal() {
                     )}
 
                     {step === "found" && foundStore && (
-                        <div className="space-y-4 py-4">
+                        <div className="space-y-4 p-4">
                             <div className="flex items-center gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                                 <div className="p-3 rounded-xl bg-blue-100 dark:bg-blue-900/50">
                                     <Building2 className="h-6 w-6 text-blue-600 dark:text-blue-400" />
@@ -252,21 +262,18 @@ export function StoreActionsModal() {
                                 </div>
                             </div>
 
-                            <DialogFooter className="gap-2">
-                                <Button variant="outline" onClick={() => setStep("search")}>
-                                    戻る
-                                </Button>
-                                <Button onClick={() => setStep("profile")}>
+                            <div className="flex gap-2 pt-2">
+                                <Button onClick={() => setStep("profile")} className="flex-1">
                                     次へ
                                 </Button>
-                            </DialogFooter>
+                            </div>
                         </div>
                     )}
 
                     {step === "profile" && (
-                        <div className="space-y-4 py-4">
+                        <div className="space-y-4 p-4">
                             <div className="space-y-2">
-                                <Label htmlFor="role" className="text-gray-900 dark:text-white">
+                                <Label htmlFor="role" className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                     役割
                                 </Label>
                                 <Select value={role} onValueChange={(v) => setRole(v as "cast" | "staff")}>
@@ -281,7 +288,7 @@ export function StoreActionsModal() {
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="display-name" className="text-gray-900 dark:text-white">
+                                <Label htmlFor="display-name" className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                     表示名 <span className="text-red-500">*</span>
                                 </Label>
                                 <Input
@@ -293,7 +300,7 @@ export function StoreActionsModal() {
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="display-name-kana" className="text-gray-900 dark:text-white">
+                                <Label htmlFor="display-name-kana" className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                     表示名（ひらがな） <span className="text-red-500">*</span>
                                 </Label>
                                 <Input
@@ -310,16 +317,14 @@ export function StoreActionsModal() {
                                 </div>
                             )}
 
-                            <DialogFooter className="gap-2">
-                                <Button variant="outline" onClick={() => setStep("found")} disabled={isLoading}>
-                                    戻る
-                                </Button>
-                                <Button onClick={handleSubmitJoinRequest} disabled={isLoading}>
+                            <div className="pt-2">
+                                <Button onClick={handleSubmitJoinRequest} disabled={isLoading} className="w-full">
                                     {isLoading ? "送信中..." : "参加申請を送信"}
                                 </Button>
-                            </DialogFooter>
+                            </div>
                         </div>
                     )}
+                    </div>
                 </DialogContent>
             </Dialog>
         );
@@ -328,19 +333,28 @@ export function StoreActionsModal() {
     if (mode === "create") {
         return (
             <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-                <DialogContent className="sm:max-w-[500px] bg-white dark:bg-gray-900 max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle className="text-gray-900 dark:text-white">
+                <DialogContent className="sm:max-w-lg bg-white dark:bg-gray-900 max-h-[90vh] overflow-hidden p-0 flex flex-col">
+                    <DialogHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900 flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
+                        <button
+                            type="button"
+                            onClick={handleClose}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
+                            aria-label="戻る"
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                        </button>
+                        <DialogTitle className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white truncate">
                             新規店舗を作成
                         </DialogTitle>
-                        <DialogDescription className="text-gray-600 dark:text-gray-400">
-                            新しい店舗を登録して管理を始めます
-                        </DialogDescription>
+                        <div className="w-8 h-8" />
                     </DialogHeader>
 
-                    <div className="space-y-4 py-4">
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                            新しい店舗を登録して管理を始めます
+                        </p>
                         <div className="space-y-2">
-                            <Label htmlFor="store-name" className="text-gray-900 dark:text-white">
+                            <Label htmlFor="store-name" className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                 店舗名 <span className="text-red-500">*</span>
                             </Label>
                             <Input
@@ -352,7 +366,7 @@ export function StoreActionsModal() {
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="industry" className="text-gray-900 dark:text-white">
+                            <Label htmlFor="industry" className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                 業種 <span className="text-red-500">*</span>
                             </Label>
                             <Select value={industry} onValueChange={setIndustry}>
@@ -370,7 +384,7 @@ export function StoreActionsModal() {
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="prefecture" className="text-gray-900 dark:text-white">
+                            <Label htmlFor="prefecture" className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                 都道府県 <span className="text-red-500">*</span>
                             </Label>
                             <Select value={prefecture} onValueChange={setPrefecture}>
@@ -394,7 +408,7 @@ export function StoreActionsModal() {
 
                             <div className="space-y-4">
                                 <div className="space-y-2">
-                                    <Label htmlFor="owner-display-name" className="text-gray-900 dark:text-white">
+                                    <Label htmlFor="owner-display-name" className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                         表示名 <span className="text-red-500">*</span>
                                     </Label>
                                     <Input
@@ -406,7 +420,7 @@ export function StoreActionsModal() {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label htmlFor="owner-display-name-kana" className="text-gray-900 dark:text-white">
+                                    <Label htmlFor="owner-display-name-kana" className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                         表示名（ひらがな） <span className="text-red-500">*</span>
                                     </Label>
                                     <Input
@@ -425,14 +439,11 @@ export function StoreActionsModal() {
                             </div>
                         )}
 
-                        <DialogFooter className="gap-2">
-                            <Button variant="outline" onClick={handleClose} disabled={isLoading}>
-                                キャンセル
-                            </Button>
-                            <Button onClick={handleCreateStore} disabled={isLoading}>
+                        <div className="pt-2">
+                            <Button onClick={handleCreateStore} disabled={isLoading} className="w-full">
                                 {isLoading ? "作成中..." : "店舗を作成"}
                             </Button>
-                        </DialogFooter>
+                        </div>
                     </div>
                 </DialogContent>
             </Dialog>

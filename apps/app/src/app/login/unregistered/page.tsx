@@ -5,7 +5,7 @@ import { AlertTriangle } from "lucide-react";
 export default function UnregisteredPage() {
     return (
         <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gray-50 dark:bg-gray-900">
-            <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 text-center space-y-6">
+            <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-3xl shadow-md p-8 text-center space-y-6">
                 <div className="flex justify-center">
                     <div className="w-16 h-16 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center">
                         <AlertTriangle className="w-8 h-8 text-yellow-600 dark:text-yellow-500" />
@@ -25,7 +25,7 @@ export default function UnregisteredPage() {
 
                 <div className="space-y-3 pt-2">
                     <Link href="/signup" className="block w-full">
-                        <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3">
+                        <Button className="w-full">
                             新規アカウント作成
                         </Button>
                     </Link>

@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { acceptInvitation } from "../../app/(main)/invitations/actions";
 import { useRouter } from "next/navigation";
+import { toast } from "@/components/ui/use-toast";
 
 const MARKETING_URL = process.env.NEXT_PUBLIC_MARKETING_URL || "https://nightbase.jp";
 
@@ -72,7 +73,6 @@ export function InviteClient({ invitation, userId }: InviteClientProps) {
             // 2. Not already accepting
             // 3. Not currently in the process of signing up
             if (userId && !isAcceptingInvite && !showSuccessModal) {
-                console.log("Auto-accepting invitation for logged-in user");
                 setIsAcceptingInvite(true);
 
                 try {
@@ -136,7 +136,7 @@ export function InviteClient({ invitation, userId }: InviteClientProps) {
         try {
             const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
             if (!supabaseUrl) {
-                alert("設定エラー: Supabase URLが見つかりません");
+                toast({ title: "設定エラー: Supabase URLが見つかりません", variant: "destructive" });
                 setLoading(false);
                 return;
             }
@@ -146,7 +146,7 @@ export function InviteClient({ invitation, userId }: InviteClientProps) {
 
         } catch (error) {
             console.error("Unexpected error:", error);
-            alert("エラーが発生しました");
+            toast({ title: "エラーが発生しました", variant: "destructive" });
             setLoading(false);
         }
     };
@@ -224,7 +224,7 @@ export function InviteClient({ invitation, userId }: InviteClientProps) {
             <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle className="text-center text-xl">メール送信完了</DialogTitle>
+                        <DialogTitle className="text-center text-xl text-gray-900 dark:text-white">メール送信完了</DialogTitle>
                         <DialogDescription className="text-center pt-2">
                             {successMessage}
                         </DialogDescription>
@@ -235,7 +235,7 @@ export function InviteClient({ invitation, userId }: InviteClientProps) {
                             有効化後、自動的にこの招待を受諾し、ダッシュボードにリダイレクトされます。
                         </p>
                     </div>
-                    <DialogFooter className="sm:justify-center">
+                    <DialogFooter className="sm:justify-center gap-2">
                         <Button
                             onClick={() => setShowSuccessModal(false)}
                             className="w-full sm:w-auto min-w-[120px] bg-blue-600 hover:bg-blue-700 text-white"
@@ -307,7 +307,7 @@ export function InviteClient({ invitation, userId }: InviteClientProps) {
                     {joinMethod === "email" && (
                         <div className="space-y-4">
                             <div>
-                                <Label htmlFor="email" className="text-gray-900 dark:text-white">
+                                <Label htmlFor="email" className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                     メールアドレス <span className="text-red-500">*</span>
                                 </Label>
                                 <Input
@@ -321,7 +321,7 @@ export function InviteClient({ invitation, userId }: InviteClientProps) {
                             </div>
 
                             <div>
-                                <Label htmlFor="signup-password" className="text-gray-900 dark:text-white">
+                                <Label htmlFor="signup-password" className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                     パスワード <span className="text-red-500">*</span>
                                 </Label>
                                 <div className="relative mt-1">
@@ -346,7 +346,7 @@ export function InviteClient({ invitation, userId }: InviteClientProps) {
                             {/* Only show confirm password in signup mode */}
                             {!isLoginMode && (
                                 <div>
-                                    <Label htmlFor="confirm-password" className="text-gray-900 dark:text-white">
+                                    <Label htmlFor="confirm-password" className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                         パスワード（確認） <span className="text-red-500">*</span>
                                     </Label>
                                     <div className="relative mt-1">
@@ -394,7 +394,7 @@ export function InviteClient({ invitation, userId }: InviteClientProps) {
                     {/* Invite Password (for protected invitations) */}
                     {invitation.has_password && (
                         <div className="space-y-2">
-                            <Label htmlFor="invite-password">招待パスワード</Label>
+                            <Label htmlFor="invite-password" className="text-sm font-medium text-gray-700 dark:text-gray-200">招待パスワード</Label>
                             <Input
                                 id="invite-password"
                                 type="password"

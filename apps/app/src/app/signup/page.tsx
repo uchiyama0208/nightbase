@@ -8,7 +8,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
-import { ArrowLeft, Eye, EyeOff } from "lucide-react";
+import { ChevronLeft, Eye, EyeOff } from "lucide-react";
+import { toast } from "@/components/ui/use-toast";
 
 const MARKETING_URL = process.env.NEXT_PUBLIC_MARKETING_URL || "https://nightbase.jp";
 
@@ -53,7 +54,7 @@ export default function SignupPage() {
             window.location.href = lineAuthUrl;
         } catch (error) {
             console.error("LINE login error:", error);
-            alert("ログインに失敗しました");
+            toast({ title: "ログインに失敗しました", variant: "destructive" });
             setLoading(false);
         }
     };
@@ -137,7 +138,7 @@ export default function SignupPage() {
                                     <input type="hidden" name="redirect" value={redirectTo} />
                                 )}
                                 <div>
-                                    <Label htmlFor="email" className="text-gray-900 dark:text-white">
+                                    <Label htmlFor="email" className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                         メールアドレス <span className="text-red-500">*</span>
                                     </Label>
                                     <Input
@@ -153,7 +154,7 @@ export default function SignupPage() {
                                 </div>
 
                                 <div>
-                                    <Label htmlFor="password" className="text-gray-900 dark:text-white">
+                                    <Label htmlFor="password" className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                         パスワード <span className="text-red-500">*</span>
                                     </Label>
                                     <div className="relative mt-1">
@@ -178,7 +179,7 @@ export default function SignupPage() {
                                 </div>
 
                                 <div>
-                                    <Label htmlFor="confirmPassword" className="text-gray-900 dark:text-white">
+                                    <Label htmlFor="confirmPassword" className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                         パスワード（確認） <span className="text-red-500">*</span>
                                     </Label>
                                     <div className="relative mt-1">

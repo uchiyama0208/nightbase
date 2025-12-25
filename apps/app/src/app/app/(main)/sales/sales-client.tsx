@@ -121,7 +121,7 @@ export function SalesClient({ canEdit = false }: SalesClientProps) {
         return (
             <div className="rounded-2xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-6">
                 <p className="text-red-600 dark:text-red-400">{error}</p>
-                <Button onClick={loadSalesData} className="mt-4 rounded-lg" variant="outline">
+                <Button onClick={loadSalesData} className="mt-4" variant="outline">
                     再試行
                 </Button>
             </div>
@@ -131,7 +131,7 @@ export function SalesClient({ canEdit = false }: SalesClientProps) {
     return (
         <div className="space-y-6">
 
-            <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+            <div className="overflow-hidden rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
                 <table className="w-full" style={{ tableLayout: 'fixed' }}>
                     <colgroup>
                         <col style={{ width: '25%' }} />
@@ -159,7 +159,7 @@ export function SalesClient({ canEdit = false }: SalesClientProps) {
                                 <tr
                                     key={day.date}
                                     onClick={() => openDetail(day)}
-                                    className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors border-b border-gray-100 dark:border-gray-800 last:border-0"
+                                    className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors border-b border-gray-100 dark:border-gray-800 last:border-0"
                                 >
                                     <td className="px-4 py-3 text-sm text-center text-gray-900 dark:text-gray-100">{day.label}</td>
                                     <td className="px-4 py-3 text-sm text-center text-gray-900 dark:text-gray-100">
@@ -180,8 +180,8 @@ export function SalesClient({ canEdit = false }: SalesClientProps) {
 
             {/* Detail Modal */}
             <Dialog open={!!selectedDay} onOpenChange={(open) => !open && closeDetail()}>
-                <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl border border-gray-200 bg-white p-0 dark:border-gray-800 dark:bg-gray-900">
-                    <DialogHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900 px-6 py-4 border-b border-gray-200 dark:border-gray-800">
+                <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-hidden !rounded-2xl border border-gray-200 bg-white !p-0 dark:border-gray-800 dark:bg-gray-900">
+                    <DialogHeader className="flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
                         <DialogTitle className="text-base font-semibold text-gray-900 dark:text-white">
                             {selectedDay?.label}
                         </DialogTitle>
@@ -232,10 +232,10 @@ export function SalesClient({ canEdit = false }: SalesClientProps) {
                                             <div
                                                 key={slip.id}
                                                 onClick={() => setSelectedSlipId(slip.id)}
-                                                className="flex items-center justify-between py-3 px-4 rounded-xl bg-gray-50 dark:bg-gray-800 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                                className="flex items-center justify-between py-3 px-4 rounded-xl bg-gray-50 dark:bg-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                                             >
                                                 <div className="flex items-center gap-4">
-                                                    <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                                    <div className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                                         {slip.time}
                                                     </div>
                                                     <div className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400">
@@ -248,7 +248,7 @@ export function SalesClient({ canEdit = false }: SalesClientProps) {
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                                         {formatCurrency(slip.totalAmount)}
                                                     </span>
                                                     <ChevronRight className="h-4 w-4 text-gray-400" />

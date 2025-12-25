@@ -33,7 +33,7 @@ export function WorkingTimeCard({ clockInTime }: WorkingTimeCardProps) {
 
     return (
         <Link href="/app/timecard?clockOut=true" className="block">
-            <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200 cursor-pointer">
+            <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border border-blue-400 shadow-md hover:shadow-xl transition-all duration-200 cursor-pointer">
                 <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-white">
                         <Clock className="h-5 w-5" />

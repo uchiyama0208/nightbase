@@ -132,7 +132,7 @@ export function ShiftsList({ calendarData, onDateClick }: ShiftsListProps) {
             <div className="flex items-center justify-between mb-3">
                 <button
                     onClick={goToPreviousMonth}
-                    className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    className="p-1.5 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                     <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                 </button>
@@ -149,7 +149,7 @@ export function ShiftsList({ calendarData, onDateClick }: ShiftsListProps) {
                 </div>
                 <button
                     onClick={goToNextMonth}
-                    className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    className="p-1.5 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                     <ChevronRight className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                 </button>

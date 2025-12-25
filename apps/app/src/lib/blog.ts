@@ -61,14 +61,8 @@ export async function getPublishedBlogPostBySlug(slug: string): Promise<BlogPost
 
   // 一覧と同じ取得条件で記事一覧を取り、その中から slug 一致のものを探す
   const posts = await getPublishedBlogPosts();
-  console.log("[Blog] getBySlug", {
-    normalizedSlug,
-    slugs: posts.map((post) => post.slug),
-  });
 
   const found = posts.find((post) => post.slug === normalizedSlug);
-
-  console.log("[Blog] found", !!found);
 
   return found ?? null;
 }

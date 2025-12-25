@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
+import { toast } from "@/components/ui/use-toast";
 
 const MARKETING_URL = process.env.NEXT_PUBLIC_MARKETING_URL || "https://nightbase.jp";
 
@@ -24,7 +25,7 @@ export default function CreateStorePage() {
             window.location.href = lineAuthUrl;
         } catch (error) {
             console.error("LINE login error:", error);
-            alert("ログインに失敗しました");
+            toast({ title: "ログインに失敗しました", variant: "destructive" });
             setLoading(false);
         }
     };
@@ -37,7 +38,7 @@ export default function CreateStorePage() {
                 <div className="flex items-center space-x-4">
                     <Link
                         href="/signup"
-                        className="p-2 hover:bg-white/50 dark:hover:bg-gray-800/50 rounded-lg transition-colors"
+                        className="p-2 hover:bg-white/50 dark:hover:bg-gray-700/50 rounded-lg transition-colors"
                     >
                         <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                     </Link>
@@ -49,7 +50,7 @@ export default function CreateStorePage() {
                 <Card>
                     <CardHeader>
                         <CardTitle className="text-gray-900 dark:text-white">利用規約とプライバシーポリシー</CardTitle>
-                        <CardDescription className="text-gray-900 dark:text-white">
+                        <CardDescription className="text-sm font-medium text-gray-700 dark:text-gray-200">
                             サービスをご利用いただく前に、以下の内容をご確認ください
                         </CardDescription>
                     </CardHeader>

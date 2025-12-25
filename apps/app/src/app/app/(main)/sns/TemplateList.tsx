@@ -63,8 +63,7 @@ export function TemplateList({
 
     // Form state
     const [content, setContent] = useState("");
-    const [selectedPlatform, setSelectedPlatform] = useState<"x" | "instagram" | null>(null);
-    const [instagramType, setInstagramType] = useState<"post" | "story">("post");
+    const [isXSelected, setIsXSelected] = useState(false);
     const [saveAsTemplate, setSaveAsTemplate] = useState(false);
     const [templateName, setTemplateName] = useState("");
     const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
@@ -76,9 +75,7 @@ export function TemplateList({
 
     // Account connection status
     const xAccount = accounts.find(a => a.platform === "x");
-    const instagramAccount = accounts.find(a => a.platform === "instagram");
     const isXConnected = xAccount?.is_connected ?? false;
-    const isInstagramConnected = instagramAccount?.is_connected ?? false;
 
     // Handle external modal open
     useEffect(() => {
@@ -119,8 +116,7 @@ export function TemplateList({
 
     const openCreateModal = () => {
         setContent("");
-        setSelectedPlatform(null);
-        setInstagramType("post");
+        setIsXSelected(false);
         setSaveAsTemplate(false);
         setTemplateName("");
         setSelectedTemplateId("");
@@ -136,7 +132,7 @@ export function TemplateList({
     };
 
     const handlePost = async () => {
-        if (!content.trim() || !selectedPlatform) return;
+        if (!content.trim() || !isXSelected) return;
 
         setIsSubmitting(true);
         try {
@@ -153,10 +149,7 @@ export function TemplateList({
             // Post immediately
             const formData = new FormData();
             formData.append("content", content);
-            formData.append("platforms", JSON.stringify([selectedPlatform]));
-            if (selectedPlatform === "instagram") {
-                formData.append("instagram_type", instagramType);
-            }
+            formData.append("platforms", JSON.stringify(["x"]));
             await postNow(formData);
 
             handleModalClose(false);
@@ -169,7 +162,7 @@ export function TemplateList({
     };
 
     const handleSchedulePost = async () => {
-        if (!content.trim() || !selectedPlatform || !scheduledAt) return;
+        if (!content.trim() || !isXSelected || !scheduledAt) return;
 
         setIsSubmitting(true);
         try {
@@ -186,11 +179,8 @@ export function TemplateList({
             // Create scheduled post
             const formData = new FormData();
             formData.append("content", content);
-            formData.append("platforms", JSON.stringify([selectedPlatform]));
+            formData.append("platforms", JSON.stringify(["x"]));
             formData.append("scheduled_at", scheduledAt);
-            if (selectedPlatform === "instagram") {
-                formData.append("instagram_type", instagramType);
-            }
             await createScheduledPost(formData);
 
             setShowScheduleModal(false);
@@ -219,14 +209,11 @@ export function TemplateList({
         }
     };
 
-    const handleConnect = (platform: "x" | "instagram") => {
-        window.location.href = `/api/sns/${platform}/auth?store_id=${storeId}`;
+    const handleConnect = () => {
+        window.location.href = `/api/auth/x`;
     };
 
-    const canPost = content.trim() && selectedPlatform && (
-        (selectedPlatform === "x" && isXConnected) ||
-        (selectedPlatform === "instagram" && isInstagramConnected)
-    );
+    const canPost = content.trim() && isXSelected && isXConnected;
 
     return (
         <div className="space-y-3">
@@ -241,7 +228,7 @@ export function TemplateList({
                             <div className="flex items-start justify-between gap-4">
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 mb-1">
-                                        <Clock className="h-4 w-4" />
+                                        <Clock className="h-5 w-5" />
                                         {formatJSTDateTime(post.scheduled_at)}
                                     </div>
                                     <p className="text-sm text-gray-900 dark:text-white whitespace-pre-wrap line-clamp-2">
@@ -253,7 +240,7 @@ export function TemplateList({
                                                 key={p}
                                                 className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-300"
                                             >
-                                                {p === "x" ? "X" : "Instagram"}
+                                                X
                                             </span>
                                         ))}
                                     </div>
@@ -266,7 +253,7 @@ export function TemplateList({
                                     }}
                                     className="p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
                                 >
-                                    <Trash2 className="h-4 w-4 text-red-500 dark:text-red-400" />
+                                    <Trash2 className="h-5 w-5 text-red-500 dark:text-red-400" />
                                 </button>
                             </div>
                         </div>
@@ -302,7 +289,7 @@ export function TemplateList({
                                                 key={p}
                                                 className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
                                             >
-                                                {p === "x" ? "X" : "Instagram"}
+                                                X
                                             </span>
                                         ))}
                                     </div>
@@ -315,24 +302,25 @@ export function TemplateList({
 
             {/* Create Post Modal */}
             <Dialog open={showModal} onOpenChange={handleModalClose}>
-                <DialogContent className="max-w-lg rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900 max-h-[90vh] overflow-y-auto">
-                    <DialogHeader className="relative flex flex-row items-center justify-center space-y-0">
+                <DialogContent className="sm:max-w-lg rounded-2xl border border-gray-200 bg-white p-0 shadow-xl dark:border-gray-800 dark:bg-gray-900 max-h-[90vh] overflow-hidden flex flex-col">
+                    <DialogHeader className="flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
                         <button
                             type="button"
                             onClick={() => handleModalClose(false)}
-                            className="absolute left-0 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                            className="p-1 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                         >
                             <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                         </button>
-                        <DialogTitle className="text-base font-semibold text-gray-900 dark:text-gray-50">
+                        <DialogTitle className="flex-1 text-center text-base font-semibold text-gray-900 dark:text-white">
                             投稿を作成
                         </DialogTitle>
+                        <div className="w-8" />
                     </DialogHeader>
-                    <div className="space-y-4 py-2">
+                    <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
                         {/* Template selection */}
                         {templates.length > 0 && (
                             <div className="space-y-2">
-                                <Label>テンプレートから選択</Label>
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">テンプレートから選択</Label>
                                 <div className="flex gap-2">
                                     <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
                                         <SelectTrigger className="flex-1">
@@ -361,130 +349,61 @@ export function TemplateList({
 
                         {/* 投稿対象 */}
                         <div className="space-y-3">
-                            <Label>投稿対象</Label>
-                            <div className="space-y-2">
-                                {/* X */}
-                                <div
-                                    className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
-                                        selectedPlatform === "x"
-                                            ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                                            : "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"
-                                    }`}
-                                    onClick={() => isXConnected && setSelectedPlatform("x")}
-                                >
-                                    <div className="flex items-center gap-3 flex-1">
-                                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                                            selectedPlatform === "x"
-                                                ? "border-blue-500"
-                                                : "border-gray-300 dark:border-gray-600"
+                            <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">投稿対象</Label>
+                            <div
+                                className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
+                                    isXSelected
+                                        ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                                        : "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"
+                                }`}
+                                onClick={() => isXConnected && setIsXSelected(!isXSelected)}
+                            >
+                                <div className="flex items-center gap-3 flex-1">
+                                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                                        isXSelected
+                                            ? "border-blue-500"
+                                            : "border-gray-300 dark:border-gray-600"
+                                    }`}>
+                                        {isXSelected && (
+                                            <div className="w-2 h-2 rounded-full bg-blue-500" />
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className={`font-medium text-sm ${
+                                            isXConnected
+                                                ? "text-gray-900 dark:text-white"
+                                                : "text-gray-400 dark:text-gray-500"
                                         }`}>
-                                            {selectedPlatform === "x" && (
-                                                <div className="w-2 h-2 rounded-full bg-blue-500" />
-                                            )}
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className={`font-medium text-sm ${
-                                                isXConnected
-                                                    ? "text-gray-900 dark:text-white"
-                                                    : "text-gray-400 dark:text-gray-500"
-                                            }`}>
-                                                X (Twitter)
-                                            </span>
-                                            {isXConnected ? (
-                                                <span className="text-xs text-green-600 dark:text-green-400">連携済み</span>
-                                            ) : (
-                                                <span className="text-xs text-gray-500 dark:text-gray-400">未連携</span>
-                                            )}
-                                        </div>
+                                            X (Twitter)
+                                        </span>
+                                        {isXConnected ? (
+                                            <span className="text-xs text-green-600 dark:text-green-400">連携済み</span>
+                                        ) : (
+                                            <span className="text-xs text-gray-500 dark:text-gray-400">未連携</span>
+                                        )}
                                     </div>
-                                    {!isXConnected && (
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleConnect("x");
-                                            }}
-                                            className="gap-1.5 text-xs"
-                                        >
-                                            <Link2 className="h-3.5 w-3.5" />
-                                            連携
-                                        </Button>
-                                    )}
                                 </div>
-
-                                {/* Instagram */}
-                                <div
-                                    className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
-                                        selectedPlatform === "instagram"
-                                            ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                                            : "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"
-                                    }`}
-                                    onClick={() => isInstagramConnected && setSelectedPlatform("instagram")}
-                                >
-                                    <div className="flex items-center gap-3 flex-1">
-                                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                                            selectedPlatform === "instagram"
-                                                ? "border-blue-500"
-                                                : "border-gray-300 dark:border-gray-600"
-                                        }`}>
-                                            {selectedPlatform === "instagram" && (
-                                                <div className="w-2 h-2 rounded-full bg-blue-500" />
-                                            )}
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className={`font-medium text-sm ${
-                                                isInstagramConnected
-                                                    ? "text-gray-900 dark:text-white"
-                                                    : "text-gray-400 dark:text-gray-500"
-                                            }`}>
-                                                Instagram
-                                            </span>
-                                            {isInstagramConnected ? (
-                                                <span className="text-xs text-green-600 dark:text-green-400">連携済み</span>
-                                            ) : (
-                                                <span className="text-xs text-gray-500 dark:text-gray-400">未連携</span>
-                                            )}
-                                        </div>
-                                    </div>
-                                    {!isInstagramConnected && (
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleConnect("instagram");
-                                            }}
-                                            className="gap-1.5 text-xs"
-                                        >
-                                            <Link2 className="h-3.5 w-3.5" />
-                                            連携
-                                        </Button>
-                                    )}
-                                </div>
-
-                                {/* Instagram type selector */}
-                                {selectedPlatform === "instagram" && (
-                                    <div className="ml-7 mt-2">
-                                        <Select value={instagramType} onValueChange={(v: "post" | "story") => setInstagramType(v)}>
-                                            <SelectTrigger className="w-40">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="post">通常投稿</SelectItem>
-                                                <SelectItem value="story">ストーリー</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
+                                {!isXConnected && (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleConnect();
+                                        }}
+                                        className="gap-1.5 text-xs"
+                                    >
+                                        <Link2 className="h-3.5 w-3.5" />
+                                        連携
+                                    </Button>
                                 )}
                             </div>
                         </div>
 
                         {/* Content */}
                         <div className="space-y-2">
-                            <Label>投稿内容</Label>
+                            <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">投稿内容</Label>
                             <Textarea
                                 value={content}
                                 onChange={(e) => setContent(e.target.value)}
@@ -505,7 +424,7 @@ export function TemplateList({
                                         key={v.key}
                                         type="button"
                                         onClick={() => setContent((prev) => prev + v.key)}
-                                        className="px-2 py-1 rounded text-xs bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                                        className="px-2 py-1 rounded text-xs bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                                         title={v.description}
                                     >
                                         {v.key}
@@ -539,7 +458,7 @@ export function TemplateList({
                         {/* Template name for saving as template */}
                         {saveAsTemplate && (
                             <div className="space-y-2">
-                                <Label>テンプレート名</Label>
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">テンプレート名</Label>
                                 <Input
                                     value={templateName}
                                     onChange={(e) => setTemplateName(e.target.value)}
@@ -563,11 +482,11 @@ export function TemplateList({
                             </label>
                         </div>
                     </div>
-                    <DialogFooter className="flex-col gap-2">
+                    <div className="flex-shrink-0 px-6 pb-6 space-y-2">
                         <Button
                             onClick={handlePost}
                             disabled={isSubmitting || !canPost || (saveAsTemplate && !templateName.trim())}
-                            className="w-full rounded-lg gap-1.5"
+                            className="w-full rounded-lg gap-1.5 bg-blue-600 text-white hover:bg-blue-700"
                         >
                             {isSubmitting ? (
                                 <>
@@ -576,7 +495,7 @@ export function TemplateList({
                                 </>
                             ) : (
                                 <>
-                                    <Send className="h-4 w-4" />
+                                    <Send className="h-5 w-5" />
                                     投稿
                                 </>
                             )}
@@ -587,31 +506,32 @@ export function TemplateList({
                             disabled={isSubmitting || !canPost || (saveAsTemplate && !templateName.trim())}
                             className="w-full rounded-lg gap-1.5"
                         >
-                            <Clock className="h-4 w-4" />
+                            <Clock className="h-5 w-5" />
                             予約投稿
                         </Button>
-                    </DialogFooter>
+                    </div>
                 </DialogContent>
             </Dialog>
 
             {/* Schedule Modal */}
             <Dialog open={showScheduleModal} onOpenChange={setShowScheduleModal}>
-                <DialogContent className="max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900">
-                    <DialogHeader className="relative flex flex-row items-center justify-center space-y-0">
+                <DialogContent className="sm:max-w-sm rounded-2xl border border-gray-200 bg-white p-0 shadow-xl dark:border-gray-800 dark:bg-gray-900 flex flex-col">
+                    <DialogHeader className="flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
                         <button
                             type="button"
                             onClick={() => setShowScheduleModal(false)}
-                            className="absolute left-0 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                            className="p-1 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                         >
                             <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                         </button>
-                        <DialogTitle className="text-base font-semibold text-gray-900 dark:text-gray-50">
+                        <DialogTitle className="flex-1 text-center text-base font-semibold text-gray-900 dark:text-white">
                             予約投稿
                         </DialogTitle>
+                        <div className="w-8" />
                     </DialogHeader>
-                    <div className="space-y-4 py-2">
+                    <div className="px-6 py-4 space-y-4">
                         <div className="space-y-2">
-                            <Label>投稿日時</Label>
+                            <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">投稿日時</Label>
                             <Input
                                 type="datetime-local"
                                 value={scheduledAt}
@@ -619,11 +539,11 @@ export function TemplateList({
                             />
                         </div>
                     </div>
-                    <DialogFooter>
+                    <div className="flex-shrink-0 px-6 pb-6 space-y-2">
                         <Button
                             onClick={handleSchedulePost}
                             disabled={isSubmitting || !scheduledAt}
-                            className="w-full rounded-lg"
+                            className="w-full rounded-lg bg-blue-600 text-white hover:bg-blue-700"
                         >
                             {isSubmitting ? (
                                 <>
@@ -634,15 +554,23 @@ export function TemplateList({
                                 "予約する"
                             )}
                         </Button>
-                    </DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setShowScheduleModal(false)}
+                            disabled={isSubmitting}
+                            className="w-full rounded-lg"
+                        >
+                            キャンセル
+                        </Button>
+                    </div>
                 </DialogContent>
             </Dialog>
 
             {/* Delete Confirmation */}
             <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-                <DialogContent className="max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900">
+                <DialogContent className="sm:max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900">
                     <DialogHeader>
-                        <DialogTitle className="text-base font-semibold text-gray-900 dark:text-gray-50">
+                        <DialogTitle className="text-base font-semibold text-gray-900 dark:text-white">
                             予約投稿を削除
                         </DialogTitle>
                     </DialogHeader>

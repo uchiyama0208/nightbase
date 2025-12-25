@@ -1,46 +1,10 @@
-import { redirect } from "next/navigation";
 import type { Metadata } from "next";
-import { getAICreatePageData } from "./actions";
-import { AICreateContent } from "./ai-create-content";
-import { getAppDataWithPermissionCheck } from "../../data-access";
+import { AICreateWrapper } from "./ai-create-wrapper";
 
 export const metadata: Metadata = {
-    title: "AIクリエイト",
+    title: "AI画像生成",
 };
 
-export default async function AICreatePage() {
-    const { user, profile, hasAccess, canEdit } = await getAppDataWithPermissionCheck("ai-create", "view");
-
-    if (!user) {
-        redirect("/login");
-    }
-
-    if (!profile || !profile.store_id) {
-        redirect("/app/me");
-    }
-
-    if (!hasAccess) {
-        redirect("/app/dashboard?denied=" + encodeURIComponent("AIクリエイトページへのアクセス権限がありません"));
-    }
-
-    const result = await getAICreatePageData();
-
-    if ("redirect" in result) {
-        redirect(result.redirect);
-    }
-
-    const { credits, images, templates, sizePresets } = result.data;
-
-    return (
-        <AICreateContent
-            initialCredits={credits}
-            initialImages={images}
-            templates={templates}
-            sizePresets={sizePresets}
-            canEdit={canEdit}
-        />
-    );
+export default function AICreatePage() {
+    return <AICreateWrapper />;
 }
-
-export const dynamic = "force-dynamic";
-export const revalidate = 0;

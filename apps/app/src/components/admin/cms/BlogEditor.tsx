@@ -444,7 +444,6 @@ export function BlogEditor({
         .eq("type", resolvedType);
 
       if (error) {
-        console.error("[BlogEditor] タグ一覧の取得に失敗しました", error);
         return;
       }
 
@@ -481,7 +480,6 @@ export function BlogEditor({
         .upload(filePath, file, { upsert: true });
 
       if (uploadError) {
-        console.error("[BlogEditor] Supabase storage upload error", uploadError, uploadData);
         throw uploadError;
       }
 
@@ -558,7 +556,6 @@ export function BlogEditor({
   };
 
   const handleSubmitToSupabase = async (values: BlogEditorValues) => {
-    console.log("[BlogEditor] 保存処理開始", values);
     setIsSaving(true);
 
     try {
@@ -578,8 +575,6 @@ export function BlogEditor({
         published_at: values.published_at ? new Date(values.published_at).toISOString() : null,
       };
 
-      console.log("[BlogEditor] Supabase upsert 送信前", payload);
-
       let nextSlug = values.slug;
 
       if (values.id) {
@@ -590,8 +585,6 @@ export function BlogEditor({
           .eq("type", resolvedType)
           .select("id, slug")
           .single();
-
-        console.log("[BlogEditor] update result", { data, error });
 
         if (error) {
           throw new Error(error.message ?? "コンテンツの更新に失敗しました");
@@ -605,8 +598,6 @@ export function BlogEditor({
           .select("id, slug")
           .single();
 
-        console.log("[BlogEditor] insert result", { data, error });
-
         if (error) {
           throw new Error(error.message ?? "コンテンツの作成に失敗しました");
         }
@@ -615,10 +606,6 @@ export function BlogEditor({
       }
 
       toast({ title: "保存しました", description: "コンテンツの変更が反映されました。" });
-
-      if (nextSlug && nextSlug !== values.previousSlug) {
-        console.log("[BlogEditor] slug updated", { nextSlug });
-      }
 
       router.push(resolvedRedirectPath);
     } catch (error) {
@@ -637,14 +624,11 @@ export function BlogEditor({
 
     setIsDeleting(true);
     try {
-      console.log("[BlogEditor] 削除処理開始", initialData.id);
       const { error } = await supabaseClient
         .from("cms_entries")
         .delete()
         .eq("id", initialData.id)
         .eq("type", resolvedType);
-
-      console.log("[BlogEditor] 削除結果", { error });
 
       if (error) {
         throw new Error(error.message ?? "コンテンツの削除に失敗しました");
@@ -683,20 +667,20 @@ export function BlogEditor({
 
   return (
     <form className="space-y-8 p-8" onSubmit={form.handleSubmit(handleFormSubmit)}>
-      <div className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-4 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm md:flex-row md:items-center md:justify-between">
         <div className="space-y-2">
-          <p className="text-xs uppercase tracking-[0.3em] text-slate-500">{resolvedEntityLabel}</p>
-          <h1 className="text-3xl font-semibold text-slate-900">
+          <p className="text-xs uppercase tracking-[0.3em] text-gray-500">{resolvedEntityLabel}</p>
+          <h1 className="text-3xl font-semibold text-gray-900">
             {isNew ? resolvedNewTitle : resolvedEditTitle}
           </h1>
           <div className="flex items-center gap-2">
             <Badge variant={status === "published" ? "success" : "neutral"}>{publishedLabel}</Badge>
-            <span className="text-xs text-slate-500">ステータスを切り替えると公開状態が変わります。</span>
+            <span className="text-xs text-gray-500">ステータスを切り替えると公開状態が変わります。</span>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 rounded-full border border-slate-300 bg-slate-100 px-4 py-2">
-            <span className="text-xs uppercase tracking-[0.3em] text-slate-500">公開</span>
+          <div className="flex items-center gap-2 rounded-full border border-gray-300 bg-gray-100 px-4 py-2">
+            <span className="text-xs uppercase tracking-[0.3em] text-gray-500">公開</span>
             <Switch
               checked={status === "published"}
               onCheckedChange={(checked) => form.setValue("status", checked ? "published" : "draft")}
@@ -706,12 +690,12 @@ export function BlogEditor({
             <Dialog>
               <DialogTrigger asChild>
                 <Button type="button" variant="outline" className="border-red-400/40 text-red-300">
-                  <Trash2 className="mr-2 h-4 w-4" /> 削除
+                  <Trash2 className="mr-2 h-5 w-5" /> 削除
                 </Button>
               </DialogTrigger>
-              <DialogContent className="bg-slate-950/95">
+              <DialogContent className="bg-gray-950/95">
                 <DialogHeader>
-                  <DialogTitle>記事を削除しますか？</DialogTitle>
+                  <DialogTitle className="text-gray-900 dark:text-white">記事を削除しますか？</DialogTitle>
                   <DialogDescription>
                     この操作は取り消せません。公開中の記事はサイトからも削除されます。
                   </DialogDescription>
@@ -730,7 +714,7 @@ export function BlogEditor({
                     {isDeleting ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-5 w-5" />
                     )}
                     削除する
                   </Button>
@@ -746,30 +730,30 @@ export function BlogEditor({
       </div>
 
       <div className="grid gap-8 xl:grid-cols-[1.8fr_1fr]">
-        <section className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6">
+        <section className="space-y-6 rounded-3xl border border-gray-200 bg-white p-6">
           <div className="space-y-2">
-            <Label htmlFor="title" className="text-slate-700">
+            <Label htmlFor="title" className="text-sm font-medium text-gray-700 dark:text-gray-200">
               タイトル
             </Label>
             <Input id="title" placeholder="タイトル" {...form.register("title")} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="excerpt" className="text-slate-700">
+            <Label htmlFor="excerpt" className="text-sm font-medium text-gray-700 dark:text-gray-200">
               リード文（任意）
             </Label>
             <Textarea id="excerpt" rows={3} placeholder="短い説明文" {...form.register("excerpt")} />
           </div>
           <div className="space-y-2">
-            <Label className="text-slate-700">本文</Label>
+            <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">本文</Label>
             <div className="flex items-center gap-2 text-xs">
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-700">
+              <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
                 {editorMode === "blocks" ? "ブロックエディタ" : "Markdown"}
               </span>
               <Button
                 type="button"
                 variant={editorMode === "blocks" ? "default" : "outline"}
                 size="sm"
-                className="h-7 px-2 text-[11px]"
+                className="h-7 px-2 text-xs"
                 onClick={() => {
                   if (editorMode !== "blocks") {
                     setBlocks(initializeBlocksFromContent(markdownText));
@@ -783,7 +767,7 @@ export function BlogEditor({
                 type="button"
                 variant={editorMode === "markdown" ? "default" : "outline"}
                 size="sm"
-                className="h-7 px-2 text-[11px]"
+                className="h-7 px-2 text-xs"
                 onClick={() => {
                   if (editorMode !== "markdown") {
                     setMarkdownText(blocksToMarkdown(blocks));
@@ -809,14 +793,14 @@ export function BlogEditor({
             ) : (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">本文ブロック</p>
+                  <p className="text-xs uppercase tracking-[0.2em] text-gray-500">本文ブロック</p>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="h-7 rounded-full px-3 text-[11px]"
+                        className="h-7 rounded-full px-3 text-xs"
                       >
                         ＋ ブロックを追加
                       </Button>
@@ -861,17 +845,17 @@ export function BlogEditor({
 
                 <div className="space-y-2">
                   {blocks.length === 0 && (
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-gray-400">
                       「＋ ブロックを追加」から本文ブロックを追加してください。
                     </p>
                   )}
                   {blocks.map((block, index) => (
                     <div
                       key={block.id}
-                      className="space-y-2 rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                      className="space-y-2 rounded-2xl border border-gray-200 bg-gray-50 p-4"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                        <span className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
                           {block.type === "paragraph" && "テキスト"}
                           {block.type === "heading2" && "H2 見出し"}
                           {block.type === "heading3" && "H3 見出し"}
@@ -884,7 +868,7 @@ export function BlogEditor({
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 text-slate-500 hover:text-slate-900"
+                            className="h-7 w-7 text-gray-500 hover:text-gray-900"
                             onClick={() => moveBlock(index, "up")}
                             disabled={index === 0}
                           >
@@ -894,7 +878,7 @@ export function BlogEditor({
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 text-slate-500 hover:text-slate-900"
+                            className="h-7 w-7 text-gray-500 hover:text-gray-900"
                             onClick={() => moveBlock(index, "down")}
                             disabled={index === blocks.length - 1}
                           >
@@ -904,7 +888,7 @@ export function BlogEditor({
                             type="button"
                             variant="ghost"
                             size="sm"
-                            className="h-7 px-2 text-[11px] text-slate-500 hover:text-red-500"
+                            className="h-7 px-2 text-xs text-gray-500 hover:text-red-500"
                             onClick={() => removeBlock(block.id)}
                           >
                             削除
@@ -970,7 +954,7 @@ export function BlogEditor({
                         <div className="space-y-2">
                           {block.items.map((item, itemIndex) => (
                             <div key={itemIndex} className="flex items-center gap-2">
-                              <span className="text-sm text-slate-400">・</span>
+                              <span className="text-sm text-gray-400">・</span>
                               <Input
                                 placeholder="項目を入力"
                                 value={item}
@@ -992,7 +976,7 @@ export function BlogEditor({
                             type="button"
                             variant="ghost"
                             size="sm"
-                            className="h-7 px-2 text-[11px] text-slate-700"
+                            className="h-7 px-2 text-xs text-gray-700"
                             onClick={() =>
                               updateBlock(block.id, (b) => {
                                 const list = b as BulletedListBlock;
@@ -1012,7 +996,7 @@ export function BlogEditor({
                         <div className="space-y-2">
                           {block.items.map((item, itemIndex) => (
                             <div key={itemIndex} className="flex items-center gap-2">
-                              <span className="text-sm text-slate-400">{itemIndex + 1}.</span>
+                              <span className="text-sm text-gray-400">{itemIndex + 1}.</span>
                               <Input
                                 placeholder="項目を入力"
                                 value={item}
@@ -1034,7 +1018,7 @@ export function BlogEditor({
                             type="button"
                             variant="ghost"
                             size="sm"
-                            className="h-7 px-2 text-[11px] text-slate-700"
+                            className="h-7 px-2 text-xs text-gray-700"
                             onClick={() =>
                               updateBlock(block.id, (b) => {
                                 const list = b as NumberedListBlock;
@@ -1101,14 +1085,14 @@ export function BlogEditor({
 
                       {block.type === "divider" && (
                         <div className="py-2">
-                          <div className="border-t border-slate-300" />
+                          <div className="border-t border-gray-300" />
                         </div>
                       )}
 
                       {block.type === "table" && (
                         <div className="space-y-3">
                           <div className="space-y-2">
-                            <p className="text-[11px] text-slate-500">ヘッダー</p>
+                            <p className="text-xs text-gray-500">ヘッダー</p>
                             <div className="flex flex-wrap gap-2">
                               {block.headers.map((header, headerIndex) => (
                                 <Input
@@ -1133,7 +1117,7 @@ export function BlogEditor({
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                className="h-7 px-2 text-[11px] text-slate-700"
+                                className="h-7 px-2 text-xs text-gray-700"
                                 onClick={() =>
                                   updateBlock(block.id, (b) => {
                                     const table = b as TableBlock;
@@ -1153,7 +1137,7 @@ export function BlogEditor({
                           </div>
 
                           <div className="space-y-2">
-                            <p className="text-[11px] text-slate-500">行</p>
+                            <p className="text-xs text-gray-500">行</p>
                             {block.rows.map((row, rowIndex) => (
                               <div key={rowIndex} className="flex flex-wrap items-center gap-2">
                                 {row.map((cell, cellIndex) => (
@@ -1185,7 +1169,7 @@ export function BlogEditor({
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className="h-7 px-2 text-[11px] text-slate-700"
+                              className="h-7 px-2 text-xs text-gray-700"
                               onClick={() =>
                                 updateBlock(block.id, (b) => {
                                   const table = b as TableBlock;
@@ -1205,7 +1189,7 @@ export function BlogEditor({
                       )}
 
                       {block.type === "toc" && (
-                        <p className="text-xs text-slate-500">ここに目次が挿入されます。</p>
+                        <p className="text-xs text-gray-500">ここに目次が挿入されます。</p>
                       )}
                     </div>
                   ))}
@@ -1215,17 +1199,17 @@ export function BlogEditor({
           </div>
         </section>
 
-        <aside className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6">
+        <aside className="space-y-6 rounded-3xl border border-gray-200 bg-white p-6">
           <div className="space-y-2">
-            <Label htmlFor="slug" className="text-slate-700">
+            <Label htmlFor="slug" className="text-sm font-medium text-gray-700 dark:text-gray-200">
               スラッグ
             </Label>
             <Input id="slug" placeholder="slug" {...form.register("slug")} />
-            <p className="text-[11px] text-slate-500">URL に使用される英数字の文字列です。</p>
+            <p className="text-xs text-gray-500">URL に使用される英数字の文字列です。</p>
           </div>
 
           <div className="space-y-3">
-            <Label htmlFor="category" className="text-slate-700">
+            <Label htmlFor="category" className="text-sm font-medium text-gray-700 dark:text-gray-200">
               タグ
             </Label>
             <div className="flex gap-2">
@@ -1238,7 +1222,7 @@ export function BlogEditor({
               <Button
                 type="button"
                 variant="outline"
-                className="whitespace-nowrap border-slate-300 text-xs text-slate-700"
+                className="whitespace-nowrap border-gray-300 text-xs text-gray-700"
                 onClick={() => {
                   addCategory(newCategory);
                   setNewCategory("");
@@ -1252,7 +1236,7 @@ export function BlogEditor({
                 {selectedCategories.map((cat) => (
                   <div
                     key={cat}
-                    className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-[11px] text-primary"
+                    className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs text-primary"
                   >
                     <span>{cat}</span>
                     <button
@@ -1268,7 +1252,7 @@ export function BlogEditor({
             )}
             {categoryOptions.length > 0 && (
               <div className="space-y-1 pt-3">
-                <p className="text-[11px] text-slate-500">既存タグから追加</p>
+                <p className="text-xs text-gray-500">既存タグから追加</p>
                 <div className="flex flex-wrap gap-2">
                   {categoryOptions.map((option) => (
                     <Button
@@ -1276,7 +1260,7 @@ export function BlogEditor({
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="border-slate-300 bg-white text-[11px] text-slate-700 hover:border-primary/40 hover:text-primary"
+                      className="border-gray-300 bg-white text-xs text-gray-700 hover:border-primary/40 hover:text-primary"
                       onClick={() => addCategory(option)}
                     >
                       {option}
@@ -1288,7 +1272,7 @@ export function BlogEditor({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="cover_image_file" className="text-slate-700">
+            <Label htmlFor="cover_image_file" className="text-sm font-medium text-gray-700 dark:text-gray-200">
               サムネイル画像
             </Label>
             <div className="flex flex-wrap items-center gap-3">
@@ -1296,7 +1280,7 @@ export function BlogEditor({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="border-slate-300 bg-white text-xs text-slate-700 hover:bg-slate-50"
+                className="border-gray-300 bg-white text-xs text-gray-700 hover:bg-gray-50"
                 onClick={() => {
                   const input = document.getElementById("cover_image_file") as HTMLInputElement | null;
                   input?.click();
@@ -1305,7 +1289,7 @@ export function BlogEditor({
               >
                 ファイルを選択
               </Button>
-              <span className="text-xs text-slate-500">
+              <span className="text-xs text-gray-500">
                 推奨サイズ: 1920×1080px（10MB まで・JPEG / PNG のみ）
               </span>
             </div>
@@ -1319,7 +1303,7 @@ export function BlogEditor({
             />
             {coverImageUrl && (
               <div className="mt-3 space-y-2">
-                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                <div className="overflow-hidden rounded-2xl border border-gray-200 bg-gray-50">
                   <div className="aspect-[16/9] w-full">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
@@ -1333,7 +1317,7 @@ export function BlogEditor({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-7 px-2 text-[11px] text-slate-500 hover:text-red-500"
+                  className="h-7 px-2 text-xs text-gray-500 hover:text-red-500"
                   onClick={() => form.setValue("cover_image_url", "", { shouldDirty: true })}
                 >
                   サムネイルを削除
@@ -1343,7 +1327,7 @@ export function BlogEditor({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="published_at" className="text-slate-700">
+            <Label htmlFor="published_at" className="text-sm font-medium text-gray-700 dark:text-gray-200">
               公開日時
             </Label>
             <Input

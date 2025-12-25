@@ -1,7 +1,51 @@
 "use server";
 
-import { createServerClient } from "@/lib/supabaseServerClient";
+import { createServerClient, createServiceRoleClient } from "@/lib/supabaseServerClient";
 import { revalidatePath } from "next/cache";
+import { getAppData, hasPagePermission } from "../../data-access";
+
+/**
+ * 予約ページ用のデータを取得
+ */
+export async function getReservationsPageData() {
+    const { profile, permissions } = await getAppData();
+
+    if (!profile?.store_id) {
+        throw new Error("No store found");
+    }
+
+    const supabase = await createServerClient() as any;
+
+    // 店舗設定を取得
+    const { data: storeSettings } = await supabase
+        .from("store_settings")
+        .select("reservation_enabled, reservation_email_setting, reservation_phone_setting, reservation_cast_selection_enabled, day_switch_time")
+        .eq("store_id", profile.store_id)
+        .maybeSingle();
+
+    // 店舗名を取得
+    const { data: store } = await supabase
+        .from("stores")
+        .select("name")
+        .eq("id", profile.store_id)
+        .maybeSingle();
+
+    // 予約一覧を取得
+    const { reservations } = await getReservations(profile.store_id);
+
+    return {
+        storeId: profile.store_id,
+        storeName: store?.name || "",
+        reservations: reservations || [],
+        settings: {
+            reservation_enabled: storeSettings?.reservation_enabled ?? false,
+            reservation_email_setting: storeSettings?.reservation_email_setting ?? "required",
+            reservation_phone_setting: storeSettings?.reservation_phone_setting ?? "hidden",
+            reservation_cast_selection_enabled: storeSettings?.reservation_cast_selection_enabled ?? true,
+        },
+        daySwitchTime: storeSettings?.day_switch_time || "05:00",
+    };
+}
 
 interface Reservation {
     id: string;
@@ -79,6 +123,27 @@ export async function deleteReservation(reservationId: string) {
     return { success: true };
 }
 
+// 予約ステータスを更新
+export async function updateReservationStatus(reservationId: string, status: "waiting" | "visited" | "cancelled") {
+    const supabase = await createServerClient() as any;
+
+    const { error } = await supabase
+        .from("reservations")
+        .update({
+            status,
+            updated_at: new Date().toISOString(),
+        })
+        .eq("id", reservationId);
+
+    if (error) {
+        console.error("Error updating reservation status:", error);
+        return { success: false, error: error.message };
+    }
+
+    revalidatePath("/app/reservations");
+    return { success: true };
+}
+
 // 来店済みにする（URL予約の場合はゲストprofileを作成または紐付け）
 export async function markAsVisited(reservationId: string) {
     const supabase = await createServerClient() as any;
@@ -113,10 +178,9 @@ export async function markAsVisited(reservationId: string) {
             .eq("store_id", reservation.store_id)
             .eq("role", "guest")
             .eq("display_name_kana", reservation.guest_name_kana)
-            .or("is_temporary.is.null,is_temporary.eq.false")
             .maybeSingle();
 
-        let guestProfileId: string;
+        let guestProfileId: string | undefined;
 
         if (existingProfile) {
             // 同名ゲストが存在する場合はそのIDを使用
@@ -144,7 +208,7 @@ export async function markAsVisited(reservationId: string) {
         }
 
         // reservation_guestsに紐付け（guestProfileIdが取得できた場合）
-        if (guestProfileId!) {
+        if (guestProfileId) {
             await supabase
                 .from("reservation_guests")
                 .insert({
@@ -178,7 +242,7 @@ export async function getReservationSettings(storeId: string) {
 
     const { data, error } = await supabase
         .from("store_settings")
-        .select("reservation_enabled")
+        .select("reservation_enabled, reservation_email_setting, reservation_phone_setting")
         .eq("store_id", storeId)
         .single();
 
@@ -186,7 +250,11 @@ export async function getReservationSettings(storeId: string) {
         console.error("Error fetching reservation settings:", error);
         return {
             success: false,
-            settings: { reservation_enabled: false },
+            settings: {
+                reservation_enabled: false,
+                reservation_email_setting: "required" as const,
+                reservation_phone_setting: "hidden" as const,
+            },
             error: error.message
         };
     }
@@ -195,6 +263,8 @@ export async function getReservationSettings(storeId: string) {
         success: true,
         settings: {
             reservation_enabled: data.reservation_enabled ?? false,
+            reservation_email_setting: data.reservation_email_setting ?? "required",
+            reservation_phone_setting: data.reservation_phone_setting ?? "hidden",
         }
     };
 }
@@ -202,15 +272,32 @@ export async function getReservationSettings(storeId: string) {
 // 予約設定を更新
 export async function updateReservationSettings(storeId: string, settings: {
     reservation_enabled: boolean;
+    reservation_email_setting?: "hidden" | "optional" | "required";
+    reservation_phone_setting?: "hidden" | "optional" | "required";
+    reservation_cast_selection_enabled?: boolean;
 }) {
     const supabase = await createServerClient() as any;
 
+    const updateData: any = {
+        store_id: storeId,
+        reservation_enabled: settings.reservation_enabled,
+    };
+
+    if (settings.reservation_email_setting !== undefined) {
+        updateData.reservation_email_setting = settings.reservation_email_setting;
+    }
+    if (settings.reservation_phone_setting !== undefined) {
+        updateData.reservation_phone_setting = settings.reservation_phone_setting;
+    }
+    if (settings.reservation_cast_selection_enabled !== undefined) {
+        updateData.reservation_cast_selection_enabled = settings.reservation_cast_selection_enabled;
+    }
+
     const { error } = await supabase
         .from("store_settings")
-        .update({
-            reservation_enabled: settings.reservation_enabled,
-        })
-        .eq("store_id", storeId);
+        .upsert(updateData, {
+            onConflict: "store_id",
+        });
 
     if (error) {
         console.error("Error updating reservation settings:", error);
@@ -283,6 +370,8 @@ export async function addReservationV2(data: {
     reservationTime: string;
     partySize: number;
     tableId?: string | null;
+    email?: string;
+    phone?: string;
     guests: {
         guestId: string;
         casts: {
@@ -320,6 +409,17 @@ export async function addReservationV2(data: {
         }
     }
 
+    // 連絡先情報を決定（emailが優先）
+    let contactType: "email" | "phone" = "phone";
+    let contactValue = "";
+    if (data.email) {
+        contactType = "email";
+        contactValue = data.email;
+    } else if (data.phone) {
+        contactType = "phone";
+        contactValue = data.phone;
+    }
+
     // 予約を作成
     const { data: newReservation, error } = await supabase
         .from("reservations")
@@ -327,8 +427,8 @@ export async function addReservationV2(data: {
             store_id: data.storeId,
             guest_id: data.guests[0]?.guestId || null,
             guest_name: mainGuestName,
-            contact_value: "",
-            contact_type: "phone",
+            contact_value: contactValue,
+            contact_type: contactType,
             party_size: data.partySize,
             reservation_date: data.reservationDate,
             reservation_time: data.reservationTime,
@@ -394,7 +494,7 @@ export async function getCastsForStore(storeId: string) {
     return { success: true, casts: data || [] };
 }
 
-// ゲスト一覧を取得（role=guest のプロフィール、仮ゲストを除外）
+// ゲスト一覧を取得（role=guest のプロフィール）
 export async function getGuestsForStore(storeId: string) {
     const supabase = await createServerClient() as any;
 
@@ -403,7 +503,6 @@ export async function getGuestsForStore(storeId: string) {
         .select("id, display_name")
         .eq("store_id", storeId)
         .eq("role", "guest")
-        .or("is_temporary.is.null,is_temporary.eq.false")
         .order("display_name", { ascending: true });
 
     if (error) {
@@ -500,6 +599,8 @@ export async function updateReservationV2(data: {
     reservationTime: string;
     partySize: number;
     tableId?: string | null;
+    email?: string;
+    phone?: string;
     guests: {
         guestId: string;
         casts: {
@@ -526,6 +627,17 @@ export async function updateReservationV2(data: {
         }
     }
 
+    // 連絡先情報を決定（emailが優先）
+    let contactType: "email" | "phone" = "phone";
+    let contactValue = "";
+    if (data.email) {
+        contactType = "email";
+        contactValue = data.email;
+    } else if (data.phone) {
+        contactType = "phone";
+        contactValue = data.phone;
+    }
+
     // 予約本体を更新
     const { error } = await supabase
         .from("reservations")
@@ -536,6 +648,8 @@ export async function updateReservationV2(data: {
             reservation_date: data.reservationDate,
             reservation_time: data.reservationTime,
             table_id: data.tableId || null,
+            contact_type: contactType,
+            contact_value: contactValue,
             updated_at: new Date().toISOString(),
         })
         .eq("id", data.reservationId);
@@ -623,5 +737,217 @@ export async function updateUrlReservation(data: {
 
     revalidatePath("/app/reservations");
     revalidatePath("/app/floor");
+    return { success: true };
+}
+
+// ========================================
+// カスタム質問（Custom Fields）関連
+// ========================================
+
+export interface CustomField {
+    id: string;
+    store_id: string;
+    field_type: "text" | "textarea" | "select" | "checkbox";
+    label: string;
+    options: string[] | null;
+    is_required: boolean;
+    sort_order: number;
+    created_at: string;
+    updated_at: string;
+}
+
+// カスタム質問一覧を取得
+export async function getCustomFields(storeId: string) {
+    const supabase = createServiceRoleClient() as any;
+
+    const { data, error } = await supabase
+        .from("reservation_custom_fields")
+        .select("*")
+        .eq("store_id", storeId)
+        .order("sort_order", { ascending: true });
+
+    if (error) {
+        console.error("Error fetching custom fields:", error);
+        return { success: false, fields: [], error: error.message };
+    }
+
+    return { success: true, fields: data as CustomField[] };
+}
+
+// カスタム質問を作成
+export async function createCustomField(data: {
+    storeId: string;
+    fieldType: "text" | "textarea" | "select" | "checkbox";
+    label: string;
+    options?: string[];
+    isRequired: boolean;
+}) {
+    const supabase = createServiceRoleClient() as any;
+
+    // 現在の最大sort_orderを取得
+    const { data: lastField } = await supabase
+        .from("reservation_custom_fields")
+        .select("sort_order")
+        .eq("store_id", data.storeId)
+        .order("sort_order", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+    const nextSortOrder = (lastField?.sort_order ?? -1) + 1;
+
+    const { data: newField, error } = await supabase
+        .from("reservation_custom_fields")
+        .insert({
+            store_id: data.storeId,
+            field_type: data.fieldType,
+            label: data.label,
+            options: data.options || null,
+            is_required: data.isRequired,
+            sort_order: nextSortOrder,
+        })
+        .select()
+        .single();
+
+    if (error) {
+        console.error("Error creating custom field:", error);
+        return { success: false, error: error.message };
+    }
+
+    revalidatePath("/app/reservations");
+    return { success: true, field: newField as CustomField };
+}
+
+// カスタム質問を更新
+export async function updateCustomField(data: {
+    fieldId: string;
+    fieldType?: "text" | "textarea" | "select" | "checkbox";
+    label?: string;
+    options?: string[] | null;
+    isRequired?: boolean;
+}) {
+    const supabase = createServiceRoleClient() as any;
+
+    const updateData: any = {
+        updated_at: new Date().toISOString(),
+    };
+
+    if (data.fieldType !== undefined) updateData.field_type = data.fieldType;
+    if (data.label !== undefined) updateData.label = data.label;
+    if (data.options !== undefined) updateData.options = data.options;
+    if (data.isRequired !== undefined) updateData.is_required = data.isRequired;
+
+    const { error } = await supabase
+        .from("reservation_custom_fields")
+        .update(updateData)
+        .eq("id", data.fieldId);
+
+    if (error) {
+        console.error("Error updating custom field:", error);
+        return { success: false, error: error.message };
+    }
+
+    revalidatePath("/app/reservations");
+    return { success: true };
+}
+
+// カスタム質問を削除
+export async function deleteCustomField(fieldId: string) {
+    const supabase = createServiceRoleClient() as any;
+
+    const { error } = await supabase
+        .from("reservation_custom_fields")
+        .delete()
+        .eq("id", fieldId);
+
+    if (error) {
+        console.error("Error deleting custom field:", error);
+        return { success: false, error: error.message };
+    }
+
+    revalidatePath("/app/reservations");
+    return { success: true };
+}
+
+// カスタム質問の順序を更新
+export async function reorderCustomFields(fields: { id: string; sort_order: number }[]) {
+    const supabase = createServiceRoleClient() as any;
+
+    for (const field of fields) {
+        await supabase
+            .from("reservation_custom_fields")
+            .update({ sort_order: field.sort_order, updated_at: new Date().toISOString() })
+            .eq("id", field.id);
+    }
+
+    revalidatePath("/app/reservations");
+    return { success: true };
+}
+
+// ========================================
+// カスタム質問の回答（Custom Answers）関連
+// ========================================
+
+export interface CustomAnswer {
+    id: string;
+    reservation_id: string;
+    field_id: string;
+    answer_value: string;
+    created_at: string;
+}
+
+// カスタム質問の回答を取得
+export async function getCustomAnswers(reservationId: string) {
+    const supabase = createServiceRoleClient() as any;
+
+    const { data, error } = await supabase
+        .from("reservation_custom_answers")
+        .select(`
+            *,
+            field:reservation_custom_fields(id, label, field_type, options, is_required)
+        `)
+        .eq("reservation_id", reservationId);
+
+    if (error) {
+        console.error("Error fetching custom answers:", error);
+        return { success: false, answers: [], error: error.message };
+    }
+
+    return { success: true, answers: data || [] };
+}
+
+// カスタム質問の回答を更新
+export async function updateCustomAnswers(
+    reservationId: string,
+    answers: { fieldId: string; value: string }[]
+) {
+    const supabase = createServiceRoleClient() as any;
+
+    // Delete existing answers
+    await supabase
+        .from("reservation_custom_answers")
+        .delete()
+        .eq("reservation_id", reservationId);
+
+    // Insert new answers (only non-empty)
+    const answerInserts = answers
+        .filter((a) => a.value && a.value.trim() !== "")
+        .map((a) => ({
+            reservation_id: reservationId,
+            field_id: a.fieldId,
+            answer_value: a.value,
+        }));
+
+    if (answerInserts.length > 0) {
+        const { error } = await supabase
+            .from("reservation_custom_answers")
+            .insert(answerInserts);
+
+        if (error) {
+            console.error("Error updating custom answers:", error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    revalidatePath("/app/reservations");
     return { success: true };
 }

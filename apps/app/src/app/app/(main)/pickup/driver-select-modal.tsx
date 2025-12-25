@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
     Dialog,
     DialogContent,
@@ -8,6 +8,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { VercelTabs } from "@/components/ui/vercel-tabs";
 import { Search, Check, ChevronLeft } from "lucide-react";
 
 interface StaffProfile {
@@ -36,20 +37,6 @@ export function DriverSelectModal({
 }: DriverSelectModalProps) {
     const [activeTab, setActiveTab] = useState<TabType>("staff");
     const [searchQuery, setSearchQuery] = useState("");
-
-    // Vercel-style tabs
-    const tabsRef = useRef<{ [key: string]: HTMLButtonElement | null }>({});
-    const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
-
-    useEffect(() => {
-        const activeButton = tabsRef.current[activeTab];
-        if (activeButton) {
-            setIndicatorStyle({
-                left: activeButton.offsetLeft,
-                width: activeButton.offsetWidth,
-            });
-        }
-    }, [activeTab]);
 
     // Reset search when modal opens
     useEffect(() => {
@@ -95,6 +82,11 @@ export function DriverSelectModal({
         [staffProfiles]
     );
 
+    const tabs = [
+        { key: "staff", label: `スタッフ (${staffCount})` },
+        { key: "partner", label: `パートナー (${partnerCount})` },
+    ];
+
     const handleSelect = (staff: StaffProfile | null) => {
         if (staff) {
             onSelect(staff.id, staff.display_name);
@@ -106,18 +98,19 @@ export function DriverSelectModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-md rounded-2xl border border-gray-200 bg-white p-0 shadow-xl dark:border-gray-800 dark:bg-gray-900 max-h-[80vh] overflow-hidden flex flex-col">
-                <DialogHeader className="relative flex flex-row items-center justify-center space-y-0 p-4 border-b border-gray-200 dark:border-gray-700 shrink-0">
+            <DialogContent className="p-0 overflow-hidden flex flex-col max-h-[90vh] rounded-2xl">
+                <DialogHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900 flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
                     <button
                         type="button"
                         onClick={onClose}
-                        className="absolute left-4 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
                     >
-                        <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                        <ChevronLeft className="h-4 w-4" />
                     </button>
-                    <DialogTitle className="text-base font-semibold text-gray-900 dark:text-gray-50">
+                    <DialogTitle className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white truncate">
                         ドライバー選択
                     </DialogTitle>
+                    <div className="w-8 h-8" />
                 </DialogHeader>
 
                 {/* Search */}
@@ -135,39 +128,11 @@ export function DriverSelectModal({
 
                 {/* Vercel-style Tab Navigation */}
                 <div className="px-4 pt-4 shrink-0">
-                    <div className="relative">
-                        <div className="flex w-full">
-                            <button
-                                ref={(el) => { tabsRef.current["staff"] = el; }}
-                                type="button"
-                                onClick={() => setActiveTab("staff")}
-                                className={`flex-1 py-2 text-sm font-medium transition-colors relative ${
-                                    activeTab === "staff"
-                                        ? "text-gray-900 dark:text-white"
-                                        : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                                }`}
-                            >
-                                スタッフ ({staffCount})
-                            </button>
-                            <button
-                                ref={(el) => { tabsRef.current["partner"] = el; }}
-                                type="button"
-                                onClick={() => setActiveTab("partner")}
-                                className={`flex-1 py-2 text-sm font-medium transition-colors relative ${
-                                    activeTab === "partner"
-                                        ? "text-gray-900 dark:text-white"
-                                        : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                                }`}
-                            >
-                                パートナー ({partnerCount})
-                            </button>
-                        </div>
-                        <div
-                            className="absolute bottom-0 h-0.5 bg-gray-900 dark:bg-white transition-all duration-200"
-                            style={{ left: indicatorStyle.left, width: indicatorStyle.width }}
-                        />
-                        <div className="absolute bottom-0 left-0 right-0 h-px bg-gray-200 dark:bg-gray-700" />
-                    </div>
+                    <VercelTabs
+                        tabs={tabs}
+                        value={activeTab}
+                        onChange={(val) => setActiveTab(val as TabType)}
+                    />
                 </div>
 
                 {/* List */}
@@ -179,7 +144,7 @@ export function DriverSelectModal({
                         className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors mb-1 ${
                             !selectedDriverId
                                 ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
-                                : "hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-900 dark:text-white"
+                                : "hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-white"
                         }`}
                     >
                         <span className="text-sm font-medium">未定</span>
@@ -202,7 +167,7 @@ export function DriverSelectModal({
                                     className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors ${
                                         selectedDriverId === staff.id
                                             ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
-                                            : "hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-900 dark:text-white"
+                                            : "hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-white"
                                     }`}
                                 >
                                     <span className="text-sm font-medium">{staff.display_name}</span>

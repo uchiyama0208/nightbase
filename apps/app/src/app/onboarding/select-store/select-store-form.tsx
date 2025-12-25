@@ -6,8 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
-import { searchStore } from "../actions";
-import { Search, Building2, ArrowLeft } from "lucide-react";
+import { searchStore, resetRejectedJoinRequest } from "../actions";
+import { Search, Building2, ChevronLeft } from "lucide-react";
 import Link from "next/link";
 
 export function SelectStoreForm() {
@@ -38,8 +38,10 @@ export function SelectStoreForm() {
         setIsSearching(false);
     };
 
-    const handleProceed = () => {
+    const handleProceed = async () => {
         if (storeInfo) {
+            // Reset any rejected join request before proceeding
+            await resetRejectedJoinRequest(storeInfo.id);
             sessionStorage.setItem("onboarding_store_id", storeInfo.id);
             router.push("/onboarding/select-role");
         }
@@ -51,19 +53,19 @@ export function SelectStoreForm() {
                 href="/onboarding/choice"
                 className="absolute top-4 left-4 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
             >
-                <ArrowLeft className="h-4 w-4" />
+                <ChevronLeft className="h-4 w-4" />
                 戻る
             </Link>
             <CardHeader className="pt-12">
                 <CardTitle className="text-gray-900 dark:text-white">店舗を選択</CardTitle>
-                <CardDescription className="text-gray-700 dark:text-gray-300">
+                <CardDescription className="text-sm font-medium text-gray-700 dark:text-gray-200">
                     参加したい店舗のIDを入力してください
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
                 <div className="space-y-4">
                     <div className="space-y-2">
-                        <Label htmlFor="store_id">店舗ID</Label>
+                        <Label htmlFor="store_id" className="text-sm font-medium text-gray-700 dark:text-gray-200">店舗ID</Label>
                         <div className="flex gap-2">
                             <Input
                                 id="store_id"
@@ -83,7 +85,7 @@ export function SelectStoreForm() {
                                 variant="outline"
                                 className="shrink-0"
                             >
-                                <Search className="h-4 w-4 mr-2" />
+                                <Search className="h-5 w-5 mr-2" />
                                 {isSearching ? "検索中..." : "検索"}
                             </Button>
                         </div>
@@ -104,16 +106,16 @@ export function SelectStoreForm() {
                             </div>
                             <div className="space-y-1 text-sm">
                                 <p className="text-green-900 dark:text-green-100">
-                                    <span className="font-medium">店舗名:</span> {storeInfo.name}
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-200">店舗名:</span> {storeInfo.name}
                                 </p>
                                 {storeInfo.industry && (
                                     <p className="text-green-800 dark:text-green-200">
-                                        <span className="font-medium">業種:</span> {storeInfo.industry}
+                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-200">業種:</span> {storeInfo.industry}
                                     </p>
                                 )}
                                 {storeInfo.prefecture && (
                                     <p className="text-green-800 dark:text-green-200">
-                                        <span className="font-medium">所在地:</span> {storeInfo.prefecture}
+                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-200">所在地:</span> {storeInfo.prefecture}
                                     </p>
                                 )}
                             </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useOptimistic, startTransition, useEffect } from "react";
+import { useState, useRef } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { UserCircle, MoreHorizontal, Edit2, Trash2, Heart, Send } from "lucide-react";
 import { cn, formatJSTDate } from "@/lib/utils";
+import { toast } from "@/components/ui/use-toast";
 
 interface Comment {
     id: string;
@@ -41,7 +42,7 @@ interface CommentListProps {
 }
 
 export function CommentList({
-    comments: initialComments,
+    comments,
     currentUserId,
     isAdmin = false,
     onAddComment,
@@ -50,154 +51,101 @@ export function CommentList({
     onToggleLike,
 }: CommentListProps) {
     const [newComment, setNewComment] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
     const [editingCommentText, setEditingCommentText] = useState("");
     const [commentMenuOpen, setCommentMenuOpen] = useState<string | null>(null);
     const [deleteCommentId, setDeleteCommentId] = useState<string | null>(null);
     const [likeAnimationKey, setLikeAnimationKey] = useState<Record<string, number>>({});
+    const [optimisticLikes, setOptimisticLikes] = useState<Record<string, { liked: boolean; count: number } | null>>({});
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-    // Optimistic state for comments
-    const [optimisticComments, addOptimisticComment] = useOptimistic(
-        initialComments,
-        (state: Comment[], action:
-            | { type: "add"; comment: Comment }
-            | { type: "edit"; id: string; content: string }
-            | { type: "delete"; id: string }
-            | { type: "toggle_like"; id: string }
-        ) => {
-            switch (action.type) {
-                case "add":
-                    return [...state, action.comment];
-                case "edit":
-                    return state.map((c) =>
-                        c.id === action.id ? { ...c, content: action.content, updated_at: new Date().toISOString() } : c
-                    );
-                case "delete":
-                    return state.filter((c) => c.id !== action.id);
-                case "toggle_like":
-                    return state.map((c) => {
-                        if (c.id === action.id) {
-                            const isLiked = !c.user_has_liked;
-                            return {
-                                ...c,
-                                user_has_liked: isLiked,
-                                like_count: (c.like_count || 0) + (isLiked ? 1 : -1),
-                            };
-                        }
-                        return c;
-                    });
-                default:
-                    return state;
-            }
-        }
-    );
-
     const handleAdd = async () => {
-        if (!newComment.trim()) return;
+        if (!newComment.trim() || isSubmitting) return;
 
         const contentToAdd = newComment.trim();
-        const tempId = Math.random().toString(36).substring(7);
-        const tempComment: Comment = {
-            id: tempId,
-            content: contentToAdd,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            author_profile_id: currentUserId || "",
-            // We might not have full author details instantly available if we don't pass them in,
-            // but usually the parent component knows the current user details.
-            // For now, we'll rely on the server refresh or just show a placeholder if needed.
-            // Ideally, we should pass currentUser details to this component.
-            // Assuming currentUserId is enough to identify ownership for now.
-            author: {
-                id: currentUserId || "",
-                display_name: "自分", // Placeholder until refresh
-                avatar_url: null,
-            },
-            like_count: 0,
-            user_has_liked: false,
-        };
+        setNewComment("");
+        setIsSubmitting(true);
 
         // Reset textarea height
         if (textareaRef.current) {
             textareaRef.current.style.height = '40px';
         }
 
-        startTransition(() => {
-            addOptimisticComment({ type: "add", comment: tempComment });
-            setNewComment("");
-        });
-
         const result = await onAddComment(contentToAdd);
+        setIsSubmitting(false);
+
         if (!result.success) {
-            // Revert or show error (optimistic UI usually assumes success, 
-            // handling failure gracefully is complex without a full sync mechanism,
-            // but for now we just alert)
-            alert("コメントの追加に失敗しました");
-            // In a real app, we'd revert the optimistic state here, 
-            // but useOptimistic resets automatically on next render with new props.
+            setNewComment(contentToAdd); // Restore on failure
+            toast({ title: "コメントの追加に失敗しました", variant: "destructive" });
         }
     };
 
-    const handleEdit = (commentId: string) => {
+    const handleEdit = async (commentId: string) => {
         if (!editingCommentText.trim()) return;
 
         const contentToSave = editingCommentText.trim();
-
-        // Close edit mode immediately
         setEditingCommentId(null);
         setEditingCommentText("");
 
-        // Optimistically update the comment
-        startTransition(() => {
-            addOptimisticComment({ type: "edit", id: commentId, content: contentToSave });
-        });
-
-        // Save in background
-        onEditComment(commentId, contentToSave).then((result) => {
-            if (!result.success) {
-                alert("コメントの更新に失敗しました");
-            }
-        });
+        const result = await onEditComment(commentId, contentToSave);
+        if (!result.success) {
+            toast({ title: "コメントの更新に失敗しました", variant: "destructive" });
+        }
     };
 
-    const handleDelete = (commentId: string) => {
-        // Close modal immediately
+    const handleDelete = async (commentId: string) => {
         setDeleteCommentId(null);
 
-        // Optimistically remove the comment
-        startTransition(() => {
-            addOptimisticComment({ type: "delete", id: commentId });
-        });
-
-        // Delete in background
-        onDeleteComment(commentId).then((result) => {
-            if (!result.success) {
-                alert("コメントの削除に失敗しました");
-            }
-        });
+        const result = await onDeleteComment(commentId);
+        if (!result.success) {
+            toast({ title: "コメントの削除に失敗しました", variant: "destructive" });
+        }
     };
 
-    const handleLike = (commentId: string) => {
-        // Update animation key to trigger animation
+    const handleLike = async (commentId: string) => {
+        const comment = comments.find(c => c.id === commentId);
+        if (!comment) return;
+
+        // Get current state (optimistic or original)
+        const currentLiked = optimisticLikes[commentId]?.liked ?? comment.user_has_liked ?? false;
+        const currentCount = optimisticLikes[commentId]?.count ?? comment.like_count ?? 0;
+
+        // Optimistic update
+        const newLiked = !currentLiked;
+        const newCount = newLiked ? currentCount + 1 : Math.max(0, currentCount - 1);
+
+        setOptimisticLikes(prev => ({
+            ...prev,
+            [commentId]: { liked: newLiked, count: newCount }
+        }));
+
         setLikeAnimationKey((prev) => ({
             ...prev,
             [commentId]: (prev[commentId] || 0) + 1,
         }));
 
-        // Optimistically toggle the like
-        startTransition(() => {
-            addOptimisticComment({ type: "toggle_like", id: commentId });
-        });
+        const result = await onToggleLike(commentId);
 
-        // Fire and forget
-        onToggleLike(commentId);
+        if (!result.success) {
+            // Revert on failure
+            setOptimisticLikes(prev => ({
+                ...prev,
+                [commentId]: { liked: currentLiked, count: currentCount }
+            }));
+        } else {
+            // Clear optimistic state after successful update (let parent state take over)
+            setOptimisticLikes(prev => ({
+                ...prev,
+                [commentId]: null
+            }));
+        }
     };
 
     return (
         <div className="space-y-3">
             <div className="space-y-3">
-                {optimisticComments.map((comment) => (
+                {comments.map((comment) => (
                     <div key={comment.id} className="flex gap-3 items-start group">
                         <Avatar className="h-8 w-8 mt-1 flex-shrink-0">
                             <AvatarImage src={comment.author?.avatar_url || ""} />
@@ -217,13 +165,9 @@ export function CommentList({
                                             <button
                                                 type="button"
                                                 onClick={() => setCommentMenuOpen(commentMenuOpen === comment.id ? null : comment.id)}
-                                                disabled={comment.id.length < 30}
-                                                className={cn(
-                                                    "p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full text-gray-500 transition-colors",
-                                                    comment.id.length < 30 && "opacity-50 cursor-not-allowed"
-                                                )}
+                                                className="p-1 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-full text-gray-500 transition-colors"
                                             >
-                                                <MoreHorizontal className="h-4 w-4" />
+                                                <MoreHorizontal className="h-5 w-5" />
                                             </button>
                                             {commentMenuOpen === comment.id && (
                                                 <>
@@ -235,7 +179,7 @@ export function CommentList({
                                                         {comment.author_profile_id === currentUserId && (
                                                             <button
                                                                 type="button"
-                                                                className="w-full text-left px-2 py-1.5 rounded flex items-center gap-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                                                className="w-full text-left px-2 py-1.5 rounded flex items-center gap-2 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
                                                                 onClick={() => {
                                                                     setEditingCommentId(comment.id);
                                                                     setEditingCommentText(comment.content);
@@ -299,27 +243,31 @@ export function CommentList({
                                         {comment.content}
                                     </div>
                                     <div className="mt-1 flex items-center gap-4 px-1">
-                                        <button
-                                            type="button"
-                                            onClick={() => handleLike(comment.id)}
-                                            disabled={comment.id.length < 30}
-                                            className={cn(
-                                                "flex items-center gap-1 text-xs transition-colors",
-                                                comment.user_has_liked
-                                                    ? "text-red-500"
-                                                    : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200",
-                                                comment.id.length < 30 && "opacity-50 cursor-not-allowed"
-                                            )}
-                                        >
-                                            <Heart
-                                                key={`heart-${comment.id}-${likeAnimationKey[comment.id] || 0}`}
-                                                className={cn(
-                                                    "h-3.5 w-3.5 transition-transform duration-200",
-                                                    comment.user_has_liked && "fill-current animate-like-bounce"
-                                                )}
-                                            />
-                                            <span>{comment.like_count || 0 > 0 ? comment.like_count : "いいね"}</span>
-                                        </button>
+                                        {(() => {
+                                            const isLiked = optimisticLikes[comment.id]?.liked ?? comment.user_has_liked ?? false;
+                                            const likeCount = optimisticLikes[comment.id]?.count ?? comment.like_count ?? 0;
+                                            return (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleLike(comment.id)}
+                                                    className={cn(
+                                                        "flex items-center gap-1 text-xs transition-colors",
+                                                        isLiked
+                                                            ? "text-red-500"
+                                                            : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                                    )}
+                                                >
+                                                    <Heart
+                                                        key={`heart-${comment.id}-${likeAnimationKey[comment.id] || 0}`}
+                                                        className={cn(
+                                                            "h-3.5 w-3.5 transition-transform duration-200",
+                                                            isLiked && "fill-current animate-like-bounce"
+                                                        )}
+                                                    />
+                                                    <span>{likeCount > 0 ? likeCount : "いいね"}</span>
+                                                </button>
+                                            );
+                                        })()}
                                     </div>
                                 </div>
                             )}
@@ -355,17 +303,17 @@ export function CommentList({
                 <Button
                     type="button"
                     onClick={handleAdd}
-                    disabled={!newComment.trim()}
+                    disabled={!newComment.trim() || isSubmitting}
                     size="icon"
                     className="h-10 w-10 rounded-full flex-shrink-0"
                 >
-                    <Send className="h-4 w-4" />
+                    <Send className="h-5 w-5" />
                 </Button>
             </div>
 
             {/* Delete Confirmation Modal */}
             <Dialog open={!!deleteCommentId} onOpenChange={(open) => !open && setDeleteCommentId(null)}>
-                <DialogContent className="sm:max-w-[400px] bg-white dark:bg-gray-800 w-[90%] rounded-lg p-6">
+                <DialogContent className="sm:max-w-md bg-white dark:bg-gray-800 w-[90%] rounded-2xl p-6">
                     <DialogHeader>
                         <DialogTitle className="text-center text-lg font-bold text-gray-900 dark:text-white">
                             コメントを削除
@@ -378,7 +326,7 @@ export function CommentList({
                         <p>本当にこのコメントを削除しますか？</p>
                         <p className="text-sm mt-2 text-gray-500">この操作は取り消せません。</p>
                     </div>
-                    <DialogFooter className="flex-col sm:flex-row gap-3">
+                    <DialogFooter className="flex-col sm:flex-row gap-2">
                         <Button
                             type="button"
                             variant="destructive"

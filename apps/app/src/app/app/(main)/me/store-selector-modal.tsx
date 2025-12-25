@@ -10,7 +10,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Building2, Plus, Check, ChevronRight, ChevronDown } from "lucide-react";
+import { Building2, Plus, Check, ChevronRight, ChevronDown, ChevronLeft } from "lucide-react";
 import { switchProfile } from "./actions";
 
 interface Store {
@@ -94,11 +94,20 @@ export function StoreSelectorModal({
 
             {/* Store Selector Modal */}
             <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                <DialogContent className="sm:max-w-[400px] bg-white dark:bg-gray-900 p-0 overflow-hidden rounded-2xl">
-                    <DialogHeader className="px-4 pt-4 pb-2">
-                        <DialogTitle className="text-gray-900 dark:text-white">
+                <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900 p-0 overflow-hidden rounded-2xl flex flex-col max-h-[90vh]">
+                    <DialogHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900 flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
+                        <button
+                            type="button"
+                            onClick={() => setIsOpen(false)}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
+                            aria-label="戻る"
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                        </button>
+                        <DialogTitle className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white truncate">
                             店舗を選択
                         </DialogTitle>
+                        <div className="w-8 h-8" />
                     </DialogHeader>
 
                     {/* Store List */}
@@ -115,7 +124,7 @@ export function StoreSelectorModal({
                                     className={`w-full flex items-center gap-3 px-4 py-3 transition-colors ${
                                         isCurrent
                                             ? "bg-blue-50 dark:bg-blue-900/20"
-                                            : "hover:bg-gray-50 dark:hover:bg-gray-800"
+                                            : "hover:bg-gray-50 dark:hover:bg-gray-700"
                                     }`}
                                 >
                                     {store?.icon_url ? (
@@ -176,9 +185,9 @@ export function StoreSelectorModal({
                         >
                             <div className="flex items-center gap-3">
                                 <div className="p-1.5 rounded-lg bg-green-100 dark:bg-green-900/30">
-                                    <Plus className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                    <Plus className="h-5 w-5 text-green-600 dark:text-green-400" />
                                 </div>
-                                <span className="text-gray-900 dark:text-white">新規店舗を作成</span>
+                                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">新規店舗を作成</span>
                             </div>
                             <ChevronRight className="h-4 w-4 text-gray-400" />
                         </Button>
@@ -191,7 +200,7 @@ export function StoreSelectorModal({
                                 <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-900/30">
                                     <Building2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                                 </div>
-                                <span className="text-gray-900 dark:text-white">店舗に参加</span>
+                                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">店舗に参加</span>
                             </div>
                             <ChevronRight className="h-4 w-4 text-gray-400" />
                         </Button>

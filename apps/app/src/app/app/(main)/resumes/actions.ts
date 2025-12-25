@@ -288,6 +288,28 @@ export async function getSubmissionDetails(submissionId: string) {
     };
 }
 
+// Get signed URLs for ID verification images
+export async function getIdVerificationImageUrls(imagePaths: string[]): Promise<string[]> {
+    if (!imagePaths || imagePaths.length === 0) return [];
+
+    const adminClient = createServiceRoleClient();
+    const signedUrls: string[] = [];
+
+    for (const path of imagePaths) {
+        const { data, error } = await adminClient.storage
+            .from("private")
+            .createSignedUrl(path, 3600); // 1 hour expiry
+
+        if (error) {
+            console.error("Failed to get signed URL:", error);
+        } else if (data?.signedUrl) {
+            signedUrls.push(data.signedUrl);
+        }
+    }
+
+    return signedUrls;
+}
+
 // 名前重複チェック（かなで判断）
 export async function checkDisplayNameDuplicate(displayNameKana: string) {
     const supabase = await createClient();
@@ -325,7 +347,8 @@ export async function hireApplicant(
     submissionId: string,
     hireType: "trial" | "full" = "full",
     customDisplayName?: string,
-    customDisplayNameKana?: string
+    customDisplayNameKana?: string,
+    createProfile: boolean = true
 ) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -359,6 +382,24 @@ export async function hireApplicant(
 
     if (submission.profile_id) {
         throw new Error("既に採用済みです");
+    }
+
+    // プロフィールを作成しない場合はステータスのみ更新
+    if (!createProfile) {
+        const { error: updateError } = await supabase
+            .from("resume_submissions" as any)
+            .update({
+                status: "hired",
+            } as any)
+            .eq("id", submissionId);
+
+        if (updateError) {
+            console.error("Failed to update submission:", updateError);
+            throw new Error("採用処理に失敗しました");
+        }
+
+        revalidatePath("/app/resumes");
+        return null;
     }
 
     // Create new profile from submission data
@@ -779,5 +820,99 @@ export async function getCurrentProfileInfo(): Promise<{ profileId: string | nul
     return {
         profileId: appUser.current_profile_id,
         role: profile?.role || null,
+    };
+}
+
+// ページデータ取得（SPA用）
+export async function getResumesPageData() {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { redirect: "/login" };
+    }
+
+    const { data: appUser } = await supabase
+        .from("users")
+        .select("current_profile_id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+    if (!appUser?.current_profile_id) {
+        return { redirect: "/app/me" };
+    }
+
+    const { data: profile } = await supabase
+        .from("profiles")
+        .select("store_id, role")
+        .eq("id", appUser.current_profile_id)
+        .maybeSingle();
+
+    if (!profile?.store_id) {
+        return { redirect: "/app/dashboard" };
+    }
+
+    // Get all submissions for this store
+    const { data: submissions, error: subError } = await supabase
+        .from("resume_submissions")
+        .select(`
+            *,
+            resume_templates (
+                id,
+                name,
+                target_role
+            )
+        `)
+        .eq("store_id", profile.store_id)
+        .in("status", ["submitted", "rejected"])
+        .order("submitted_at", { ascending: false });
+
+    if (subError) {
+        console.error("Failed to fetch submissions:", subError);
+    }
+
+    // Get all templates for this store
+    const { data: templates, error: tplError } = await supabase
+        .from("resume_templates")
+        .select(`
+            id,
+            name,
+            is_active,
+            target_role,
+            visible_fields,
+            created_at,
+            resume_template_fields (
+                id,
+                field_type,
+                label,
+                options,
+                is_required,
+                sort_order
+            )
+        `)
+        .eq("store_id", profile.store_id)
+        .order("created_at", { ascending: false });
+
+    if (tplError) {
+        console.error("Failed to fetch templates:", tplError);
+    }
+
+    // Count submitted submissions per template
+    const templatesWithCount = (templates || []).map((template: any) => {
+        const count = (submissions || []).filter(
+            (s: any) => s.template_id === template.id
+        ).length;
+        return {
+            ...template,
+            resume_submissions: [{ count }],
+        };
+    });
+
+    return {
+        data: {
+            submissions: submissions || [],
+            templates: templatesWithCount,
+            storeId: profile.store_id,
+        }
     };
 }

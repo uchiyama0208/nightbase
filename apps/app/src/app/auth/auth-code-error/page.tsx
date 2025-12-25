@@ -103,7 +103,7 @@ export default function AuthCodeErrorPage() {
                     {status === "loading" && (
                         <>
                             <div className="mx-auto bg-blue-100 dark:bg-blue-900/30 p-4 rounded-full mb-4 w-16 h-16 flex items-center justify-center">
-                                <Loader2 className="w-8 h-8 text-blue-600 dark:text-blue-400 animate-spin" />
+                                <Loader2 className="h-8 w-8 text-blue-600 dark:text-blue-400 animate-spin" />
                             </div>
                             <CardTitle className="text-2xl font-bold text-gray-900 dark:text-white">
                                 認証処理中...
@@ -142,7 +142,7 @@ export default function AuthCodeErrorPage() {
                 </CardHeader>
                 {status === "error" && (
                     <CardContent className="space-y-4">
-                        <Button asChild className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+                        <Button asChild className="w-full">
                             <Link href="/signup">
                                 新規登録ページへ
                             </Link>

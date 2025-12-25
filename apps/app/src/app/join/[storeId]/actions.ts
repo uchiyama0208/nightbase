@@ -1,14 +1,49 @@
 "use server";
 
 import { createServerClient } from "@/lib/supabaseServerClient";
+import { createServiceRoleClient } from "@/lib/supabaseServiceClient";
 import { revalidatePath } from "next/cache";
+
+export async function resetRejectedJoinRequest(storeId: string) {
+    const supabase = await createServerClient() as any;
+    const serviceSupabase = createServiceRoleClient() as any;
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { success: false };
+    }
+
+    // Find existing profile for this user+store
+    const { data: existingProfile } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("store_id", storeId)
+        .maybeSingle();
+
+    if (!existingProfile) {
+        return { success: true };
+    }
+
+    // Delete rejected join request (use service role to bypass RLS)
+    await serviceSupabase
+        .from("join_requests")
+        .delete()
+        .eq("profile_id", existingProfile.id)
+        .eq("status", "rejected");
+
+    return { success: true };
+}
 
 export async function getStoreForJoin(storeId: string) {
     const supabase = await createServerClient() as any;
+    // Use service role client to bypass RLS for store_settings (new users don't have profiles yet)
+    const serviceSupabase = createServiceRoleClient() as any;
 
+    // Fetch store basic info
     const { data: store, error } = await supabase
         .from("stores")
-        .select("id, name, industry, prefecture, allow_join_by_url, icon_url")
+        .select("id, name, industry, prefecture, icon_url")
         .eq("id", storeId)
         .maybeSingle();
 
@@ -16,7 +51,14 @@ export async function getStoreForJoin(storeId: string) {
         return { success: false, error: "店舗が見つかりませんでした" };
     }
 
-    if (!store.allow_join_by_url) {
+    // Fetch store settings to check join permissions (use service role to bypass RLS)
+    const { data: settings } = await serviceSupabase
+        .from("store_settings")
+        .select("allow_join_requests, allow_join_by_url")
+        .eq("store_id", storeId)
+        .maybeSingle();
+
+    if (!settings?.allow_join_requests || !settings?.allow_join_by_url) {
         return { success: false, error: "この店舗はURL参加を受け付けていません" };
     }
 
@@ -25,6 +67,7 @@ export async function getStoreForJoin(storeId: string) {
 
 export async function submitJoinRequest(formData: FormData) {
     const supabase = await createServerClient() as any;
+    const serviceSupabase = createServiceRoleClient() as any;
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
     if (userError || !user) {
@@ -42,14 +85,25 @@ export async function submitJoinRequest(formData: FormData) {
         return { success: false, error: "必須項目を入力してください" };
     }
 
-    // Verify store accepts URL joins
+    // Verify store exists and accepts URL joins
     const { data: store } = await supabase
         .from("stores")
-        .select("id, allow_join_by_url")
+        .select("id")
         .eq("id", storeId)
         .maybeSingle();
 
-    if (!store || !store.allow_join_by_url) {
+    if (!store) {
+        return { success: false, error: "店舗が見つかりませんでした" };
+    }
+
+    // Use service role to bypass RLS for store_settings
+    const { data: settings } = await serviceSupabase
+        .from("store_settings")
+        .select("allow_join_requests, allow_join_by_url")
+        .eq("store_id", storeId)
+        .maybeSingle();
+
+    if (!settings?.allow_join_requests || !settings?.allow_join_by_url) {
         return { success: false, error: "この店舗はURL参加を受け付けていません" };
     }
 
@@ -61,29 +115,26 @@ export async function submitJoinRequest(formData: FormData) {
         .eq("store_id", storeId)
         .maybeSingle();
 
-    if (existingProfile && existingProfile.role) {
-        return { success: false, error: "既にこの店舗のメンバーです" };
-    }
-
-    // Check if user already has a pending join request for this store
-    const { data: existingJoinRequest } = await supabase
-        .from("join_requests")
-        .select("id, status")
-        .eq("store_id", storeId)
-        .eq("status", "pending")
-        .maybeSingle();
-
-    // Check via profile_id if existingProfile exists
+    // Check if user already has a join request for this store
     if (existingProfile) {
-        const { data: joinRequestByProfile } = await supabase
+        const { data: existingJoinRequest } = await supabase
             .from("join_requests")
             .select("id, status")
             .eq("profile_id", existingProfile.id)
-            .eq("status", "pending")
             .maybeSingle();
 
-        if (joinRequestByProfile) {
-            return { success: false, error: "既にこの店舗への参加申請が承認待ちです" };
+        if (existingJoinRequest) {
+            if (existingJoinRequest.status === "pending") {
+                return { success: false, error: "既にこの店舗への参加申請が承認待ちです" };
+            }
+            if (existingJoinRequest.status === "approved") {
+                return { success: false, error: "既にこの店舗のメンバーです" };
+            }
+            // Rejected requests should have been deleted when page loaded, but handle just in case
+        }
+
+        if (existingProfile.role && existingProfile.role !== "guest") {
+            return { success: false, error: "既にこの店舗のメンバーです" };
         }
     }
 
@@ -137,8 +188,8 @@ export async function submitJoinRequest(formData: FormData) {
             .eq("id", user.id);
     }
 
-    // Create join request in the join_requests table
-    const { error: joinRequestError } = await supabase
+    // Create new join request (use service role to bypass RLS)
+    const { data: newJoinRequest, error: joinRequestError } = await serviceSupabase
         .from("join_requests")
         .insert({
             store_id: storeId,
@@ -149,12 +200,16 @@ export async function submitJoinRequest(formData: FormData) {
             real_name_kana: realNameKana || null,
             requested_role: role,
             status: "pending",
-        });
+        })
+        .select()
+        .single();
 
     if (joinRequestError) {
         console.error("Join request creation error:", joinRequestError);
         return { success: false, error: joinRequestError.message };
     }
+
+    console.log("[submitJoinRequest] Created join request:", newJoinRequest.id);
 
     revalidatePath("/");
     return { success: true, profileId };

@@ -83,26 +83,26 @@ export function InvitationDetailModal({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-[calc(100vw-32px)] sm:max-w-[400px] max-h-[calc(100vh-32px)] overflow-y-auto bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
-                <DialogHeader>
-                    <div className="relative flex items-center justify-center py-2">
-                        <button
-                            onClick={() => onOpenChange(false)}
-                            className="absolute left-0 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                        >
-                            <ChevronLeft className="h-5 w-5 text-gray-500" />
-                        </button>
-                        <DialogTitle className="text-gray-900 dark:text-white">招待詳細</DialogTitle>
-                    </div>
-                    <DialogDescription>
-                        招待のステータスや詳細を確認できます。
-                    </DialogDescription>
+            <DialogContent className="sm:max-w-md w-[95%] max-h-[90vh] overflow-hidden !rounded-2xl bg-white dark:bg-gray-900 !p-0">
+                <DialogHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900 flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
+                    <button
+                        type="button"
+                        onClick={() => onOpenChange(false)}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        aria-label="戻る"
+                    >
+                        <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <DialogTitle className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white truncate">
+                        招待詳細
+                    </DialogTitle>
+                    <div className="w-8 h-8" />
                 </DialogHeader>
 
-                <div className="space-y-6 py-4">
+                <div className="px-6 py-4 space-y-6">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-1">
-                            <Label className="text-xs text-muted-foreground">招待プロフィール</Label>
+                            <Label className="text-xs font-medium text-gray-700 dark:text-gray-200">招待プロフィール</Label>
                             <div className="font-medium flex items-center gap-2">
                                 {invitation.profile?.avatar_url && (
                                     <Image
@@ -117,8 +117,8 @@ export function InvitationDetailModal({
                             </div>
                         </div>
                         <div className="space-y-1">
-                            <Label className="text-xs text-muted-foreground">ロール</Label>
-                            <div className="font-medium">
+                            <Label className="text-xs font-medium text-gray-700 dark:text-gray-200">ロール</Label>
+                            <div className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                 {invitation.profile?.role === "cast" ? "キャスト" : "スタッフ"}
                                 {invitation.role &&
                                     invitation.role.name !== "staff" &&
@@ -130,12 +130,12 @@ export function InvitationDetailModal({
                             </div>
                         </div>
                         <div className="space-y-1">
-                            <Label className="text-xs text-muted-foreground">ステータス</Label>
+                            <Label className="text-xs font-medium text-gray-700 dark:text-gray-200">ステータス</Label>
                             <div>{getStatusBadge()}</div>
                         </div>
                         <div className="space-y-1">
-                            <Label className="text-xs text-muted-foreground">有効期限</Label>
-                            <div className="font-medium">
+                            <Label className="text-xs font-medium text-gray-700 dark:text-gray-200">有効期限</Label>
+                            <div className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                 {getExpiresAtLabel()}
                             </div>
                         </div>
@@ -144,11 +144,11 @@ export function InvitationDetailModal({
                     {invitation.status === "pending" && !isExpired && (
                         <>
                             <div className="space-y-2">
-                                <Label>招待リンク</Label>
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">招待リンク</Label>
                                 <div className="flex items-center space-x-2">
                                     <Input readOnly value={inviteUrl} className="font-mono text-sm" />
                                     <Button type="button" size="icon" variant="outline" onClick={handleCopy}>
-                                        {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                                        {copied ? <Check className="h-4 w-4" /> : <Copy className="h-5 w-5" />}
                                     </Button>
                                 </div>
                             </div>
@@ -196,14 +196,14 @@ export function InvitationDetailModal({
 
             {/* キャンセル確認ダイアログ */}
             <Dialog open={isCancelConfirmOpen} onOpenChange={setIsCancelConfirmOpen}>
-                <DialogContent className="max-w-md rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+                <DialogContent className="sm:max-w-md rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
                     <DialogHeader>
                         <DialogTitle className="text-gray-900 dark:text-white">招待のキャンセル</DialogTitle>
                         <DialogDescription className="text-gray-600 dark:text-gray-400">
                             本当にこの招待をキャンセルしますか？この操作は取り消せません。
                         </DialogDescription>
                     </DialogHeader>
-                    <DialogFooter className="mt-4 flex justify-end gap-2">
+                    <DialogFooter className="flex justify-end gap-2">
                         <Button
                             variant="outline"
                             onClick={() => setIsCancelConfirmOpen(false)}

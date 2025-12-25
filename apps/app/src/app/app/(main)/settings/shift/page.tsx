@@ -1,40 +1,10 @@
-import { redirect } from "next/navigation";
-import { createServerClient } from "@/lib/supabaseServerClient";
-import { ShiftSettingsForm } from "./shift-settings-form";
-import { getAppDataWithPermissionCheck, getAccessDeniedRedirectUrl } from "@/app/app/data-access";
+import type { Metadata } from "next";
+import { ShiftSettingsWrapper } from "./shift-settings-wrapper";
 
-export default async function ShiftSettingsPage() {
-    const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("settings", "edit");
+export const metadata: Metadata = {
+    title: "シフト設定",
+};
 
-    if (!user) {
-        redirect("/login");
-    }
-
-    if (!profile) {
-        redirect("/app/me");
-    }
-
-    if (!hasAccess) {
-        redirect(getAccessDeniedRedirectUrl("settings"));
-    }
-
-    const store = profile.stores as any;
-
-    // Get automation settings
-    const supabase = await createServerClient() as any;
-    const { data: automationSettings } = await supabase
-        .from("shift_automation_settings")
-        .select("*")
-        .eq("store_id", store.id)
-        .maybeSingle();
-
-    return (
-        <ShiftSettingsForm
-            store={store}
-            automationSettings={automationSettings}
-        />
-    );
+export default function ShiftSettingsPage() {
+    return <ShiftSettingsWrapper />;
 }
-
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;

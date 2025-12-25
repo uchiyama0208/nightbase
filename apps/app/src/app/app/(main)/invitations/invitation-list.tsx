@@ -3,7 +3,7 @@
 import Image from "next/image";
 
 import { useMemo, useState, useTransition, useCallback, useRef, useEffect } from "react";
-import { Invitation, cancelInvitation, updateJoinRequestSettings, getInvitationsData } from "./actions";
+import { Invitation, cancelInvitation, getInvitationsData } from "./actions";
 import { Button } from "@/components/ui/button";
 import {
     Table,
@@ -21,7 +21,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Filter, Settings, Copy, Check, Loader2, RefreshCw } from "lucide-react";
+import { Plus, Search, Filter, RefreshCw, ChevronLeft } from "lucide-react";
 import { InvitationModal } from "./invitation-modal";
 import { InvitationDetailModal } from "./invitation-detail-modal";
 import { JoinRequestModal } from "./join-request-modal";
@@ -35,7 +35,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -76,12 +75,12 @@ interface InvitationListProps {
     pagePermissions?: PagePermissions;
 }
 
-type MainTabType = "invitations" | "join-requests";
+type MainTabType = "members" | "invitations-requests";
 type RoleTabType = "all" | "cast" | "staff";
 
 export function InvitationList({
     initialInvitations,
-    uninvitedProfiles,
+    uninvitedProfiles: initialUninvitedProfiles,
     roles,
     initialJoinRequests = [],
     initialStoreSettings,
@@ -91,10 +90,11 @@ export function InvitationList({
     const { toast } = useToast();
     const [invitations, setInvitations] = useState(initialInvitations);
     const [joinRequests, setJoinRequests] = useState(initialJoinRequests);
+    const [uninvitedProfiles, setUninvitedProfiles] = useState(initialUninvitedProfiles);
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState<string>("all");
     const [roleFilter, setRoleFilter] = useState<RoleTabType>("all");
-    const [mainTab, setMainTab] = useState<MainTabType>("invitations");
+    const [mainTab, setMainTab] = useState<MainTabType>("members");
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isPending, startTransition] = useTransition();
     const [selectedInvitation, setSelectedInvitation] = useState<Invitation | null>(null);
@@ -102,18 +102,11 @@ export function InvitationList({
     const [cancelTargetId, setCancelTargetId] = useState<string | null>(null);
     const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
     const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
-    const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
     // Join request modal
     const [selectedJoinRequest, setSelectedJoinRequest] = useState<JoinRequest | null>(null);
     const [isJoinRequestModalOpen, setIsJoinRequestModalOpen] = useState(false);
 
-    // Settings state
-    const [allowJoinByCode, setAllowJoinByCode] = useState(initialStoreSettings?.allow_join_by_code ?? false);
-    const [allowJoinByUrl, setAllowJoinByUrl] = useState(initialStoreSettings?.allow_join_by_url ?? false);
-    const [isSaving, setIsSaving] = useState(false);
-    const [copiedCode, setCopiedCode] = useState(false);
-    const [copiedUrl, setCopiedUrl] = useState(false);
     const storeId = initialStoreSettings?.id || "";
     const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -132,63 +125,14 @@ export function InvitationList({
         }
     }, [mainTab]);
 
+    // Split invitations into members (accepted) and pending invitations
+    const acceptedMembers = useMemo(() =>
+        invitations.filter(inv => inv.status === "accepted")
+    , [invitations]);
 
-    // Auto-save settings
-    const isInitialMount = useRef(true);
-    const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-    useEffect(() => {
-        if (isInitialMount.current) {
-            isInitialMount.current = false;
-            return;
-        }
-
-        if (saveTimeoutRef.current) {
-            clearTimeout(saveTimeoutRef.current);
-        }
-
-        saveTimeoutRef.current = setTimeout(async () => {
-            setIsSaving(true);
-            await updateJoinRequestSettings({
-                allowJoinRequests: true,
-                allowJoinByCode,
-                allowJoinByUrl,
-            });
-            setIsSaving(false);
-        }, 300);
-
-        return () => {
-            if (saveTimeoutRef.current) {
-                clearTimeout(saveTimeoutRef.current);
-            }
-        };
-    }, [allowJoinByCode, allowJoinByUrl]);
-
-    const getJoinUrl = () => {
-        const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
-        return `${baseUrl}/join/${storeId}`;
-    };
-
-    const copyToClipboard = async (text: string, type: "code" | "url") => {
-        try {
-            await navigator.clipboard.writeText(text);
-            if (type === "code") {
-                setCopiedCode(true);
-                setTimeout(() => setCopiedCode(false), 2000);
-            } else {
-                setCopiedUrl(true);
-                setTimeout(() => setCopiedUrl(false), 2000);
-            }
-        } catch (err) {
-            console.error("Failed to copy:", err);
-        }
-    };
-
-    const shareToLine = () => {
-        const url = getJoinUrl();
-        const message = `参加URLをお送りします。\n${url}`;
-        window.open(`https://line.me/R/msg/text/?${encodeURIComponent(message)}`, '_blank');
-    };
+    const pendingInvitations = useMemo(() =>
+        invitations.filter(inv => inv.status !== "accepted")
+    , [invitations]);
 
     const activeFilters = useMemo(() => [
         searchQuery.trim() && `"${searchQuery}"`,
@@ -207,7 +151,21 @@ export function InvitationList({
         return activeFilters.join("・");
     }, [hasFilters, activeFilters]);
 
-    const filteredInvitations = useMemo(() => invitations.filter((inv) => {
+    // Filter for members tab (accepted only)
+    const filteredMembers = useMemo(() => acceptedMembers.filter((inv) => {
+        const query = searchQuery.toLowerCase();
+        const displayName = inv.profile?.display_name || "";
+        const displayNameKana = inv.profile?.display_name_kana || "";
+        const realName = inv.profile?.real_name || "";
+        const matchesSearch = displayName.toLowerCase().includes(query) ||
+                              displayNameKana.toLowerCase().includes(query) ||
+                              realName.toLowerCase().includes(query);
+        const matchesRole = roleFilter === "all" || inv.profile?.role === roleFilter;
+        return matchesSearch && matchesRole;
+    }), [acceptedMembers, searchQuery, roleFilter]);
+
+    // Filter for invitations tab (pending/canceled/expired)
+    const filteredInvitations = useMemo(() => pendingInvitations.filter((inv) => {
         const query = searchQuery.toLowerCase();
         const displayName = inv.profile?.display_name || "";
         const displayNameKana = inv.profile?.display_name_kana || "";
@@ -218,7 +176,7 @@ export function InvitationList({
         const matchesStatus = statusFilter === "all" || inv.status === statusFilter;
         const matchesRole = roleFilter === "all" || inv.profile?.role === roleFilter;
         return matchesSearch && matchesStatus && matchesRole;
-    }), [invitations, searchQuery, statusFilter, roleFilter]);
+    }), [pendingInvitations, searchQuery, statusFilter, roleFilter]);
 
     const filteredJoinRequests = useMemo(() => joinRequests.filter((req) => {
         const query = searchQuery.toLowerCase();
@@ -234,10 +192,15 @@ export function InvitationList({
         return matchesSearch && matchesRole;
     }), [joinRequests, searchQuery, roleFilter]);
 
-    // Count pending invitations
+    // Count for tabs
+    const membersCount = useMemo(() => acceptedMembers.length, [acceptedMembers]);
     const pendingInvitationsCount = useMemo(() =>
-        invitations.filter(inv => inv.status === "pending" && new Date(inv.expires_at) >= new Date()).length
-    , [invitations]);
+        pendingInvitations.filter(inv => inv.status === "pending" && new Date(inv.expires_at) >= new Date()).length
+    , [pendingInvitations]);
+    const pendingJoinRequestsCount = useMemo(() =>
+        joinRequests.filter(req => req.status === "pending").length
+    , [joinRequests]);
+    const invitationsAndRequestsCount = pendingInvitationsCount + pendingJoinRequestsCount;
 
     const handleConfirmCancel = useCallback(() => {
         if (!cancelTargetId) return;
@@ -308,6 +271,7 @@ export function InvitationList({
             if (response.data) {
                 setInvitations(response.data.invitations);
                 setJoinRequests(response.data.joinRequests);
+                setUninvitedProfiles(response.data.uninvitedProfiles);
             }
         } catch (err) {
             console.error("Failed to refresh:", err);
@@ -318,11 +282,11 @@ export function InvitationList({
 
     return (
         <div className="space-y-2">
-            {/* Top row: Filter button + Settings + Plus button */}
+            {/* Top row: Filter button + Plus button */}
             <div className="flex items-center justify-between">
                 <button
                     type="button"
-                    className={`flex items-center gap-1 px-1 py-1 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 ${
+                    className={`flex items-center gap-1 px-1 py-1 rounded-lg transition-colors hover:bg-gray-50 dark:hover:bg-gray-700 ${
                         hasFilters ? "text-blue-600" : "text-gray-500 dark:text-gray-400"
                     }`}
                     onClick={() => setIsFilterDialogOpen(true)}
@@ -344,55 +308,43 @@ export function InvitationList({
                         <RefreshCw className={`h-5 w-5 text-gray-600 dark:text-gray-400 ${isRefreshing ? "animate-spin" : ""}`} />
                     </Button>
                     {canEdit && (
-                        <>
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                className="h-10 w-10 rounded-full border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-md"
-                                onClick={() => setIsSettingsModalOpen(true)}
-                            >
-                                <Settings className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                            </Button>
-                            {mainTab === "invitations" && (
-                                <Button
-                                    onClick={() => setIsModalOpen(true)}
-                                    size="icon"
-                                    className="h-10 w-10 rounded-full bg-blue-600 hover:bg-blue-700 text-white border-none shadow-md transition-all hover:scale-105 active:scale-95"
-                                >
-                                    <Plus className="h-5 w-5" />
-                                </Button>
-                            )}
-                        </>
+                        <Button
+                            onClick={() => setIsModalOpen(true)}
+                            size="icon"
+                            className="h-10 w-10 rounded-full bg-blue-600 hover:bg-blue-700 text-white border-none shadow-md transition-all hover:scale-105 active:scale-95"
+                        >
+                            <Plus className="h-5 w-5" />
+                        </Button>
                     )}
                 </div>
             </div>
 
-            {/* Main Tab Navigation (招待 / 参加申請) */}
+            {/* Main Tab Navigation */}
             <div className="relative">
                 <div className="flex w-full">
                     <button
-                        ref={(el) => { mainTabsRef.current["invitations"] = el; }}
+                        ref={(el) => { mainTabsRef.current["members"] = el; }}
                         type="button"
-                        onClick={() => setMainTab("invitations")}
+                        onClick={() => setMainTab("members")}
                         className={`flex-1 py-2 text-sm font-medium transition-colors relative ${
-                            mainTab === "invitations"
+                            mainTab === "members"
                                 ? "text-gray-900 dark:text-white"
                                 : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                         }`}
                     >
-                        招待中 ({pendingInvitationsCount})
+                        参加中 ({membersCount})
                     </button>
                     <button
-                        ref={(el) => { mainTabsRef.current["join-requests"] = el; }}
+                        ref={(el) => { mainTabsRef.current["invitations-requests"] = el; }}
                         type="button"
-                        onClick={() => setMainTab("join-requests")}
+                        onClick={() => setMainTab("invitations-requests")}
                         className={`flex-1 py-2 text-sm font-medium transition-colors relative ${
-                            mainTab === "join-requests"
+                            mainTab === "invitations-requests"
                                 ? "text-gray-900 dark:text-white"
                                 : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                         }`}
                     >
-                        申請 ({joinRequests.length})
+                        招待・申請 {invitationsAndRequestsCount > 0 && `(${invitationsAndRequestsCount})`}
                     </button>
                 </div>
                 <div
@@ -439,32 +391,31 @@ export function InvitationList({
                 </button>
             </div>
 
-            {/* Invitations Table */}
-            {mainTab === "invitations" && (
-                <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-                    <Table>
+            {/* Members Table (Accepted Invitations) */}
+            {mainTab === "members" && (
+                <div className="overflow-hidden rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+                    <Table className="table-fixed">
                         <TableHeader>
                             <TableRow className="bg-gray-50 dark:bg-gray-800/50">
-                                <TableHead className="text-center w-1/3 text-gray-900 dark:text-gray-100">名前</TableHead>
-                                <TableHead className="text-center w-1/3 text-gray-900 dark:text-gray-100">ステータス</TableHead>
-                                <TableHead className="text-center w-1/3 text-gray-900 dark:text-gray-100">有効期限</TableHead>
+                                <TableHead className="text-center w-1/2 text-gray-900 dark:text-gray-100">名前</TableHead>
+                                <TableHead className="text-center w-1/2 text-gray-900 dark:text-gray-100">ロール</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {filteredInvitations.length === 0 ? (
+                            {filteredMembers.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={3} className="text-center py-8 text-gray-500">
-                                        招待が見つかりません
+                                    <TableCell colSpan={2} className="text-center py-8 text-gray-500">
+                                        メンバーが見つかりません
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                filteredInvitations.map((inv) => (
+                                filteredMembers.map((inv) => (
                                     <TableRow
                                         key={inv.id}
-                                        className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                                        className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50"
                                         onClick={() => handleRowClick(inv)}
                                     >
-                                        <TableCell className="font-medium text-center w-1/3">
+                                        <TableCell className="font-medium text-center w-1/2">
                                             <div className="flex items-center justify-center gap-2">
                                                 {inv.profile?.avatar_url && (
                                                     <Image
@@ -478,15 +429,18 @@ export function InvitationList({
                                                 {inv.profile?.display_name}
                                             </div>
                                         </TableCell>
-                                        <TableCell className="text-center w-1/3">
-                                            <div className="flex justify-center">
-                                                {getStatusBadge(inv.status, inv.expires_at)}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="text-sm text-gray-500 text-center w-1/3">
-                                            {inv.status === "accepted" || !inv.expires_at
-                                                ? "ー"
-                                                : formatJSTDateTime(inv.expires_at)}
+                                        <TableCell className="text-sm text-center w-1/2">
+                                            <Badge variant="outline" className={
+                                                inv.profile?.role === "cast"
+                                                    ? "bg-pink-50 text-pink-700 border-pink-200"
+                                                    : inv.profile?.role === "staff"
+                                                        ? "bg-blue-50 text-blue-700 border-blue-200"
+                                                        : inv.profile?.role === "admin"
+                                                            ? "bg-purple-50 text-purple-700 border-purple-200"
+                                                            : "bg-gray-50 text-gray-500 border-gray-200"
+                                            }>
+                                                {inv.profile?.role === "cast" ? "キャスト" : inv.profile?.role === "staff" ? "スタッフ" : inv.profile?.role === "admin" ? "管理者" : inv.profile?.role}
+                                            </Badge>
                                         </TableCell>
                                     </TableRow>
                                 ))
@@ -496,62 +450,88 @@ export function InvitationList({
                 </div>
             )}
 
-            {/* Join Requests Table */}
-            {mainTab === "join-requests" && (
-                <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-                    <Table>
+            {/* Invitations & Requests Table */}
+            {mainTab === "invitations-requests" && (
+                <div className="overflow-hidden rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+                    <Table className="table-fixed">
                         <TableHeader>
                             <TableRow className="bg-gray-50 dark:bg-gray-800/50">
-                                <TableHead className="text-center w-1/4 text-gray-900 dark:text-gray-100">名前</TableHead>
-                                <TableHead className="text-center w-1/4 text-gray-900 dark:text-gray-100">ロール</TableHead>
-                                <TableHead className="text-center w-1/4 text-gray-900 dark:text-gray-100">ステータス</TableHead>
-                                <TableHead className="text-center w-1/4 text-gray-900 dark:text-gray-100">申請日</TableHead>
+                                <TableHead className="text-center w-1/3 text-gray-900 dark:text-gray-100">名前</TableHead>
+                                <TableHead className="text-center w-1/3 text-gray-900 dark:text-gray-100">種別</TableHead>
+                                <TableHead className="text-center w-1/3 text-gray-900 dark:text-gray-100">ステータス</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {filteredJoinRequests.length === 0 ? (
+                            {filteredInvitations.length === 0 && filteredJoinRequests.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={4} className="text-center py-8 text-gray-500">
-                                        参加申請がありません
+                                    <TableCell colSpan={3} className="text-center py-8 text-gray-500">
+                                        招待・申請がありません
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                filteredJoinRequests.map((req) => (
-                                    <TableRow
-                                        key={req.id}
-                                        className={`${req.status === "pending" ? "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50" : ""}`}
-                                        onClick={() => handleJoinRequestClick(req)}
-                                    >
-                                        <TableCell className="font-medium text-center w-1/4">
-                                            {req.display_name || req.real_name}
-                                        </TableCell>
-                                        <TableCell className="text-sm text-center w-1/4">
-                                            <Badge variant="outline" className={
-                                                req.requested_role === "cast"
-                                                    ? "bg-pink-50 text-pink-700 border-pink-200"
-                                                    : req.requested_role === "staff"
-                                                        ? "bg-blue-50 text-blue-700 border-blue-200"
-                                                        : "bg-gray-50 text-gray-500 border-gray-200"
-                                            }>
-                                                {req.requested_role === "cast" ? "キャスト" : req.requested_role === "staff" ? "スタッフ" : req.requested_role}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-sm text-center w-1/4">
-                                            <Badge variant="outline" className={
-                                                req.status === "approved"
-                                                    ? "bg-green-50 text-green-700 border-green-200"
-                                                    : req.status === "rejected"
-                                                        ? "bg-red-50 text-red-700 border-red-200"
-                                                        : "bg-yellow-50 text-yellow-700 border-yellow-200"
-                                            }>
-                                                {req.status === "approved" ? "承認済み" : req.status === "rejected" ? "拒否" : "保留中"}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-sm text-gray-500 text-center w-1/4">
-                                            {formatJSTDate(req.created_at)}
-                                        </TableCell>
-                                    </TableRow>
-                                ))
+                                <>
+                                    {/* Pending Invitations */}
+                                    {filteredInvitations.map((inv) => (
+                                        <TableRow
+                                            key={`inv-${inv.id}`}
+                                            className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                                            onClick={() => handleRowClick(inv)}
+                                        >
+                                            <TableCell className="font-medium text-center w-1/3">
+                                                <div className="flex items-center justify-center gap-2">
+                                                    {inv.profile?.avatar_url && (
+                                                        <Image
+                                                            src={inv.profile.avatar_url}
+                                                            alt={`${inv.profile.display_name}のアバター`}
+                                                            className="rounded-full object-cover"
+                                                            width={24}
+                                                            height={24}
+                                                        />
+                                                    )}
+                                                    {inv.profile?.display_name}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-sm text-center w-1/3">
+                                                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                                    招待
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="text-center w-1/3">
+                                                <div className="flex justify-center">
+                                                    {getStatusBadge(inv.status, inv.expires_at)}
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                    {/* Join Requests */}
+                                    {filteredJoinRequests.map((req) => (
+                                        <TableRow
+                                            key={`req-${req.id}`}
+                                            className={`${req.status === "pending" ? "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50" : ""}`}
+                                            onClick={() => handleJoinRequestClick(req)}
+                                        >
+                                            <TableCell className="font-medium text-center w-1/3">
+                                                {req.display_name || req.real_name}
+                                            </TableCell>
+                                            <TableCell className="text-sm text-center w-1/3">
+                                                <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                                                    申請
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="text-sm text-center w-1/3">
+                                                <Badge variant="outline" className={
+                                                    req.status === "approved"
+                                                        ? "bg-green-50 text-green-700 border-green-200"
+                                                        : req.status === "rejected"
+                                                            ? "bg-red-50 text-red-700 border-red-200"
+                                                            : "bg-yellow-50 text-yellow-700 border-yellow-200"
+                                                }>
+                                                    {req.status === "approved" ? "承認済み" : req.status === "rejected" ? "拒否" : "保留中"}
+                                                </Badge>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </>
                             )}
                         </TableBody>
                     </Table>
@@ -564,6 +544,9 @@ export function InvitationList({
                 uninvitedProfiles={uninvitedProfiles}
                 roles={roles}
                 pagePermissions={pagePermissions}
+                storeId={storeId}
+                storeSettings={initialStoreSettings}
+                onProfileCreated={handleRefresh}
             />
 
             <InvitationDetailModal
@@ -592,14 +575,14 @@ export function InvitationList({
 
             {/* キャンセル確認ダイアログ */}
             <Dialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
-                <DialogContent className="max-w-md rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+                <DialogContent className="sm:max-w-md rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
                     <DialogHeader>
                         <DialogTitle className="text-gray-900 dark:text-white">招待のキャンセル</DialogTitle>
                         <DialogDescription className="text-gray-600 dark:text-gray-400">
                             本当にこの招待をキャンセルしますか？この操作は取り消せません。
                         </DialogDescription>
                     </DialogHeader>
-                    <DialogFooter className="mt-4 flex justify-end gap-2">
+                    <DialogFooter className="flex justify-end gap-2">
                         <Button
                             variant="outline"
                             onClick={() => setIsCancelDialogOpen(false)}
@@ -621,11 +604,19 @@ export function InvitationList({
 
             {/* フィルターダイアログ */}
             <Dialog open={isFilterDialogOpen} onOpenChange={setIsFilterDialogOpen}>
-                <DialogContent className="max-w-md rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
-                    <DialogHeader>
-                        <DialogTitle className="text-gray-900 dark:text-white">フィルター</DialogTitle>
+                <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-0">
+                    <DialogHeader className="flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
+                        <button
+                            type="button"
+                            onClick={() => setIsFilterDialogOpen(false)}
+                            className="p-1 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                        >
+                            <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                        </button>
+                        <DialogTitle className="flex-1 text-center text-gray-900 dark:text-white">フィルター</DialogTitle>
+                        <div className="w-7" />
                     </DialogHeader>
-                    <div className="space-y-4 py-4">
+                    <div className="space-y-4 p-6">
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                 名前で検索
@@ -640,7 +631,7 @@ export function InvitationList({
                                 />
                             </div>
                         </div>
-                        {mainTab === "invitations" && (
+                        {mainTab === "invitations-requests" && (
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                     ステータス
@@ -652,7 +643,6 @@ export function InvitationList({
                                     <SelectContent>
                                         <SelectItem value="all">全て</SelectItem>
                                         <SelectItem value="pending">招待中</SelectItem>
-                                        <SelectItem value="accepted">参加済み</SelectItem>
                                         <SelectItem value="canceled">キャンセル</SelectItem>
                                         <SelectItem value="expired">期限切れ</SelectItem>
                                     </SelectContent>
@@ -660,153 +650,24 @@ export function InvitationList({
                             </div>
                         )}
                     </div>
-                    <DialogFooter className="flex justify-end gap-2">
-                        <Button
-                            variant="outline"
-                            onClick={() => {
-                                setSearchQuery("");
-                                setStatusFilter("all");
-                            }}
-                            className="rounded-lg"
-                        >
-                            リセット
-                        </Button>
+                    <DialogFooter className="flex flex-col gap-2 px-6 pb-6">
                         <Button
                             onClick={() => setIsFilterDialogOpen(false)}
-                            className="rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
+                            className="w-full rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
                         >
                             適用
                         </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* 設定モーダル */}
-            <Dialog open={isSettingsModalOpen} onOpenChange={setIsSettingsModalOpen}>
-                <DialogContent className="max-w-[calc(100vw-32px)] max-h-[calc(100vh-32px)] sm:max-w-md bg-white dark:bg-gray-900 overflow-y-auto">
-                    <DialogHeader className="mb-4">
-                        <DialogTitle className="text-gray-900 dark:text-white">
-                            参加申請の設定
-                        </DialogTitle>
-                        <DialogDescription className="text-gray-600 dark:text-gray-400">
-                            参加申請の受付方法を設定します。
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <div className="space-y-6">
-                        {/* Allow by Code */}
-                        <div className="space-y-3">
-                            <div className="flex items-start justify-between gap-4">
-                                <div className="space-y-1">
-                                    <Label htmlFor="allow-code" className="text-sm font-medium text-gray-900 dark:text-white">
-                                        店舗コードで参加
-                                    </Label>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                                        ユーザーが店舗コードを入力して参加申請を送ることができます。
-                                    </p>
-                                </div>
-                                <Switch
-                                    id="allow-code"
-                                    checked={allowJoinByCode}
-                                    onCheckedChange={setAllowJoinByCode}
-                                    className="flex-shrink-0"
-                                />
-                            </div>
-                            {allowJoinByCode && storeId && (
-                                <div className="flex items-center gap-2">
-                                    <Input
-                                        value={storeId}
-                                        readOnly
-                                        className="font-mono text-sm bg-gray-50 dark:bg-gray-800"
-                                    />
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="icon"
-                                        onClick={() => copyToClipboard(storeId, "code")}
-                                        className="flex-shrink-0"
-                                    >
-                                        {copiedCode ? (
-                                            <Check className="h-4 w-4 text-green-600" />
-                                        ) : (
-                                            <Copy className="h-4 w-4" />
-                                        )}
-                                    </Button>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Allow by URL */}
-                        <div className="space-y-3">
-                            <div className="flex items-start justify-between gap-4">
-                                <div className="space-y-1">
-                                    <Label htmlFor="allow-url" className="text-sm font-medium text-gray-900 dark:text-white">
-                                        専用URLで参加
-                                    </Label>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                                        専用URLから新規登録して参加申請を送ることができます。
-                                    </p>
-                                </div>
-                                <Switch
-                                    id="allow-url"
-                                    checked={allowJoinByUrl}
-                                    onCheckedChange={setAllowJoinByUrl}
-                                    className="flex-shrink-0"
-                                />
-                            </div>
-                            {allowJoinByUrl && storeId && (
-                                <div className="space-y-2">
-                                    <div className="flex items-center gap-2">
-                                        <Input
-                                            value={getJoinUrl()}
-                                            readOnly
-                                            className="font-mono text-xs bg-gray-50 dark:bg-gray-800"
-                                        />
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="icon"
-                                            onClick={() => copyToClipboard(getJoinUrl(), "url")}
-                                            className="flex-shrink-0"
-                                        >
-                                            {copiedUrl ? (
-                                                <Check className="h-4 w-4 text-green-600" />
-                                            ) : (
-                                                <Copy className="h-4 w-4" />
-                                            )}
-                                        </Button>
-                                    </div>
-                                    <Button
-                                        type="button"
-                                        className="w-full bg-[#06C755] hover:bg-[#05b54b] text-white"
-                                        onClick={shareToLine}
-                                    >
-                                        LINEで共有
-                                    </Button>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Auto-save indicator */}
-                        {isSaving && (
-                            <div className="flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                保存中...
-                            </div>
-                        )}
-                    </div>
-
-                    <DialogFooter className="mt-4 gap-2">
                         <Button
                             variant="outline"
-                            onClick={() => setIsSettingsModalOpen(false)}
-                            className="w-full"
+                            onClick={() => setIsFilterDialogOpen(false)}
+                            className="w-full rounded-lg"
                         >
-                            閉じる
+                            戻る
                         </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
         </div>
     );
 }

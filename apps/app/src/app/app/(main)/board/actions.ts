@@ -1,6 +1,7 @@
 "use server";
 
 import { createServerClient } from "@/lib/supabaseServerClient";
+import { getAuthContextForPage } from "@/lib/auth-helpers";
 import { revalidatePath } from "next/cache";
 import OpenAI from "openai";
 
@@ -429,7 +430,7 @@ ${additionalInstruction}`;
         const parsed = JSON.parse(content) as GeneratedPost;
         return parsed;
     } catch (e) {
-        console.error("Failed to parse AI response:", content);
+        console.error("Failed to parse AI response for board:", content);
         throw new Error("AIの応答を解析できませんでした");
     }
 }
@@ -1188,16 +1189,20 @@ export async function generateManual(
         throw new Error("User not authenticated");
     }
 
-    const openai = new OpenAI({
+    const openaiClient = new OpenAI({
         apiKey: process.env.OPENAI_API_KEY,
     });
 
-    const systemPrompt = `あなたは夜のお店（キャバクラ、クラブ、バーなど）のスタッフ向けマニュアルを作成するアシスタントです。
+    const systemPrompt = `あなたは夜のお店（キャバクラ、クラブ、バーなど）の店舗内で使用する従業員向けマニュアル・掲示板投稿を作成するアシスタントです。
 
-入力された内容を元に、スタッフ・キャスト向けのマニュアルを作成してください。
+【重要】これは店舗の従業員（スタッフ・キャスト）が読む社内向けコンテンツです。お客様向けではありません。
+- 従業員が業務で参照するマニュアルや、店舗からの連絡事項として作成してください
+- 敬語は使いつつも、社内向けの親しみやすいトーンで書いてください
+
+入力された内容を元に、従業員向けのマニュアル・投稿を作成してください。
 
 出力形式:
-- title: マニュアルのタイトル（簡潔で分かりやすく）
+- title: タイトル（簡潔で分かりやすく）
 - content: BlockNote形式のJSON配列
 
 BlockNote形式の例:
@@ -1227,6 +1232,7 @@ BlockNote形式の例:
 
 注意:
 - 各ブロックには一意のidが必要です（例: "block-1", "block-2"など）
+- 見出しはlevel: 2またはlevel: 3のみ使用してください（level: 1は使用禁止）
 - マニュアルなので手順や説明は番号付きリスト(numberedListItem)を活用してください
 - 適切な見出しで構造化してください
 - 分かりやすく具体的な説明を心がけてください
@@ -1249,7 +1255,7 @@ BlockNote形式の例:
 ${additionalInstruction}`;
     }
 
-    const response = await openai.chat.completions.create({
+    const responseData = await openaiClient.chat.completions.create({
         model: "gpt-4o",
         messages: [
             { role: "system", content: systemPrompt },
@@ -1259,16 +1265,154 @@ ${additionalInstruction}`;
         temperature: 0.7,
     });
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
+    const contentRes = responseData.choices[0]?.message?.content;
+    if (!contentRes) {
         throw new Error("AIからの応答がありません");
     }
 
     try {
-        const parsed = JSON.parse(content) as GeneratedPost;
+        const parsed = JSON.parse(contentRes) as GeneratedPost;
         return parsed;
     } catch (e) {
-        console.error("Failed to parse AI response:", content);
+        console.error("Failed to parse AI response for manual:", contentRes);
         throw new Error("AIの応答を解析できませんでした");
     }
+}
+
+// =====================================================
+// ページデータ取得（クライアントサイドフェッチ用）
+// =====================================================
+
+export async function getBoardPageData() {
+    const result = await getAuthContextForPage({ requireStaff: false });
+
+    if ("redirect" in result) {
+        return { redirect: result.redirect };
+    }
+
+    const { context } = result;
+    const { storeId, role } = context;
+
+    const isStaff = role === "staff" || role === "admin";
+    const canEdit = isStaff;
+
+    // 掲示板とマニュアルのデータを並列で取得
+    const [posts, manuals, manualTags] = await Promise.all([
+        isStaff
+            ? getAllBoardPosts(storeId)
+            : getBoardPosts(storeId, role),
+        isStaff
+            ? getAllManuals(storeId)
+            : getManuals(storeId, role),
+        getManualTags(storeId),
+    ]);
+
+    // いいね数と既読ステータスを並列で取得
+    const [postLikeCounts, postReadStatus, manualLikeCounts, manualReadStatus] = await Promise.all([
+        getPostLikeCounts(posts.map(p => p.id)),
+        getPostReadStatus(posts.map(p => p.id)),
+        getManualLikeCounts(manuals.map(m => m.id)),
+        getManualReadStatus(manuals.map(m => m.id)),
+    ]);
+
+    return {
+        data: {
+            posts,
+            manuals,
+            manualTags,
+            storeId,
+            isStaff,
+            userRole: role,
+            postLikeCounts,
+            postReadStatus,
+            manualLikeCounts,
+            manualReadStatus,
+            canEdit,
+        }
+    };
+}
+
+// 新規投稿ページデータ取得
+export async function getNewPostPageData() {
+    const result = await getAuthContextForPage({ requireStaff: true });
+
+    if ("redirect" in result) {
+        return { redirect: result.redirect };
+    }
+
+    const { context } = result;
+    return {
+        data: {
+            storeId: context.storeId,
+        }
+    };
+}
+
+// 投稿編集ページデータ取得
+export async function getEditPostPageData(postId: string) {
+    const result = await getAuthContextForPage({ requireStaff: true });
+
+    if ("redirect" in result) {
+        return { redirect: result.redirect };
+    }
+
+    const { context } = result;
+    const post = await getBoardPost(postId);
+
+    if (!post || post.store_id !== context.storeId) {
+        return { notFound: true };
+    }
+
+    return {
+        data: {
+            storeId: context.storeId,
+            post,
+        }
+    };
+}
+
+// 新規マニュアルページデータ取得
+export async function getNewManualPageData() {
+    const result = await getAuthContextForPage({ requireStaff: true });
+
+    if ("redirect" in result) {
+        return { redirect: result.redirect };
+    }
+
+    const { context } = result;
+    const tags = await getManualTags(context.storeId);
+
+    return {
+        data: {
+            storeId: context.storeId,
+            tags,
+        }
+    };
+}
+
+// マニュアル編集ページデータ取得
+export async function getEditManualPageData(manualId: string) {
+    const result = await getAuthContextForPage({ requireStaff: true });
+
+    if ("redirect" in result) {
+        return { redirect: result.redirect };
+    }
+
+    const { context } = result;
+    const [manual, tags] = await Promise.all([
+        getManual(manualId),
+        getManualTags(context.storeId),
+    ]);
+
+    if (!manual || manual.store_id !== context.storeId) {
+        return { notFound: true };
+    }
+
+    return {
+        data: {
+            storeId: context.storeId,
+            manual,
+            tags,
+        }
+    };
 }

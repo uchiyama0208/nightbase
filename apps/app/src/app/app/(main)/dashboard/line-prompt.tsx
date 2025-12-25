@@ -69,12 +69,12 @@ export function LinePrompt({ hasLineId, lineIsFriend }: LinePromptProps) {
         <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
+                    <DialogTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
                         <MessageCircle className="h-5 w-5 text-[#06C755]" />
                         Nightbase公式LINE友だち追加
                     </DialogTitle>
                     <DialogDescription asChild>
-                        <div className="text-left space-y-3 pt-2 text-sm text-slate-500 dark:text-slate-400">
+                        <div className="text-left space-y-3 pt-2 text-sm text-gray-500 dark:text-gray-400">
                             <p>
                                 Nightbase公式LINEアカウント（@100cgntz）の友だち追加をお願いします。
                             </p>

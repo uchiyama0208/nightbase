@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { ChevronLeft, Trash2, Plus, GripVertical, X } from "lucide-react";
+import { useGlobalLoading } from "@/components/global-loading";
 import {
     Dialog,
     DialogContent,
@@ -128,14 +129,14 @@ function BackSettingsEditor({
     return (
         <div className="space-y-4">
             <div className="space-y-2">
-                <Label className="text-gray-700 dark:text-gray-200">計算方法</Label>
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">計算方法</Label>
                 <Select
                     value={settings.calculation_type}
                     onValueChange={(value: 'total_percent' | 'subtotal_percent' | 'fixed') =>
                         onChange({ ...settings, calculation_type: value })
                     }
                 >
-                    <SelectTrigger className="h-11">
+                    <SelectTrigger className="h-10">
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -149,26 +150,26 @@ function BackSettingsEditor({
             {settings.calculation_type !== 'fixed' ? (
                 <>
                     <div className="space-y-2">
-                        <Label className="text-gray-700 dark:text-gray-200">パーセント (%)</Label>
+                        <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">パーセント (%)</Label>
                         <Input
                             type="number"
                             value={settings.percentage ?? ""}
                             onChange={(e) => onChange({ ...settings, percentage: e.target.value === "" ? undefined : Number(e.target.value) })}
-                            className="h-11"
+                            className="h-10"
                             placeholder="10"
                         />
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-2">
-                            <Label className="text-gray-700 dark:text-gray-200">端数処理</Label>
+                            <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">端数処理</Label>
                             <Select
                                 value={settings.rounding_type || 'round'}
                                 onValueChange={(value: 'round' | 'up' | 'down') =>
                                     onChange({ ...settings, rounding_type: value })
                                 }
                             >
-                                <SelectTrigger className="h-11">
+                                <SelectTrigger className="h-10">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -180,14 +181,14 @@ function BackSettingsEditor({
                         </div>
 
                         <div className="space-y-2">
-                            <Label className="text-gray-700 dark:text-gray-200">端数単位</Label>
+                            <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">端数単位</Label>
                             <Select
                                 value={String(settings.rounding_unit || 100)}
                                 onValueChange={(value) =>
                                     onChange({ ...settings, rounding_unit: Number(value) as 10 | 100 | 1000 | 10000 })
                                 }
                             >
-                                <SelectTrigger className="h-11">
+                                <SelectTrigger className="h-10">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -203,7 +204,7 @@ function BackSettingsEditor({
                 </>
             ) : (
                 <div className="space-y-2">
-                    <Label className="text-gray-700 dark:text-gray-200">固定金額 (円)</Label>
+                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">固定金額 (円)</Label>
                     <Input
                         type="number"
                         value={settings.fixed_amount ?? ""}
@@ -217,12 +218,12 @@ function BackSettingsEditor({
             {showVariable && (
                 <>
                     <div className="space-y-2 pt-2">
-                        <Label className="text-gray-700 dark:text-gray-200">変動設定</Label>
+                        <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">変動設定</Label>
                         <Select
                             value={variableType}
                             onValueChange={(value: 'none' | 'count' | 'amount') => handleVariableTypeChange(value)}
                         >
-                            <SelectTrigger className="h-11">
+                            <SelectTrigger className="h-10">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -236,12 +237,12 @@ function BackSettingsEditor({
                     {variableType === 'count' && (
                         <div className="space-y-4 pl-4 border-l-2 border-blue-200 dark:border-blue-800">
                             <div className="space-y-2">
-                                <Label className="text-gray-700 dark:text-gray-200">リセット期間</Label>
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">リセット期間</Label>
                                 <Select
                                     value={settings.reset_period || '1month'}
                                     onValueChange={(value) => onChange({ ...settings, reset_period: value as any })}
                                 >
-                                    <SelectTrigger className="h-11">
+                                    <SelectTrigger className="h-10">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -256,14 +257,14 @@ function BackSettingsEditor({
 
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between">
-                                    <Label className="text-gray-700 dark:text-gray-200">回数別設定</Label>
+                                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">回数別設定</Label>
                                     <Button
                                         type="button"
                                         variant="outline"
                                         size="sm"
                                         onClick={addTier}
                                     >
-                                        <Plus className="h-4 w-4 mr-1" />
+                                        <Plus className="h-5 w-5 mr-1" />
                                         追加
                                     </Button>
                                 </div>
@@ -278,7 +279,7 @@ function BackSettingsEditor({
                                             type="number"
                                             value={tier.min_count ?? ""}
                                             onChange={(e) => updateTier(index, { min_count: e.target.value === "" ? undefined : Number(e.target.value) })}
-                                            className="h-9 w-20"
+                                            className="h-10 w-20"
                                             placeholder="回数"
                                         />
                                         <span className="text-sm text-gray-500 whitespace-nowrap">回以上</span>
@@ -288,7 +289,7 @@ function BackSettingsEditor({
                                                     type="number"
                                                     value={tier.percentage ?? ""}
                                                     onChange={(e) => updateTier(index, { percentage: e.target.value === "" ? undefined : Number(e.target.value) })}
-                                                    className="h-9 w-20"
+                                                    className="h-10 w-20"
                                                     placeholder="%"
                                                 />
                                                 <span className="text-sm text-gray-500">%</span>
@@ -299,7 +300,7 @@ function BackSettingsEditor({
                                                     type="number"
                                                     value={tier.fixed_amount ?? ""}
                                                     onChange={(e) => updateTier(index, { fixed_amount: e.target.value === "" ? undefined : Number(e.target.value) })}
-                                                    className="h-9 w-24"
+                                                    className="h-10 w-24"
                                                     placeholder="金額"
                                                 />
                                                 <span className="text-sm text-gray-500">円</span>
@@ -312,7 +313,7 @@ function BackSettingsEditor({
                                             className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
                                             onClick={() => removeTier(index)}
                                         >
-                                            <X className="h-4 w-4" />
+                                            <X className="h-5 w-5" />
                                         </Button>
                                     </div>
                                 ))}
@@ -324,14 +325,14 @@ function BackSettingsEditor({
                         <div className="space-y-4 pl-4 border-l-2 border-green-200 dark:border-green-800">
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between">
-                                    <Label className="text-gray-700 dark:text-gray-200">金額別設定</Label>
+                                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">金額別設定</Label>
                                     <Button
                                         type="button"
                                         variant="outline"
                                         size="sm"
                                         onClick={addTier}
                                     >
-                                        <Plus className="h-4 w-4 mr-1" />
+                                        <Plus className="h-5 w-5 mr-1" />
                                         追加
                                     </Button>
                                 </div>
@@ -346,7 +347,7 @@ function BackSettingsEditor({
                                             type="number"
                                             value={tier.min_amount ?? ""}
                                             onChange={(e) => updateTier(index, { min_amount: e.target.value === "" ? undefined : Number(e.target.value) })}
-                                            className="h-9 w-28"
+                                            className="h-10 w-28"
                                             placeholder="金額"
                                         />
                                         <span className="text-sm text-gray-500 whitespace-nowrap">円以上</span>
@@ -356,7 +357,7 @@ function BackSettingsEditor({
                                                     type="number"
                                                     value={tier.percentage ?? ""}
                                                     onChange={(e) => updateTier(index, { percentage: e.target.value === "" ? undefined : Number(e.target.value) })}
-                                                    className="h-9 w-20"
+                                                    className="h-10 w-20"
                                                     placeholder="%"
                                                 />
                                                 <span className="text-sm text-gray-500">%</span>
@@ -367,7 +368,7 @@ function BackSettingsEditor({
                                                     type="number"
                                                     value={tier.fixed_amount ?? ""}
                                                     onChange={(e) => updateTier(index, { fixed_amount: e.target.value === "" ? undefined : Number(e.target.value) })}
-                                                    className="h-9 w-24"
+                                                    className="h-10 w-24"
                                                     placeholder="金額"
                                                 />
                                                 <span className="text-sm text-gray-500">円</span>
@@ -380,7 +381,7 @@ function BackSettingsEditor({
                                             className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
                                             onClick={() => removeTier(index)}
                                         >
-                                            <X className="h-4 w-4" />
+                                            <X className="h-5 w-5" />
                                         </Button>
                                     </div>
                                 ))}
@@ -406,19 +407,26 @@ export function SalarySystemModal({
     className,
 }: SalarySystemModalProps) {
     const { toast } = useToast();
+    const { showLoading, hideLoading } = useGlobalLoading();
     const [saving, setSaving] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [currentSystemId, setCurrentSystemId] = useState<string | null>(null);
+    const [hasUserEdited, setHasUserEdited] = useState(false);
+    const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const isInitializedRef = useRef(false);
 
     // Form state
     const [name, setName] = useState("");
 
     // Hourly settings
     const [enableHourly, setEnableHourly] = useState(false);
-    const [isMonthly, setIsMonthly] = useState(false);
-    const [hourlyAmount, setHourlyAmount] = useState(0);
+    const [hourlyAmountValue, setHourlyAmountValue] = useState(0);
+    const [monthlyAmountValue, setMonthlyAmountValue] = useState(0);
     const [timeUnitMinutes, setTimeUnitMinutes] = useState(60);
     const [timeRoundingType, setTimeRoundingType] = useState<'round' | 'up' | 'down'>('round');
+    const [amountRoundingType, setAmountRoundingType] = useState<'round' | 'up' | 'down'>('round');
+    const [amountRoundingUnit, setAmountRoundingUnit] = useState<10 | 100 | 1000 | 10000>(100);
     const [duringServiceOnly, setDuringServiceOnly] = useState(false);
     const [includesBreak, setIncludesBreak] = useState(false);
     const [syncWithStoreTimeRounding, setSyncWithStoreTimeRounding] = useState(false);
@@ -443,27 +451,50 @@ export function SalarySystemModal({
 
     // Initialize form when system changes
     useEffect(() => {
+        isInitializedRef.current = false;
+        setHasUserEdited(false);
         if (system) {
             setName(system.name);
+            setCurrentSystemId(system.id);
 
             // Hourly settings
             if (system.hourly_settings) {
                 setEnableHourly(true);
-                setIsMonthly(system.hourly_settings.is_monthly);
-                setHourlyAmount(system.hourly_settings.amount);
-                const savedTimeUnit = system.hourly_settings.time_unit_minutes || 60;
+                // Support both new and legacy fields
+                const hs = system.hourly_settings;
+                if (hs.hourly_amount !== undefined) {
+                    setHourlyAmountValue(hs.hourly_amount);
+                } else if (!hs.is_monthly && hs.amount !== undefined) {
+                    // Legacy: amount was hourly
+                    setHourlyAmountValue(hs.amount);
+                } else {
+                    setHourlyAmountValue(0);
+                }
+                if (hs.monthly_amount !== undefined) {
+                    setMonthlyAmountValue(hs.monthly_amount);
+                } else if (hs.is_monthly && hs.amount !== undefined) {
+                    // Legacy: amount was monthly
+                    setMonthlyAmountValue(hs.amount);
+                } else {
+                    setMonthlyAmountValue(0);
+                }
+                const savedTimeUnit = hs.time_unit_minutes || 60;
                 setTimeUnitMinutes(savedTimeUnit);
-                setTimeRoundingType(system.hourly_settings.time_rounding_type || 'round');
-                setDuringServiceOnly(system.hourly_settings.during_service_only ?? false);
-                setIncludesBreak(system.hourly_settings.includes_break ?? false);
+                setTimeRoundingType(hs.time_rounding_type || 'round');
+                setAmountRoundingType(hs.amount_rounding_type || 'round');
+                setAmountRoundingUnit(hs.amount_rounding_unit || 100);
+                setDuringServiceOnly(hs.during_service_only ?? false);
+                setIncludesBreak(hs.includes_break ?? false);
                 // Check if it was synced with store time rounding
                 setSyncWithStoreTimeRounding(savedTimeUnit === storeTimeRoundingMinutes);
             } else {
                 setEnableHourly(false);
-                setIsMonthly(false);
-                setHourlyAmount(0);
+                setHourlyAmountValue(0);
+                setMonthlyAmountValue(0);
                 setTimeUnitMinutes(60);
                 setTimeRoundingType('round');
+                setAmountRoundingType('round');
+                setAmountRoundingUnit(100);
                 setDuringServiceOnly(false);
                 setIncludesBreak(false);
                 setSyncWithStoreTimeRounding(false);
@@ -507,13 +538,20 @@ export function SalarySystemModal({
 
             setSharedCountType(system.shared_count_type || 'none');
             setDeductions(system.deductions || []);
+            // Mark as initialized after a short delay to prevent initial auto-save
+            setTimeout(() => {
+                isInitializedRef.current = true;
+            }, 100);
         } else {
             // Reset to defaults
             setName("");
             setEnableHourly(false);
-            setIsMonthly(false);
-            setHourlyAmount(0);
+            setHourlyAmountValue(0);
+            setMonthlyAmountValue(0);
             setTimeUnitMinutes(60);
+            setTimeRoundingType('round');
+            setAmountRoundingType('round');
+            setAmountRoundingUnit(100);
             setDuringServiceOnly(false);
             setIncludesBreak(false);
             setSyncWithStoreTimeRounding(false);
@@ -527,8 +565,18 @@ export function SalarySystemModal({
             setDouhanBackSettings(getDefaultBackSettings());
             setSharedCountType('none');
             setDeductions([]);
+            setCurrentSystemId(null);
         }
     }, [system, isOpen, storeTimeRoundingMinutes]);
+
+    // Cleanup timer on unmount
+    useEffect(() => {
+        return () => {
+            if (autoSaveTimerRef.current) {
+                clearTimeout(autoSaveTimerRef.current);
+            }
+        };
+    }, []);
 
     // Sync time unit with store time rounding when checkbox is checked
     useEffect(() => {
@@ -537,56 +585,107 @@ export function SalarySystemModal({
         }
     }, [syncWithStoreTimeRounding, storeTimeRoundingMinutes]);
 
-    const handleSave = async () => {
+    // Build input data
+    const buildInput = useCallback((): SalarySystemInput => {
+        return {
+            name: name.trim(),
+            target_type: targetType,
+            hourly_settings: enableHourly ? {
+                hourly_amount: hourlyAmountValue || undefined,
+                monthly_amount: monthlyAmountValue || undefined,
+                time_unit_minutes: hourlyAmountValue ? timeUnitMinutes : undefined,
+                time_rounding_type: hourlyAmountValue ? timeRoundingType : undefined,
+                amount_rounding_type: amountRoundingType,
+                amount_rounding_unit: amountRoundingUnit,
+                during_service_only: hourlyAmountValue ? duringServiceOnly : undefined,
+                includes_break: hourlyAmountValue ? includesBreak : undefined,
+            } : null,
+            store_back_settings: enableStoreBack ? storeBackSettings : null,
+            jounai_back_settings: enableJounaiBack ? jounaiBackSettings : null,
+            shimei_back_settings: enableShimeiBack ? shimeiBackSettings : null,
+            douhan_back_settings: enableDouhanBack ? douhanBackSettings : null,
+            shared_count_type: sharedCountType,
+            deductions: deductions,
+        };
+    }, [
+        name, targetType, enableHourly, hourlyAmountValue, monthlyAmountValue, timeUnitMinutes,
+        timeRoundingType, amountRoundingType, amountRoundingUnit, duringServiceOnly, includesBreak, enableStoreBack,
+        storeBackSettings, enableJounaiBack, jounaiBackSettings, enableShimeiBack,
+        shimeiBackSettings, enableDouhanBack, douhanBackSettings, sharedCountType, deductions
+    ]);
+
+    // Auto save function (for editing existing system)
+    const performAutoSave = useCallback(async () => {
+        if (!currentSystemId || !name.trim()) return;
+
+        showLoading("保存中...");
+        try {
+            const input = buildInput();
+            const result = await updateSalarySystem(currentSystemId, input);
+            if (result.success) {
+                onSaved({ id: currentSystemId, ...input, updated_at: new Date().toISOString(), created_at: system?.created_at || new Date().toISOString() } as SalarySystem);
+            } else {
+                toast({ title: result.error || "保存に失敗しました" });
+            }
+        } catch (error) {
+            toast({ title: "エラーが発生しました" });
+        } finally {
+            hideLoading();
+        }
+    }, [currentSystemId, name, buildInput, showLoading, hideLoading, toast, onSaved, system?.created_at]);
+
+    // Debounced auto save trigger
+    const triggerAutoSave = useCallback(() => {
+        if (!currentSystemId) return;
+
+        if (autoSaveTimerRef.current) {
+            clearTimeout(autoSaveTimerRef.current);
+        }
+        autoSaveTimerRef.current = setTimeout(() => {
+            performAutoSave();
+        }, 800);
+    }, [currentSystemId, performAutoSave]);
+
+    // Trigger auto save when form values change (only for editing mode)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    useEffect(() => {
+        if (currentSystemId && isOpen && isInitializedRef.current && hasUserEdited) {
+            triggerAutoSave();
+        }
+    }, [
+        hasUserEdited,
+        name, enableHourly, hourlyAmountValue, monthlyAmountValue, timeUnitMinutes, timeRoundingType,
+        amountRoundingType, amountRoundingUnit, duringServiceOnly, includesBreak, enableStoreBack, storeBackSettings,
+        enableJounaiBack, jounaiBackSettings, enableShimeiBack, shimeiBackSettings,
+        enableDouhanBack, douhanBackSettings, sharedCountType, deductions,
+        // Note: currentSystemId, isOpen, triggerAutoSave are intentionally excluded
+        // to prevent auto-save on initial load
+    ]);
+
+    // Create new system (manual)
+    const handleCreate = async () => {
         if (!name.trim()) {
             toast({ title: "システム名を入力してください" });
             return;
         }
 
         setSaving(true);
+        showLoading("作成中...");
         try {
-            const input: SalarySystemInput = {
-                name: name.trim(),
-                target_type: targetType,
-                hourly_settings: enableHourly ? {
-                    is_monthly: isMonthly,
-                    amount: hourlyAmount,
-                    time_unit_minutes: isMonthly ? undefined : timeUnitMinutes,
-                    time_rounding_type: isMonthly ? undefined : timeRoundingType,
-                    during_service_only: isMonthly ? undefined : duringServiceOnly,
-                    includes_break: isMonthly ? undefined : includesBreak,
-                } : null,
-                store_back_settings: enableStoreBack ? storeBackSettings : null,
-                jounai_back_settings: enableJounaiBack ? jounaiBackSettings : null,
-                shimei_back_settings: enableShimeiBack ? shimeiBackSettings : null,
-                douhan_back_settings: enableDouhanBack ? douhanBackSettings : null,
-                shared_count_type: sharedCountType,
-                deductions: deductions,
-            };
-
-            if (system) {
-                const result = await updateSalarySystem(system.id, input);
-                if (result.success) {
-                    toast({ title: "保存しました" });
-                    onSaved({ ...system, ...input, updated_at: new Date().toISOString() });
-                    onClose();
-                } else {
-                    toast({ title: result.error || "保存に失敗しました" });
-                }
+            const input = buildInput();
+            const result = await createSalarySystem(input);
+            if (result.success && result.data) {
+                toast({ title: "作成しました" });
+                setCurrentSystemId(result.data.id);
+                onSaved(result.data);
             } else {
-                const result = await createSalarySystem(input);
-                if (result.success && result.data) {
-                    toast({ title: "作成しました" });
-                    onSaved(result.data);
-                    onClose();
-                } else {
-                    toast({ title: result.error || "作成に失敗しました" });
-                }
+                toast({ title: result.error || "作成に失敗しました" });
             }
         } catch (error) {
             toast({ title: "エラーが発生しました" });
         } finally {
             setSaving(false);
+            hideLoading();
         }
     };
 
@@ -621,16 +720,19 @@ export function SalarySystemModal({
             order: deductions.length,
         };
         setDeductions([...deductions, newDeduction]);
+        setHasUserEdited(true);
     };
 
     // Update deduction
     const updateDeduction = (id: string, updates: Partial<Deduction>) => {
         setDeductions(deductions.map(d => d.id === id ? { ...d, ...updates } : d));
+        setHasUserEdited(true);
     };
 
     // Remove deduction
     const removeDeduction = (id: string) => {
         setDeductions(deductions.filter(d => d.id !== id).map((d, i) => ({ ...d, order: i })));
+        setHasUserEdited(true);
     };
 
     // Move deduction
@@ -644,46 +746,50 @@ export function SalarySystemModal({
         const swapIndex = direction === 'up' ? index - 1 : index + 1;
         [newDeductions[index], newDeductions[swapIndex]] = [newDeductions[swapIndex], newDeductions[index]];
         setDeductions(newDeductions.map((d, i) => ({ ...d, order: i })));
+        setHasUserEdited(true);
     };
 
     return (
         <>
             <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-                <DialogContent className={cn("max-w-[calc(100vw-32px)] sm:max-w-[500px] max-h-[calc(100vh-32px)] flex flex-col p-0 rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900", className)}>
-                    <DialogHeader className="flex-shrink-0 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-                        <div className="relative flex items-center justify-center">
+                <DialogContent className={cn("p-0 overflow-hidden flex flex-col max-h-[90vh] rounded-2xl max-w-[calc(100vw-32px)] sm:max-w-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900", className)}>
+                    <DialogHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900 flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                        </button>
+                        <DialogTitle className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white truncate">
+                            {system ? "給与システム編集" : "給与システム作成"}
+                        </DialogTitle>
+                        {system ? (
                             <button
                                 type="button"
-                                onClick={onClose}
-                                className="absolute left-0 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                onClick={() => setShowDeleteConfirm(true)}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-red-500 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
                             >
-                                <ChevronLeft className="h-5 w-5 text-gray-500" />
+                                <Trash2 className="h-4 w-4" />
                             </button>
-                            <DialogTitle className="text-gray-900 dark:text-white">
-                                {system ? "給与システム編集" : "給与システム作成"}
-                            </DialogTitle>
-                            {system && (
-                                <button
-                                    type="button"
-                                    onClick={() => setShowDeleteConfirm(true)}
-                                    className="absolute right-0 p-1 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                                >
-                                    <Trash2 className="h-5 w-5 text-red-500" />
-                                </button>
-                            )}
-                        </div>
+                        ) : (
+                            <div className="w-8 h-8" />
+                        )}
                     </DialogHeader>
 
-                    <div className="flex-1 overflow-y-auto px-4 py-4 min-h-0">
+                    <div className="flex-1 overflow-y-auto p-6">
                         <div className="space-y-4">
                             {/* System Name */}
                             <div className="space-y-2">
-                                <Label className="text-gray-700 dark:text-gray-200">システム名 *</Label>
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">システム名 *</Label>
                                 <Input
                                     value={name}
-                                    onChange={(e) => setName(e.target.value)}
+                                    onChange={(e) => {
+                                        setName(e.target.value);
+                                        setHasUserEdited(true);
+                                    }}
                                     placeholder="例: 新人キャスト用"
-                                    className="h-11"
+                                    className="h-10"
                                 />
                             </div>
 
@@ -693,41 +799,64 @@ export function SalarySystemModal({
                                     <div className="flex items-center gap-3 mb-3">
                                         <Switch
                                             checked={enableHourly}
-                                            onCheckedChange={setEnableHourly}
+                                            onCheckedChange={(checked) => {
+                                                setEnableHourly(checked);
+                                                setHasUserEdited(true);
+                                            }}
                                         />
                                         <span className="font-medium text-gray-900 dark:text-white">時給・月給</span>
                                     </div>
                                     {enableHourly && (
                                         <div className="space-y-4 pt-2 border-t border-gray-100 dark:border-gray-700">
-                                            <div className="flex items-center justify-between pt-2">
-                                                <Label className="text-gray-700 dark:text-gray-200">月給制にする</Label>
-                                                <Switch checked={isMonthly} onCheckedChange={setIsMonthly} />
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                <Label className="text-gray-700 dark:text-gray-200">
-                                                    {isMonthly ? "月給額 (円)" : "時給額 (円)"}
+                                            {/* Hourly Amount */}
+                                            <div className="space-y-2 pt-2">
+                                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                                    時給額 (円)
                                                 </Label>
                                                 <Input
                                                     type="number"
-                                                    value={hourlyAmount === 0 ? "" : hourlyAmount}
-                                                    onChange={(e) => setHourlyAmount(e.target.value === "" ? 0 : Number(e.target.value))}
-                                                    className="h-11"
-                                                    placeholder={isMonthly ? "300000" : "1500"}
+                                                    value={hourlyAmountValue === 0 ? "" : hourlyAmountValue}
+                                                    onChange={(e) => {
+                                                        setHourlyAmountValue(e.target.value === "" ? 0 : Number(e.target.value));
+                                                        setHasUserEdited(true);
+                                                    }}
+                                                    className="h-10"
+                                                    placeholder="1500"
                                                 />
                                             </div>
 
-                                            {!isMonthly && (
+                                            {/* Monthly Amount */}
+                                            <div className="space-y-2">
+                                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                                    月給額 (円)
+                                                </Label>
+                                                <Input
+                                                    type="number"
+                                                    value={monthlyAmountValue === 0 ? "" : monthlyAmountValue}
+                                                    onChange={(e) => {
+                                                        setMonthlyAmountValue(e.target.value === "" ? 0 : Number(e.target.value));
+                                                        setHasUserEdited(true);
+                                                    }}
+                                                    className="h-10"
+                                                    placeholder="300000"
+                                                />
+                                            </div>
+
+                                            {/* Time unit settings - only show when hourly is set */}
+                                            {hourlyAmountValue > 0 && (
                                                 <>
                                                     <div className="space-y-2">
                                                         <div className="flex items-center justify-between">
-                                                            <Label className="text-gray-700 dark:text-gray-200">時給発生単位 (分)</Label>
+                                                            <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">時給分割単位 (分)</Label>
                                                             {storeTimeRoundingEnabled && (
                                                                 <label className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
                                                                     <input
                                                                         type="checkbox"
                                                                         checked={syncWithStoreTimeRounding}
-                                                                        onChange={(e) => setSyncWithStoreTimeRounding(e.target.checked)}
+                                                                        onChange={(e) => {
+                                                                            setSyncWithStoreTimeRounding(e.target.checked);
+                                                                            setHasUserEdited(true);
+                                                                        }}
                                                                         className="h-3.5 w-3.5 rounded border-gray-300"
                                                                     />
                                                                     打刻修正単位に合わせる
@@ -736,7 +865,10 @@ export function SalarySystemModal({
                                                         </div>
                                                         <Select
                                                             value={String(timeUnitMinutes)}
-                                                            onValueChange={(v) => setTimeUnitMinutes(Number(v))}
+                                                            onValueChange={(v) => {
+                                                                setTimeUnitMinutes(Number(v));
+                                                                setHasUserEdited(true);
+                                                            }}
                                                             disabled={syncWithStoreTimeRounding}
                                                         >
                                                             <SelectTrigger className={`h-11 ${syncWithStoreTimeRounding ? "opacity-60 cursor-not-allowed" : ""}`}>
@@ -760,12 +892,15 @@ export function SalarySystemModal({
                                                     </div>
 
                                                     <div className="space-y-2">
-                                                        <Label className="text-gray-700 dark:text-gray-200">時間の丸め方</Label>
+                                                        <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">時間の丸め方</Label>
                                                         <Select
                                                             value={timeRoundingType}
-                                                            onValueChange={(v) => setTimeRoundingType(v as 'round' | 'up' | 'down')}
+                                                            onValueChange={(v) => {
+                                                                setTimeRoundingType(v as 'round' | 'up' | 'down');
+                                                                setHasUserEdited(true);
+                                                            }}
                                                         >
-                                                            <SelectTrigger className="h-11">
+                                                            <SelectTrigger className="h-10">
                                                                 <SelectValue />
                                                             </SelectTrigger>
                                                             <SelectContent>
@@ -775,29 +910,80 @@ export function SalarySystemModal({
                                                             </SelectContent>
                                                         </Select>
                                                         <p className="text-xs text-gray-400 dark:text-gray-500">
-                                                            勤務時間を時給発生単位で丸める方法
+                                                            勤務時間を時給分割単位で丸める方法
                                                         </p>
                                                     </div>
 
                                                     <div className="flex items-center justify-between">
-                                                        <Label className="text-gray-700 dark:text-gray-200">接客中のみ時給発生</Label>
+                                                        <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">接客中のみ時給発生</Label>
                                                         <Switch
                                                             checked={duringServiceOnly}
-                                                            onCheckedChange={setDuringServiceOnly}
+                                                            onCheckedChange={(checked) => {
+                                                                setDuringServiceOnly(checked);
+                                                                setHasUserEdited(true);
+                                                            }}
                                                         />
                                                     </div>
 
                                                     {storeShowBreakColumns && (
                                                         <div className="flex items-center justify-between">
-                                                            <Label className="text-gray-700 dark:text-gray-200">休憩中も時給発生</Label>
+                                                            <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">休憩中も時給発生</Label>
                                                             <Switch
                                                                 checked={includesBreak}
-                                                                onCheckedChange={setIncludesBreak}
+                                                                onCheckedChange={(checked) => {
+                                                                    setIncludesBreak(checked);
+                                                                    setHasUserEdited(true);
+                                                                }}
                                                             />
                                                         </div>
                                                     )}
                                                 </>
                                             )}
+
+                                            {/* Amount Rounding Settings */}
+                                            <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-100 dark:border-gray-700">
+                                                <div className="space-y-2">
+                                                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">金額端数処理</Label>
+                                                    <Select
+                                                        value={amountRoundingType}
+                                                        onValueChange={(v) => {
+                                                            setAmountRoundingType(v as 'round' | 'up' | 'down');
+                                                            setHasUserEdited(true);
+                                                        }}
+                                                    >
+                                                        <SelectTrigger className="h-10">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="round">四捨五入</SelectItem>
+                                                            <SelectItem value="up">切り上げ</SelectItem>
+                                                            <SelectItem value="down">切り下げ</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+
+                                                <div className="space-y-2">
+                                                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">端数単位</Label>
+                                                    <Select
+                                                        value={String(amountRoundingUnit)}
+                                                        onValueChange={(v) => {
+                                                            setAmountRoundingUnit(Number(v) as 10 | 100 | 1000 | 10000);
+                                                            setHasUserEdited(true);
+                                                        }}
+                                                    >
+                                                        <SelectTrigger className="h-10">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {ROUNDING_UNITS.map(unit => (
+                                                                <SelectItem key={unit.value} value={String(unit.value)}>
+                                                                    {unit.label}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -807,7 +993,10 @@ export function SalarySystemModal({
                                     <div className="flex items-center gap-3 mb-3">
                                         <Switch
                                             checked={enableStoreBack}
-                                            onCheckedChange={setEnableStoreBack}
+                                            onCheckedChange={(checked) => {
+                                                setEnableStoreBack(checked);
+                                                setHasUserEdited(true);
+                                            }}
                                         />
                                         <span className="font-medium text-gray-900 dark:text-white">店舗バック</span>
                                     </div>
@@ -815,7 +1004,10 @@ export function SalarySystemModal({
                                         <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
                                             <BackSettingsEditor
                                                 settings={storeBackSettings}
-                                                onChange={setStoreBackSettings}
+                                                onChange={(settings) => {
+                                                    setStoreBackSettings(settings);
+                                                    setHasUserEdited(true);
+                                                }}
                                                 showVariable={false}
                                             />
                                         </div>
@@ -827,7 +1019,10 @@ export function SalarySystemModal({
                                     <div className="flex items-center gap-3 mb-3">
                                         <Switch
                                             checked={enableJounaiBack}
-                                            onCheckedChange={setEnableJounaiBack}
+                                            onCheckedChange={(checked) => {
+                                                setEnableJounaiBack(checked);
+                                                setHasUserEdited(true);
+                                            }}
                                         />
                                         <span className="font-medium text-gray-900 dark:text-white">場内バック</span>
                                     </div>
@@ -835,7 +1030,10 @@ export function SalarySystemModal({
                                         <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
                                             <BackSettingsEditor
                                                 settings={jounaiBackSettings}
-                                                onChange={setJounaiBackSettings}
+                                                onChange={(settings) => {
+                                                    setJounaiBackSettings(settings);
+                                                    setHasUserEdited(true);
+                                                }}
                                             />
                                         </div>
                                     )}
@@ -846,7 +1044,10 @@ export function SalarySystemModal({
                                     <div className="flex items-center gap-3 mb-3">
                                         <Switch
                                             checked={enableShimeiBack}
-                                            onCheckedChange={setEnableShimeiBack}
+                                            onCheckedChange={(checked) => {
+                                                setEnableShimeiBack(checked);
+                                                setHasUserEdited(true);
+                                            }}
                                         />
                                         <span className="font-medium text-gray-900 dark:text-white">指名バック</span>
                                     </div>
@@ -854,7 +1055,10 @@ export function SalarySystemModal({
                                         <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
                                             <BackSettingsEditor
                                                 settings={shimeiBackSettings}
-                                                onChange={setShimeiBackSettings}
+                                                onChange={(settings) => {
+                                                    setShimeiBackSettings(settings);
+                                                    setHasUserEdited(true);
+                                                }}
                                             />
                                         </div>
                                     )}
@@ -865,7 +1069,10 @@ export function SalarySystemModal({
                                     <div className="flex items-center gap-3 mb-3">
                                         <Switch
                                             checked={enableDouhanBack}
-                                            onCheckedChange={setEnableDouhanBack}
+                                            onCheckedChange={(checked) => {
+                                                setEnableDouhanBack(checked);
+                                                setHasUserEdited(true);
+                                            }}
                                         />
                                         <span className="font-medium text-gray-900 dark:text-white">同伴バック</span>
                                     </div>
@@ -873,7 +1080,10 @@ export function SalarySystemModal({
                                         <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
                                             <BackSettingsEditor
                                                 settings={douhanBackSettings}
-                                                onChange={setDouhanBackSettings}
+                                                onChange={(settings) => {
+                                                    setDouhanBackSettings(settings);
+                                                    setHasUserEdited(true);
+                                                }}
                                             />
                                         </div>
                                     )}
@@ -884,9 +1094,15 @@ export function SalarySystemModal({
                                     <div className="border rounded-xl px-4 py-3">
                                         <div className="font-medium text-gray-900 dark:text-white mb-3">回数共通設定</div>
                                         <div className="space-y-2">
-                                            <Label className="text-gray-700 dark:text-gray-200">共通にする組み合わせ</Label>
-                                            <Select value={sharedCountType} onValueChange={setSharedCountType}>
-                                                <SelectTrigger className="h-11">
+                                            <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">共通にする組み合わせ</Label>
+                                            <Select
+                                                value={sharedCountType}
+                                                onValueChange={(value) => {
+                                                    setSharedCountType(value);
+                                                    setHasUserEdited(true);
+                                                }}
+                                            >
+                                                <SelectTrigger className="h-10">
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -925,7 +1141,7 @@ export function SalarySystemModal({
                                                                 onClick={() => moveDeduction(deduction.id, 'up')}
                                                                 disabled={index === 0}
                                                             >
-                                                                <ChevronLeft className="h-4 w-4 rotate-90" />
+                                                                <ChevronLeft className="h-5 w-5 rotate-90" />
                                                             </Button>
                                                             <Button
                                                                 type="button"
@@ -935,7 +1151,7 @@ export function SalarySystemModal({
                                                                 onClick={() => moveDeduction(deduction.id, 'down')}
                                                                 disabled={index === deductions.length - 1}
                                                             >
-                                                                <ChevronLeft className="h-4 w-4 -rotate-90" />
+                                                                <ChevronLeft className="h-5 w-5 -rotate-90" />
                                                             </Button>
                                                             <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
                                                                 {index + 1}
@@ -948,7 +1164,7 @@ export function SalarySystemModal({
                                                             className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
                                                             onClick={() => removeDeduction(deduction.id)}
                                                         >
-                                                            <X className="h-4 w-4" />
+                                                            <X className="h-5 w-5" />
                                                         </Button>
                                                     </div>
 
@@ -999,32 +1215,36 @@ export function SalarySystemModal({
                                                 className="w-full"
                                                 onClick={addDeduction}
                                             >
-                                                <Plus className="h-4 w-4 mr-2" />
+                                                <Plus className="h-5 w-5 mr-2" />
                                                 引かれものを追加
                                             </Button>
                                         </div>
                                 </div>
+
                             </div>
                         </div>
                     </div>
 
-                    <DialogFooter className="border-t border-gray-200 dark:border-gray-700 px-4 py-3 flex-shrink-0">
-                        <Button
-                            onClick={handleSave}
-                            disabled={saving}
-                            className="w-full h-11 rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
-                        >
-                            {saving ? "保存中..." : "保存"}
-                        </Button>
-                    </DialogFooter>
+                    {/* Show create button only for new system (not editing) */}
+                    {!currentSystemId && (
+                        <DialogFooter className="border-t border-gray-200 dark:border-gray-700 px-6 py-3 flex-shrink-0 gap-2">
+                            <Button
+                                onClick={handleCreate}
+                                disabled={saving}
+                                className="w-full h-11 rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
+                            >
+                                {saving ? "作成中..." : "作成"}
+                            </Button>
+                        </DialogFooter>
+                    )}
                 </DialogContent>
             </Dialog>
 
             {/* Delete Confirmation Dialog */}
             <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-                <DialogContent className="max-w-[calc(100vw-32px)] sm:max-w-[360px] rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+                <DialogContent className="max-w-[calc(100vw-32px)] sm:max-w-sm rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
                     <DialogHeader>
-                        <DialogTitle className="text-gray-900 dark:text-white">削除の確認</DialogTitle>
+                        <DialogTitle className="text-lg font-semibold text-gray-900 dark:text-white">削除の確認</DialogTitle>
                     </DialogHeader>
                     <p className="text-gray-600 dark:text-gray-400 py-2">
                         この給与システムを削除しますか？この操作は取り消せません。

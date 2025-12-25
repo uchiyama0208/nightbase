@@ -5,6 +5,7 @@ import { Auth0Client } from "@auth0/auth0-spa-js";
 import { createBrowserClient } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import { acceptInvitation } from "@/app/app/(main)/invitations/actions";
+import { toast } from "@/components/ui/use-toast";
 
 export default function Auth0CallbackPage() {
     const router = useRouter();
@@ -26,8 +27,6 @@ export default function Auth0CallbackPage() {
                     throw new Error("Auth0 configuration missing");
                 }
 
-                console.log("Current URL:", window.location.href);
-
                 const auth0 = new Auth0Client({
                     domain,
                     clientId,
@@ -37,19 +36,15 @@ export default function Auth0CallbackPage() {
                     },
                 });
 
-                console.log("Calling handleRedirectCallback...");
                 // Handle the redirect callback
                 const result = await auth0.handleRedirectCallback();
-                console.log("handleRedirectCallback success", result);
 
                 // Get the invitation token from appState
                 const invitationToken = result.appState?.invitationToken;
 
-                console.log("Calling getIdTokenClaims...");
                 // Get ID Token
                 const idTokenClaims = await auth0.getIdTokenClaims();
                 const idToken = idTokenClaims?.__raw;
-                console.log("getIdTokenClaims success");
 
                 if (!idToken || !idTokenClaims) {
                     throw new Error("No ID token found");
@@ -57,7 +52,6 @@ export default function Auth0CallbackPage() {
 
                 const claimsInfo = `Issuer: ${idTokenClaims.iss}\nAudience: ${idTokenClaims.aud}`;
                 setDebugInfo(claimsInfo);
-                console.log("ID Token Claims:", idTokenClaims);
 
                 setStatus(`Supabaseにログイン中...\nIssuer: ${idTokenClaims.iss}\nAudience: ${idTokenClaims.aud}`);
 
@@ -91,7 +85,7 @@ export default function Auth0CallbackPage() {
                     const result = await acceptInvitation(invitationToken);
                     if (!result.success) {
                         console.error("Invitation accept error:", result.error);
-                        alert("招待の処理に失敗しました: " + result.error);
+                        toast({ title: "招待の処理に失敗しました: " + result.error, variant: "destructive" });
                     }
                 }
 

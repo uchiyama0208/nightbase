@@ -10,7 +10,7 @@ import {
     DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Search, Check, X, User } from "lucide-react";
+import { Search, Check, X, User, ChevronLeft } from "lucide-react";
 
 export type NominationType = "shimei" | "douhan" | "banai";
 
@@ -110,19 +110,31 @@ export function CastSelectorModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="max-w-md rounded-2xl border border-gray-200 bg-white p-0 shadow-xl dark:border-gray-800 dark:bg-gray-900 max-h-[80vh] flex flex-col">
-                <DialogHeader className="p-4 pb-2 space-y-3">
-                    <div>
-                        <DialogTitle className="text-base font-semibold text-gray-900 dark:text-gray-50">
+            <DialogContent className="p-0 overflow-hidden flex flex-col max-h-[90vh] rounded-2xl">
+                <DialogHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900 flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        aria-label="戻る"
+                    >
+                        <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <div className="flex-1 text-center">
+                        <DialogTitle className="text-lg font-semibold text-gray-900 dark:text-white truncate">
                             {title}
                         </DialogTitle>
                         {guestName && (
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
                                 対象: {guestName}
                             </p>
                         )}
                     </div>
-                    {/* 検索バー */}
+                    <div className="w-8 h-8" />
+                </DialogHeader>
+
+                {/* 検索バー */}
+                <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                         <Input
@@ -132,7 +144,7 @@ export function CastSelectorModal({
                             className="pl-9 h-10 rounded-lg"
                         />
                     </div>
-                </DialogHeader>
+                </div>
 
                 {/* 選択済みタグ */}
                 {tempSelected.length > 0 && (
@@ -174,7 +186,7 @@ export function CastSelectorModal({
                                         className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
                                             selected
                                                 ? "bg-pink-50 dark:bg-pink-900/10"
-                                                : "hover:bg-gray-50 dark:hover:bg-gray-800"
+                                                : "hover:bg-gray-50 dark:hover:bg-gray-700"
                                         }`}
                                     >
                                         <div
@@ -217,25 +229,23 @@ export function CastSelectorModal({
                     )}
                 </div>
 
-                <DialogFooter className="p-4 pt-2 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center gap-2">
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                <DialogFooter className="p-4 pt-2 border-t border-gray-100 dark:border-gray-800 flex flex-col gap-2">
+                    <span className="text-xs text-gray-500 dark:text-gray-400 text-center">
                         {tempSelected.length}名選択中
                     </span>
-                    <div className="flex gap-2">
-                        <Button
-                            variant="outline"
-                            onClick={onClose}
-                            className="rounded-lg"
-                        >
-                            キャンセル
-                        </Button>
-                        <Button
-                            onClick={handleConfirm}
-                            className="rounded-lg"
-                        >
-                            確定
-                        </Button>
-                    </div>
+                    <Button
+                        onClick={handleConfirm}
+                        className="w-full rounded-lg"
+                    >
+                        確定
+                    </Button>
+                    <Button
+                        variant="outline"
+                        onClick={onClose}
+                        className="w-full rounded-lg"
+                    >
+                        キャンセル
+                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

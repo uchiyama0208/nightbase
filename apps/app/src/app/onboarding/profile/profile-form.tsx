@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
+import { toast } from "@/components/ui/use-toast";
 
 interface ProfileFormProps {
     mode: string;
@@ -38,7 +39,7 @@ export function ProfileForm({ mode, initialData }: ProfileFormProps) {
             if (result.success) {
                 router.push("/onboarding/store-info");
             } else {
-                alert(`エラー: ${result.error}`);
+                toast({ title: `エラー: ${result.error}`, variant: "destructive" });
                 setIsSubmitting(false);
             }
         } else {
@@ -47,7 +48,7 @@ export function ProfileForm({ mode, initialData }: ProfileFormProps) {
             const role = sessionStorage.getItem("onboarding_role");
 
             if (!storeId || !role) {
-                alert("店舗またはロール情報が見つかりません。最初からやり直してください。");
+                toast({ title: "店舗またはロール情報が見つかりません。最初からやり直してください。", variant: "destructive" });
                 router.push("/onboarding/select-store");
                 return;
             }
@@ -64,7 +65,7 @@ export function ProfileForm({ mode, initialData }: ProfileFormProps) {
                 sessionStorage.removeItem("onboarding_role");
                 router.push("/onboarding/pending-approval");
             } else {
-                alert(`エラー: ${result.error}`);
+                toast({ title: `エラー: ${result.error}`, variant: "destructive" });
                 setIsSubmitting(false);
             }
         }
@@ -77,7 +78,7 @@ export function ProfileForm({ mode, initialData }: ProfileFormProps) {
                 href="/onboarding/choice"
                 className="inline-flex items-center text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
             >
-                <ChevronLeft className="h-4 w-4 mr-1" />
+                <ChevronLeft className="h-5 w-5 mr-1" />
                 戻る
             </Link>
 
@@ -92,7 +93,7 @@ export function ProfileForm({ mode, initialData }: ProfileFormProps) {
             </div>
 
             {/* Form Card */}
-            <Card className="border-2">
+            <Card className="border">
                 <CardContent className="pt-6">
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

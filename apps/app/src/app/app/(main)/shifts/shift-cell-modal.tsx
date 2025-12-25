@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Clock, Check, X, Loader2, Trash2, ChevronLeft } from "lucide-react";
 import {
     Dialog,
@@ -11,6 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
+import { useGlobalLoading } from "@/components/global-loading";
 import {
     type GridCellData,
     getUserSubmissionForDate,
@@ -18,6 +19,7 @@ import {
     rejectSubmission,
     revertSubmissionToPending,
     createWorkRecord,
+    updateWorkRecord,
     deleteWorkRecord,
 } from "./actions";
 
@@ -55,11 +57,13 @@ export function ShiftCellModal({
     approverProfileId,
 }: ShiftCellModalProps) {
     const { toast } = useToast();
+    const { showLoading, hideLoading } = useGlobalLoading();
     const [isLoading, setIsLoading] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [submission, setSubmission] = useState<Submission | null>(null);
     const [startTime, setStartTime] = useState(cell?.startTime?.slice(0, 5) || "20:00");
     const [endTime, setEndTime] = useState(cell?.endTime?.slice(0, 5) || "01:00");
+    const initialLoadRef = useRef(true);
 
     useEffect(() => {
         if (isOpen && requestDateId) {
@@ -69,6 +73,7 @@ export function ShiftCellModal({
 
     useEffect(() => {
         // cellが変わったら時間を更新
+        initialLoadRef.current = true;
         if (cell?.startTime) {
             setStartTime(cell.startTime.slice(0, 5));
         }
@@ -76,6 +81,47 @@ export function ShiftCellModal({
             setEndTime(cell.endTime.slice(0, 5));
         }
     }, [cell]);
+
+    // 自動保存関数
+    const autoSave = useCallback(async () => {
+        if (!cell?.recordId) return;
+
+        showLoading("保存中...");
+        try {
+            const result = await updateWorkRecord(cell.recordId, {
+                scheduledStartTime: startTime,
+                scheduledEndTime: endTime,
+            });
+            if (!result.success) {
+                toast({ title: "保存に失敗しました", variant: "destructive" });
+            } else {
+                onSuccess?.();
+            }
+        } catch (error) {
+            console.error("Error auto-saving:", error);
+            toast({ title: "エラーが発生しました", variant: "destructive" });
+        } finally {
+            hideLoading();
+        }
+    }, [cell?.recordId, startTime, endTime, showLoading, hideLoading, toast, onSuccess]);
+
+    // 時間変更時の自動保存（デバウンス 800ms）
+    useEffect(() => {
+        // 初期ロード時はスキップ
+        if (initialLoadRef.current) {
+            initialLoadRef.current = false;
+            return;
+        }
+
+        // recordIdがない場合はスキップ
+        if (!cell?.recordId) return;
+
+        const timer = setTimeout(() => {
+            autoSave();
+        }, 800);
+
+        return () => clearTimeout(timer);
+    }, [startTime, endTime, autoSave, cell?.recordId]);
 
     const loadSubmission = async () => {
         if (!requestDateId) return;
@@ -237,41 +283,40 @@ export function ShiftCellModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="max-w-sm p-0 gap-0">
-                <DialogHeader className="border-b px-4 py-3">
-                    <div className="flex items-center justify-center gap-2">
+            <DialogContent className="sm:max-w-sm p-0 overflow-hidden flex flex-col max-h-[90vh] rounded-2xl">
+                <DialogHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900 flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        aria-label="戻る"
+                    >
+                        <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <DialogTitle className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white truncate">
+                        {targetProfileName} - {formatDisplayDate(date)}
+                    </DialogTitle>
+                    {cell?.recordId ? (
                         <button
                             type="button"
-                            onClick={onClose}
-                            className="absolute left-3 p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                            onClick={handleDelete}
+                            disabled={isProcessing}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-red-500 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50"
+                            aria-label="削除"
                         >
-                            <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                            <Trash2 className="h-4 w-4" />
                         </button>
-                        <DialogTitle className="text-gray-900 dark:text-white">
-                            {targetProfileName}
-                        </DialogTitle>
-                        <span className="text-sm text-gray-500 dark:text-gray-400">
-                            {formatDisplayDate(date)}
-                        </span>
-                        {cell?.recordId && (
-                            <button
-                                type="button"
-                                onClick={handleDelete}
-                                disabled={isProcessing}
-                                className="absolute right-3 p-1.5 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 dark:text-red-400 transition-colors disabled:opacity-50"
-                            >
-                                <Trash2 className="h-4 w-4" />
-                            </button>
-                        )}
-                    </div>
+                    ) : (
+                        <div className="w-8 h-8" />
+                    )}
                 </DialogHeader>
 
                 {isLoading ? (
-                    <div className="flex items-center justify-center py-8">
+                    <div className="flex-1 flex items-center justify-center py-8">
                         <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
                     </div>
                 ) : (
-                    <div className="space-y-4 px-4 py-4">
+                    <div className="flex-1 overflow-y-auto p-6 space-y-4">
                         {/* Status */}
                         <div className="flex items-center gap-2">
                             <span className="text-sm text-gray-600 dark:text-gray-300">ステータス:</span>
@@ -353,7 +398,7 @@ export function ShiftCellModal({
                                             <Loader2 className="h-4 w-4 animate-spin" />
                                         ) : (
                                             <>
-                                                <X className="h-4 w-4 mr-2" />
+                                                <X className="h-5 w-5 mr-2" />
                                                 否認する
                                             </>
                                         )}
@@ -373,7 +418,7 @@ export function ShiftCellModal({
                                         <Loader2 className="h-4 w-4 animate-spin" />
                                     ) : (
                                         <>
-                                            <X className="h-4 w-4 mr-2" />
+                                            <X className="h-5 w-5 mr-2" />
                                             確定を取り消す
                                         </>
                                     )}

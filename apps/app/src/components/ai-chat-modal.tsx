@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useChat } from "@ai-sdk/react";
-import { X, Send, Sparkles, Loader2, Mic, MicOff, User } from "lucide-react";
+import { ChevronLeft, Send, Sparkles, Loader2, Mic, MicOff, User } from "lucide-react";
+import { toast } from "@/components/ui/use-toast";
 
 // AI SDK v5互換の型定義
 interface Message {
@@ -60,8 +61,9 @@ export function AIChatModal({ isOpen, onClose }: AIChatModalProps) {
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
     const [profileForModal, setProfileForModal] = useState<any>(null);
     const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+    const [inputValue, setInputValue] = useState("");
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const inputRef = useRef<HTMLTextAreaElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const audioChunksRef = useRef<Blob[]>([]);
 
@@ -71,9 +73,6 @@ export function AIChatModal({ isOpen, onClose }: AIChatModalProps) {
     } as any) as any;
 
     const messages: Message[] = chatHelpers.messages || [];
-    const input: string = chatHelpers.input || "";
-    const handleInputChange = chatHelpers.handleInputChange || (() => {});
-    const handleSubmit = chatHelpers.handleSubmit || (() => {});
     const isLoading: boolean = chatHelpers.isLoading || chatHelpers.status === "streaming" || false;
     const setMessages = chatHelpers.setMessages || (() => {});
     const append = chatHelpers.append || (() => {});
@@ -121,7 +120,7 @@ export function AIChatModal({ isOpen, onClose }: AIChatModalProps) {
             setIsRecording(true);
         } catch (error) {
             console.error("Failed to start recording:", error);
-            alert("マイクへのアクセスが許可されていません");
+            toast({ title: "マイクへのアクセスが許可されていません", variant: "destructive" });
         }
     }, []);
 
@@ -166,7 +165,7 @@ export function AIChatModal({ isOpen, onClose }: AIChatModalProps) {
             }
         } catch (error) {
             console.error("Transcription error:", error);
-            alert("音声認識に失敗しました");
+            toast({ title: "音声認識に失敗しました", variant: "destructive" });
         } finally {
             setIsTranscribing(false);
         }
@@ -225,18 +224,6 @@ export function AIChatModal({ isOpen, onClose }: AIChatModalProps) {
         }
     }, [isOpen, initialLoading]);
 
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-        // IME変換中は送信しない
-        if (e.nativeEvent.isComposing) return;
-
-        if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            if (input.trim() && !isLoading) {
-                handleSubmit(e as any);
-            }
-        }
-    };
-
     const formatTime = (date: Date) => {
         return date.toLocaleTimeString("ja-JP", {
             timeZone: "Asia/Tokyo",
@@ -267,28 +254,29 @@ export function AIChatModal({ isOpen, onClose }: AIChatModalProps) {
     return (
         <>
             <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="max-w-2xl h-[80vh] flex flex-col p-0 gap-0 overflow-hidden">
-                <DialogHeader className="flex flex-row items-center justify-between border-b px-4 py-3 flex-shrink-0 mb-0">
-                    <div className="flex items-center gap-2">
-                        <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                            <Sparkles className="h-4 w-4 text-white" />
-                        </div>
-                        <DialogTitle className="text-lg font-semibold text-gray-900 dark:text-white">
-                            AIアシスタント
-                        </DialogTitle>
-                    </div>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
+            <DialogContent className="sm:max-w-2xl p-0 overflow-hidden flex flex-col max-h-[90vh] rounded-2xl">
+                <DialogHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900 flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
+                    <button
+                        type="button"
                         onClick={onClose}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        aria-label="戻る"
                     >
-                        <X className="h-4 w-4" />
-                    </Button>
+                        <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <DialogTitle className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white truncate">
+                        <div className="flex items-center justify-center gap-2">
+                            <div className="h-6 w-6 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                                <Sparkles className="h-3 w-3 text-white" />
+                            </div>
+                            AIアシスタント
+                        </div>
+                    </DialogTitle>
+                    <div className="w-8 h-8" />
                 </DialogHeader>
 
                 {/* Messages Area */}
-                <div className="flex-1 overflow-y-auto px-4 py-4 min-h-0">
+                <div className="flex-1 overflow-y-auto p-6 min-h-0">
                     {initialLoading ? (
                         <div className="flex items-center justify-center h-full">
                             <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
@@ -315,9 +303,7 @@ export function AIChatModal({ isOpen, onClose }: AIChatModalProps) {
                                     <button
                                         key={suggestion}
                                         onClick={() => {
-                                            handleInputChange({
-                                                target: { value: suggestion },
-                                            } as any);
+                                            setInputValue(suggestion);
                                             setTimeout(() => inputRef.current?.focus(), 0);
                                         }}
                                         className="px-3 py-1.5 text-sm rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
@@ -397,55 +383,69 @@ export function AIChatModal({ isOpen, onClose }: AIChatModalProps) {
                 </div>
 
                 {/* Input Area */}
-                <div className="border-t px-4 py-3 flex-shrink-0">
-                    <form onSubmit={handleSubmit} className="flex items-center gap-2">
+                <div className="border-t px-4 py-2 flex-shrink-0">
+                    <div className="flex items-center gap-2">
                         <Button
                             type="button"
                             size="icon"
                             onClick={toggleRecording}
                             disabled={isLoading || isTranscribing}
                             className={cn(
-                                "h-12 w-12 flex-shrink-0 rounded-full transition-all",
+                                "h-9 w-9 flex-shrink-0 rounded-full transition-all",
                                 isRecording
                                     ? "bg-red-500 hover:bg-red-600 text-white animate-pulse"
                                     : "bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
                             )}
+                            aria-label={isRecording ? "録音停止" : "録音開始"}
                         >
                             {isTranscribing ? (
-                                <Loader2 className="h-5 w-5 animate-spin" />
+                                <Loader2 className="h-4 w-4 animate-spin" />
                             ) : isRecording ? (
-                                <MicOff className="h-5 w-5" />
+                                <MicOff className="h-4 w-4" />
                             ) : (
-                                <Mic className="h-5 w-5" />
+                                <Mic className="h-4 w-4" />
                             )}
                         </Button>
-                        <textarea
+                        <input
                             ref={inputRef}
-                            value={input}
-                            onChange={handleInputChange}
-                            onKeyDown={handleKeyDown}
-                            placeholder={isRecording ? "録音中..." : isTranscribing ? "変換中..." : "質問を入力..."}
-                            rows={1}
-                            disabled={isRecording || isTranscribing}
-                            className="flex-1 resize-none rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
-                            style={{
-                                minHeight: "48px",
-                                maxHeight: "120px",
+                            type="text"
+                            value={inputValue}
+                            onChange={(e) => setInputValue(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.nativeEvent.isComposing) return;
+                                if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    if (inputValue.trim() && !isLoading) {
+                                        append({ role: "user", content: inputValue.trim() });
+                                        setInputValue("");
+                                    }
+                                }
                             }}
+                            placeholder={isRecording ? "録音中..." : isTranscribing ? "変換中..." : "質問を入力..."}
+                            disabled={isRecording || isTranscribing}
+                            autoFocus
+                            className="flex-1 h-9 rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 text-sm text-gray-900 dark:text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
                         />
                         <Button
-                            type="submit"
+                            type="button"
                             size="icon"
-                            disabled={!input.trim() || isLoading || isRecording || isTranscribing}
-                            className="h-12 w-12 flex-shrink-0 rounded-full bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+                            disabled={!inputValue.trim() || isLoading || isRecording || isTranscribing}
+                            onClick={() => {
+                                if (inputValue.trim() && !isLoading) {
+                                    append({ role: "user", content: inputValue.trim() });
+                                    setInputValue("");
+                                }
+                            }}
+                            className="h-9 w-9 flex-shrink-0 rounded-full bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+                            aria-label="送信"
                         >
                             {isLoading ? (
-                                <Loader2 className="h-5 w-5 animate-spin" />
+                                <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
                                 <Send className="h-5 w-5" />
                             )}
                         </Button>
-                    </form>
+                    </div>
                 </div>
             </DialogContent>
         </Dialog>

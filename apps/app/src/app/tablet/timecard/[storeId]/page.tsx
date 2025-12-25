@@ -1,5 +1,5 @@
 import { createServiceRoleClient } from "@/lib/supabaseServiceClient";
-import { tabletClockIn, tabletClockOut } from "./actions";
+import { tabletClockIn, tabletClockOut, tabletDeletePickupDestination } from "./actions";
 import { TabletTimecardClient } from "./TabletTimecardClient";
 
 type PageProps = {
@@ -76,25 +76,34 @@ export default async function TabletTimecardPage(props: PageProps) {
 
   const supabase = createServiceRoleClient() as any;
 
-  // Fetch store settings
+  // Fetch store info
   const { data: storeRow } = await supabase
     .from("stores")
-    .select("id, name, tablet_timecard_enabled, tablet_theme, tablet_allowed_roles, tablet_acceptance_start_time, tablet_acceptance_end_time")
+    .select("id, name")
     .eq("id", storeId)
     .maybeSingle();
 
-  const store = storeRow as { 
-    id: string; 
-    name: string; 
-    tablet_timecard_enabled: boolean | null; 
-    tablet_theme: string | null; 
-    tablet_allowed_roles: string[] | null; 
-    tablet_acceptance_start_time: string | null; 
-    tablet_acceptance_end_time: string | null;
-  } | null;
+  // Fetch store settings
+  const { data: settingsRow } = await supabase
+    .from("store_settings")
+    .select("tablet_timecard_enabled, tablet_theme, tablet_allowed_roles, tablet_acceptance_start_time, tablet_acceptance_end_time, pickup_enabled_cast, pickup_enabled_staff")
+    .eq("store_id", storeId)
+    .maybeSingle();
+
+  const store = storeRow && settingsRow ? {
+    id: storeRow.id as string,
+    name: storeRow.name as string,
+    tablet_timecard_enabled: settingsRow.tablet_timecard_enabled as boolean | null,
+    tablet_theme: settingsRow.tablet_theme as string | null,
+    tablet_allowed_roles: settingsRow.tablet_allowed_roles as string[] | null,
+    tablet_acceptance_start_time: settingsRow.tablet_acceptance_start_time as string | null,
+    tablet_acceptance_end_time: settingsRow.tablet_acceptance_end_time as string | null,
+    pickup_enabled_cast: settingsRow.pickup_enabled_cast as boolean ?? false,
+    pickup_enabled_staff: settingsRow.pickup_enabled_staff as boolean ?? false,
+  } : null;
 
   const isDarkMode = store?.tablet_theme === "dark";
-  const bgClass = isDarkMode ? "bg-slate-900 text-white" : "bg-gray-50 text-gray-900";
+  const bgClass = isDarkMode ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-900";
   const textMutedClass = isDarkMode ? "text-gray-400" : "text-gray-600";
 
   if (!store || store.tablet_timecard_enabled === false) {
@@ -153,28 +162,38 @@ export default async function TabletTimecardPage(props: PageProps) {
     todayCards = (cardRows || []) as any;
   }
 
-  // Fetch pickup history
+  // Fetch pickup history for each profile (their own history only)
   const pickupHistory: Record<string, string[]> = {};
   if (profileIds.length > 0) {
     const { data: pickupRows } = await supabase
       .from("work_records")
-      .select("profile_id, pickup_destination")
-      .not("pickup_destination", "is", null)
-      .in("user_id", profileIds);
+      .select("profile_id, pickup_destination_id, pickup_destinations(id, name)")
+      .not("pickup_destination_id", "is", null)
+      .in("profile_id", profileIds);
 
     const rows = (pickupRows || []) as any[];
     for (const row of rows) {
-      const userId = row.user_id as string;
-      const dest = (row.pickup_destination as string | null)?.trim();
-      if (!dest) continue;
-      if (!pickupHistory[userId]) {
-        pickupHistory[userId] = [];
+      const pid = row.profile_id as string;
+      const dest = row.pickup_destinations?.name as string | null;
+      if (!dest || !dest.trim()) continue;
+      if (!pickupHistory[pid]) {
+        pickupHistory[pid] = [];
       }
-      if (!pickupHistory[userId].includes(dest)) {
-        pickupHistory[userId].push(dest);
+      if (!pickupHistory[pid].includes(dest)) {
+        pickupHistory[pid].push(dest);
       }
     }
   }
+
+  // Fetch timecard questions for each role and timing
+  const { data: allQuestions } = await supabase
+    .from("timecard_questions")
+    .select("id, label, field_type, options, is_required, target_role, timing, sort_order")
+    .eq("store_id", storeId)
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true });
+
+  const timecardQuestions = (allQuestions || []) as any[];
 
   return (
     <TabletTimecardClient
@@ -184,12 +203,16 @@ export default async function TabletTimecardPage(props: PageProps) {
         name: store.name,
         tablet_theme: store.tablet_theme,
         tablet_allowed_roles: store.tablet_allowed_roles,
+        pickup_enabled_cast: store.pickup_enabled_cast,
+        pickup_enabled_staff: store.pickup_enabled_staff,
       }}
       initialProfiles={profiles}
       initialTodayCards={todayCards}
       initialPickupHistory={pickupHistory}
+      timecardQuestions={timecardQuestions}
       tabletClockIn={tabletClockIn}
       tabletClockOut={tabletClockOut}
+      tabletDeletePickupDestination={tabletDeletePickupDestination}
     />
   );
 }

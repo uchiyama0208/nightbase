@@ -147,7 +147,7 @@ export default function ResetPasswordPage() {
                         </CardHeader>
                         <CardContent>
                             <Link href="/forgot-password" className="w-full">
-                                <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+                                <Button className="w-full">
                                     新しいリセットリンクをリクエスト
                                 </Button>
                             </Link>
@@ -196,7 +196,7 @@ export default function ResetPasswordPage() {
                     <CardContent>
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
-                                <Label htmlFor="password" className="text-gray-900 dark:text-white">
+                                <Label htmlFor="password" className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                     新しいパスワード
                                 </Label>
                                 <div className="mt-1 relative">
@@ -225,7 +225,7 @@ export default function ResetPasswordPage() {
                             </div>
 
                             <div>
-                                <Label htmlFor="confirmPassword" className="text-gray-900 dark:text-white">
+                                <Label htmlFor="confirmPassword" className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                     パスワード（確認）
                                 </Label>
                                 <div className="mt-1 relative">

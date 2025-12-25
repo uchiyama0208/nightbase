@@ -98,7 +98,7 @@ export function ShiftsCalendar({ initialData, storeId, onDateClick }: ShiftsCale
                 <button
                     onClick={goToPreviousMonth}
                     disabled={isLoading}
-                    className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+                    className="p-1.5 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
                 >
                     <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                 </button>
@@ -117,7 +117,7 @@ export function ShiftsCalendar({ initialData, storeId, onDateClick }: ShiftsCale
                 <button
                     onClick={goToNextMonth}
                     disabled={isLoading}
-                    className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+                    className="p-1.5 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
                 >
                     <ChevronRight className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                 </button>
@@ -166,7 +166,7 @@ export function ShiftsCalendar({ initialData, storeId, onDateClick }: ShiftsCale
                             type="button"
                             onClick={() => onDateClick(dateKey, data?.requestDateId)}
                             disabled={isLoading}
-                            className={`min-h-[56px] p-1 border-b border-r border-gray-100 dark:border-gray-800 last:border-r-0 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50 disabled:pointer-events-none relative ${
+                            className={`min-h-[56px] p-1 border-b border-r border-gray-100 dark:border-gray-800 last:border-r-0 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50 disabled:pointer-events-none relative ${
                                 isToday(day) ? "bg-blue-50 dark:bg-blue-900/20" : ""
                             }`}
                         >

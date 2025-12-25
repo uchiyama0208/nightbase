@@ -105,7 +105,6 @@ export function CaseStudyEditor({ initialData, supabaseClient }: CaseStudyEditor
   }, [form, initialData?.slug, isNew]);
 
   const handleSubmit = async (values: CaseStudyEditorValues) => {
-    console.log("[CaseStudyEditor] 保存処理開始", values);
     setIsSaving(true);
 
     try {
@@ -139,9 +138,6 @@ export function CaseStudyEditor({ initialData, supabaseClient }: CaseStudyEditor
         metadata,
       };
 
-      console.log("[CaseStudyEditor] Supabase upsert 送信前", payload);
-      console.log("[CaseStudyEditor] insert payload keys", Object.keys(payload));
-
       let nextSlug = values.slug;
 
       if (values.id) {
@@ -152,8 +148,6 @@ export function CaseStudyEditor({ initialData, supabaseClient }: CaseStudyEditor
           .eq("type", "case_study")
           .select("id, slug")
           .single();
-
-        console.log("[CaseStudyEditor] update result", { data, error });
 
         if (error) {
           throw new Error(error.message ?? "導入事例の更新に失敗しました");
@@ -166,8 +160,6 @@ export function CaseStudyEditor({ initialData, supabaseClient }: CaseStudyEditor
           .insert(payload)
           .select("id, slug")
           .single();
-
-        console.log("[CaseStudyEditor] insert result", { data, error });
 
         if (error) {
           throw new Error(error.message ?? "導入事例の作成に失敗しました");
@@ -235,13 +227,11 @@ export function CaseStudyEditor({ initialData, supabaseClient }: CaseStudyEditor
 
     setIsDeleting(true);
     try {
-      console.log("[CaseStudyEditor] 削除処理開始", initialData.id);
       const { error } = await supabaseClient
         .from("cms_entries")
         .delete()
         .eq("id", initialData.id)
         .eq("type", "case_study");
-      console.log("[CaseStudyEditor] 削除結果", { error });
 
       if (error) {
         throw new Error(error.message ?? "導入事例の削除に失敗しました");
@@ -276,18 +266,18 @@ export function CaseStudyEditor({ initialData, supabaseClient }: CaseStudyEditor
 
   return (
     <form className="space-y-8 p-8" onSubmit={form.handleSubmit((values) => handleSubmit(values))}>
-      <div className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-4 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm md:flex-row md:items-center md:justify-between">
         <div className="space-y-2">
-          <p className="text-xs uppercase tracking-[0.3em] text-slate-500">導入事例</p>
-          <h1 className="text-3xl font-semibold text-slate-900">{isNew ? "新規事例を登録" : "事例を編集"}</h1>
+          <p className="text-xs uppercase tracking-[0.3em] text-gray-500">導入事例</p>
+          <h1 className="text-3xl font-semibold text-gray-900">{isNew ? "新規事例を登録" : "事例を編集"}</h1>
           <div className="flex items-center gap-2">
             <Badge variant={status === "published" ? "success" : "neutral"}>{status === "published" ? "公開中" : "下書き"}</Badge>
-            <span className="text-xs text-slate-500">ステータスを切り替えると公開状態が変わります。</span>
+            <span className="text-xs text-gray-500">ステータスを切り替えると公開状態が変わります。</span>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 rounded-full border border-slate-300 bg-slate-100 px-4 py-2">
-            <span className="text-xs uppercase tracking-[0.3em] text-slate-500">公開</span>
+          <div className="flex items-center gap-2 rounded-full border border-gray-300 bg-gray-100 px-4 py-2">
+            <span className="text-xs uppercase tracking-[0.3em] text-gray-500">公開</span>
             <Switch
               checked={status === "published"}
               onCheckedChange={(checked) => form.setValue("status", checked ? "published" : "draft")}
@@ -297,12 +287,12 @@ export function CaseStudyEditor({ initialData, supabaseClient }: CaseStudyEditor
             <Dialog>
               <DialogTrigger asChild>
                 <Button type="button" variant="outline" className="border-red-400/40 text-red-300">
-                  <Trash2 className="mr-2 h-4 w-4" /> 削除
+                  <Trash2 className="mr-2 h-5 w-5" /> 削除
                 </Button>
               </DialogTrigger>
-              <DialogContent className="bg-slate-950/95">
+              <DialogContent className="bg-gray-950/95">
                 <DialogHeader>
-                  <DialogTitle>導入事例を削除しますか？</DialogTitle>
+                  <DialogTitle className="text-gray-900 dark:text-white">導入事例を削除しますか？</DialogTitle>
                   <DialogDescription>削除すると公開ページからも非表示になります。</DialogDescription>
                 </DialogHeader>
                 <div className="flex justify-end gap-3 pt-4">
@@ -316,7 +306,7 @@ export function CaseStudyEditor({ initialData, supabaseClient }: CaseStudyEditor
                     disabled={isDeleting}
                     className="bg-red-600 hover:bg-red-500"
                   >
-                    {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />} 削除する
+                    {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-5 w-5" />} 削除する
                   </Button>
                 </div>
               </DialogContent>
@@ -330,21 +320,21 @@ export function CaseStudyEditor({ initialData, supabaseClient }: CaseStudyEditor
       </div>
 
       <div className="grid gap-8 xl:grid-cols-[1.8fr_1fr]">
-        <section className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6">
+        <section className="space-y-6 rounded-3xl border border-gray-200 bg-white p-6">
           <div className="space-y-2">
-            <Label htmlFor="title" className="text-slate-700">
+            <Label htmlFor="title" className="text-sm font-medium text-gray-700 dark:text-gray-200">
               事例タイトル
             </Label>
             <Input id="title" placeholder="例: ホストクラブA様の事例" {...form.register("title")} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="company" className="text-slate-700">
+            <Label htmlFor="company" className="text-sm font-medium text-gray-700 dark:text-gray-200">
               店舗 / 企業名
             </Label>
             <Input id="company" placeholder="NightBase グループ" {...form.register("store_name")} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="summary" className="text-slate-700">
+            <Label htmlFor="summary" className="text-sm font-medium text-gray-700 dark:text-gray-200">
               サマリー / リード文
             </Label>
             <Textarea
@@ -355,7 +345,7 @@ export function CaseStudyEditor({ initialData, supabaseClient }: CaseStudyEditor
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="problems" className="text-slate-700">
+            <Label htmlFor="problems" className="text-sm font-medium text-gray-700 dark:text-gray-200">
               導入前の課題（箇条書き可）
             </Label>
             <Textarea
@@ -366,7 +356,7 @@ export function CaseStudyEditor({ initialData, supabaseClient }: CaseStudyEditor
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="solutions" className="text-slate-700">
+            <Label htmlFor="solutions" className="text-sm font-medium text-gray-700 dark:text-gray-200">
               NightBase の活用ポイント
             </Label>
             <Textarea
@@ -377,27 +367,27 @@ export function CaseStudyEditor({ initialData, supabaseClient }: CaseStudyEditor
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="results" className="text-slate-700">
+            <Label htmlFor="results" className="text-sm font-medium text-gray-700 dark:text-gray-200">
               導入後の変化・成果
             </Label>
             <Textarea id="results" rows={5} placeholder="効果やコメントを入力" {...form.register("results")} />
           </div>
         </section>
-        <aside className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6">
+        <aside className="space-y-6 rounded-3xl border border-gray-200 bg-white p-6">
           <div className="space-y-2">
-            <Label htmlFor="slug" className="text-slate-700">
+            <Label htmlFor="slug" className="text-sm font-medium text-gray-700 dark:text-gray-200">
               スラッグ
             </Label>
             <Input id="slug" placeholder="host-club-example" {...form.register("slug")} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="industry" className="text-slate-700">
+            <Label htmlFor="industry" className="text-sm font-medium text-gray-700 dark:text-gray-200">
               業種
             </Label>
             <div className="space-y-2">
               <select
                 id="industry"
-                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+                className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
                 {...form.register("industry")}
               >
                 {INDUSTRY_OPTIONS.map((value) => (
@@ -409,7 +399,7 @@ export function CaseStudyEditor({ initialData, supabaseClient }: CaseStudyEditor
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="case_categories" className="text-slate-700">
+            <Label htmlFor="case_categories" className="text-sm font-medium text-gray-700 dark:text-gray-200">
               カテゴリ（複数選択可）
             </Label>
             <div className="flex gap-2">
@@ -429,7 +419,7 @@ export function CaseStudyEditor({ initialData, supabaseClient }: CaseStudyEditor
               <Button
                 type="button"
                 variant="outline"
-                className="whitespace-nowrap border-slate-300 text-xs text-slate-700"
+                className="whitespace-nowrap border-gray-300 text-xs text-gray-700"
                 onClick={() => {
                   addCategory(newCategory);
                   setNewCategory("");
@@ -443,7 +433,7 @@ export function CaseStudyEditor({ initialData, supabaseClient }: CaseStudyEditor
                 {selectedCategories.map((cat) => (
                   <div
                     key={cat}
-                    className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-[11px] text-primary"
+                    className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs text-primary"
                   >
                     <span>{cat}</span>
                     <button
@@ -459,21 +449,21 @@ export function CaseStudyEditor({ initialData, supabaseClient }: CaseStudyEditor
             )}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="cover_file" className="text-slate-700">
+            <Label htmlFor="cover_file" className="text-sm font-medium text-gray-700 dark:text-gray-200">
               カバー画像
             </Label>
             <Input
               id="cover_file"
               type="file"
               accept="image/*"
-              className="block w-full text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-primary/90 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white hover:file:bg-primary"
+              className="block w-full text-sm text-gray-700 file:mr-3 file:rounded-lg file:border-0 file:bg-primary/90 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white hover:file:bg-primary"
               onChange={handleCoverUpload}
               disabled={uploadingCover}
             />
-            <p className="mt-1 text-xs text-slate-500">画像をアップロードすると URL が自動でセットされます。</p>
+            <p className="mt-1 text-xs text-gray-500">画像をアップロードすると URL が自動でセットされます。</p>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="published" className="text-slate-700">
+            <Label htmlFor="published" className="text-sm font-medium text-gray-700 dark:text-gray-200">
               公開日時
             </Label>
             <Input

@@ -120,7 +120,7 @@ export function SlidePanel({ open, onOpenChange, children, className }: SlidePan
     if (!mounted || !isVisible) return null;
 
     return createPortal(
-        <div className="fixed inset-0 z-50 pointer-events-none">
+        <div className="fixed inset-0 z-[1000] pointer-events-none">
             {/* Backdrop - visible on md+ */}
             <div
                 className={cn(
@@ -141,7 +141,7 @@ export function SlidePanel({ open, onOpenChange, children, className }: SlidePan
                     // Mobile: full screen minus header and bottom nav
                     "top-12 bottom-14 left-0 right-0",
                     // Tablet+: side panel (full height)
-                    "md:top-0 md:bottom-0 md:left-auto md:right-0 md:w-[500px] lg:w-[600px] md:rounded-none",
+                    "md:top-0 md:bottom-0 md:left-auto md:right-0 md:w-[500px] lg:w-[600px] md:rounded-l-2xl",
                     "md:shadow-2xl md:border-l md:border-gray-200 md:dark:border-gray-700",
                     // Animation - slide from right
                     isAnimating ? "translate-x-0" : "translate-x-full",
@@ -185,7 +185,7 @@ export function SlidePanelHeader({ title, subtitle, onClose, children }: SlidePa
                     aria-label="閉じる"
                 >
                     <svg
-                        className="h-5 w-5"
+                        className="h-4 w-4"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"

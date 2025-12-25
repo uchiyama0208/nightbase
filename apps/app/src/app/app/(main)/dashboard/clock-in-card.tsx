@@ -42,7 +42,7 @@ export function ClockInCard({ lastWorkDate, clockIn, clockOut }: ClockInCardProp
 
     return (
         <Card
-            className="shadow-md hover:shadow-lg transition-all cursor-pointer border-2 border-blue-500 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900"
+            className="shadow-md hover:shadow-lg transition-all cursor-pointer border border-blue-500 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900"
             onClick={() => router.push("/app/timecard?openModal=true")}
         >
             <CardContent className="p-6">

@@ -1,57 +1,55 @@
-import { redirect } from "next/navigation";
-import { getAppDataWithPermissionCheck, getAccessDeniedRedirectUrl } from "../../data-access";
-import { getBoardPosts, getAllBoardPosts, getManuals, getAllManuals, getManualTags, getPostLikeCounts, getManualLikeCounts, getPostReadStatus, getManualReadStatus } from "./actions";
-import { BoardClient } from "./BoardClient";
+import { Suspense } from "react";
+import type { Metadata } from "next";
+import { BoardPageClient } from "./board-page-client";
 
-export default async function BoardPage() {
-    const { user, profile, hasAccess, canEdit } = await getAppDataWithPermissionCheck("board", "view");
+export const metadata: Metadata = {
+    title: "掲示板",
+};
 
-    if (!user) {
-        redirect("/login");
-    }
-
-    if (!profile || !profile.store_id) {
-        redirect("/app/me");
-    }
-
-    if (!hasAccess) {
-        redirect(getAccessDeniedRedirectUrl("board"));
-    }
-
-    const isStaff = profile.role === "staff" || profile.role === "admin";
-
-    // Staff can see all posts including drafts, others only see published posts for their role
-    const [posts, manuals, tags] = await Promise.all([
-        isStaff
-            ? getAllBoardPosts(profile.store_id)
-            : getBoardPosts(profile.store_id, profile.role),
-        isStaff
-            ? getAllManuals(profile.store_id)
-            : getManuals(profile.store_id, profile.role),
-        getManualTags(profile.store_id),
-    ]);
-
-    // Fetch like counts and read status for all posts and manuals
-    const [postLikeCounts, manualLikeCounts, postReadStatus, manualReadStatus] = await Promise.all([
-        getPostLikeCounts(posts.map(p => p.id)),
-        getManualLikeCounts(manuals.map(m => m.id)),
-        getPostReadStatus(posts.map(p => p.id)),
-        getManualReadStatus(manuals.map(m => m.id)),
-    ]);
-
+function BoardSkeleton() {
     return (
-        <BoardClient
-            posts={posts}
-            manuals={manuals}
-            tags={tags}
-            storeId={profile.store_id}
-            isStaff={isStaff}
-            userRole={profile.role}
-            postLikeCounts={postLikeCounts}
-            manualLikeCounts={manualLikeCounts}
-            postReadStatus={postReadStatus}
-            manualReadStatus={manualReadStatus}
-            canEdit={canEdit}
-        />
+        <div className="space-y-4 animate-pulse">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+                <div className="h-7 w-24 bg-gray-200 dark:bg-gray-700 rounded-lg" />
+                <div className="flex gap-2">
+                    <div className="h-10 w-10 bg-gray-200 dark:bg-gray-700 rounded-full" />
+                    <div className="h-10 w-10 bg-gray-200 dark:bg-gray-700 rounded-full" />
+                </div>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex gap-2">
+                <div className="h-10 w-24 bg-gray-200 dark:bg-gray-700 rounded-full" />
+                <div className="h-10 w-24 bg-gray-200 dark:bg-gray-700 rounded-full" />
+            </div>
+
+            {/* Post Cards */}
+            <div className="space-y-4">
+                {[...Array(4)].map((_, i) => (
+                    <div key={i} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 space-y-3">
+                        <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full" />
+                            <div className="flex-1 space-y-2">
+                                <div className="h-5 w-48 bg-gray-200 dark:bg-gray-700 rounded" />
+                                <div className="h-4 w-32 bg-gray-200 dark:bg-gray-700 rounded" />
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <div className="h-4 w-full bg-gray-200 dark:bg-gray-700 rounded" />
+                            <div className="h-4 w-3/4 bg-gray-200 dark:bg-gray-700 rounded" />
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+export default function BoardPage() {
+    return (
+        <Suspense fallback={<BoardSkeleton />}>
+            <BoardPageClient />
+        </Suspense>
     );
 }

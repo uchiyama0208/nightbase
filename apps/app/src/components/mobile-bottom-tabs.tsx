@@ -1,10 +1,10 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { Calendar, Users, Layout, Coins, MessageCircle } from "lucide-react";
+import { Calendar, Users, Layout, Store, MessageCircle } from "lucide-react";
 import { useDashboardTab } from "@/contexts/dashboard-tab-context";
 
-type TabKey = "shift" | "user" | "floor" | "salary" | "community";
+type TabKey = "shift" | "user" | "floor" | "store" | "community";
 
 interface Tab {
     key: TabKey;
@@ -16,7 +16,7 @@ const tabs: Tab[] = [
     { key: "shift", label: "シフト", icon: <Calendar className="h-5 w-5" /> },
     { key: "user", label: "ユーザー", icon: <Users className="h-5 w-5" /> },
     { key: "floor", label: "フロア", icon: <Layout className="h-5 w-5" /> },
-    { key: "salary", label: "料金給与", icon: <Coins className="h-5 w-5" /> },
+    { key: "store", label: "店舗", icon: <Store className="h-5 w-5" /> },
     { key: "community", label: "コミュニティ", icon: <MessageCircle className="h-5 w-5" /> },
 ];
 
@@ -26,7 +26,8 @@ export function MobileBottomTabs() {
     const dashboardTab = useDashboardTab();
 
     const isDashboard = pathname === "/app/dashboard";
-    const activeTab = dashboardTab?.activeTab ?? "shift";
+    const isNoActiveTab = pathname.startsWith("/app/settings") || pathname.startsWith("/app/me");
+    const activeTab = isNoActiveTab ? null : (dashboardTab?.activeTab ?? "shift");
 
     const handleTabClick = (tabKey: TabKey) => {
         // Update context

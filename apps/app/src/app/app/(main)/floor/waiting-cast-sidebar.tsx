@@ -50,7 +50,7 @@ export function WaitingCastSidebar({ onDragStart }: WaitingCastSidebarProps) {
                             <div className="flex items-center gap-1">
                                 <span className="font-medium text-sm">{cast.display_name || cast.name}</span>
                                 {cast.status === "体入" && (
-                                    <span className="text-[9px] px-1 py-0.5 rounded bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400">
+                                    <span className="text-[10px] px-1 py-0.5 rounded bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400">
                                         体入
                                     </span>
                                 )}

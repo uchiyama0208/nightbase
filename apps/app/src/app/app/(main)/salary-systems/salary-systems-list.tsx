@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Users, Calendar, Filter, Search } from "lucide-react";
+import { Plus, Users, Calendar, Filter, Search, ChevronLeft } from "lucide-react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { SalarySystem } from "./actions";
+import { VercelTabs } from "@/components/ui/vercel-tabs";
 
 // Lazy load the modal
 const SalarySystemModal = dynamic(
@@ -40,20 +41,6 @@ export function SalarySystemsList({ initialSystems, typeFilter, storeShowBreakCo
     const [nameQuery, setNameQuery] = useState("");
     const [optimisticType, setOptimisticType] = useState<TabType>(typeFilter as TabType);
     const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
-
-    // Vercel-style tabs
-    const tabsRef = useRef<{ [key: string]: HTMLButtonElement | null }>({});
-    const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
-
-    useEffect(() => {
-        const activeButton = tabsRef.current[optimisticType];
-        if (activeButton) {
-            setIndicatorStyle({
-                left: activeButton.offsetLeft,
-                width: activeButton.offsetWidth,
-            });
-        }
-    }, [optimisticType]);
 
     useEffect(() => {
         setSystems(initialSystems);
@@ -138,7 +125,7 @@ export function SalarySystemsList({ initialSystems, typeFilter, storeShowBreakCo
             <div className="flex items-center justify-between">
                 <button
                     type="button"
-                    className={`flex items-center gap-1 px-1 py-1 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 ${
+                    className={`flex items-center gap-1 px-1 py-1 rounded-lg transition-colors hover:bg-gray-50 dark:hover:bg-gray-700 ${
                         hasFilters ? "text-blue-600" : "text-gray-500 dark:text-gray-400"
                     }`}
                     onClick={() => setIsFilterDialogOpen(true)}
@@ -161,39 +148,15 @@ export function SalarySystemsList({ initialSystems, typeFilter, storeShowBreakCo
             </div>
 
             {/* Vercel-style Tab Navigation */}
-            <div className="relative">
-                <div className="flex w-full">
-                    <button
-                        ref={(el) => { tabsRef.current["cast"] = el; }}
-                        type="button"
-                        onClick={() => handleTypeChange("cast")}
-                        className={`flex-1 py-2 text-sm font-medium transition-colors relative ${
-                            optimisticType === "cast"
-                                ? "text-gray-900 dark:text-white"
-                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                        }`}
-                    >
-                        キャスト
-                    </button>
-                    <button
-                        ref={(el) => { tabsRef.current["staff"] = el; }}
-                        type="button"
-                        onClick={() => handleTypeChange("staff")}
-                        className={`flex-1 py-2 text-sm font-medium transition-colors relative ${
-                            optimisticType === "staff"
-                                ? "text-gray-900 dark:text-white"
-                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                        }`}
-                    >
-                        スタッフ
-                    </button>
-                </div>
-                <div
-                    className="absolute bottom-0 h-0.5 bg-gray-900 dark:bg-white transition-all duration-200"
-                    style={{ left: indicatorStyle.left, width: indicatorStyle.width }}
-                />
-                <div className="absolute bottom-0 left-0 right-0 h-px bg-gray-200 dark:bg-gray-700" />
-            </div>
+            <VercelTabs
+                tabs={[
+                    { key: "cast", label: "キャスト" },
+                    { key: "staff", label: "スタッフ" },
+                ]}
+                value={optimisticType}
+                onChange={(val) => handleTypeChange(val as TabType)}
+                className="mb-4"
+            />
 
             {filteredSystems.length === 0 ? (
                 <div className="text-center py-12 text-gray-500 dark:text-gray-400">
@@ -223,7 +186,7 @@ export function SalarySystemsList({ initialSystems, typeFilter, storeShowBreakCo
                                     <span>適用人数: {system.profile_count || 0}名</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <Calendar className="h-4 w-4" />
+                                    <Calendar className="h-5 w-5" />
                                     <span>作成日: {formatDate(system.created_at)}</span>
                                 </div>
                             </div>
@@ -281,11 +244,19 @@ export function SalarySystemsList({ initialSystems, typeFilter, storeShowBreakCo
 
             {/* フィルターダイアログ */}
             <Dialog open={isFilterDialogOpen} onOpenChange={setIsFilterDialogOpen}>
-                <DialogContent className="max-w-md rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
-                    <DialogHeader>
-                        <DialogTitle className="text-gray-900 dark:text-white">フィルター</DialogTitle>
+                <DialogContent className="sm:max-w-md max-h-[90vh] overflow-hidden !rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 !p-0">
+                    <DialogHeader className="flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
+                        <button
+                            type="button"
+                            onClick={() => setIsFilterDialogOpen(false)}
+                            className="p-1 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                        >
+                            <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                        </button>
+                        <DialogTitle className="flex-1 text-center text-gray-900 dark:text-white">フィルター</DialogTitle>
+                        <div className="w-7" />
                     </DialogHeader>
-                    <div className="space-y-4 py-4">
+                    <div className="space-y-4 p-6">
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                 システム名で検索
@@ -301,19 +272,19 @@ export function SalarySystemsList({ initialSystems, typeFilter, storeShowBreakCo
                             </div>
                         </div>
                     </div>
-                    <DialogFooter className="flex justify-end gap-2">
-                        <Button
-                            variant="outline"
-                            onClick={() => setNameQuery("")}
-                            className="rounded-lg"
-                        >
-                            リセット
-                        </Button>
+                    <DialogFooter className="flex flex-col gap-2 px-6 pb-6">
                         <Button
                             onClick={() => setIsFilterDialogOpen(false)}
-                            className="rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
+                            className="w-full rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
                         >
                             適用
+                        </Button>
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsFilterDialogOpen(false)}
+                            className="w-full rounded-lg"
+                        >
+                            戻る
                         </Button>
                     </DialogFooter>
                 </DialogContent>

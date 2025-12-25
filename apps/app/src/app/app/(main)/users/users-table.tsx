@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState, useEffect, useCallback, useRef } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Filter, Settings, X } from "lucide-react";
+import { Plus, Filter, Settings, X, ChevronLeft } from "lucide-react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import {
@@ -21,6 +21,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import { VercelTabs } from "@/components/ui/vercel-tabs";
 
 // Lazy load the modal - only when user clicks
 const UserEditModal = dynamic(() => import("./user-edit-modal").then(mod => ({ default: mod.UserEditModal })), {
@@ -166,20 +167,6 @@ export function UsersTable({ profiles: initialProfiles, roleFilter, hidePersonal
         setIsModalOpen(true);
     }, []);
 
-    // Vercel-style tabs with animated underline
-    const tabsRef = useRef<{ [key: string]: HTMLButtonElement | null }>({});
-    const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
-
-    useEffect(() => {
-        const activeButton = tabsRef.current[optimisticRole];
-        if (activeButton) {
-            setIndicatorStyle({
-                left: activeButton.offsetLeft,
-                width: activeButton.offsetWidth,
-            });
-        }
-    }, [optimisticRole]);
-
     const tabs = [
         { key: "cast", label: "キャスト" },
         { key: "staff", label: "スタッフ" },
@@ -192,7 +179,7 @@ export function UsersTable({ profiles: initialProfiles, roleFilter, hidePersonal
             <div className="flex items-center gap-2 mb-4">
                 <button
                     type="button"
-                    className={`flex items-center gap-1 px-1 py-1 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 ${
+                    className={`flex items-center gap-1 px-1 py-1 rounded-lg transition-colors hover:bg-gray-50 dark:hover:bg-gray-700 ${
                         hasFilters ? "text-blue-600" : "text-gray-500 dark:text-gray-400"
                     }`}
                     onClick={() => setIsFilterOpen(true)}
@@ -206,8 +193,9 @@ export function UsersTable({ profiles: initialProfiles, roleFilter, hidePersonal
                 <Button
                     variant="outline"
                     size="icon"
-                    className="h-10 w-10 shrink-0 rounded-full bg-white text-gray-600 border-gray-300 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-400 dark:border-gray-600 dark:hover:bg-gray-800 shadow-sm transition-all hover:scale-105 active:scale-95"
+                    className="h-10 w-10 shrink-0 rounded-full bg-white text-gray-600 border-gray-300 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-400 dark:border-gray-600 dark:hover:bg-gray-700 shadow-sm transition-all hover:scale-105 active:scale-95"
                     onClick={() => router.push("/app/settings")}
+                    aria-label="設定"
                 >
                     <Settings className="h-5 w-5" />
                 </Button>
@@ -219,6 +207,7 @@ export function UsersTable({ profiles: initialProfiles, roleFilter, hidePersonal
                             setSelectedProfile(null);
                             setIsModalOpen(true);
                         }}
+                        aria-label="追加"
                     >
                         <Plus className="h-5 w-5" />
                     </Button>
@@ -226,32 +215,15 @@ export function UsersTable({ profiles: initialProfiles, roleFilter, hidePersonal
             </div>
 
             {/* Vercel-style Tab Navigation */}
-            <div className="relative mb-4">
-                <div className="flex border-b border-gray-200 dark:border-gray-700">
-                    {tabs.map((tab) => (
-                        <button
-                            key={tab.key}
-                            ref={(el) => { tabsRef.current[tab.key] = el; }}
-                            type="button"
-                            onClick={() => handleRoleChange(tab.key)}
-                            className={`flex-1 px-2 py-2 text-xs sm:text-sm font-medium transition-colors duration-200 whitespace-nowrap ${
-                                optimisticRole === tab.key
-                                    ? "text-gray-900 dark:text-white"
-                                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                            }`}
-                        >
-                            {tab.label}
-                        </button>
-                    ))}
-                </div>
-                <span
-                    className="absolute bottom-0 h-0.5 bg-gray-900 dark:bg-white transition-all duration-300 ease-out"
-                    style={{ left: indicatorStyle.left, width: indicatorStyle.width }}
-                />
-            </div>
+            <VercelTabs
+                tabs={tabs}
+                value={optimisticRole}
+                onChange={(val) => handleRoleChange(val)}
+                className="mb-4"
+            />
 
-            <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-                <Table>
+            <div className="overflow-hidden rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+                <Table className="table-fixed">
                     <TableHeader>
                         <TableRow className="bg-gray-50 dark:bg-gray-800/50">
                             <TableHead className="w-1/3 text-center text-gray-900 dark:text-gray-100">表示名</TableHead>
@@ -286,7 +258,7 @@ export function UsersTable({ profiles: initialProfiles, roleFilter, hidePersonal
                             filteredProfiles.map((profile) => (
                                 <TableRow
                                     key={profile.id}
-                                    className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                                    className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                                     onClick={() => handleRowClick(profile)}
                                 >
                                     <TableCell className="text-center text-gray-900 dark:text-gray-100">
@@ -350,11 +322,20 @@ export function UsersTable({ profiles: initialProfiles, roleFilter, hidePersonal
 
             {/* Filter Modal */}
             <Dialog open={isFilterOpen} onOpenChange={setIsFilterOpen}>
-                <DialogContent className="max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900">
-                    <DialogHeader>
-                        <DialogTitle className="text-base font-semibold text-gray-900 dark:text-white">
+                <DialogContent className="sm:max-w-sm max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900">
+                    <DialogHeader className="flex flex-row items-center">
+                        <button
+                            type="button"
+                            onClick={() => setIsFilterOpen(false)}
+                            className="p-1 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                            aria-label="戻る"
+                        >
+                            <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                        </button>
+                        <DialogTitle className="flex-1 text-center text-gray-900 dark:text-white">
                             フィルター
                         </DialogTitle>
+                        <div className="w-7" />
                     </DialogHeader>
                     <div className="flex flex-col gap-4 mt-4">
                         <div className="space-y-2">
@@ -366,15 +347,16 @@ export function UsersTable({ profiles: initialProfiles, roleFilter, hidePersonal
                                     placeholder="名前を入力..."
                                     value={nameQuery}
                                     onChange={(e) => setNameQuery(e.target.value)}
-                                    className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 pr-9 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 pr-9 text-base text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
                                 {nameQuery && (
                                     <button
                                         type="button"
                                         onClick={() => setNameQuery("")}
-                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-50 dark:hover:text-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                        aria-label="クリア"
                                     >
-                                        <X className="h-4 w-4" />
+                                        <X className="h-5 w-5" />
                                     </button>
                                 )}
                             </div>
@@ -384,6 +366,13 @@ export function UsersTable({ profiles: initialProfiles, roleFilter, hidePersonal
                             onClick={() => setIsFilterOpen(false)}
                         >
                             適用
+                        </Button>
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsFilterOpen(false)}
+                            className="w-full"
+                        >
+                            戻る
                         </Button>
                     </div>
                 </DialogContent>

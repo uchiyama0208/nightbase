@@ -1,14 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Table, TableSession } from "@/types/floor";
-import { getTables } from "../../seats/actions";
-import {
-    getActiveSessionsV2,
-    getCompletedSessionsV2,
-} from "../actions/session";
+import { useQueryClient } from "@tanstack/react-query";
+import { Table } from "@/types/floor";
+import { useTables, useActiveSessions, useCompletedSessions, useTodayReservations, useTodayQueueEntries, floorKeys } from "./queries";
+import { useDeleteSession } from "./mutations";
 import { processAutoFees } from "../actions/auto-fee";
-import { getTodayReservations } from "../actions/reservation";
 import { getCurrentStoreId } from "../actions/auth";
 import type { SessionDataV2 } from "../actions/types";
+import type { QueueEntryData } from "../actions/reservation";
 import { createBrowserClient } from "@supabase/ssr";
 
 // ============================================
@@ -25,7 +23,7 @@ export interface ReservationData {
     party_size: number;
     reservation_date?: string;
     reservation_time: string;
-    status: "waiting" | "visited" | "cancelled";
+    status: string;
     guest_id?: string | null;
     nominated_cast?: {
         id: string;
@@ -38,14 +36,19 @@ interface UseFloorDataReturn {
     tables: Table[];
     sessions: SessionDataV2[];
     reservations: ReservationData[];
+    queueEntries: QueueEntryData[];
+    activeCount: number;
+    reservedCount: number;
     selectedSession: SessionDataV2 | null;
     selectedTable: Table | null;
     setSelectedSession: React.Dispatch<React.SetStateAction<SessionDataV2 | null>>;
     setSelectedTable: React.Dispatch<React.SetStateAction<Table | null>>;
     loadData: (targetSessionId?: string) => Promise<void>;
+    removeSessionOptimistic: (sessionId: string) => void;
     currentTab: FloorTab;
     setCurrentTab: React.Dispatch<React.SetStateAction<FloorTab>>;
     storeId: string | null;
+    isLoading: boolean;
 }
 
 // ============================================
@@ -61,27 +64,49 @@ const AUTO_FEE_INTERVAL_MS = 60000; // 1分
 /**
  * フロア画面のデータ管理フック
  * - テーブル、セッション、予約データを管理
+ * - TanStack Queryでキャッシュ管理
  * - Supabase Realtimeで自動更新
  * - 自動料金処理を1分ごとに実行
  */
 export function useFloorData(): UseFloorDataReturn {
-    // State
-    const [tables, setTables] = useState<Table[]>([]);
-    const [sessions, setSessions] = useState<SessionDataV2[]>([]);
-    const [reservations, setReservations] = useState<ReservationData[]>([]);
+    const queryClient = useQueryClient();
+
+    // タブ状態
+    const [currentTab, setCurrentTab] = useState<FloorTab>("active");
+
+    // 選択状態
     const [selectedSession, setSelectedSession] = useState<SessionDataV2 | null>(null);
     const [selectedTable, setSelectedTable] = useState<Table | null>(null);
-    const [currentTab, setCurrentTab] = useState<FloorTab>("active");
     const [storeId, setStoreId] = useState<string | null>(null);
 
     // キャッシュ用ref
     const storeIdRef = useRef<string | null>(null);
-    const tablesRef = useRef<Table[]>([]);
-    const isInitialLoadRef = useRef(true);
+    const selectedSessionIdRef = useRef<string | null>(null);
+
+    // selectedSessionIdをrefで追跡（loadData内でのクロージャ問題を回避）
+    useEffect(() => {
+        selectedSessionIdRef.current = selectedSession?.id ?? null;
+    }, [selectedSession]);
+
+    // TanStack Query フック
+    const { data: tables = [], isLoading: isLoadingTables } = useTables();
+    const { data: activeSessions = [], isLoading: isLoadingActive } = useActiveSessions();
+    const { data: completedSessions = [], isLoading: isLoadingCompleted } = useCompletedSessions();
+    const { data: reservations = [], isLoading: isLoadingReservations } = useTodayReservations();
+    const { data: queueEntries = [], isLoading: isLoadingQueue } = useTodayQueueEntries();
+
+    // ローディング状態
+    const isLoading = isLoadingTables || isLoadingActive;
+
+    // ミューテーション
+    const deleteSessionMutation = useDeleteSession();
+
+    // 現在のタブに応じたセッションデータ
+    const sessions = currentTab === "active" ? activeSessions :
+                     currentTab === "completed" ? completedSessions : [];
 
     /**
-     * データを読み込む
-     * @param targetSessionId 選択するセッションID（オプション）
+     * データを再読み込み
      */
     const loadData = useCallback(async (targetSessionId?: string) => {
         // storeIdは初回のみ取得
@@ -93,124 +118,74 @@ export function useFloorData(): UseFloorDataReturn {
             }
         }
 
-        // テーブルとセッション/予約を並列取得
-        const tablesPromise = isInitialLoadRef.current
-            ? getTables()
-            : Promise.resolve(tablesRef.current);
+        // TanStack Queryのキャッシュを再フェッチ（完了を待つ）
+        await queryClient.refetchQueries({ queryKey: floorKeys.all });
 
-        const dataPromise = fetchTabData(currentTab);
-
-        const [tablesData, contentData] = await Promise.all([tablesPromise, dataPromise]);
-
-        // テーブルデータをキャッシュ
-        if (isInitialLoadRef.current) {
-            tablesRef.current = tablesData;
-            isInitialLoadRef.current = false;
-        }
-        setTables(tablesData);
-
-        // タブに応じてデータをセット
-        let sessionsData: SessionDataV2[] = [];
-
-        if (currentTab === "reserved") {
-            setReservations(contentData as ReservationData[]);
-            setSessions([]);
-        } else {
-            sessionsData = contentData as SessionDataV2[];
-            setSessions(sessionsData);
-            setReservations([]);
-        }
-
-        // 特定のセッションを選択
-        if (targetSessionId && sessionsData.length > 0) {
-            selectSessionById(targetSessionId, sessionsData, tablesData);
-            return;
-        }
-
-        // 現在の選択を最新データで更新
-        updateSelectedSession(sessionsData);
-        updateSelectedTable(tablesData);
-    }, [currentTab]);
-
-    /**
-     * タブに応じたデータを取得
-     */
-    const fetchTabData = async (tab: FloorTab) => {
-        switch (tab) {
-            case "reserved":
-                return getTodayReservations();
-            case "completed":
-                return getCompletedSessionsV2();
-            default:
-                return getActiveSessionsV2();
-        }
-    };
-
-    /**
-     * IDでセッションを選択
-     */
-    const selectSessionById = (
-        sessionId: string,
-        sessionsData: SessionDataV2[],
-        tablesData: Table[]
-    ) => {
-        const session = sessionsData.find((s) => s.id === sessionId);
-        if (session) {
-            const table = tablesData.find((t) => t.id === session.table_id);
-            // SessionDataV2はTableSessionと互換性があるが、型が異なるためキャスト
-            setSelectedSession(session);
-            setSelectedTable(table || null);
-        }
-    };
-
-    /**
-     * 選択中のセッションを最新データで更新
-     */
-    const updateSelectedSession = (sessionsData: SessionDataV2[]) => {
-        setSelectedSession((prev) => {
-            if (!prev) return null;
-            const updated = sessionsData.find((s) => s.id === prev.id);
-            return updated || null;
-        });
-    };
-
-    /**
-     * 選択中のテーブルを最新データで更新
-     */
-    const updateSelectedTable = (tablesData: Table[]) => {
-        setSelectedTable((prev) => {
-            if (!prev) return null;
-            const updated = tablesData.find((t) => t.id === prev.id);
-            return updated || null;
-        });
-    };
-
-    /**
-     * 自動料金チェック処理（進行中タブのみ）
-     */
-    const processAutoFeesIfNeeded = useCallback(async () => {
-        if (currentTab === "active") {
-            try {
-                await processAutoFees();
-            } catch (error) {
-                console.error("Error processing auto fees:", error);
+        // 特定のセッションを選択（新規選択の場合のみ）
+        // 既に選択中のセッションをリフレッシュする場合はuseEffectで自動更新されるため、ここでは何もしない
+        if (targetSessionId && targetSessionId !== selectedSessionIdRef.current) {
+            const allSessions = queryClient.getQueryData<SessionDataV2[]>(floorKeys.activeSessions()) ?? [];
+            const session = allSessions.find((s) => s.id === targetSessionId);
+            if (session) {
+                const table = tables.find((t) => t.id === session.table_id);
+                setSelectedSession(session);
+                setSelectedTable(table || null);
             }
         }
+    }, [queryClient, tables]);
+
+    /**
+     * 楽観的UIでセッションを削除
+     */
+    const removeSessionOptimistic = useCallback((sessionId: string) => {
+        deleteSessionMutation.mutate(sessionId);
+        setSelectedSession(null);
+        setSelectedTable(null);
+    }, [deleteSessionMutation]);
+
+    // currentTabをrefで追跡（intervalのクロージャ問題を回避）
+    const currentTabRef = useRef(currentTab);
+    useEffect(() => {
+        currentTabRef.current = currentTab;
     }, [currentTab]);
 
-    // 初回ロードと自動更新
+    // storeId初期化
     useEffect(() => {
-        loadData();
+        if (!storeIdRef.current) {
+            getCurrentStoreId().then((id) => {
+                if (id) {
+                    storeIdRef.current = id;
+                    setStoreId(id);
+                }
+            });
+        }
+    }, []);
 
-        // 自動料金チェックは1分ごと
-        const autoFeeInterval = setInterval(() => {
-            processAutoFeesIfNeeded().then(() => loadData());
+    // 自動料金処理を1分ごとに実行（依存関係を最小化してinterval重複を防止）
+    useEffect(() => {
+        let isProcessing = false;
+
+        const autoFeeInterval = setInterval(async () => {
+            // 進行中タブでない場合はスキップ
+            if (currentTabRef.current !== "active") return;
+            // 処理中の場合はスキップ（レースコンディション防止）
+            if (isProcessing) return;
+
+            isProcessing = true;
+            try {
+                await processAutoFees();
+                queryClient.invalidateQueries({ queryKey: floorKeys.activeSessions() });
+            } catch (error) {
+                console.error("Error processing auto fees:", error);
+            } finally {
+                isProcessing = false;
+            }
         }, AUTO_FEE_INTERVAL_MS);
 
         return () => {
             clearInterval(autoFeeInterval);
         };
-    }, [loadData, currentTab, processAutoFeesIfNeeded]);
+    }, [queryClient]);
 
     // Supabase Realtime subscription
     useEffect(() => {
@@ -228,7 +203,25 @@ export function useFloorData(): UseFloorDataReturn {
                     schema: "public",
                     table: "table_sessions",
                 },
-                () => loadData()
+                async (payload) => {
+                    // DELETEイベントの場合は再フェッチせずにキャッシュから直接削除
+                    if (payload.eventType === "DELETE" && payload.old && "id" in payload.old) {
+                        const deletedId = payload.old.id as string;
+                        // 進行中のクエリをキャンセルして上書きを防ぐ
+                        await queryClient.cancelQueries({ queryKey: floorKeys.sessions() });
+                        queryClient.setQueryData<SessionDataV2[]>(
+                            floorKeys.activeSessions(),
+                            (old) => old?.filter((s) => s.id !== deletedId) ?? []
+                        );
+                        queryClient.setQueryData<SessionDataV2[]>(
+                            floorKeys.completedSessions(),
+                            (old) => old?.filter((s) => s.id !== deletedId) ?? []
+                        );
+                    } else {
+                        // INSERT/UPDATEの場合は再フェッチ
+                        queryClient.invalidateQueries({ queryKey: floorKeys.sessions() });
+                    }
+                }
             )
             .on(
                 "postgres_changes",
@@ -237,26 +230,47 @@ export function useFloorData(): UseFloorDataReturn {
                     schema: "public",
                     table: "orders",
                 },
-                () => loadData()
+                (payload) => {
+                    // DELETEイベントは無視（セッション削除時のカスケード削除で発火するため）
+                    // INSERT/UPDATEのみ再フェッチ
+                    if (payload.eventType !== "DELETE") {
+                        queryClient.invalidateQueries({ queryKey: floorKeys.sessions() });
+                    }
+                }
             )
             .subscribe();
 
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [loadData]);
+    }, [queryClient]);
+
+    // 選択中のセッションを最新データで更新
+    useEffect(() => {
+        if (selectedSession) {
+            const updated = sessions.find((s) => s.id === selectedSession.id);
+            if (updated && JSON.stringify(updated) !== JSON.stringify(selectedSession)) {
+                setSelectedSession(updated);
+            }
+        }
+    }, [sessions, selectedSession]);
 
     return {
         tables,
         sessions,
-        reservations,
+        reservations: currentTab === "reserved" ? reservations : [],
+        queueEntries: currentTab === "reserved" ? queueEntries : [],
+        activeCount: activeSessions.length,
+        reservedCount: reservations.length + queueEntries.length,
         selectedSession,
         selectedTable,
         setSelectedSession,
         setSelectedTable,
         loadData,
+        removeSessionOptimistic,
         currentTab,
         setCurrentTab,
         storeId,
+        isLoading,
     };
 }

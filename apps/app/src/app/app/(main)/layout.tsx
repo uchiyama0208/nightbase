@@ -16,7 +16,7 @@ export default async function AppLayout({
 }: {
     children: React.ReactNode;
 }) {
-    const { user, profile } = await getAppData();
+    const { user, profile, storeFeatures } = await getAppData();
 
     if (!user) {
         redirect("/login");
@@ -51,15 +51,6 @@ export default async function AppLayout({
         : undefined;
     const store = profile?.stores;
     const storeName = store?.name;
-    const storeFeatures = store
-        ? {
-            show_dashboard: store.show_dashboard ?? true,
-            show_attendance: store.show_attendance ?? true,
-            show_timecard: store.show_timecard ?? true,
-            show_users: store.show_users ?? true,
-            show_roles: store.show_roles ?? true,
-        }
-        : undefined;
 
     return (
         <AppLayoutClient

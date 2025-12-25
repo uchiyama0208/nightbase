@@ -238,17 +238,21 @@ export async function updateTimecardSettings(formData: FormData): Promise<void> 
 
     const tabletTimecardEnabled = formData.get("tabletTimecardEnabled") === "on";
 
+    // latitude/longitude are stored in stores table, not store_settings
+    const latitude = formData.get("latitude") ? parseFloat(formData.get("latitude") as string) : null;
+    const longitude = formData.get("longitude") ? parseFloat(formData.get("longitude") as string) : null;
+
     const payload: TimecardSettingsPayload = {
         show_break_columns: formData.get("showBreakColumns") === "on",
         tablet_timecard_enabled: tabletTimecardEnabled,
         location_check_enabled: formData.get("locationCheckEnabled") === "on",
-        latitude: formData.get("latitude") ? parseFloat(formData.get("latitude") as string) : null,
-        longitude: formData.get("longitude") ? parseFloat(formData.get("longitude") as string) : null,
         location_radius: formData.get("locationRadius") ? parseInt(formData.get("locationRadius") as string) : 50,
         time_rounding_enabled: formData.get("timeRoundingEnabled") === "on",
         time_rounding_method: (formData.get("timeRoundingMethod") as string) || "round",
         time_rounding_minutes: formData.get("timeRoundingMinutes") ? parseInt(formData.get("timeRoundingMinutes") as string) : 15,
         auto_clockout_enabled: formData.get("autoClockoutEnabled") === "on",
+        pickup_enabled_cast: formData.get("pickupEnabledCast") === "on",
+        pickup_enabled_staff: formData.get("pickupEnabledStaff") === "on",
     };
 
     if (tabletTimecardEnabled) {
@@ -259,6 +263,7 @@ export async function updateTimecardSettings(formData: FormData): Promise<void> 
         payload.tablet_theme = (formData.get("tabletTheme") as string) || "light";
     }
 
+    // Update store_settings
     const { error } = await supabase
         .from("store_settings")
         .update(payload)
@@ -266,7 +271,20 @@ export async function updateTimecardSettings(formData: FormData): Promise<void> 
 
     if (error) {
         console.error("Error updating store timecard settings:", error);
-        throw new Error("Failed to update timecard settings");
+        throw new Error(`Failed to update timecard settings: ${error.message}`);
+    }
+
+    // Update latitude/longitude in stores table
+    if (latitude !== null || longitude !== null) {
+        const { error: storeError } = await supabase
+            .from("stores")
+            .update({ latitude, longitude })
+            .eq("id", storeId);
+
+        if (storeError) {
+            console.error("Error updating store location:", storeError);
+            throw new Error(`Failed to update store location: ${storeError.message}`);
+        }
     }
 
     revalidatePath("/app/settings");
@@ -545,4 +563,467 @@ export async function searchAddressByPostalCode(postalCode: string): Promise<Pos
         console.error("Postal code search error:", error);
         return { error: "Request failed" };
     }
+}
+
+// ============================================
+// ページデータ取得（SPA用）
+// ============================================
+
+/**
+ * 店舗設定ページ用データ取得
+ */
+export async function getStoreSettingsPageData() {
+    const authResult = await getAuthContextForPage();
+
+    if ("redirect" in authResult) {
+        return { redirect: authResult.redirect };
+    }
+
+    const { context, storeName } = authResult;
+    const supabase = context.supabase;
+
+    // 店舗情報を取得
+    const { data: store } = await supabase
+        .from("stores")
+        .select("*")
+        .eq("id", context.storeId)
+        .single();
+
+    if (!store) {
+        return { redirect: "/app/settings" };
+    }
+
+    // store_settings からも設定を取得
+    const { data: storeSettings } = await supabase
+        .from("store_settings")
+        .select("business_start_time, business_end_time, day_switch_time, closed_days, allow_join_requests")
+        .eq("store_id", context.storeId)
+        .single();
+
+    const storeWithSettings = {
+        ...store,
+        business_start_time: storeSettings?.business_start_time || null,
+        business_end_time: storeSettings?.business_end_time || null,
+        day_switch_time: storeSettings?.day_switch_time || null,
+        closed_days: storeSettings?.closed_days || [],
+        allow_join_requests: storeSettings?.allow_join_requests || false,
+    };
+
+    return {
+        data: {
+            store: storeWithSettings,
+        }
+    };
+}
+
+/**
+ * タイムカード設定ページ用データ取得
+ */
+export async function getTimecardSettingsPageData() {
+    const authResult = await getAuthContextForPage();
+
+    if ("redirect" in authResult) {
+        return { redirect: authResult.redirect };
+    }
+
+    const { context } = authResult;
+    const supabase = context.supabase;
+
+    // 店舗情報を取得
+    const { data: store } = await supabase
+        .from("stores")
+        .select("*")
+        .eq("id", context.storeId)
+        .single();
+
+    if (!store) {
+        return { redirect: "/app/settings" };
+    }
+
+    // store_settings からタイムカード関連設定を取得
+    const { data: storeSettings } = await supabase
+        .from("store_settings")
+        .select(`
+            show_break_columns,
+            tablet_timecard_enabled,
+            tablet_allowed_roles,
+            tablet_acceptance_start_time,
+            tablet_acceptance_end_time,
+            tablet_theme,
+            location_check_enabled,
+            location_radius,
+            time_rounding_enabled,
+            time_rounding_method,
+            time_rounding_minutes,
+            auto_clockout_enabled,
+            pickup_enabled_cast,
+            pickup_enabled_staff
+        `)
+        .eq("store_id", context.storeId)
+        .single();
+
+    // store と storeSettings をマージ
+    const storeWithSettings = {
+        ...store,
+        ...storeSettings,
+    };
+
+    return {
+        data: {
+            store: storeWithSettings,
+        }
+    };
+}
+
+/**
+ * フロア設定ページ用データ取得
+ */
+export async function getFloorSettingsPageData() {
+    const authResult = await getAuthContextForPage();
+
+    if ("redirect" in authResult) {
+        return { redirect: authResult.redirect };
+    }
+
+    const { context } = authResult;
+    const supabase = context.supabase;
+
+    // 店舗情報を取得
+    const { data: store } = await supabase
+        .from("stores")
+        .select("*")
+        .eq("id", context.storeId)
+        .single();
+
+    if (!store) {
+        return { redirect: "/app/settings" };
+    }
+
+    return {
+        data: {
+            store,
+        }
+    };
+}
+
+/**
+ * シフト設定ページ用データ取得
+ */
+export async function getShiftSettingsPageData() {
+    const authResult = await getAuthContextForPage();
+
+    if ("redirect" in authResult) {
+        return { redirect: authResult.redirect };
+    }
+
+    const { context } = authResult;
+    const supabase = context.supabase;
+
+    // 店舗情報を取得
+    const { data: store } = await supabase
+        .from("stores")
+        .select("*")
+        .eq("id", context.storeId)
+        .single();
+
+    if (!store) {
+        return { redirect: "/app/settings" };
+    }
+
+    // Get automation settings
+    const { data: automationSettings } = await supabase
+        .from("shift_automation_settings")
+        .select("*")
+        .eq("store_id", context.storeId)
+        .maybeSingle();
+
+    return {
+        data: {
+            store,
+            automationSettings: automationSettings || null,
+        }
+    };
+}
+
+/**
+ * 伝票設定ページ用データ取得
+ */
+export async function getSlipSettingsPageData() {
+    const authResult = await getAuthContextForPage();
+
+    if ("redirect" in authResult) {
+        return { redirect: authResult.redirect };
+    }
+
+    const { context } = authResult;
+    const supabase = context.supabase;
+
+    // 店舗情報を取得
+    const { data: store } = await supabase
+        .from("stores")
+        .select("*")
+        .eq("id", context.storeId)
+        .single();
+
+    if (!store) {
+        return { redirect: "/app/settings" };
+    }
+
+    return {
+        data: {
+            store,
+        }
+    };
+}
+
+/**
+ * インポート設定ページ用データ取得
+ */
+export async function getImportSettingsPageData() {
+    const authResult = await getAuthContextForPage();
+
+    if ("redirect" in authResult) {
+        return { redirect: authResult.redirect };
+    }
+
+    const { context } = authResult;
+    const supabase = context.supabase;
+
+    // メニューカテゴリを取得
+    const { data: categories } = await supabase
+        .from("menu_categories")
+        .select("*")
+        .eq("store_id", context.storeId)
+        .order("sort_order", { ascending: true });
+
+    return {
+        data: {
+            menuCategories: categories || [],
+        }
+    };
+}
+
+// ============================================
+// タイムカードカスタム質問
+// ============================================
+
+export interface TimecardQuestion {
+    id: string;
+    store_id: string;
+    label: string;
+    field_type: string;
+    options: string[] | null;
+    is_required: boolean;
+    target_role: string;
+    timing: string;
+    sort_order: number;
+    is_active: boolean;
+}
+
+/**
+ * タイムカード質問一覧を取得
+ */
+export async function getTimecardQuestions(): Promise<TimecardQuestion[]> {
+    const { supabase, storeId } = await getAuthContext();
+
+    const { data, error } = await supabase
+        .from("timecard_questions")
+        .select("*")
+        .eq("store_id", storeId)
+        .order("sort_order", { ascending: true });
+
+    if (error) {
+        console.error("Error fetching timecard questions:", error);
+        return [];
+    }
+
+    return data || [];
+}
+
+/**
+ * タイムカード質問を作成
+ */
+export async function createTimecardQuestion(question: {
+    label: string;
+    field_type: string;
+    options?: string[] | null;
+    is_required?: boolean;
+    target_role: string;
+    timing: string;
+}): Promise<{ success: boolean; question?: TimecardQuestion; error?: string }> {
+    const { supabase, storeId } = await getAuthContext({ requireStaff: true });
+
+    // Get the max sort_order
+    const { data: maxOrderData } = await supabase
+        .from("timecard_questions")
+        .select("sort_order")
+        .eq("store_id", storeId)
+        .order("sort_order", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+    const nextOrder = (maxOrderData?.sort_order ?? -1) + 1;
+
+    const { data, error } = await supabase
+        .from("timecard_questions")
+        .insert({
+            store_id: storeId,
+            label: question.label,
+            field_type: question.field_type,
+            options: question.options || null,
+            is_required: question.is_required ?? false,
+            target_role: question.target_role,
+            timing: question.timing,
+            sort_order: nextOrder,
+            is_active: true,
+        })
+        .select()
+        .single();
+
+    if (error) {
+        console.error("Error creating timecard question:", error);
+        return { success: false, error: error.message };
+    }
+
+    revalidatePath("/app/settings/timecard");
+    return { success: true, question: data };
+}
+
+/**
+ * タイムカード質問を更新
+ */
+export async function updateTimecardQuestion(
+    questionId: string,
+    updates: {
+        label?: string;
+        field_type?: string;
+        options?: string[] | null;
+        is_required?: boolean;
+        target_role?: string;
+        timing?: string;
+        is_active?: boolean;
+    }
+): Promise<{ success: boolean; error?: string }> {
+    const { supabase, storeId } = await getAuthContext({ requireStaff: true });
+
+    const { error } = await supabase
+        .from("timecard_questions")
+        .update({
+            ...updates,
+            updated_at: new Date().toISOString(),
+        })
+        .eq("id", questionId)
+        .eq("store_id", storeId);
+
+    if (error) {
+        console.error("Error updating timecard question:", error);
+        return { success: false, error: error.message };
+    }
+
+    revalidatePath("/app/settings/timecard");
+    return { success: true };
+}
+
+/**
+ * タイムカード質問を削除
+ */
+export async function deleteTimecardQuestion(questionId: string): Promise<{ success: boolean; error?: string }> {
+    const { supabase, storeId } = await getAuthContext({ requireStaff: true });
+
+    const { error } = await supabase
+        .from("timecard_questions")
+        .delete()
+        .eq("id", questionId)
+        .eq("store_id", storeId);
+
+    if (error) {
+        console.error("Error deleting timecard question:", error);
+        return { success: false, error: error.message };
+    }
+
+    revalidatePath("/app/settings/timecard");
+    return { success: true };
+}
+
+/**
+ * タイムカード質問の順序を更新
+ */
+export async function updateTimecardQuestionsOrder(
+    questionOrders: { id: string; sort_order: number }[]
+): Promise<{ success: boolean; error?: string }> {
+    const { supabase, storeId } = await getAuthContext({ requireStaff: true });
+
+    for (const { id, sort_order } of questionOrders) {
+        const { error } = await supabase
+            .from("timecard_questions")
+            .update({ sort_order, updated_at: new Date().toISOString() })
+            .eq("id", id)
+            .eq("store_id", storeId);
+
+        if (error) {
+            console.error("Error updating question order:", error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    revalidatePath("/app/settings/timecard");
+    return { success: true };
+}
+
+/**
+ * タイムカード質問回答を保存
+ */
+export async function saveTimecardQuestionAnswers(
+    workRecordId: string,
+    answers: { questionId: string; value: string; timing: string }[]
+): Promise<{ success: boolean; error?: string }> {
+    const { supabase, storeId } = await getAuthContext();
+
+    for (const answer of answers) {
+        const { error } = await supabase
+            .from("timecard_question_answers")
+            .upsert(
+                {
+                    work_record_id: workRecordId,
+                    question_id: answer.questionId,
+                    value: answer.value,
+                    timing: answer.timing,
+                    updated_at: new Date().toISOString(),
+                },
+                { onConflict: "work_record_id,question_id,timing" }
+            );
+
+        if (error) {
+            console.error("Error saving timecard answer:", error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    return { success: true };
+}
+
+/**
+ * 有効なタイムカード質問を取得（役割とタイミングでフィルタ）
+ */
+export async function getActiveTimecardQuestions(
+    role: string,
+    timing: "clock_in" | "clock_out"
+): Promise<TimecardQuestion[]> {
+    const { supabase, storeId } = await getAuthContext();
+
+    const { data, error } = await supabase
+        .from("timecard_questions")
+        .select("*")
+        .eq("store_id", storeId)
+        .eq("is_active", true)
+        .or(`target_role.eq.both,target_role.eq.${role}`)
+        .or(`timing.eq.both,timing.eq.${timing}`)
+        .order("sort_order", { ascending: true });
+
+    if (error) {
+        console.error("Error fetching active timecard questions:", error);
+        return [];
+    }
+
+    return data || [];
 }

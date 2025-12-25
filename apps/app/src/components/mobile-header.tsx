@@ -12,13 +12,14 @@ interface MobileHeaderProps {
     profileName?: string;
     avatarUrl?: string;
     hasSidebar?: boolean;
+    userRole?: string;
 }
 
 const tabTitles: Record<string, string> = {
     shift: "シフト",
     user: "ユーザー",
     floor: "フロア",
-    salary: "料金給与",
+    store: "店舗",
     community: "コミュニティ",
 };
 
@@ -27,8 +28,8 @@ const getPageTitle = (pathname: string, activeTab: string | null): string => {
     if (pathname.includes("/dashboard") && activeTab && tabTitles[activeTab]) {
         return tabTitles[activeTab];
     }
-    if (pathname.includes("/dashboard")) return "シフト";
-    if (pathname.includes("/settings/qr-order")) return "QRコード注文設定";
+    if (pathname.includes("/dashboard")) return "シフト管理";
+    if (pathname.includes("/settings/table-order")) return "テーブル注文設定";
     if (pathname.includes("/settings/timecard")) return "タイムカード設定";
     if (pathname.includes("/settings/shift")) return "シフト設定";
     if (pathname.includes("/timecard")) return "タイムカード";
@@ -53,9 +54,9 @@ const getPageTitle = (pathname: string, activeTab: string | null): string => {
     if (pathname.includes("/sales")) return "売上";
     if (pathname.includes("/ranking")) return "ランキング";
     if (pathname.includes("/my-shifts")) return "マイシフト";
-    if (pathname.includes("/shifts")) return "シフト";
+    if (pathname.includes("/shifts")) return "シフト管理";
     if (pathname.includes("/board")) return "掲示板";
-    if (pathname.includes("/sns")) return "SNS";
+    if (pathname.includes("/sns")) return "SNS投稿";
     if (pathname.includes("/queue")) return "順番待ち";
     if (pathname.includes("/reservations")) return "予約";
     if (pathname.includes("/shopping")) return "買い出し";
@@ -64,12 +65,15 @@ const getPageTitle = (pathname: string, activeTab: string | null): string => {
     return "ダッシュボード";
 };
 
-export function MobileHeader({ onMenuClick, profileName, avatarUrl, hasSidebar }: MobileHeaderProps) {
+export function MobileHeader({ onMenuClick, profileName, avatarUrl, hasSidebar, userRole }: MobileHeaderProps) {
     const pathname = usePathname();
     const router = useRouter();
     const dashboardTab = useDashboardTab();
     const activeTab = dashboardTab?.activeTab ?? null;
     const pageTitle = getPageTitle(pathname, activeTab);
+
+    // キャストかどうかを判定
+    const isCast = userRole === "cast";
 
     // ダッシュボードかどうかを判定
     const isDashboard = pathname === "/app/dashboard" || pathname.startsWith("/app/dashboard?");
@@ -78,6 +82,8 @@ export function MobileHeader({ onMenuClick, profileName, avatarUrl, hasSidebar }
     const shouldUseRouterBack = (): boolean => {
         // ordersはfloorからの遷移なのでrouter.back()を使う
         if (pathname.includes("/orders")) return true;
+        // settings配下は遷移元に戻る
+        if (pathname.includes("/settings/")) return true;
         return false;
     };
 
@@ -87,9 +93,9 @@ export function MobileHeader({ onMenuClick, profileName, avatarUrl, hasSidebar }
         if (shouldUseRouterBack()) return null;
         if (pathname.includes("/shifts") || pathname.includes("/my-shifts") || pathname.includes("/pickup") || pathname.includes("/attendance") || pathname.includes("/timecard")) return "shift";
         if (pathname.includes("/users") || pathname.includes("/resumes") || pathname.includes("/invitations") || pathname.includes("/roles")) return "user";
-        if (pathname.includes("/floor") || pathname.includes("/seats") || pathname.includes("/assignments") || pathname.includes("/slips") || pathname.includes("/bottles") || pathname.includes("/shopping")) return "floor";
-        if (pathname.includes("/menus") || pathname.includes("/pricing-systems") || pathname.includes("/salary-systems") || pathname.includes("/payroll") || pathname.includes("/sales") || pathname.includes("/ranking")) return "salary";
-        if (pathname.includes("/board") || pathname.includes("/sns") || pathname.includes("/ai-create")) return "community";
+        if (pathname.includes("/floor") || pathname.includes("/seats") || pathname.includes("/assignments") || pathname.includes("/slips") || pathname.includes("/bottles")) return "floor";
+        if (pathname.includes("/menus") || pathname.includes("/pricing-systems") || pathname.includes("/salary-systems") || pathname.includes("/payroll") || pathname.includes("/sales") || pathname.includes("/shopping")) return "store";
+        if (pathname.includes("/board") || pathname.includes("/sns") || pathname.includes("/ai-create") || pathname.includes("/ranking")) return "community";
         if (pathname.includes("/queue") || pathname.includes("/reservations")) return "floor";
         return null;
     };
@@ -109,13 +115,16 @@ export function MobileHeader({ onMenuClick, profileName, avatarUrl, hasSidebar }
             className={`fixed top-0 left-0 right-0 z-40 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 h-12 ${hasSidebar ? "lg:pl-72" : ""}`}
         >
             <div className="flex items-center justify-between h-full px-3">
-                {/* Left: Hamburger Menu (Dashboard only) or Back Button */}
-                {isDashboard ? (
+                {/* Left: Hamburger Menu (Dashboard only) or Back Button - Hidden for Cast */}
+                {isCast ? (
+                    <div className="w-10 h-10" /> // プレースホルダー
+                ) : isDashboard ? (
                     <Button
                         variant="ghost"
                         size="icon"
                         onClick={onMenuClick}
-                        className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 lg:hidden"
+                        className="text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 lg:hidden"
+                        aria-label="メニュー"
                     >
                         <Menu className="h-5 w-5" />
                     </Button>
@@ -124,7 +133,8 @@ export function MobileHeader({ onMenuClick, profileName, avatarUrl, hasSidebar }
                         variant="ghost"
                         size="icon"
                         onClick={handleBack}
-                        className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 lg:hidden"
+                        className="text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 lg:hidden"
+                        aria-label="戻る"
                     >
                         <ChevronLeft className="h-5 w-5" />
                     </Button>
@@ -140,7 +150,8 @@ export function MobileHeader({ onMenuClick, profileName, avatarUrl, hasSidebar }
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
+                        className="text-gray-900 hover:bg-gray-50 dark:text-white dark:hover:bg-gray-700"
+                        aria-label="プロフィール"
                     >
                         <div className="relative">
                             <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center overflow-hidden">

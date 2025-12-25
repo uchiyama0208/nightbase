@@ -188,7 +188,7 @@ export function ShiftsGrid({ storeId, refreshKey, onDateClick, onCellClick, onPr
                 return (
                     <th
                         key={date}
-                        className={`border-b border-gray-200 dark:border-gray-700 p-1 text-center min-w-[40px] w-[40px] ${todayBg} ${clickable ? "cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700" : ""}`}
+                        className={`border-b border-gray-200 dark:border-gray-700 p-1 text-center min-w-[40px] w-[40px] ${todayBg} ${clickable ? "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors" : ""}`}
                         onClick={clickable ? () => onDateClick?.(date, gridData.requestDateIds[date]) : undefined}
                     >
                         <div className="flex flex-col items-center">
@@ -215,7 +215,7 @@ export function ShiftsGrid({ storeId, refreshKey, onDateClick, onCellClick, onPr
             <div className="flex items-center justify-between mb-3">
                 <button
                     onClick={handlePrevMonth}
-                    className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    className="p-1.5 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                     <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                 </button>
@@ -224,7 +224,7 @@ export function ShiftsGrid({ storeId, refreshKey, onDateClick, onCellClick, onPr
                 </h2>
                 <button
                     onClick={handleNextMonth}
-                    className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    className="p-1.5 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                     <ChevronRight className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                 </button>
@@ -310,10 +310,10 @@ export function ShiftsGrid({ storeId, refreshKey, onDateClick, onCellClick, onPr
                             </thead>
                             <tbody>
                                 {gridData.profiles.map((profile) => (
-                                    <tr key={profile.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                    <tr key={profile.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                                         {/* Name cell */}
                                         <td
-                                            className="sticky left-0 z-10 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 p-2 min-w-[100px] w-[100px] cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 relative after:content-[''] after:absolute after:right-0 after:top-0 after:bottom-0 after:w-[1px] after:bg-gray-300 dark:after:bg-gray-600"
+                                            className="sticky left-0 z-10 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 p-2 min-w-[100px] w-[100px] cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors relative after:content-[''] after:absolute after:right-0 after:top-0 after:bottom-0 after:w-[1px] after:bg-gray-300 dark:after:bg-gray-600"
                                             onClick={() => onProfileClick?.(profile.id)}
                                         >
                                             <div className="flex items-center gap-1">
@@ -334,7 +334,7 @@ export function ShiftsGrid({ storeId, refreshKey, onDateClick, onCellClick, onPr
                                                     {profile.display_name || "名前なし"}
                                                 </span>
                                                 {profile.status === "体入" && (
-                                                    <span className="text-[9px] px-1 py-0.5 rounded bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 flex-shrink-0">
+                                                    <span className="text-[10px] px-1 py-0.5 rounded bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 flex-shrink-0">
                                                         体入
                                                     </span>
                                                 )}
@@ -350,7 +350,7 @@ export function ShiftsGrid({ storeId, refreshKey, onDateClick, onCellClick, onPr
                                             return (
                                                 <td
                                                     key={date}
-                                                    className={`border-b border-gray-200 dark:border-gray-700 p-0.5 text-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 min-w-[40px] w-[40px] ${todayClass}`}
+                                                    className={`border-b border-gray-200 dark:border-gray-700 p-0.5 text-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors min-w-[40px] w-[40px] ${todayClass}`}
                                                     onClick={() => onCellClick?.(date, profile.id, profile.display_name || "名前なし", cell, gridData.requestDateIds[date])}
                                                 >
                                                     {showCell && (

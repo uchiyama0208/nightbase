@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Loader2, Plus, ChevronRight, Pencil, ChevronLeft, Printer } from "lucide-react";
 import nextDynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import { VercelTabs } from "@/components/ui/vercel-tabs";
 import { SlipDetailModal } from "@/components/slips/slip-detail-modal";
 import { AttendanceModal } from "@/app/app/(main)/attendance/attendance-modal";
 import { SalarySystem, getSalarySystems, assignSalarySystemToProfile, removeSalarySystemFromProfile } from "@/app/app/(main)/salary-systems/actions";
@@ -104,25 +105,11 @@ export function PayrollClient({ canEdit = false }: PayrollClientProps) {
     const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
     const [originalSalarySystemId, setOriginalSalarySystemId] = useState<string | null>(null);
 
-    // Vercel-style tabs with animated underline
-    const tabsRef = useRef<{ [key: string]: HTMLButtonElement | null }>({});
-    const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
-
     const roleLabels: Record<RoleFilter, string> = {
         cast: "キャスト",
         staff: "スタッフ",
         partner: "パートナー",
     };
-
-    useEffect(() => {
-        const activeButton = tabsRef.current[roleFilter];
-        if (activeButton) {
-            setIndicatorStyle({
-                left: activeButton.offsetLeft,
-                width: activeButton.offsetWidth,
-            });
-        }
-    }, [roleFilter]);
 
     useEffect(() => {
         loadPayrollData();
@@ -237,11 +224,16 @@ export function PayrollClient({ canEdit = false }: PayrollClientProps) {
 
     const roles: RoleFilter[] = ["cast", "staff", "partner"];
 
+    const tabs = roles.map((role) => ({
+        key: role,
+        label: roleLabels[role],
+    }));
+
     if (error) {
         return (
             <div className="rounded-2xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-6">
                 <p className="text-red-600 dark:text-red-400">{error}</p>
-                <Button onClick={loadPayrollData} className="mt-4 rounded-lg" variant="outline">
+                <Button onClick={loadPayrollData} className="mt-4" variant="outline">
                     再試行
                 </Button>
             </div>
@@ -264,29 +256,12 @@ export function PayrollClient({ canEdit = false }: PayrollClientProps) {
             )}
 
             {/* Vercel-style Tab Navigation */}
-            <div className="relative">
-                <div className="flex border-b border-gray-200 dark:border-gray-700">
-                    {roles.map((role) => (
-                        <button
-                            key={role}
-                            ref={(el) => { tabsRef.current[role] = el; }}
-                            type="button"
-                            onClick={() => setRoleFilter(role)}
-                            className={`flex-1 px-4 py-2 text-sm font-medium transition-colors duration-200 ${
-                                roleFilter === role
-                                    ? "text-gray-900 dark:text-white"
-                                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                            }`}
-                        >
-                            {roleLabels[role]}
-                        </button>
-                    ))}
-                </div>
-                <span
-                    className="absolute bottom-0 h-0.5 bg-gray-900 dark:bg-white transition-all duration-300 ease-out"
-                    style={{ left: indicatorStyle.left, width: indicatorStyle.width }}
-                />
-            </div>
+            <VercelTabs
+                tabs={tabs}
+                value={roleFilter}
+                onChange={(val) => setRoleFilter(val as RoleFilter)}
+                className="mb-4"
+            />
 
             {/* Table */}
             {isLoading ? (
@@ -297,8 +272,8 @@ export function PayrollClient({ canEdit = false }: PayrollClientProps) {
                     </div>
                 </div>
             ) : (
-                <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-                    <Table>
+                <div className="overflow-hidden rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+                    <Table className="table-fixed">
                         <TableHeader>
                             <TableRow className="bg-gray-50 dark:bg-gray-800/50">
                                 <TableHead className="w-1/3 text-center text-gray-900 dark:text-gray-100">日付</TableHead>
@@ -318,7 +293,7 @@ export function PayrollClient({ canEdit = false }: PayrollClientProps) {
                                     <TableRow
                                         key={`${record.date}_${record.profileId}_${index}`}
                                         onClick={() => setSelectedRecord(record)}
-                                        className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                                        className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                                     >
                                         <TableCell className="text-center text-gray-900 dark:text-gray-100">
                                             {record.label}
@@ -485,8 +460,8 @@ export function PayrollClient({ canEdit = false }: PayrollClientProps) {
 
             {/* Detail Modal */}
             <Dialog open={!!selectedRecord} onOpenChange={(open) => !open && setSelectedRecord(null)}>
-                <DialogContent className="max-w-md rounded-2xl border border-gray-200 bg-white p-0 dark:border-gray-800 dark:bg-gray-900 no-print">
-                    <DialogHeader className="px-4 py-3 border-b border-gray-200 dark:border-gray-800 flex flex-row items-center justify-between space-y-0">
+                <DialogContent className="sm:max-w-md rounded-2xl border border-gray-200 bg-white p-0 dark:border-gray-800 dark:bg-gray-900 no-print">
+                    <DialogHeader className="flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
                         <Button
                             variant="ghost"
                             size="icon"
@@ -521,7 +496,7 @@ export function PayrollClient({ canEdit = false }: PayrollClientProps) {
                                             openSalarySystemSelector(selectedRecord.profileId, selectedRecord.salarySystemId);
                                         }
                                     }}
-                                    className="inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700"
+                                    className="inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700"
                                 >
                                     <Pencil className="h-3.5 w-3.5" />
                                 </button>
@@ -530,7 +505,7 @@ export function PayrollClient({ canEdit = false }: PayrollClientProps) {
                                 <button
                                     type="button"
                                     onClick={() => openSalarySystemDetail(selectedRecord.salarySystemId!)}
-                                    className="mt-1 w-full text-left flex items-center justify-between py-1.5 px-2 -mx-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                                    className="mt-1 w-full text-left flex items-center justify-between py-1.5 px-2 -mx-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                                 >
                                     <span className="font-medium text-gray-700 dark:text-gray-300">
                                         {selectedRecord.salarySystemName}
@@ -545,8 +520,8 @@ export function PayrollClient({ canEdit = false }: PayrollClientProps) {
                         {/* 時給 */}
                         <div className="py-2 border-b border-gray-100 dark:border-gray-800">
                             <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium text-gray-900 dark:text-white">時給</span>
-                                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">時給</span>
+                                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                     {formatCurrency(selectedRecord?.hourlyWage || 0)}
                                 </span>
                             </div>
@@ -554,7 +529,7 @@ export function PayrollClient({ canEdit = false }: PayrollClientProps) {
                                 <button
                                     type="button"
                                     onClick={() => openAttendanceModal(selectedRecord.hourlyDetails!.timeCardId)}
-                                    className="mt-2 pl-4 pr-2 py-2 -mx-2 w-full text-left rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer"
+                                    className="mt-2 pl-4 pr-2 py-2 -mx-2 w-full text-left rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
                                 >
                                     <div className="flex items-center justify-between">
                                         <div className="space-y-1 text-xs text-gray-500 dark:text-gray-400">
@@ -578,7 +553,7 @@ export function PayrollClient({ canEdit = false }: PayrollClientProps) {
                         {/* バック */}
                         <div className="py-2 border-b border-gray-100 dark:border-gray-800">
                             <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium text-gray-900 dark:text-white">バック</span>
+                                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">バック</span>
                                 <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
                                     +{formatCurrency(selectedRecord?.backAmount || 0)}
                                 </span>
@@ -590,7 +565,7 @@ export function PayrollClient({ canEdit = false }: PayrollClientProps) {
                                             key={i}
                                             type="button"
                                             onClick={() => setSelectedSessionId(back.sessionId)}
-                                            className="w-full text-left pl-4 pr-2 py-1.5 bg-gray-50 dark:bg-gray-800/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+                                            className="w-full text-left pl-4 pr-2 py-1.5 bg-gray-50 dark:bg-gray-800/50 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                                         >
                                             <div className="flex items-center justify-between">
                                                 <div className="flex-1">
@@ -620,7 +595,7 @@ export function PayrollClient({ canEdit = false }: PayrollClientProps) {
                         {/* 引かれもの */}
                         <div className="py-2 border-b border-gray-100 dark:border-gray-800">
                             <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium text-gray-900 dark:text-white">引かれもの</span>
+                                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">引かれもの</span>
                                 <span className="text-sm font-medium text-red-600 dark:text-red-400">
                                     -{formatCurrency(selectedRecord?.deductionAmount || 0)}
                                 </span>
@@ -774,8 +749,35 @@ onSaved={async (savedSystem) => {
                         : s.target_type === roleFilter
                 )}
                 selectedId={selectedSalarySystemId}
-                onSelect={setSelectedSalarySystemId}
-                onSave={handleSalarySystemSave}
+                onSelect={async (id) => {
+                    setSelectedSalarySystemId(id);
+                    // Save the selection
+                    if (!editingProfileId) return;
+                    try {
+                        // Remove old assignment if exists and different from new
+                        if (originalSalarySystemId && originalSalarySystemId !== id) {
+                            await removeSalarySystemFromProfile(editingProfileId, originalSalarySystemId);
+                        }
+                        // Add new assignment if selected
+                        if (id && id !== originalSalarySystemId) {
+                            await assignSalarySystemToProfile(editingProfileId, id);
+                        }
+                        // Reload data
+                        const res = await fetch(`/api/payroll?role=${roleFilter}`);
+                        const result = await res.json();
+                        setData(result);
+                        // Update selected record
+                        if (selectedRecord) {
+                            const updated = (result.records || []).find(
+                                (r: PayrollRecord) => r.profileId === selectedRecord.profileId
+                            );
+                            if (updated) setSelectedRecord(updated);
+                        }
+                        await loadSalarySystems();
+                    } catch (error) {
+                        console.error("Failed to save salary system:", error);
+                    }
+                }}
                 onOpenDetail={handleOpenSalarySystemFromSelector}
             />
         </div>

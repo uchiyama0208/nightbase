@@ -323,7 +323,7 @@ export async function getStoreDefaults(storeId: string) {
 
     const { data, error } = await supabase
         .from("store_settings")
-        .select("default_cast_start_time, default_cast_end_time, default_staff_start_time, default_staff_end_time")
+        .select("default_cast_start_time, default_cast_end_time, default_staff_start_time, default_staff_end_time, day_switch_time")
         .eq("store_id", storeId)
         .single();
 
@@ -341,31 +341,22 @@ export async function getSubmittedRequestIds(profileId: string, requestIds: stri
 
     const supabase = await createServerClient() as any;
 
-    const [workRecordsResult, shiftSubmissionsResult] = await Promise.all([
-        supabase
-            .from("work_records")
-            .select("shift_request_id")
-            .eq("profile_id", profileId)
-            .in("shift_request_id", requestIds)
-            .neq("status", "cancelled"),
-        supabase
-            .from("shift_submissions")
-            .select("shift_request_dates!inner(shift_request_id)")
-            .eq("profile_id", profileId)
-            .in("shift_request_dates.shift_request_id", requestIds),
-    ]);
+    const { data, error } = await supabase
+        .from("work_records")
+        .select("shift_request_id")
+        .eq("profile_id", profileId)
+        .in("shift_request_id", requestIds)
+        .neq("status", "cancelled");
 
-    if (workRecordsResult.error || shiftSubmissionsResult.error) {
-        if (workRecordsResult.error) console.error("Error fetching submitted request ids (work_records):", workRecordsResult.error);
-        if (shiftSubmissionsResult.error) console.error("Error fetching submitted request ids (shift_submissions):", shiftSubmissionsResult.error);
+    if (error) {
+        console.error("Error fetching submitted request ids:", error);
         return new Set<string>();
     }
 
     return new Set(
-        [
-            ...(workRecordsResult.data || []).map((s: any) => s.shift_request_id),
-            ...(shiftSubmissionsResult.data || []).map((s: any) => (s as any)?.shift_request_dates?.shift_request_id),
-        ].filter((id: string | null | undefined): id is string => Boolean(id))
+        (data || [])
+            .map((s: any) => s.shift_request_id)
+            .filter((id: string | null | undefined): id is string => Boolean(id))
     );
 }
 
@@ -452,4 +443,55 @@ export async function updateReservationType(
 
     revalidatePath("/app/my-shifts");
     return { success: true };
+}
+
+// マイシフトページデータ取得（クライアントサイドフェッチ用）
+export async function getMyShiftsPageData() {
+    const supabase = await createServerClient() as any;
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { redirect: "/login" };
+    }
+
+    const { data: appUser } = await supabase
+        .from("users")
+        .select("current_profile_id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+    if (!appUser?.current_profile_id) {
+        return { redirect: "/app/me" };
+    }
+
+    const { data: profile } = await supabase
+        .from("profiles")
+        .select("id, store_id, role")
+        .eq("id", appUser.current_profile_id)
+        .maybeSingle();
+
+    if (!profile || !profile.store_id) {
+        return { redirect: "/app/me" };
+    }
+
+    const [shiftRequests, storeDefaults, approvedShifts] = await Promise.all([
+        getMyShiftRequests(profile.id, profile.store_id, profile.role),
+        getStoreDefaults(profile.store_id),
+        getApprovedShifts(profile.id, profile.store_id),
+    ]);
+
+    const requestIds = shiftRequests.map((r: any) => r.id);
+    const submittedRequestIdsSet = await getSubmittedRequestIds(profile.id, requestIds);
+    const submittedRequestIds = Array.from(submittedRequestIdsSet) as string[];
+
+    return {
+        data: {
+            shiftRequests,
+            profileId: profile.id,
+            profileRole: profile.role,
+            storeDefaults,
+            approvedShifts,
+            submittedRequestIds,
+        },
+    };
 }

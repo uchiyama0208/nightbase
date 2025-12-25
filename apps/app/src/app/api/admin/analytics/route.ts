@@ -138,10 +138,11 @@ export async function GET(request: NextRequest) {
             devices,
             period,
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error("Analytics API error:", error);
+        const message = error instanceof Error ? error.message : "Failed to fetch analytics";
         return NextResponse.json(
-            { error: error.message || "Failed to fetch analytics" },
+            { error: message },
             { status: 500 }
         );
     }

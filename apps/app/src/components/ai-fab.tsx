@@ -21,7 +21,7 @@ export function AIFab({ className }: AIFabProps) {
         <>
             <button
                 onClick={() => setIsOpen(true)}
-                className={`fixed bottom-[72px] right-4 lg:bottom-4 z-50 h-11 w-11 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 text-white shadow-lg hover:shadow-xl transition-all hover:scale-110 active:scale-95 flex items-center justify-center ${className || ""}`}
+                className={`fixed bottom-[72px] right-4 lg:bottom-4 z-50 h-11 w-11 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 text-white shadow-md hover:shadow-xl transition-all hover:scale-110 active:scale-95 flex items-center justify-center ${className || ""}`}
                 aria-label="AIアシスタントを開く"
             >
                 <Sparkles className="h-5 w-5" />

@@ -1,0 +1,140 @@
+"use client";
+
+import { useAuthHelpers } from "@/app/app/hooks";
+import Link from "next/link";
+import { Store, Clock, ChevronRight, Upload, LayoutGrid, Receipt, Eye, CalendarDays, Shield, CreditCard } from "lucide-react";
+import { DeleteStoreModal } from "./delete-store-modal";
+
+function SettingsSkeleton() {
+    return (
+        <div className="max-w-2xl mx-auto space-y-4 animate-pulse">
+            <div className="h-8 w-32 bg-gray-200 dark:bg-gray-700 rounded" />
+            <div className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden">
+                {[...Array(7)].map((_, i) => (
+                    <div key={i} className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-700 last:border-b-0">
+                        <div className="flex items-center space-x-4">
+                            <div className="h-9 w-9 bg-gray-200 dark:bg-gray-700 rounded-md" />
+                            <div className="h-5 w-24 bg-gray-200 dark:bg-gray-700 rounded" />
+                        </div>
+                        <div className="h-5 w-5 bg-gray-200 dark:bg-gray-700 rounded" />
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+export function SettingsClient() {
+    const { isLoading: isAuthLoading, hasAccess } = useAuthHelpers();
+
+    if (isAuthLoading) {
+        return <SettingsSkeleton />;
+    }
+
+    if (!hasAccess("settings")) {
+        window.location.href = "/app/me";
+        return <SettingsSkeleton />;
+    }
+
+    return (
+        <div className="max-w-2xl mx-auto space-y-4">
+            <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">店舗設定</h1>
+
+            <div className="space-y-4">
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden divide-y divide-gray-100 dark:divide-gray-700">
+                    <Link href="/app/settings/store" className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        <div className="flex items-center space-x-4">
+                            <div className="bg-blue-100 dark:bg-blue-900 p-2 rounded-md">
+                                <Store className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                            </div>
+                            <span className="font-medium text-gray-900 dark:text-white">店舗情報</span>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-gray-400" />
+                    </Link>
+
+                    <Link href="/app/settings/subscription" className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        <div className="flex items-center space-x-4">
+                            <div className="bg-emerald-100 dark:bg-emerald-900 p-2 rounded-md">
+                                <CreditCard className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                            </div>
+                            <span className="font-medium text-gray-900 dark:text-white">Plan / Payment</span>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-gray-400" />
+                    </Link>
+
+                    <Link href="/app/settings/timecard" className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        <div className="flex items-center space-x-4">
+                            <div className="bg-green-100 dark:bg-green-900 p-2 rounded-md">
+                                <Clock className="h-5 w-5 text-green-600 dark:text-green-400" />
+                            </div>
+                            <span className="font-medium text-gray-900 dark:text-white">タイムカード設定</span>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-gray-400" />
+                    </Link>
+
+                    <Link href="/app/settings/shift" className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        <div className="flex items-center space-x-4">
+                            <div className="bg-pink-100 dark:bg-pink-900 p-2 rounded-md">
+                                <CalendarDays className="h-5 w-5 text-pink-600 dark:text-pink-400" />
+                            </div>
+                            <span className="font-medium text-gray-900 dark:text-white">シフト設定</span>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-gray-400" />
+                    </Link>
+
+                    <Link href="/app/settings/floor" className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        <div className="flex items-center space-x-4">
+                            <div className="bg-purple-100 dark:bg-purple-900 p-2 rounded-md">
+                                <LayoutGrid className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                            </div>
+                            <span className="font-medium text-gray-900 dark:text-white">フロア設定</span>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-gray-400" />
+                    </Link>
+
+                    <Link href="/app/settings/import" className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        <div className="flex items-center space-x-4">
+                            <div className="bg-gray-100 dark:bg-gray-800 p-2 rounded-md">
+                                <Upload className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                            </div>
+                            <span className="font-medium text-gray-900 dark:text-white">データインポート（CSV）</span>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-gray-400" />
+                    </Link>
+
+                    <Link href="/app/settings/slip" className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        <div className="flex items-center space-x-4">
+                            <div className="bg-orange-100 dark:bg-orange-900 p-2 rounded-md">
+                                <Receipt className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                            </div>
+                            <span className="font-medium text-gray-900 dark:text-white">伝票設定</span>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-gray-400" />
+                    </Link>
+
+                    <Link href="/app/settings/roles" className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        <div className="flex items-center space-x-4">
+                            <div className="bg-yellow-100 dark:bg-yellow-900 p-2 rounded-md">
+                                <Shield className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+                            </div>
+                            <span className="font-medium text-gray-900 dark:text-white">権限設定</span>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-gray-400" />
+                    </Link>
+
+                    <Link href="/app/features" className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        <div className="flex items-center space-x-4">
+                            <div className="bg-indigo-100 dark:bg-indigo-900 p-2 rounded-md">
+                                <Eye className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                            </div>
+                            <span className="font-medium text-gray-900 dark:text-white">表示ページ</span>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-gray-400" />
+                    </Link>
+
+                    <DeleteStoreModal />
+                </div>
+            </div>
+        </div>
+    );
+}

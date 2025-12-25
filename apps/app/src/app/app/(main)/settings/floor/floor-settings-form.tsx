@@ -17,7 +17,7 @@ export function FloorSettingsForm({ store }: FloorSettingsFormProps) {
         <form action={updateFloorSettings} className="space-y-6">
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden p-6 space-y-6 border border-gray-200 dark:border-gray-700">
                 <div className="space-y-2">
-                    <Label htmlFor="rotation_time" className="text-gray-900 dark:text-gray-200">
+                    <Label htmlFor="rotation_time" className="text-sm font-medium text-gray-700 dark:text-gray-200">
                         付け回し時間（分）
                     </Label>
                     <Input

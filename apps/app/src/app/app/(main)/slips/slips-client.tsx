@@ -1,11 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Filter, Clock, Plus, X } from "lucide-react";
+import { Filter, Plus, ChevronLeft } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -26,6 +24,7 @@ import { getActiveSessionsV2, getCompletedSessionsV2 } from "../floor/actions/se
 import { NewSessionModal } from "../floor/new-session-modal";
 import { SlipDetailModal } from "@/components/slips/slip-detail-modal";
 import { createBrowserClient } from "@supabase/ssr";
+import { VercelTabs } from "@/components/ui/vercel-tabs";
 
 interface OrderItem {
     id: string;
@@ -53,23 +52,16 @@ interface Slip {
     pricingSystemId: string | null;
 }
 
-interface SlipsClientProps {
-    canEdit?: boolean;
-}
-
-export function SlipsClient({ canEdit = false }: SlipsClientProps) {
+export function SlipsClient() {
     const [tables, setTables] = useState<FloorTable[]>([]);
     const [sessions, setSessions] = useState<TableSession[]>([]);
     const [slips, setSlips] = useState<Slip[]>([]);
     const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
-    const [searchQuery, setSearchQuery] = useState("");
+    const [startDate, setStartDate] = useState<string>("");
+    const [endDate, setEndDate] = useState<string>("");
     const [isNewSessionOpen, setIsNewSessionOpen] = useState(false);
     const [showCompleted, setShowCompleted] = useState(false);
     const [isFilterOpen, setIsFilterOpen] = useState(false);
-
-    // Vercel-style tabs with animated underline
-    const tabsRef = useRef<{ [key: string]: HTMLButtonElement | null }>({});
-    const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
 
     const tabs = [
         { key: "active", label: "進行中" },
@@ -78,20 +70,18 @@ export function SlipsClient({ canEdit = false }: SlipsClientProps) {
 
     const currentTab = showCompleted ? "completed" : "active";
 
-    useEffect(() => {
-        const activeButton = tabsRef.current[currentTab];
-        if (activeButton) {
-            setIndicatorStyle({
-                left: activeButton.offsetLeft,
-                width: activeButton.offsetWidth,
-            });
-        }
-    }, [currentTab]);
+    const hasFilters = startDate || endDate;
 
-    const activeFilters = [searchQuery.trim() && "テーブル"]
-        .filter(Boolean)
-        .map(String);
-    const hasFilters = activeFilters.length > 0;
+    const getFilterLabel = () => {
+        if (startDate && endDate) {
+            return `${startDate} ~ ${endDate}`;
+        } else if (startDate) {
+            return `${startDate} ~`;
+        } else if (endDate) {
+            return `~ ${endDate}`;
+        }
+        return "なし";
+    };
 
     useEffect(() => {
         loadData();
@@ -198,17 +188,6 @@ export function SlipsClient({ canEdit = false }: SlipsClientProps) {
         setSlips(generatedSlips);
     };
 
-    const formatTime = (dateString: string) => {
-        if (!dateString) return "--:--";
-        const date = new Date(dateString);
-        if (isNaN(date.getTime())) return "--:--";
-        return date.toLocaleTimeString("ja-JP", {
-            hour: "2-digit",
-            minute: "2-digit",
-            timeZone: "Asia/Tokyo",
-        });
-    };
-
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleDateString("ja-JP", {
             month: "short",
@@ -216,200 +195,93 @@ export function SlipsClient({ canEdit = false }: SlipsClientProps) {
         });
     };
 
-    const calculateDuration = (startedAt: string) => {
-        if (!startedAt) return "--時間--分";
-        const start = new Date(startedAt);
-        if (isNaN(start.getTime())) return "--時間--分";
-        const now = new Date();
-        const diffMs = now.getTime() - start.getTime();
-        const hours = Math.floor(diffMs / (1000 * 60 * 60));
-        const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-        return `${hours}時間${minutes}分`;
-    };
-
     const handleViewDetail = (slip: Slip) => {
         setSelectedSessionId(slip.sessionId);
     };
 
-    const filteredSlips = slips.filter(slip =>
-        slip.tableName.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredSlips = slips.filter(slip => {
+        const slipDate = new Date(slip.startedAt).toISOString().split('T')[0];
+        if (startDate && slipDate < startDate) return false;
+        if (endDate && slipDate > endDate) return false;
+        return true;
+    });
 
     return (
         <div className="space-y-4">
             <div className="flex items-center gap-2 mb-4">
                 <button
                     type="button"
-                    className={`flex items-center gap-1 px-1 py-1 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 ${
+                    className={`flex items-center gap-1 px-1 py-1 rounded-lg transition-colors hover:bg-gray-50 dark:hover:bg-gray-700 ${
                         hasFilters ? "text-blue-600" : "text-gray-500 dark:text-gray-400"
                     }`}
                     onClick={() => setIsFilterOpen(true)}
                 >
                     <Filter className="h-5 w-5 shrink-0" />
                     <span className="text-sm text-gray-600 dark:text-gray-300 truncate">
-                        フィルター: {hasFilters ? searchQuery : "なし"}
+                        日付: {getFilterLabel()}
                     </span>
                 </button>
                 <div className="flex-1" />
-                {canEdit && (
-                    <Button
-                        size="icon"
-                        className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
-                        onClick={() => setIsNewSessionOpen(true)}
-                    >
-                        <Plus className="h-5 w-5" />
-                    </Button>
-                )}
+                <Button
+                    size="icon"
+                    className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
+                    onClick={() => setIsNewSessionOpen(true)}
+                >
+                    <Plus className="h-5 w-5" />
+                </Button>
             </div>
 
             {/* Vercel-style Tab Navigation */}
-            <div className="relative mb-4">
-                <div className="flex border-b border-gray-200 dark:border-gray-700">
-                    {tabs.map((tab) => (
-                        <button
-                            key={tab.key}
-                            ref={(el) => { tabsRef.current[tab.key] = el; }}
-                            type="button"
-                            onClick={() => setShowCompleted(tab.key === "completed")}
-                            className={`flex-1 px-4 py-2 text-sm font-medium transition-colors duration-200 ${
-                                currentTab === tab.key
-                                    ? "text-gray-900 dark:text-white"
-                                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                            }`}
-                        >
-                            {tab.label}
-                        </button>
-                    ))}
-                </div>
-                <span
-                    className="absolute bottom-0 h-0.5 bg-gray-900 dark:bg-white transition-all duration-300 ease-out"
-                    style={{ left: indicatorStyle.left, width: indicatorStyle.width }}
-                />
-            </div>
+            <VercelTabs
+                tabs={tabs}
+                value={currentTab}
+                onChange={(val) => setShowCompleted(val === "completed")}
+                className="mb-4"
+            />
 
-            {/* Completed Slips - Table View */}
-            {showCompleted ? (
-                <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-                    <Table>
-                        <TableHeader>
-                            <TableRow className="bg-gray-50 dark:bg-gray-800/50">
-                                <TableHead className="w-1/5 text-center text-gray-900 dark:text-gray-100">日付</TableHead>
-                                <TableHead className="w-1/5 text-center text-gray-900 dark:text-gray-100">入店</TableHead>
-                                <TableHead className="w-1/5 text-center text-gray-900 dark:text-gray-100">退店</TableHead>
-                                <TableHead className="w-1/5 text-center text-gray-900 dark:text-gray-100">ゲスト</TableHead>
-                                <TableHead className="w-1/5 text-center text-gray-900 dark:text-gray-100">合計金額</TableHead>
+            {/* Slips Table View */}
+            <div className="overflow-hidden rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+                <Table className="table-fixed">
+                    <TableHeader>
+                        <TableRow className="bg-gray-50 dark:bg-gray-800/50">
+                            <TableHead className="w-1/3 text-center text-gray-900 dark:text-gray-100">日付</TableHead>
+                            <TableHead className="w-1/3 text-center text-gray-900 dark:text-gray-100">ゲスト</TableHead>
+                            <TableHead className="w-1/3 text-center text-gray-900 dark:text-gray-100">合計金額</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {filteredSlips.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                                    {hasFilters
+                                        ? "該当する伝票がありません"
+                                        : showCompleted
+                                            ? "終了済みの伝票はありません"
+                                            : "現在アクティブな伝票はありません"}
+                                </TableCell>
                             </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {filteredSlips.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                                        {searchQuery ? "該当する伝票がありません" : "終了済みの伝票はありません"}
+                        ) : (
+                            filteredSlips.map(slip => (
+                                <TableRow
+                                    key={slip.sessionId}
+                                    className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                                    onClick={() => handleViewDetail(slip)}
+                                >
+                                    <TableCell className="text-center text-gray-900 dark:text-gray-100">
+                                        {formatDate(slip.startedAt)}
+                                    </TableCell>
+                                    <TableCell className="text-center text-gray-900 dark:text-gray-100">
+                                        {slip.guestName}
+                                    </TableCell>
+                                    <TableCell className="text-center font-medium text-gray-900 dark:text-gray-100">
+                                        ¥{slip.total.toLocaleString()}
                                     </TableCell>
                                 </TableRow>
-                            ) : (
-                                filteredSlips.map(slip => (
-                                    <TableRow
-                                        key={slip.sessionId}
-                                        className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-                                        onClick={() => handleViewDetail(slip)}
-                                    >
-                                        <TableCell className="text-center text-gray-900 dark:text-gray-100">
-                                            {formatDate(slip.startedAt)}
-                                        </TableCell>
-                                        <TableCell className="text-center text-gray-900 dark:text-gray-100">
-                                            {formatTime(slip.startedAt)}
-                                        </TableCell>
-                                        <TableCell className="text-center text-gray-900 dark:text-gray-100">
-                                            {slip.endedAt ? formatTime(slip.endedAt) : "--:--"}
-                                        </TableCell>
-                                        <TableCell className="text-center text-gray-900 dark:text-gray-100">
-                                            {slip.guestName}
-                                        </TableCell>
-                                        <TableCell className="text-center font-medium text-gray-900 dark:text-gray-100">
-                                            ¥{slip.total.toLocaleString()}
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
-            ) : (
-                /* Active Slips - Card View */
-                <>
-                    <div className="grid grid-cols-2 gap-3">
-                        {filteredSlips.map(slip => (
-                            <Card
-                                key={slip.sessionId}
-                                className="hover:shadow-md transition-shadow cursor-pointer"
-                                onClick={() => handleViewDetail(slip)}
-                            >
-                                <CardHeader className="pb-3">
-                                    <div className="flex justify-between items-start">
-                                        <div className="flex-1">
-                                            <CardTitle className="text-lg text-gray-900 dark:text-white">{slip.tableName}</CardTitle>
-                                            <div className="text-xs text-muted-foreground mt-1">
-                                                {formatDate(slip.startedAt)}
-                                            </div>
-                                        </div>
-                                        <Badge variant={slip.status === "open" ? "default" : "secondary"}>
-                                            {slip.status === "open" ? "営業中" : "精算済"}
-                                        </Badge>
-                                    </div>
-                                </CardHeader>
-                                <CardContent className="space-y-3">
-                                    <div className="space-y-1">
-                                        <div className="flex items-center gap-2 text-sm text-gray-900 dark:text-gray-100">
-                                            <Clock className="h-3 w-3 text-muted-foreground" />
-                                            <span className="text-muted-foreground">入店:</span>
-                                            <span className="text-gray-900 dark:text-gray-100">{formatTime(slip.startedAt)}</span>
-                                        </div>
-                                        {slip.endedAt && (
-                                            <div className="flex items-center gap-2 text-sm text-gray-900 dark:text-gray-100">
-                                                <Clock className="h-3 w-3 text-muted-foreground" />
-                                                <span className="text-muted-foreground">退店:</span>
-                                                <span className="text-gray-900 dark:text-gray-100">{formatTime(slip.endedAt)}</span>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div className="text-sm text-gray-900 dark:text-gray-100">
-                                        <span className="text-muted-foreground">ゲスト: </span>
-                                        <span className="text-gray-900 dark:text-gray-100">{slip.guestName}</span>
-                                    </div>
-
-                                    {slip.casts && slip.casts.length > 0 && (
-                                        <div className="flex flex-wrap gap-1">
-                                            {slip.casts.map((cast, idx) => (
-                                                <span key={idx} className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 px-2 py-0.5 rounded-md">
-                                                    {cast.type}: {cast.name}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    <div className="flex justify-between items-center pt-2 border-t">
-                                        <span className="text-muted-foreground">合計</span>
-                                        <span className="text-xl font-bold text-gray-900 dark:text-white">¥{slip.total.toLocaleString()}</span>
-                                    </div>
-
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </div>
-
-                    {filteredSlips.length === 0 && (
-                        <Card>
-                            <CardContent className="py-8 text-center text-muted-foreground">
-                                {searchQuery
-                                    ? "該当する伝票がありません"
-                                    : "現在アクティブな伝票はありません"}
-                            </CardContent>
-                        </Card>
-                    )}
-                </>
-            )}
+                            ))
+                        )}
+                    </TableBody>
+                </Table>
+            </div>
 
             {/* Slip Detail Modal */}
             <SlipDetailModal
@@ -435,40 +307,58 @@ export function SlipsClient({ canEdit = false }: SlipsClientProps) {
 
             {/* Filter Modal */}
             <Dialog open={isFilterOpen} onOpenChange={setIsFilterOpen}>
-                <DialogContent className="max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900">
-                    <DialogHeader>
-                        <DialogTitle className="text-base font-semibold text-gray-900 dark:text-white">
+                <DialogContent className="sm:max-w-sm max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900">
+                    <DialogHeader className="flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 bg-white dark:bg-gray-900">
+                        <button
+                            type="button"
+                            onClick={() => setIsFilterOpen(false)}
+                            className="p-1 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                        >
+                            <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                        </button>
+                        <DialogTitle className="flex-1 text-center text-base font-semibold text-gray-900 dark:text-white">
                             フィルター
                         </DialogTitle>
+                        <div className="w-7" />
                     </DialogHeader>
                     <div className="flex flex-col gap-4 mt-4">
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                                テーブルで検索
+                                開始日
                             </label>
-                            <div className="relative">
-                                <Input
-                                    placeholder="テーブル名を入力..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 pr-9 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                />
-                                {searchQuery && (
-                                    <button
-                                        type="button"
-                                        onClick={() => setSearchQuery("")}
-                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-gray-700 transition-colors"
-                                    >
-                                        <X className="h-4 w-4" />
-                                    </button>
-                                )}
-                            </div>
+                            <Input
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
+                                className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 text-base text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                終了日
+                            </label>
+                            <Input
+                                type="date"
+                                value={endDate}
+                                onChange={(e) => setEndDate(e.target.value)}
+                                className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 text-base text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
                         </div>
                         <Button
                             className="w-full rounded-lg bg-blue-600 text-white hover:bg-blue-700"
                             onClick={() => setIsFilterOpen(false)}
                         >
                             適用
+                        </Button>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setStartDate("");
+                                setEndDate("");
+                            }}
+                            className="w-full rounded-lg"
+                        >
+                            クリア
                         </Button>
                     </div>
                 </DialogContent>

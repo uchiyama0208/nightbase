@@ -24,7 +24,7 @@ export function AlreadyMemberCard({ store }: AlreadyMemberCardProps) {
     return (
         <div className="space-y-4">
             {/* Store Info Header */}
-            <Card className="border-2 border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20">
+            <Card className="border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20">
                 <CardContent className="py-4">
                     <div className="flex items-center gap-4">
                         {store.icon_url ? (

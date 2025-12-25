@@ -4,7 +4,7 @@ import type { User } from "@supabase/supabase-js";
 
 import { createServerClient } from "@/lib/supabaseServerClient";
 import type { Database } from "@/types/supabase";
-import type { PageKey, PermissionLevel } from "@/app/app/(main)/roles/constants";
+import type { PageKey, PermissionLevel } from "@/app/app/(main)/settings/roles/constants";
 
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 type PagePermissions = { [key in PageKey]?: PermissionLevel };

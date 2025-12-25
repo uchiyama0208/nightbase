@@ -80,7 +80,6 @@ export function ManualEditor({ initialData, supabaseClient }: ManualEditorProps)
   }, [form, initialData?.slug, isNew]);
 
   const handleSubmit = async (values: ManualEditorValues) => {
-    console.log("[ManualEditor] 保存処理開始", values);
     setIsSaving(true);
 
     try {
@@ -102,8 +101,6 @@ export function ManualEditor({ initialData, supabaseClient }: ManualEditorProps)
         metadata,
       };
 
-      console.log("[ManualEditor] Supabase upsert 送信前", payload);
-
       let nextSlug = values.slug;
 
       if (values.id) {
@@ -114,8 +111,6 @@ export function ManualEditor({ initialData, supabaseClient }: ManualEditorProps)
           .eq("type", "manual")
           .select("id, slug")
           .single();
-
-        console.log("[ManualEditor] update result", { data, error });
 
         if (error) {
           throw new Error(error.message ?? "マニュアルの更新に失敗しました");
@@ -128,8 +123,6 @@ export function ManualEditor({ initialData, supabaseClient }: ManualEditorProps)
           .insert(payload)
           .select("id, slug")
           .single();
-
-        console.log("[ManualEditor] insert result", { data, error });
 
         if (error) {
           throw new Error(error.message ?? "マニュアルの作成に失敗しました");
@@ -162,13 +155,11 @@ export function ManualEditor({ initialData, supabaseClient }: ManualEditorProps)
 
     setIsDeleting(true);
     try {
-      console.log("[ManualEditor] 削除処理開始", initialData.id);
       const { error } = await supabaseClient
         .from("cms_entries")
         .delete()
         .eq("id", initialData.id)
         .eq("type", "manual");
-      console.log("[ManualEditor] 削除結果", { error });
 
       if (error) {
         throw new Error(error.message ?? "マニュアルの削除に失敗しました");
@@ -186,18 +177,18 @@ export function ManualEditor({ initialData, supabaseClient }: ManualEditorProps)
 
   return (
     <form className="space-y-8 p-8" onSubmit={form.handleSubmit((values) => handleSubmit(values))}>
-      <div className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-4 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm md:flex-row md:items-center md:justify-between">
         <div className="space-y-2">
-          <p className="text-xs uppercase tracking-[0.3em] text-slate-500">マニュアル</p>
-          <h1 className="text-3xl font-semibold text-slate-900">{isNew ? "新規マニュアルを作成" : "マニュアルを編集"}</h1>
+          <p className="text-xs uppercase tracking-[0.3em] text-gray-500">マニュアル</p>
+          <h1 className="text-3xl font-semibold text-gray-900">{isNew ? "新規マニュアルを作成" : "マニュアルを編集"}</h1>
           <div className="flex items-center gap-2">
             <Badge variant={status === "published" ? "success" : "neutral"}>{status === "published" ? "公開中" : "下書き"}</Badge>
-            <span className="text-xs text-slate-500">ステータスを切り替えると公開状態が変わります。</span>
+            <span className="text-xs text-gray-500">ステータスを切り替えると公開状態が変わります。</span>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 rounded-full border border-slate-300 bg-slate-100 px-4 py-2">
-            <span className="text-xs uppercase tracking-[0.3em] text-slate-500">公開</span>
+          <div className="flex items-center gap-2 rounded-full border border-gray-300 bg-gray-100 px-4 py-2">
+            <span className="text-xs uppercase tracking-[0.3em] text-gray-500">公開</span>
             <Switch
               checked={status === "published"}
               onCheckedChange={(checked) => form.setValue("status", checked ? "published" : "draft")}
@@ -207,12 +198,12 @@ export function ManualEditor({ initialData, supabaseClient }: ManualEditorProps)
             <Dialog>
               <DialogTrigger asChild>
                 <Button type="button" variant="outline" className="border-red-400/40 text-red-300">
-                  <Trash2 className="mr-2 h-4 w-4" /> 削除
+                  <Trash2 className="mr-2 h-5 w-5" /> 削除
                 </Button>
               </DialogTrigger>
-              <DialogContent className="bg-slate-950/95">
+              <DialogContent className="bg-gray-950/95">
                 <DialogHeader>
-                  <DialogTitle>マニュアルを削除しますか？</DialogTitle>
+                  <DialogTitle className="text-gray-900 dark:text-white">マニュアルを削除しますか？</DialogTitle>
                   <DialogDescription>削除すると公開マニュアルからも削除されます。</DialogDescription>
                 </DialogHeader>
                 <div className="flex justify-end gap-3 pt-4">
@@ -226,7 +217,7 @@ export function ManualEditor({ initialData, supabaseClient }: ManualEditorProps)
                     disabled={isDeleting}
                     className="bg-red-600 hover:bg-red-500"
                   >
-                    {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />} 削除する
+                    {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-5 w-5" />} 削除する
                   </Button>
                 </div>
               </DialogContent>
@@ -240,9 +231,9 @@ export function ManualEditor({ initialData, supabaseClient }: ManualEditorProps)
       </div>
 
       <div className="grid gap-8 xl:grid-cols-[1.8fr_1fr]">
-        <section className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6">
+        <section className="space-y-6 rounded-3xl border border-gray-200 bg-white p-6">
           <div className="space-y-2">
-            <Label htmlFor="title" className="text-slate-700">
+            <Label htmlFor="title" className="text-gray-700">
               タイトル
             </Label>
             <Input id="title" placeholder="例: キャスト出勤管理の使い方" {...form.register("title")} />
@@ -256,41 +247,41 @@ export function ManualEditor({ initialData, supabaseClient }: ManualEditorProps)
               <TabsContent value="edit" className="space-y-2">
                 <Textarea rows={20} placeholder="Markdown で本文を入力" {...form.register("body_markdown")} />
               </TabsContent>
-              <TabsContent value="preview" className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
+              <TabsContent value="preview" className="rounded-2xl border border-gray-200 bg-gray-50 p-6">
                 {markdown ? (
-                  <div className="prose max-w-none text-slate-900">
+                  <div className="prose max-w-none text-gray-900">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                       {markdown}
                     </ReactMarkdown>
                   </div>
                 ) : (
-                  <p className="text-sm text-slate-400">プレビューする本文がありません。</p>
+                  <p className="text-sm text-gray-400">プレビューする本文がありません。</p>
                 )}
               </TabsContent>
             </Tabs>
           </div>
         </section>
-        <aside className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6">
+        <aside className="space-y-6 rounded-3xl border border-gray-200 bg-white p-6">
           <div className="space-y-2">
-            <Label htmlFor="slug" className="text-slate-700">
+            <Label htmlFor="slug" className="text-gray-700">
               スラッグ
             </Label>
             <Input id="slug" placeholder="manual-overview" {...form.register("slug")} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="section" className="text-slate-700">
+            <Label htmlFor="section" className="text-gray-700">
               セクションキー
             </Label>
             <Input id="section" placeholder="getting-started" {...form.register("section")} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="order" className="text-slate-700">
+            <Label htmlFor="order" className="text-gray-700">
               並び順
             </Label>
             <Input id="order" type="number" step={1} {...form.register("order", { valueAsNumber: true })} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="published_at" className="text-slate-700">
+            <Label htmlFor="published_at" className="text-gray-700">
               公開日時
             </Label>
             <Input

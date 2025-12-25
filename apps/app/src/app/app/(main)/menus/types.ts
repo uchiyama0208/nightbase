@@ -86,3 +86,67 @@ export interface MenuUpdatePayload {
     stock_alert_threshold: number;
     updated_at: string;
 }
+
+// ============================================
+// メニューオプション関連の型定義
+// ============================================
+
+// オプション定義（店舗レベル）
+export interface MenuOption {
+    id: string;
+    store_id: string;
+    name: string;
+    sort_order: number;
+    created_at: string;
+    updated_at: string;
+    choices?: MenuOptionChoice[];
+}
+
+// オプションの選択肢
+export interface MenuOptionChoice {
+    id: string;
+    option_id: string;
+    name: string;
+    additional_price: number;
+    sort_order: number;
+    created_at: string;
+    updated_at: string;
+}
+
+// メニューとオプションの紐付け
+export interface MenuOptionLink {
+    id: string;
+    menu_id: string;
+    option_id: string;
+    sort_order: number;
+    created_at: string;
+    option?: MenuOption;
+}
+
+// 注文時のオプション選択記録
+export interface OrderOptionSelection {
+    id: string;
+    order_id: string;
+    option_id: string;
+    choice_id: string;
+    choice_name: string;
+    additional_price: number;
+    created_at: string;
+}
+
+// オプション付きメニュー
+export interface MenuWithOptions extends Menu {
+    option_links?: MenuOptionLink[];
+}
+
+// オプション作成/更新用
+export interface MenuOptionInput {
+    name: string;
+    choices: MenuOptionChoiceInput[];
+}
+
+export interface MenuOptionChoiceInput {
+    id?: string;  // 既存の場合はID付き
+    name: string;
+    additional_price: number;
+}

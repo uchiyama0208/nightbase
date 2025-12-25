@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, type ReactNode } from "react";
 
-type TabKey = "shift" | "user" | "floor" | "salary" | "community";
+type TabKey = "shift" | "user" | "floor" | "store" | "community";
 
 interface DashboardTabContextType {
     activeTab: TabKey;

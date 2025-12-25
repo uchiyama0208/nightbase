@@ -1,5 +1,6 @@
 import { createServerClient } from "@/lib/supabaseServerClient";
-import { getStoreForJoin } from "./actions";
+import { createServiceRoleClient } from "@/lib/supabaseServiceClient";
+import { getStoreForJoin, resetRejectedJoinRequest } from "./actions";
 import { JoinForm } from "./join-form";
 import { AlreadyMemberCard } from "./already-member-card";
 import { PendingApprovalCard } from "./pending-approval-card";
@@ -11,6 +12,7 @@ interface JoinPageProps {
 export default async function JoinPage({ params }: JoinPageProps) {
     const { storeId } = await params;
     const supabase = await createServerClient() as any;
+    const serviceSupabase = createServiceRoleClient() as any;
 
     // Check if store exists and accepts URL joins
     const storeResult = await getStoreForJoin(storeId);
@@ -52,21 +54,26 @@ export default async function JoinPage({ params }: JoinPageProps) {
             .maybeSingle();
 
         if (existingProfile) {
-            // If profile has a role, they are already a member
-            if (existingProfile.role) {
-                memberStatus = "approved";
-            } else {
-                // Check if there's a pending join request
-                const { data: joinRequest } = await supabase
-                    .from("join_requests")
-                    .select("id, status")
-                    .eq("profile_id", existingProfile.id)
-                    .eq("status", "pending")
-                    .maybeSingle();
+            // Check join request status first (use service role to see rejected)
+            const { data: joinRequest } = await serviceSupabase
+                .from("join_requests")
+                .select("id, status")
+                .eq("profile_id", existingProfile.id)
+                .maybeSingle();
 
-                if (joinRequest) {
+            if (joinRequest) {
+                if (joinRequest.status === "pending") {
                     memberStatus = "pending";
+                } else if (joinRequest.status === "approved") {
+                    memberStatus = "approved";
+                } else if (joinRequest.status === "rejected") {
+                    // Delete rejected join request to allow re-application
+                    await resetRejectedJoinRequest(storeId);
+                    // memberStatus stays "none" to show JoinForm
                 }
+            } else if (existingProfile.role && existingProfile.role !== "guest") {
+                // No join request but has role (not guest) - member via other means (e.g., invitation)
+                memberStatus = "approved";
             }
         }
     }

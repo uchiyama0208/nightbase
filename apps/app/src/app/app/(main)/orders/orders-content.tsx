@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { formatJSTTime } from "@/lib/utils";
 import { createBrowserClient } from "@supabase/ssr";
 import Link from "next/link";
+import { VercelTabs } from "@/components/ui/vercel-tabs";
 
 interface OrdersContentProps {
     initialOrders: OrderWithDetails[];
@@ -97,25 +98,6 @@ export function OrdersContent({ initialOrders, initialTableCalls, storeId, canEd
     // 前回の注文IDを記憶して新規注文を検知
     const prevOrderIdsRef = useRef<Set<string>>(new Set(initialOrders.map(o => o.id)));
     const prevCallIdsRef = useRef<Set<string>>(new Set(initialTableCalls.map(c => c.id)));
-
-    // Vercel-style tabs with animated underline
-    const tabsRef = useRef<{ [key: string]: HTMLButtonElement | null }>({});
-    const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
-
-    const tabs: { key: TabType; label: string }[] = [
-        { key: "pending", label: "未完了" },
-        { key: "completed", label: "完了" },
-    ];
-
-    useEffect(() => {
-        const activeButton = tabsRef.current[currentTab];
-        if (activeButton) {
-            setIndicatorStyle({
-                left: activeButton.offsetLeft,
-                width: activeButton.offsetWidth,
-            });
-        }
-    }, [currentTab]);
 
     // 注文データを取得し、新規注文があれば通知
     const fetchOrders = useCallback(async (playSound: boolean = true) => {
@@ -283,6 +265,11 @@ export function OrdersContent({ initialOrders, initialTableCalls, storeId, canEd
 
     const pendingCount = pendingOrders.length;
 
+    const tabs = [
+        { key: "pending" as TabType, label: "未完了", count: pendingCount },
+        { key: "completed" as TabType, label: "完了" },
+    ];
+
     return (
         <div className="space-y-4">
             {/* Header buttons */}
@@ -301,12 +288,12 @@ export function OrdersContent({ initialOrders, initialTableCalls, storeId, canEd
                     )}
                 </Button>
                 <div className="flex-1" />
-                <Link href="/app/settings/qr-order">
+                <Link href="/app/settings/table-order">
                     <Button
                         variant="ghost"
                         size="icon"
                         className="h-9 w-9"
-                        title="QRコード設定"
+                        title="テーブル注文設定"
                     >
                         <Settings className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                     </Button>
@@ -357,42 +344,19 @@ export function OrdersContent({ initialOrders, initialTableCalls, storeId, canEd
             )}
 
             {/* Vercel-style Tab Navigation */}
-            <div className="relative">
-                <div className="flex border-b border-gray-200 dark:border-gray-700">
-                    {tabs.map((tab) => (
-                        <button
-                            key={tab.key}
-                            ref={(el) => { tabsRef.current[tab.key] = el; }}
-                            type="button"
-                            onClick={() => setCurrentTab(tab.key)}
-                            className={`flex-1 px-4 py-2 text-sm font-medium transition-colors duration-200 ${
-                                currentTab === tab.key
-                                    ? "text-gray-900 dark:text-white"
-                                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                            }`}
-                        >
-                            {tab.label}
-                            {tab.key === "pending" && pendingCount > 0 && (
-                                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 text-xs font-medium">
-                                    {pendingCount}
-                                </span>
-                            )}
-                        </button>
-                    ))}
-                </div>
-                <span
-                    className="absolute bottom-0 h-0.5 bg-gray-900 dark:bg-white transition-all duration-300 ease-out"
-                    style={{ left: indicatorStyle.left, width: indicatorStyle.width }}
-                />
-            </div>
+            <VercelTabs
+                tabs={tabs}
+                value={currentTab}
+                onChange={(val) => setCurrentTab(val as TabType)}
+            />
 
             {/* Content */}
             {filteredOrders.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground bg-slate-50 dark:bg-slate-900 rounded-lg border border-dashed">
+                <div className="text-center py-12 text-muted-foreground bg-gray-50 dark:bg-gray-900 rounded-lg border border-dashed">
                     {currentTab === "pending" ? "未完了の注文はありません" : "完了した注文はありません"}
                 </div>
             ) : (
-                <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+                <div className="overflow-hidden rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
                     <div className="divide-y divide-gray-200 dark:divide-gray-700">
                         {filteredOrders.map(order => (
                             <div

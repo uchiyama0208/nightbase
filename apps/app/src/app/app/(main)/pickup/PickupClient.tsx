@@ -508,18 +508,18 @@ function RouteCard({
                                                         type="button"
                                                         onClick={(e) => handleMovePassenger(e, passenger, "up", tripPassengers)}
                                                         disabled={isFirst || isUpdatingOrder || isProcessing}
-                                                        className="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                                        className="p-0.5 rounded hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                                                     >
-                                                        <ChevronUp className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                                                        <ChevronUp className="h-5 w-5 text-gray-400 dark:text-gray-500" />
                                                     </button>
                                                     {/* 下ボタン */}
                                                     <button
                                                         type="button"
                                                         onClick={(e) => handleMovePassenger(e, passenger, "down", tripPassengers)}
                                                         disabled={isLast || isUpdatingOrder || isProcessing}
-                                                        className="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                                        className="p-0.5 rounded hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                                                     >
-                                                        <ChevronDown className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                                                        <ChevronDown className="h-5 w-5 text-gray-400 dark:text-gray-500" />
                                                     </button>
                                                     {/* 削除ボタン */}
                                                     <button
@@ -534,7 +534,7 @@ function RouteCard({
                                                         disabled={isProcessing}
                                                         className="p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                                                     >
-                                                        <Trash2 className="h-4 w-4 text-gray-400 hover:text-red-500 dark:hover:text-red-400" />
+                                                        <Trash2 className="h-5 w-5 text-gray-400 hover:text-red-500 dark:hover:text-red-400" />
                                                     </button>
                                                 </div>
                                             </div>
@@ -581,7 +581,7 @@ function RouteCard({
 
         {/* 削除確認モーダル */}
         <Dialog open={deleteTarget !== null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-            <DialogContent className="max-w-sm rounded-2xl">
+            <DialogContent className="sm:max-w-sm rounded-2xl">
                 <DialogHeader>
                     <DialogTitle className="text-gray-900 dark:text-white">
                         未決定に戻す
@@ -832,7 +832,7 @@ export function PickupClient({
                 <button
                     type="button"
                     onClick={() => handleDateChange(-1)}
-                    className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    className="p-2 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                     <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                 </button>
@@ -840,7 +840,7 @@ export function PickupClient({
                     <PopoverTrigger asChild>
                         <button
                             type="button"
-                            className="flex items-center gap-2 px-3 py-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                         >
                             <span className="text-lg font-semibold text-gray-900 dark:text-white">
                                 {formatDisplayDate(initialDate)}
@@ -855,9 +855,9 @@ export function PickupClient({
                                 <button
                                     type="button"
                                     onClick={goToPreviousMonth}
-                                    className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                    className="p-1.5 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                                 >
-                                    <ChevronLeft className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                                    <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                                 </button>
                                 <span className="text-sm font-semibold text-gray-900 dark:text-white">
                                     {calendarYear}年{calendarMonth + 1}月
@@ -865,7 +865,7 @@ export function PickupClient({
                                 <button
                                     type="button"
                                     onClick={goToNextMonth}
-                                    className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                    className="p-1.5 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                                 >
                                     <ChevronRight className="h-4 w-4 text-gray-600 dark:text-gray-400" />
                                 </button>
@@ -913,10 +913,10 @@ export function PickupClient({
                                                     : isToday
                                                     ? "bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300"
                                                     : isSunday
-                                                    ? "text-red-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                                                    ? "text-red-500 hover:bg-gray-50 dark:hover:bg-gray-700"
                                                     : isSaturday
-                                                    ? "text-blue-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-                                                    : "text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
+                                                    ? "text-blue-500 hover:bg-gray-50 dark:hover:bg-gray-700"
+                                                    : "text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700"
                                             }`}
                                         >
                                             {day}
@@ -930,7 +930,7 @@ export function PickupClient({
                 <button
                     type="button"
                     onClick={() => handleDateChange(1)}
-                    className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    className="p-2 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                     <ChevronRight className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                 </button>
@@ -958,7 +958,7 @@ export function PickupClient({
                                         <button
                                             type="button"
                                             disabled={isProcessing}
-                                            className="w-full bg-gray-50 dark:bg-gray-800 rounded-lg px-2 py-1.5 text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                                            className="w-full bg-gray-50 dark:bg-gray-800 rounded-lg px-2 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
                                         >
                                             <div className="flex items-center gap-1.5 min-w-0">
                                                 <span className="text-sm text-gray-900 dark:text-white shrink-0">
@@ -985,7 +985,7 @@ export function PickupClient({
                                                     type="button"
                                                     onClick={() => handleAddToRoute(route.id, attendee.profile_id)}
                                                     disabled={isProcessing}
-                                                    className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+                                                    className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded transition-colors"
                                                 >
                                                     <ArrowRight className="h-3 w-3 text-gray-400" />
                                                     {route.driver_name || `ルート${idx + 1}`}

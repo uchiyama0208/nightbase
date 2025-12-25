@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
+import { VercelTabs } from "@/components/ui/vercel-tabs";
 import {
     Select,
     SelectContent,
@@ -66,6 +67,11 @@ export function ShiftSettingsForm({ store, automationSettings }: ShiftSettingsFo
         automationSettings?.reminder_hour ?? 10
     );
 
+    const tabs = [
+        { key: "basic", label: "基本設定" },
+        { key: "automation", label: "自動化" },
+    ];
+
     const handleSubmit = async () => {
         startTransition(async () => {
             const result = await updateShiftSettings(store.id, {
@@ -94,40 +100,12 @@ export function ShiftSettingsForm({ store, automationSettings }: ShiftSettingsFo
     return (
         <div className="space-y-6">
             {/* Vercel-style Tab Switcher */}
-            <div className="relative">
-                <div className="flex">
-                    <button
-                        type="button"
-                        onClick={() => setActiveTab("basic")}
-                        className={`flex-1 py-2.5 text-sm font-medium transition-colors relative flex items-center justify-center ${
-                            activeTab === "basic"
-                                ? "text-gray-900 dark:text-white"
-                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                        }`}
-                    >
-                        基本設定
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setActiveTab("automation")}
-                        className={`flex-1 py-2.5 text-sm font-medium transition-colors relative flex items-center justify-center ${
-                            activeTab === "automation"
-                                ? "text-gray-900 dark:text-white"
-                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                        }`}
-                    >
-                        自動化
-                    </button>
-                </div>
-                <div
-                    className="absolute bottom-0 h-0.5 bg-gray-900 dark:bg-white transition-all duration-200"
-                    style={{
-                        width: "50%",
-                        left: activeTab === "basic" ? "0%" : "50%"
-                    }}
-                />
-                <div className="absolute bottom-0 left-0 right-0 h-px bg-gray-200 dark:bg-gray-700" />
-            </div>
+            <VercelTabs
+                tabs={tabs}
+                value={activeTab}
+                onChange={(val) => setActiveTab(val as "basic" | "automation")}
+                className="mb-4"
+            />
 
             {/* Content */}
             <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
@@ -206,7 +184,7 @@ export function ShiftSettingsForm({ store, automationSettings }: ShiftSettingsFo
                         {/* Automation Enable */}
                         <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50 dark:bg-gray-800">
                             <div>
-                                <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                     シフト募集の自動化
                                 </h3>
                                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -330,7 +308,7 @@ export function ShiftSettingsForm({ store, automationSettings }: ShiftSettingsFo
                                 <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-800 space-y-4">
                                     <div className="flex items-center justify-between">
                                         <div>
-                                            <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                                            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                                 自動催促
                                             </h3>
                                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">

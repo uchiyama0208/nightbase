@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { PricingSystem } from "@/types/floor";
 import { getPricingSystems, createPricingSystem, updatePricingSystem, deletePricingSystem, setDefaultPricingSystem } from "./actions";
 import { Button } from "@/components/ui/button";
@@ -52,10 +52,11 @@ const defaultFormData: PricingSystemFormData = {
 
 interface PricingSystemsClientProps {
     canEdit?: boolean;
+    initialSystems?: PricingSystem[];
 }
 
-export function PricingSystemsClient({ canEdit = false }: PricingSystemsClientProps) {
-    const [systems, setSystems] = useState<PricingSystem[]>([]);
+export function PricingSystemsClient({ canEdit = false, initialSystems = [] }: PricingSystemsClientProps) {
+    const [systems, setSystems] = useState<PricingSystem[]>(initialSystems);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [editingSystem, setEditingSystem] = useState<PricingSystem | null>(null);
@@ -63,10 +64,6 @@ export function PricingSystemsClient({ canEdit = false }: PricingSystemsClientPr
     const [formData, setFormData] = useState<PricingSystemFormData>(defaultFormData);
     const [isLoading, setIsLoading] = useState(false);
     const { toast } = useToast();
-
-    useEffect(() => {
-        loadData();
-    }, []);
 
     const loadData = async () => {
         const data = await getPricingSystems();
@@ -263,13 +260,13 @@ export function PricingSystemsClient({ canEdit = false }: PricingSystemsClientPr
 
             {/* Create/Edit Modal */}
             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-                <DialogContent className="max-w-[calc(100vw-32px)] sm:max-w-[400px] max-h-[calc(100vh-32px)] overflow-y-auto rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+                <DialogContent className="max-w-[calc(100vw-32px)] sm:max-w-md max-h-[calc(100vh-32px)] overflow-y-auto rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
                     <DialogHeader>
                         <div className="relative flex items-center justify-center py-1">
                             <button
                                 type="button"
                                 onClick={() => setIsModalOpen(false)}
-                                className="absolute left-0 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                className="absolute left-0 p-1 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                             >
                                 <ChevronLeft className="h-5 w-5 text-gray-500" />
                             </button>
@@ -281,7 +278,7 @@ export function PricingSystemsClient({ canEdit = false }: PricingSystemsClientPr
                                     <DropdownMenuTrigger asChild>
                                         <button
                                             type="button"
-                                            className="absolute right-0 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                            className="absolute right-0 p-1 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                                         >
                                             <MoreHorizontal className="h-5 w-5 text-gray-500" />
                                         </button>
@@ -294,7 +291,7 @@ export function PricingSystemsClient({ canEdit = false }: PricingSystemsClientPr
                                                     handleSetDefault(editingSystem.id);
                                                     setIsModalOpen(false);
                                                 }}
-                                                className="text-gray-700 dark:text-gray-200"
+                                                className="text-sm font-medium text-gray-700 dark:text-gray-200"
                                             >
                                                 <Star className="h-4 w-4 mr-2" />
                                                 デフォルトに設定
@@ -309,7 +306,7 @@ export function PricingSystemsClient({ canEdit = false }: PricingSystemsClientPr
                                                 setIsModalOpen(false);
                                             }}
                                         >
-                                            <Trash2 className="h-4 w-4 mr-2" />
+                                            <Trash2 className="h-5 w-5 mr-2" />
                                             削除
                                         </DropdownMenuItem>
                                     </DropdownMenuContent>
@@ -319,7 +316,7 @@ export function PricingSystemsClient({ canEdit = false }: PricingSystemsClientPr
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                         <div className="space-y-2">
-                            <Label className="text-gray-700 dark:text-gray-200">名前 *</Label>
+                            <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">名前 *</Label>
                             <Input
                                 value={formData.name}
                                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -329,7 +326,7 @@ export function PricingSystemsClient({ canEdit = false }: PricingSystemsClientPr
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-2">
-                                <Label className="text-gray-700 dark:text-gray-200">セット料金</Label>
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">セット料金</Label>
                                 <Input
                                     type="number"
                                     value={formData.set_fee}
@@ -339,7 +336,7 @@ export function PricingSystemsClient({ canEdit = false }: PricingSystemsClientPr
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-gray-700 dark:text-gray-200">セット時間 (分)</Label>
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">セット時間 (分)</Label>
                                 <Input
                                     type="number"
                                     value={formData.set_duration_minutes}
@@ -349,7 +346,7 @@ export function PricingSystemsClient({ canEdit = false }: PricingSystemsClientPr
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-gray-700 dark:text-gray-200">延長料金</Label>
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">延長料金</Label>
                                 <Input
                                     type="number"
                                     value={formData.extension_fee}
@@ -359,7 +356,7 @@ export function PricingSystemsClient({ canEdit = false }: PricingSystemsClientPr
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-gray-700 dark:text-gray-200">延長時間 (分)</Label>
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">延長時間 (分)</Label>
                                 <Input
                                     type="number"
                                     value={formData.extension_duration_minutes}
@@ -369,7 +366,7 @@ export function PricingSystemsClient({ canEdit = false }: PricingSystemsClientPr
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-gray-700 dark:text-gray-200">指名料金</Label>
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">指名料金</Label>
                                 <Input
                                     type="number"
                                     value={formData.nomination_fee}
@@ -379,7 +376,7 @@ export function PricingSystemsClient({ canEdit = false }: PricingSystemsClientPr
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-gray-700 dark:text-gray-200">指名時間 (分)</Label>
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">指名時間 (分)</Label>
                                 <Input
                                     type="number"
                                     value={formData.nomination_set_duration_minutes}
@@ -389,7 +386,7 @@ export function PricingSystemsClient({ canEdit = false }: PricingSystemsClientPr
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-gray-700 dark:text-gray-200">同伴料金</Label>
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">同伴料金</Label>
                                 <Input
                                     type="number"
                                     value={formData.douhan_fee}
@@ -399,7 +396,7 @@ export function PricingSystemsClient({ canEdit = false }: PricingSystemsClientPr
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-gray-700 dark:text-gray-200">同伴時間 (分)</Label>
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">同伴時間 (分)</Label>
                                 <Input
                                     type="number"
                                     value={formData.douhan_set_duration_minutes}
@@ -409,7 +406,7 @@ export function PricingSystemsClient({ canEdit = false }: PricingSystemsClientPr
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-gray-700 dark:text-gray-200">場内料金</Label>
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">場内料金</Label>
                                 <Input
                                     type="number"
                                     value={formData.companion_fee}
@@ -419,7 +416,7 @@ export function PricingSystemsClient({ canEdit = false }: PricingSystemsClientPr
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-gray-700 dark:text-gray-200">場内時間 (分)</Label>
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">場内時間 (分)</Label>
                                 <Input
                                     type="number"
                                     value={formData.companion_set_duration_minutes}
@@ -429,7 +426,7 @@ export function PricingSystemsClient({ canEdit = false }: PricingSystemsClientPr
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-gray-700 dark:text-gray-200">サービス料 (%)</Label>
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">サービス料 (%)</Label>
                                 <Input
                                     type="number"
                                     value={formData.service_rate}
@@ -439,7 +436,7 @@ export function PricingSystemsClient({ canEdit = false }: PricingSystemsClientPr
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-gray-700 dark:text-gray-200">消費税 (%)</Label>
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">消費税 (%)</Label>
                                 <Input
                                     type="number"
                                     value={formData.tax_rate}
@@ -457,7 +454,7 @@ export function PricingSystemsClient({ canEdit = false }: PricingSystemsClientPr
                                 onChange={(e) => setFormData({ ...formData, is_default: e.target.checked })}
                                 className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                             />
-                            <Label htmlFor="is_default" className="cursor-pointer text-gray-700 dark:text-gray-200">デフォルトに設定</Label>
+                            <Label htmlFor="is_default" className="text-sm font-medium text-gray-700 dark:text-gray-200 cursor-pointer">デフォルトに設定</Label>
                         </div>
                     </div>
                     <DialogFooter className="flex flex-col gap-2">
@@ -474,7 +471,7 @@ export function PricingSystemsClient({ canEdit = false }: PricingSystemsClientPr
 
             {/* Delete Confirmation Modal */}
             <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
-                <DialogContent className="max-w-[calc(100vw-32px)] sm:max-w-[360px] rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+                <DialogContent className="max-w-[calc(100vw-32px)] sm:max-w-sm rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
                     <DialogHeader>
                         <DialogTitle className="text-gray-900 dark:text-white">削除確認</DialogTitle>
                     </DialogHeader>

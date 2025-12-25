@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Clock, Zap, ClipboardList } from "lucide-react";
 import { TableSession, Table } from "@/types/floor";
 import { formatTime } from "../utils/format";
+import { getTagOption, type TagValue } from "../constants/tag-options";
 
 interface SessionCardProps {
     session: any; // V2構造
@@ -12,29 +13,41 @@ interface SessionCardProps {
     onQuickOrder: (session: any, table: Table | null) => void;
 }
 
-// 特別料金のリスト
-const SPECIAL_FEE_NAMES = ["セット料金", "指名料", "場内料金", "同伴料", "延長料金"];
+// 特別料金のリスト（未完了注文カウントから除外するもの）
+const SPECIAL_FEE_NAMES = ["セット料金", "指名料", "場内料金", "同伴料", "延長料金", "待機", "接客中", "ヘルプ", "終了"];
+
 
 // V2構造からゲストとキャストのグループを生成
 function groupGuestsFromV2(session: any) {
     const sessionGuests = session?.session_guests || [];
     const orders = session?.orders || [];
 
-    // キャスト関連のオーダーを抽出（cast_idがあり、かつキャスト料金の種類のみ）
+    // キャスト関連のオーダーを抽出（cast_idがあり、かつアクティブなキャスト、待機・終了以外）
     const castOrders = orders.filter((o: any) =>
         o.cast_id != null &&
-        ['指名料', '場内料金', '同伴料'].includes(o.item_name)
+        o.cast_status !== 'ended' &&
+        o.cast_status !== 'waiting'
     );
 
     return sessionGuests.map((sg: any) => {
         const guest = sg.profiles;
+        // 仮ゲストの場合はsession_guests.guest_nameを使用
+        const guestName = guest?.display_name || sg.guest_name || null;
+
         const guestCastOrders = castOrders.filter((o: any) =>
-            o.guest_id === sg.guest_id && o.cast_status !== 'ended'
+            o.guest_id === sg.guest_id
         );
+
+        // 1ゲストにつき1キャストのみ表示
+        const firstCast = guestCastOrders[0];
 
         return {
             guest,
-            servingCasts: guestCastOrders.map((o: any) => o.profiles).filter(Boolean),
+            guestName,
+            servingCast: firstCast ? {
+                profile: firstCast.profiles,
+                status: firstCast.cast_status,
+            } : null,
         };
     });
 }
@@ -58,11 +71,11 @@ export function SessionCard({ session, table, onSessionClick, onQuickOrder }: Se
 
     return (
         <Card
-            className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 p-3 flex flex-col h-full shadow-sm"
+            className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-800 p-3 flex flex-col h-full shadow-sm"
             onClick={() => onSessionClick(session)}
         >
             <CardHeader className="p-0 mb-2 space-y-0">
-                <CardTitle className="text-lg mb-1 text-slate-900 dark:text-slate-100">
+                <CardTitle className="text-lg mb-1 text-gray-900 dark:text-white">
                     {table?.name || "不明"}
                 </CardTitle>
                 <div className="flex items-center justify-between gap-2">
@@ -77,33 +90,38 @@ export function SessionCard({ session, table, onSessionClick, onQuickOrder }: Se
                 {/* Guest and serving cast pairs */}
                 <div className="space-y-1.5">
                     {guestGroups.slice(0, 3).map((group, i) => (
-                        <div key={i} className="flex items-center gap-1 text-[11px]">
+                        <div key={i} className="flex items-center gap-1 text-xs">
                             {/* Guest */}
                             <div className="flex items-center gap-1 min-w-0">
-                                <span className="truncate text-slate-700 dark:text-slate-300">
-                                    {group.guest?.display_name || "不明"}
+                                <span className="truncate text-gray-700 dark:text-gray-300">
+                                    {group.guestName || "不明"}
                                 </span>
                                 {/* Only badge */}
-                                {group.servingCasts.length === 0 && (
+                                {!group.servingCast && (
                                     <span className="text-[10px] text-red-600 dark:text-red-400 font-medium shrink-0">
                                         オンリー
                                     </span>
                                 )}
                             </div>
 
-                            {group.servingCasts.length > 0 && (
-                                <div className="flex items-center gap-0.5 text-muted-foreground shrink-0">
-                                    <span className="text-[10px]">←</span>
-                                    {group.servingCasts.slice(0, 2).map((cast: any, j: number) => (
-                                        <span key={j} className="text-pink-600 dark:text-pink-400 truncate max-w-[3rem]">
-                                            {cast?.display_name?.slice(0, 3) || "?"}
+                            {group.servingCast && (() => {
+                                const tagOption = getTagOption(group.servingCast.status as TagValue);
+                                return (
+                                    <div className="flex items-center gap-1 shrink-0">
+                                        <span className="text-[10px] text-muted-foreground">←</span>
+                                        <span
+                                            className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${tagOption.color}`}
+                                        >
+                                            <span className="truncate max-w-[2.5rem]">
+                                                {group.servingCast.profile?.display_name?.slice(0, 3) || "?"}
+                                            </span>
+                                            <span className="opacity-80">
+                                                {tagOption.label}
+                                            </span>
                                         </span>
-                                    ))}
-                                    {group.servingCasts.length > 2 && (
-                                        <span className="text-muted-foreground">+{group.servingCasts.length - 2}</span>
-                                    )}
-                                </div>
-                            )}
+                                    </div>
+                                );
+                            })()}
                         </div>
                     ))}
                     {guestGroups.length > 3 && (
@@ -120,7 +138,7 @@ export function SessionCard({ session, table, onSessionClick, onQuickOrder }: Se
 
                 {/* Pending orders count */}
                 {pendingOrderCount > 0 && (
-                    <div className="flex items-center gap-1 mt-2 text-[11px] text-amber-600 dark:text-amber-400">
+                    <div className="flex items-center gap-1 mt-2 text-xs text-amber-600 dark:text-amber-400">
                         <ClipboardList className="h-3 w-3" />
                         <span>未完了注文: {pendingOrderCount}件</span>
                     </div>

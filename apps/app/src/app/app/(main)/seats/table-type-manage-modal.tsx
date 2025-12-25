@@ -114,26 +114,26 @@ export function TableTypeManageModal({ open, onOpenChange, tableTypes, onUpdate 
         <>
             <Dialog open={open} onOpenChange={(value) => { if (!value) onOpenChange(false); }}>
                 <DialogContent
-                    className="max-w-md max-h-[80vh] overflow-y-auto p-0 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
+                    className="max-w-md p-0 overflow-hidden flex flex-col max-h-[90vh] rounded-2xl"
                     onPointerDownOutside={(e) => e.stopPropagation()}
                     onInteractOutside={(e) => e.stopPropagation()}
                     onEscapeKeyDown={(e) => e.stopPropagation()}
                 >
-                    <DialogHeader className="px-4 py-2 border-b border-gray-200 dark:border-gray-700 flex flex-row items-center justify-between gap-2 relative">
+                    <DialogHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900 flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
                         <button
                             type="button"
                             onClick={() => onOpenChange(false)}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-0"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
                             aria-label="戻る"
                         >
-                            <ChevronLeft className="h-5 w-5" />
+                            <ChevronLeft className="h-4 w-4" />
                         </button>
-                        <DialogTitle className="flex-1 text-center text-lg font-bold text-gray-900 dark:text-white">席タイプ管理</DialogTitle>
+                        <DialogTitle className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white truncate">席タイプ管理</DialogTitle>
                         <DialogDescription className="sr-only">席タイプの追加・編集・削除</DialogDescription>
-                        <div className="w-8" />
+                        <div className="w-8 h-8" />
                     </DialogHeader>
 
-                    <div className="p-4 space-y-4">
+                    <div className="flex-1 overflow-y-auto p-6 space-y-4">
                         {/* Create New */}
                         <div className="flex gap-2 items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-xl">
                             <Input
@@ -151,7 +151,7 @@ export function TableTypeManageModal({ open, onOpenChange, tableTypes, onUpdate 
                                 disabled={isSubmitting || !newTypeName.trim()}
                                 className="h-10 px-4 bg-blue-600 text-white hover:bg-blue-700 rounded-lg"
                             >
-                                <Plus className="h-4 w-4 mr-1" />
+                                <Plus className="h-5 w-5 mr-1" />
                                 追加
                             </Button>
                         </div>
@@ -190,7 +190,7 @@ export function TableTypeManageModal({ open, onOpenChange, tableTypes, onUpdate 
                                                 <Input
                                                     value={editName}
                                                     onChange={(e) => setEditName(e.target.value)}
-                                                    className="h-9 rounded-lg"
+                                                    className="h-10 rounded-lg"
                                                     autoFocus
                                                 />
                                                 <Button
@@ -204,10 +204,10 @@ export function TableTypeManageModal({ open, onOpenChange, tableTypes, onUpdate 
                                                 <Button
                                                     size="icon"
                                                     variant="ghost"
-                                                    className="h-9 w-9 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                                    className="h-9 w-9 text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
                                                     onClick={cancelEdit}
                                                 >
-                                                    <X className="h-4 w-4" />
+                                                    <X className="h-5 w-5" />
                                                 </Button>
                                             </div>
                                         ) : (
@@ -225,7 +225,7 @@ export function TableTypeManageModal({ open, onOpenChange, tableTypes, onUpdate 
                                                 onClick={() => startEdit(tableType)}
                                                 disabled={isSubmitting}
                                             >
-                                                <Edit2 className="h-4 w-4" />
+                                                <Edit2 className="h-5 w-5" />
                                             </Button>
                                             <Button
                                                 size="icon"
@@ -246,33 +246,32 @@ export function TableTypeManageModal({ open, onOpenChange, tableTypes, onUpdate 
                                 </div>
                             )}
                         </div>
-
-                        <div className="pt-2">
-                            <Button
-                                variant="outline"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onOpenChange(false);
-                                }}
-                                className="w-full h-11 rounded-lg"
-                            >
-                                閉じる
-                            </Button>
-                        </div>
+                    </div>
+                    <div className="flex-shrink-0 p-6 pt-0">
+                        <Button
+                            variant="outline"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onOpenChange(false);
+                            }}
+                            className="w-full h-11 rounded-lg"
+                        >
+                            閉じる
+                        </Button>
                     </div>
                 </DialogContent>
             </Dialog>
 
             {/* Delete Confirmation Modal */}
             <Dialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
-                <DialogContent className="max-w-sm rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
+                <DialogContent className="sm:max-w-sm rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
                     <DialogHeader className="space-y-1.5">
                         <DialogTitle className="text-lg font-semibold text-gray-900 dark:text-white">削除確認</DialogTitle>
                         <DialogDescription className="text-sm text-gray-600 dark:text-gray-400">
                             「{deleteConfirm?.name}」を削除しますか？紐づいているテーブルは席タイプなしになります。
                         </DialogDescription>
                     </DialogHeader>
-                    <DialogFooter className="mt-4 flex flex-col-reverse gap-2">
+                    <DialogFooter className="flex flex-col-reverse gap-2">
                         <Button
                             variant="outline"
                             onClick={() => setDeleteConfirm(null)}

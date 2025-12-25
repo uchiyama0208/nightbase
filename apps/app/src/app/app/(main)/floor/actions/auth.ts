@@ -2,29 +2,27 @@
 
 import { createServerClient } from "@/lib/supabaseServerClient";
 import { revalidatePath } from "next/cache";
-
-// Supabaseクライアントの型（動的なためany使用）
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type SupabaseClient = any;
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/supabase";
 
 /**
  * 認証済みユーザーのstore_idを取得
  * @throws Error if not authenticated or no store found
  */
 export async function getAuthenticatedStoreId(): Promise<{
-    supabase: SupabaseClient;
+    supabase: SupabaseClient<Database>;
     storeId: string;
     userId: string;
     role: string;
     profileId: string;
 }> {
-    const supabase = await createServerClient() as SupabaseClient;
+    const supabase = await createServerClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Not authenticated");
 
-    const { data: profile } = await supabase
+    const { data: profile } = await (supabase as any)
         .from("profiles")
-        .select("store_id, role")
+        .select("id, store_id, role")
         .eq("user_id", user.id)
         .single();
 

@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Mail, CheckCircle } from "lucide-react";
+import { ChevronLeft, Mail, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import { requestPasswordReset } from "./actions";
 
@@ -64,7 +64,7 @@ export default function ForgotPasswordPage() {
                                 </Button>
                                 <Link href="/login" className="w-full">
                                     <Button variant="ghost" className="w-full">
-                                        <ArrowLeft className="mr-2 h-4 w-4" />
+                                        <ChevronLeft className="mr-2 h-4 w-4" />
                                         ログインに戻る
                                     </Button>
                                 </Link>
@@ -84,7 +84,7 @@ export default function ForgotPasswordPage() {
                         href="/login"
                         className="inline-flex items-center text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
                     >
-                        <ArrowLeft className="mr-2 h-4 w-4" />
+                        <ChevronLeft className="mr-2 h-4 w-4" />
                         ログインに戻る
                     </Link>
                 </div>
@@ -103,7 +103,7 @@ export default function ForgotPasswordPage() {
                     <CardContent>
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
-                                <Label htmlFor="email" className="text-gray-900 dark:text-white">
+                                <Label htmlFor="email" className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                     メールアドレス
                                 </Label>
                                 <Input

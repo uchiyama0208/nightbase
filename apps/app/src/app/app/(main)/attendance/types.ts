@@ -10,6 +10,7 @@ export interface AttendanceRecord {
     clock_in: string | null;
     clock_out: string | null;
     pickup_destination: string | null;
+    break_count?: number;
 }
 
 // 勤務記録の型定義（旧TimeCard）
@@ -59,7 +60,7 @@ export interface AttendancePayload {
     clock_out: string | null;
     scheduled_start_time?: string | null;
     scheduled_end_time?: string | null;
-    pickup_destination: string | null;
+    pickup_destination_id: string | null;
     pickup_required?: boolean;
     status?: string;
     source?: string;

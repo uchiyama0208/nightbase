@@ -4,6 +4,7 @@ import { createServerClient } from "@/lib/supabaseServerClient";
 import { revalidatePath } from "next/cache";
 import { revalidateFloorAndSlips, getAuthenticatedStoreId } from "./auth";
 import { SPECIAL_FEE_NAMES, SPECIAL_FEE_NAME_VALUES, type OrderItem, type OrderUpdateData, type OrderData } from "./types";
+import { sendPushNotification } from "@/lib/notifications/push";
 
 /**
  * オーダーを作成
@@ -12,7 +13,8 @@ export async function createOrder(
     sessionId: string,
     items: OrderItem[],
     guestId?: string | null,
-    castId?: string | null
+    castId?: string | null,
+    sessionGuestId?: string | null
 ) {
     const { supabase, storeId } = await getAuthenticatedStoreId();
 
@@ -29,15 +31,16 @@ export async function createOrder(
                 : (isTempItem ? item.name : null),
             quantity: item.quantity,
             amount: item.amount,
-            guest_id: guestId,
-            cast_id: castId,
+            guest_id: guestId || null,
+            cast_id: castId || null,
+            session_guest_id: sessionGuestId || null,
             status: 'pending',
             start_time: item.startTime || null,
             end_time: item.endTime || null,
         };
     });
 
-    const { error } = await supabase
+    const { error } = await (supabase as any)
         .from("orders")
         .insert(orders);
 
@@ -50,7 +53,7 @@ export async function createOrder(
 
         if (isSpecialFee || isTempItem) continue;
 
-        const { data: menu } = await supabase
+        const { data: menu } = await (supabase as any)
             .from("menus")
             .select("stock_enabled, stock_quantity")
             .eq("id", item.menuId)
@@ -58,7 +61,7 @@ export async function createOrder(
 
         if (menu?.stock_enabled && menu.stock_quantity > 0) {
             const newQuantity = Math.max(0, menu.stock_quantity - item.quantity);
-            await supabase
+            await (supabase as any)
                 .from("menus")
                 .update({ stock_quantity: newQuantity })
                 .eq("id", item.menuId);
@@ -68,6 +71,28 @@ export async function createOrder(
     revalidatePath("/app/slips");
     revalidatePath("/app/floor");
     revalidatePath("/app/menus");
+
+    // プッシュ通知を送信
+    try {
+        const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
+        const itemNames = items.slice(0, 3).map(item => {
+            const isSpecialFee = SPECIAL_FEE_NAMES[item.menuId as keyof typeof SPECIAL_FEE_NAMES];
+            return isSpecialFee || item.name || "商品";
+        }).join("、");
+        const suffix = items.length > 3 ? " 他" : "";
+
+        await sendPushNotification({
+            storeId,
+            notificationType: "order_notification",
+            title: "注文通知",
+            body: `${itemNames}${suffix}（${itemCount}点）の注文が入りました`,
+            url: "/app/floor",
+        });
+    } catch (error) {
+        // 通知エラーは無視（注文処理自体は成功しているため）
+        console.error("Failed to send order notification:", error);
+    }
+
     return { success: true };
 }
 
@@ -82,6 +107,7 @@ export async function updateOrder(orderId: string, updates: OrderUpdateData) {
     if (updates.amount !== undefined) dbUpdates.amount = updates.amount;
     if (updates.status !== undefined) dbUpdates.status = updates.status;
     if (updates.castId !== undefined) dbUpdates.cast_id = updates.castId;
+    if (updates.guestId !== undefined) dbUpdates.guest_id = updates.guestId;
     if (updates.startTime !== undefined) dbUpdates.start_time = updates.startTime;
     if (updates.endTime !== undefined) dbUpdates.end_time = updates.endTime;
 
@@ -211,7 +237,7 @@ export async function getSessionCastOrdersV2(sessionId: string) {
             guest_profiles:guest_id(*)
         `)
         .eq("table_session_id", sessionId)
-        .in("item_name", ['指名料', '同伴料', '場内料金']);
+        .not("cast_id", "is", null);
 
     if (error) {
         console.error("Error fetching cast orders:", error);

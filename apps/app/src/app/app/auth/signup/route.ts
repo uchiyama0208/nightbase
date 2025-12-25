@@ -53,9 +53,6 @@ export async function POST(request: Request) {
         );
     }
 
-    console.log("User signup initiated:", data.user?.id);
-    console.log("Confirmation email sent to:", email);
-
     // Redirect to verification page
     const redirectParam = redirectTo ? `&redirect=${encodeURIComponent(redirectTo)}` : "";
     return NextResponse.redirect(

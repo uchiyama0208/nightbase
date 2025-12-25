@@ -13,8 +13,9 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2, Check } from "lucide-react";
+import { Plus, Trash2, Check, Upload, X, Image as ImageIcon } from "lucide-react";
 import { submitResumeForm } from "./actions";
+import { toast } from "@/components/ui/use-toast";
 
 interface TemplateField {
     id: string;
@@ -46,6 +47,7 @@ interface VisibleFields {
     street: boolean;
     building: boolean;
     past_employments: boolean;
+    id_verification: boolean;
 }
 
 const defaultVisibleFields: VisibleFields = {
@@ -61,6 +63,7 @@ const defaultVisibleFields: VisibleFields = {
     street: true,
     building: true,
     past_employments: true,
+    id_verification: false,
 };
 
 interface ResumeFormClientProps {
@@ -112,6 +115,10 @@ export function ResumeFormClient({
     // Custom fields state
     const [customAnswers, setCustomAnswers] = useState<Record<string, string>>({});
 
+    // ID verification images
+    const [idVerificationImages, setIdVerificationImages] = useState<File[]>([]);
+    const [idImagePreviews, setIdImagePreviews] = useState<string[]>([]);
+
     const addPastEmployment = () => {
         setPastEmployments([
             ...pastEmployments,
@@ -137,6 +144,31 @@ export function ResumeFormClient({
 
     const handleCustomAnswerChange = (fieldId: string, value: string) => {
         setCustomAnswers({ ...customAnswers, [fieldId]: value });
+    };
+
+    const handleIdImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (!files) return;
+
+        const newFiles: File[] = [];
+        const newPreviews: string[] = [];
+
+        Array.from(files).forEach((file) => {
+            if (file.type.startsWith("image/")) {
+                newFiles.push(file);
+                newPreviews.push(URL.createObjectURL(file));
+            }
+        });
+
+        setIdVerificationImages([...idVerificationImages, ...newFiles]);
+        setIdImagePreviews([...idImagePreviews, ...newPreviews]);
+    };
+
+    const removeIdImage = (index: number) => {
+        // Revoke the object URL to prevent memory leaks
+        URL.revokeObjectURL(idImagePreviews[index]);
+        setIdVerificationImages(idVerificationImages.filter((_, i) => i !== index));
+        setIdImagePreviews(idImagePreviews.filter((_, i) => i !== index));
     };
 
     // 郵便番号から住所を自動入力
@@ -196,12 +228,13 @@ export function ResumeFormClient({
                 },
                 pastEmployments,
                 customAnswers,
+                idVerificationImages,
             });
 
             setIsSubmitted(true);
         } catch (error) {
             console.error("Failed to submit:", error);
-            alert("送信に失敗しました。もう一度お試しください。");
+            toast({ title: "送信に失敗しました。もう一度お試しください。", variant: "destructive" });
         } finally {
             setIsSubmitting(false);
         }
@@ -216,7 +249,6 @@ export function ResumeFormClient({
                     <Input
                         value={value}
                         onChange={(e) => handleCustomAnswerChange(field.id, e.target.value)}
-                        className="rounded-lg"
                         required={field.is_required}
                     />
                 );
@@ -226,7 +258,7 @@ export function ResumeFormClient({
                     <Textarea
                         value={value}
                         onChange={(e) => handleCustomAnswerChange(field.id, e.target.value)}
-                        className="rounded-lg min-h-[100px]"
+                        className="min-h-[100px]"
                         required={field.is_required}
                     />
                 );
@@ -237,7 +269,6 @@ export function ResumeFormClient({
                         type="number"
                         value={value}
                         onChange={(e) => handleCustomAnswerChange(field.id, e.target.value)}
-                        className="rounded-lg"
                         required={field.is_required}
                     />
                 );
@@ -249,7 +280,7 @@ export function ResumeFormClient({
                         onValueChange={(v) => handleCustomAnswerChange(field.id, v)}
                         required={field.is_required}
                     >
-                        <SelectTrigger className="rounded-lg">
+                        <SelectTrigger>
                             <SelectValue placeholder="選択してください" />
                         </SelectTrigger>
                         <SelectContent>
@@ -287,7 +318,6 @@ export function ResumeFormClient({
                         type="date"
                         value={value}
                         onChange={(e) => handleCustomAnswerChange(field.id, e.target.value)}
-                        className="rounded-lg"
                         required={field.is_required}
                     />
                 );
@@ -338,7 +368,7 @@ export function ResumeFormClient({
                     {visibleFields.name && (
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label className="text-gray-700 dark:text-gray-200">
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                     姓 <span className="text-red-500">*</span>
                                 </Label>
                                 <Input
@@ -350,7 +380,7 @@ export function ResumeFormClient({
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-gray-700 dark:text-gray-200">
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                     名 <span className="text-red-500">*</span>
                                 </Label>
                                 <Input
@@ -368,7 +398,7 @@ export function ResumeFormClient({
                     {visibleFields.name_kana && (
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label className="text-gray-700 dark:text-gray-200">
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                     せい <span className="text-red-500">*</span>
                                 </Label>
                                 <Input
@@ -380,7 +410,7 @@ export function ResumeFormClient({
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-gray-700 dark:text-gray-200">
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                     めい <span className="text-red-500">*</span>
                                 </Label>
                                 <Input
@@ -397,7 +427,7 @@ export function ResumeFormClient({
                     {/* Birth Date */}
                     {visibleFields.birth_date && (
                         <div className="space-y-2">
-                            <Label className="text-gray-700 dark:text-gray-200">
+                            <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                 生年月日 <span className="text-red-500">*</span>
                             </Label>
                             <Input
@@ -415,7 +445,7 @@ export function ResumeFormClient({
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {visibleFields.phone_number && (
                                 <div className="space-y-2">
-                                    <Label className="text-gray-700 dark:text-gray-200">
+                                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                         電話番号 <span className="text-red-500">*</span>
                                     </Label>
                                     <Input
@@ -430,7 +460,7 @@ export function ResumeFormClient({
                             )}
                             {visibleFields.emergency_phone_number && (
                                 <div className="space-y-2">
-                                    <Label className="text-gray-700 dark:text-gray-200">
+                                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                         緊急連絡先
                                     </Label>
                                     <Input
@@ -449,7 +479,7 @@ export function ResumeFormClient({
                     {visibleFields.desired_cast_name && (
                         <div className="space-y-4">
                             <div className="space-y-2">
-                                <Label className="text-gray-700 dark:text-gray-200">
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                     {template.target_role === "staff" ? "希望スタッフ名" : "希望キャスト名（源氏名）"}
                                 </Label>
                                 <Input
@@ -460,7 +490,7 @@ export function ResumeFormClient({
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-gray-700 dark:text-gray-200">
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                     {template.target_role === "staff" ? "希望スタッフ名（かな）" : "希望キャスト名（かな）"}
                                 </Label>
                                 <Input
@@ -486,7 +516,7 @@ export function ResumeFormClient({
                         <div className="grid grid-cols-2 gap-4">
                             {visibleFields.zip_code && (
                                 <div className="space-y-2">
-                                    <Label className="text-gray-700 dark:text-gray-200">郵便番号</Label>
+                                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">郵便番号</Label>
                                     <Input
                                         value={zipCode}
                                         onChange={(e) => handleZipCodeChange(e.target.value)}
@@ -497,7 +527,7 @@ export function ResumeFormClient({
                             )}
                             {visibleFields.prefecture && (
                                 <div className="space-y-2">
-                                    <Label className="text-gray-700 dark:text-gray-200">都道府県</Label>
+                                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">都道府県</Label>
                                     <Select value={prefecture} onValueChange={setPrefecture}>
                                         <SelectTrigger className="rounded-lg">
                                             <SelectValue placeholder="選択" />
@@ -517,7 +547,7 @@ export function ResumeFormClient({
 
                     {visibleFields.city && (
                         <div className="space-y-2">
-                            <Label className="text-gray-700 dark:text-gray-200">市区町村</Label>
+                            <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">市区町村</Label>
                             <Input
                                 value={city}
                                 onChange={(e) => setCity(e.target.value)}
@@ -529,7 +559,7 @@ export function ResumeFormClient({
 
                     {visibleFields.street && (
                         <div className="space-y-2">
-                            <Label className="text-gray-700 dark:text-gray-200">番地</Label>
+                            <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">番地</Label>
                             <Input
                                 value={street}
                                 onChange={(e) => setStreet(e.target.value)}
@@ -541,7 +571,7 @@ export function ResumeFormClient({
 
                     {visibleFields.building && (
                         <div className="space-y-2">
-                            <Label className="text-gray-700 dark:text-gray-200">建物名・部屋番号</Label>
+                            <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">建物名・部屋番号</Label>
                             <Input
                                 value={building}
                                 onChange={(e) => setBuilding(e.target.value)}
@@ -567,7 +597,7 @@ export function ResumeFormClient({
                             onClick={addPastEmployment}
                             className="rounded-lg"
                         >
-                            <Plus className="h-4 w-4 mr-1" />
+                            <Plus className="h-5 w-5 mr-1" />
                             追加
                         </Button>
                     </div>
@@ -581,10 +611,10 @@ export function ResumeFormClient({
                             {pastEmployments.map((employment, index) => (
                                 <div
                                     key={index}
-                                    className="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 space-y-3"
+                                    className="p-4 rounded-3xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 space-y-3"
                                 >
                                     <div className="flex items-center justify-between">
-                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                             在籍店 {index + 1}
                                         </span>
                                         <Button
@@ -594,7 +624,7 @@ export function ResumeFormClient({
                                             onClick={() => removePastEmployment(index)}
                                             className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
                                         >
-                                            <Trash2 className="h-4 w-4" />
+                                            <Trash2 className="h-5 w-5" />
                                         </Button>
                                     </div>
 
@@ -607,7 +637,7 @@ export function ResumeFormClient({
                                                     updatePastEmployment(index, "store_name", e.target.value)
                                                 }
                                                 placeholder="○○クラブ"
-                                                className="rounded-lg h-9"
+                                                className="rounded-lg h-10"
                                             />
                                         </div>
                                         <div className="space-y-1">
@@ -618,7 +648,7 @@ export function ResumeFormClient({
                                                     updatePastEmployment(index, "period", e.target.value)
                                                 }
                                                 placeholder="2023/04 - 2024/03"
-                                                className="rounded-lg h-9"
+                                                className="rounded-lg h-10"
                                             />
                                         </div>
                                         <div className="space-y-1">
@@ -629,7 +659,7 @@ export function ResumeFormClient({
                                                     updatePastEmployment(index, "hourly_wage", e.target.value)
                                                 }
                                                 placeholder="5000"
-                                                className="rounded-lg h-9"
+                                                className="rounded-lg h-10"
                                             />
                                         </div>
                                         <div className="space-y-1">
@@ -640,7 +670,7 @@ export function ResumeFormClient({
                                                     updatePastEmployment(index, "monthly_sales", e.target.value)
                                                 }
                                                 placeholder="100"
-                                                className="rounded-lg h-9"
+                                                className="rounded-lg h-10"
                                             />
                                         </div>
                                         <div className="space-y-1">
@@ -651,7 +681,7 @@ export function ResumeFormClient({
                                                     updatePastEmployment(index, "customer_count", e.target.value)
                                                 }
                                                 placeholder="30"
-                                                className="rounded-lg h-9"
+                                                className="rounded-lg h-10"
                                             />
                                         </div>
                                     </div>
@@ -665,11 +695,65 @@ export function ResumeFormClient({
                                 onClick={addPastEmployment}
                                 className="w-full rounded-lg"
                             >
-                                <Plus className="h-4 w-4 mr-1" />
+                                <Plus className="h-5 w-5 mr-1" />
                                 過去在籍店を追加
                             </Button>
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* ID Verification Images */}
+            {visibleFields.id_verification && (
+                <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-6 space-y-4">
+                    <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                        身分証明証
+                    </h2>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                        運転免許証、マイナンバーカード、パスポートなどの身分証明証の画像をアップロードしてください
+                    </p>
+
+                    {/* Image Previews */}
+                    {idImagePreviews.length > 0 && (
+                        <div className="grid grid-cols-2 gap-3">
+                            {idImagePreviews.map((preview, index) => (
+                                <div key={index} className="relative group">
+                                    <img
+                                        src={preview}
+                                        alt={`身分証明証 ${index + 1}`}
+                                        className="w-full h-32 object-cover rounded-xl border border-gray-200 dark:border-gray-700"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => removeIdImage(index)}
+                                        className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-colors"
+                                    >
+                                        <X className="h-3 w-3" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Upload Button */}
+                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                        <div className="flex flex-col items-center justify-center">
+                            <Upload className="h-8 w-8 text-gray-400 dark:text-gray-500 mb-2" />
+                            <span className="text-sm text-gray-500 dark:text-gray-400">
+                                画像をアップロード
+                            </span>
+                            <span className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                                PNG, JPG, HEIC
+                            </span>
+                        </div>
+                        <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            onChange={handleIdImageUpload}
+                            className="hidden"
+                        />
+                    </label>
                 </div>
             )}
 
@@ -682,7 +766,7 @@ export function ResumeFormClient({
 
                     {fields.map((field) => (
                         <div key={field.id} className="space-y-2">
-                            <Label className="text-gray-700 dark:text-gray-200">
+                            <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                 {field.label}
                                 {field.is_required && <span className="text-red-500 ml-1">*</span>}
                             </Label>

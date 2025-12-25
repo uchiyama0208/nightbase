@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { ChevronLeft, MoreHorizontal, Send, UserCircle, Heart, Edit2, Trash2, Upload, Download, Pencil, Calendar, Clock, MapPin, X, Plus, Shield } from "lucide-react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { ChevronLeft, MoreHorizontal, Send, UserCircle, Heart, Edit2, Trash2, Upload, Download, Pencil, Calendar, Clock, MapPin, X, Plus, Shield, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,10 +27,6 @@ import {
     deleteUser,
     getProfileDetails,
     updateProfileRelationships,
-    addProfileComment,
-    updateProfileComment,
-    deleteProfileComment,
-    toggleCommentLike,
     uploadProfileAvatar,
     deleteProfileAvatar,
     getUserBottleKeeps,
@@ -39,21 +36,23 @@ import {
     createPastEmployment,
     updatePastEmployment,
     deletePastEmployment,
+    generateProfileAIReport,
 } from "./actions";
 import { getMenus } from "../menus/actions";
 import { BottleModal } from "../bottles/bottle-modal";
 import { SalarySystemSelectorModal } from "./salary-system-selector-modal";
 import { SalarySystemModal } from "../salary-systems/salary-system-modal";
-import { RoleFormModal } from "../roles/role-form-modal";
-import { getRoles, assignRoleToProfile, setAdminRole } from "../roles/actions";
-import { useRouter, useSearchParams } from "next/navigation";
+import { toast } from "@/components/ui/use-toast";
+import { RoleFormModal } from "../settings/roles/role-form-modal";
+import { getRoles, assignRoleToProfile, setAdminRole } from "../settings/roles/actions";
+import { useSearchParams } from "next/navigation";
 import { UserAttendanceListModal } from "./user-attendance-list-modal";
 import { AttendanceModal } from "../attendance/attendance-modal";
 import { RelationshipSelectorModal } from "./relationship-selector-modal";
 import { formatJSTDate } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
-import { CommentList } from "@/components/comment-list";
+import { CommentSection } from "@/components/comment-section";
 import {
     Accordion,
     AccordionContent,
@@ -61,6 +60,8 @@ import {
     AccordionTrigger,
 } from "@/components/ui/accordion";
 import { useToast } from "@/components/ui/use-toast";
+import { VercelTabs } from "@/components/ui/vercel-tabs";
+import { useGlobalLoading } from "@/components/global-loading";
 
 interface Profile {
     id: string;
@@ -107,14 +108,18 @@ interface UserEditModalProps {
     hidePersonalInfo?: boolean;
     onDelete?: (profileId: string) => void;
     onUpdate?: (profile: Partial<Profile> & { id: string }) => void;
+    onCreated?: () => void;
     canEdit?: boolean;
     pagePermissions?: PagePermissions;
 }
 
-export function UserEditModal({ profile, open, onOpenChange, isNested = false, defaultRole: propDefaultRole, hidePersonalInfo = false, onDelete, onUpdate, canEdit = false, pagePermissions }: UserEditModalProps) {
+export function UserEditModal({ profile, open, onOpenChange, isNested = false, defaultRole: propDefaultRole, hidePersonalInfo = false, onDelete, onUpdate, onCreated, canEdit = false, pagePermissions }: UserEditModalProps) {
     const searchParams = useSearchParams();
     const defaultRole = propDefaultRole || searchParams.get("role") || "cast";
     const { toast } = useToast();
+    const queryClient = useQueryClient();
+    const { showLoading, hideLoading } = useGlobalLoading();
+    const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [role, setRole] = useState<string>(profile?.role ?? defaultRole);
@@ -124,13 +129,20 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
     const [showActions, setShowActions] = useState(false);
     const [showAttendanceList, setShowAttendanceList] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [showAvatarDeleteConfirm, setShowAvatarDeleteConfirm] = useState(false);
     const [editingAttendanceRecord, setEditingAttendanceRecord] = useState<any>(null);
-    const router = useRouter();
 
-    // Relationships & Comments state
+    // 名刺AI読み取り用state
+    const [isParsingBusinessCard, setIsParsingBusinessCard] = useState(false);
+    const [businessCardFormData, setBusinessCardFormData] = useState<{
+        displayName?: string;
+        displayNameKana?: string;
+    }>({});
+    const businessCardInputRef = React.useRef<HTMLInputElement>(null);
+
+    // Relationships state
     const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
     const [relationships, setRelationships] = useState<any[]>([]);
-    const [comments, setComments] = useState<any[]>([]);
     const [isLoadingDetails, setIsLoadingDetails] = useState(false);
     const [currentUserProfileId, setCurrentUserProfileId] = useState<string | null>(null);
 
@@ -177,6 +189,10 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
     const [reportData, setReportData] = useState<any>(null);
     const [isLoadingReport, setIsLoadingReport] = useState(false);
 
+    // AI Report state
+    const [aiReport, setAiReport] = useState<string | null>(null);
+    const [isGeneratingAIReport, setIsGeneratingAIReport] = useState(false);
+
     // Status state for form submission (shadcn Select doesn't work with FormData)
     const [statusValue, setStatusValue] = useState<string>((profile as any)?.status || "在籍中");
 
@@ -208,6 +224,49 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
             });
         }
     }, [profile]);
+
+    // 名刺AI読み取りハンドラー
+    const handleBusinessCardUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsParsingBusinessCard(true);
+        try {
+            const formData = new FormData();
+            formData.append("image", file);
+
+            const response = await fetch("/api/ai/parse-business-card", {
+                method: "POST",
+                body: formData,
+            });
+
+            if (!response.ok) {
+                throw new Error("名刺の読み取りに失敗しました");
+            }
+
+            const data = await response.json();
+            setBusinessCardFormData({
+                displayName: data.name || "",
+                displayNameKana: data.nameKana || "",
+            });
+            toast({
+                title: "名刺を読み取りました",
+                description: "情報を確認して保存してください",
+            });
+        } catch (error) {
+            console.error("Business card parse error:", error);
+            toast({
+                title: "エラー",
+                description: "名刺の読み取りに失敗しました",
+                variant: "destructive",
+            });
+        } finally {
+            setIsParsingBusinessCard(false);
+            if (businessCardInputRef.current) {
+                businessCardInputRef.current.value = "";
+            }
+        }
+    };
 
     const handleZipCodeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
@@ -253,22 +312,30 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
 
         try {
             await uploadProfileAvatar(profile.id, formData);
-            router.refresh();
+            await queryClient.invalidateQueries({ queryKey: ["users"] });
         } catch (error) {
             console.error("Avatar upload failed:", error);
-            alert("アップロードに失敗しました");
+            toast({
+                title: "エラー",
+                description: "アップロードに失敗しました",
+                variant: "destructive",
+            });
         }
     };
 
     const handleDeleteAvatar = async () => {
         if (!profile) return;
-        if (!confirm("アイコンを削除しますか？")) return;
         try {
             await deleteProfileAvatar(profile.id);
-            router.refresh();
+            await queryClient.invalidateQueries({ queryKey: ["users"] });
+            setShowAvatarDeleteConfirm(false);
         } catch (error) {
             console.error("Avatar delete failed:", error);
-            alert("削除に失敗しました");
+            toast({
+                title: "エラー",
+                description: "削除に失敗しました",
+                variant: "destructive",
+            });
         }
     };
 
@@ -386,7 +453,36 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
     useEffect(() => {
         setActiveTab('info');
         setReportData(null);
+        setAiReport(null);
     }, [profile?.id]);
+
+    // Handle AI report generation
+    const handleGenerateAIReport = async () => {
+        if (!profile) return;
+
+        setIsGeneratingAIReport(true);
+        try {
+            const result = await generateProfileAIReport(profile.id, role);
+            if (result.success && result.report) {
+                setAiReport(result.report);
+            } else {
+                toast({
+                    title: "エラー",
+                    description: result.error || "AIレポートの生成に失敗しました",
+                    variant: "destructive",
+                });
+            }
+        } catch (error) {
+            console.error("Failed to generate AI report:", error);
+            toast({
+                title: "エラー",
+                description: "AIレポートの生成中にエラーが発生しました",
+                variant: "destructive",
+            });
+        } finally {
+            setIsGeneratingAIReport(false);
+        }
+    };
 
     // Section-based edit mode states
     const [editingSection, setEditingSection] = useState<string | null>(!profile ? 'all' : null);
@@ -434,7 +530,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
             }
 
             setEditingSection(null);
-            router.refresh();
+            await queryClient.invalidateQueries({ queryKey: ["users"] });
         } catch (error) {
             console.error("Failed to save:", error);
             toast({
@@ -510,8 +606,62 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
         setEditingSection(null);
         // 過去在籍店データを元に戻す
         setPastEmployments(originalPastEmployments);
-        router.refresh(); // Reset form values
+        // Reset form values by invalidating cache
+        queryClient.invalidateQueries({ queryKey: ["users"] });
     };
+
+    // 自動保存関数（既存データ編集時のみ使用）
+    const performAutoSave = useCallback(async () => {
+        const form = formRef.current;
+        if (!form || !profile || !canEdit) return;
+
+        showLoading("保存中...");
+        try {
+            const formData = new FormData(form);
+            const result = await updateUser(formData);
+
+            if (!result.success) {
+                toast({
+                    title: "エラー",
+                    description: result.error || "保存に失敗しました",
+                    variant: "destructive",
+                });
+                return;
+            }
+
+            await queryClient.invalidateQueries({ queryKey: ["users"] });
+        } catch (error) {
+            console.error("Auto save failed:", error);
+            toast({
+                title: "エラー",
+                description: "保存に失敗しました",
+                variant: "destructive",
+            });
+        } finally {
+            hideLoading();
+        }
+    }, [profile, canEdit, showLoading, hideLoading, toast, queryClient]);
+
+    // デバウンス付き自動保存をトリガーする関数
+    const triggerAutoSave = useCallback(() => {
+        if (!profile) return; // 新規作成時は自動保存しない
+
+        if (autoSaveTimeoutRef.current) {
+            clearTimeout(autoSaveTimeoutRef.current);
+        }
+        autoSaveTimeoutRef.current = setTimeout(() => {
+            performAutoSave();
+        }, 800);
+    }, [profile, performAutoSave]);
+
+    // クリーンアップ
+    useEffect(() => {
+        return () => {
+            if (autoSaveTimeoutRef.current) {
+                clearTimeout(autoSaveTimeoutRef.current);
+            }
+        };
+    }, []);
 
     // Memoize profile id and role to prevent unnecessary re-fetches
     const profileId = profile?.id;
@@ -532,7 +682,6 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                         setAllProfiles(data.allProfiles as any[]);
                         setCurrentUserProfileId(data.currentUserProfileId);
                         setRelationships(data.relationships);
-                        setComments(data.comments);
                         setBottleKeeps(data.bottleKeeps);
                         setPastEmployments(data.pastEmployments);
                         setOriginalPastEmployments(data.pastEmployments);
@@ -560,7 +709,6 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
         } else {
             // Reset state on close
             setRelationships([]);
-            setComments([]);
             setBottleKeeps([]);
             setMenus([]);
             setPastEmployments([]);
@@ -577,14 +725,6 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
         setBottleKeeps(keeps);
     };
 
-    const refreshComments = async () => {
-        if (!profile) return;
-        const details = await getProfileDetails(profile.id);
-        if (details) {
-            setComments(details.comments);
-        }
-    };
-
     // Handler for role assignment change
     const handleRoleAssign = async (roleId: string | null) => {
         if (!profile) return;
@@ -592,9 +732,10 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
             await assignRoleToProfile(profile.id, roleId);
             setSelectedRoleId(roleId);
             setRoleSelectorOpen(false);
-        } catch (error: any) {
+        } catch (error) {
             console.error("Failed to assign role:", error);
-            alert(error.message || "権限の適用に失敗しました");
+            const message = error instanceof Error ? error.message : "権限の適用に失敗しました";
+            toast({ title: message, variant: "destructive" });
         }
     };
 
@@ -615,19 +756,21 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
             setRole("admin");
             setSelectedRoleId(null);
             setRoleSelectorOpen(false);
-            router.refresh();
-        } catch (error: any) {
+            await queryClient.invalidateQueries({ queryKey: ["users"] });
+        } catch (error: unknown) {
             console.error("Failed to set admin role:", error);
-            alert(error.message || "管理者権限の付与に失敗しました");
+            const message = error instanceof Error ? error.message : "管理者権限の付与に失敗しました";
+            toast({
+                title: "エラー",
+                description: message,
+                variant: "destructive",
+            });
         }
     };
 
     const handleSubmit = async (formData: FormData) => {
-        console.log("handleSubmit called, canEdit:", canEdit);
-
         // Check edit permission on client side first
         if (!canEdit) {
-            console.log("canEdit is false, showing toast");
             toast({
                 title: "権限エラー",
                 description: "編集権限がありません",
@@ -637,15 +780,11 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
         }
 
         // Call server action first to check permissions
-        console.log("Calling server action...");
         const result = profile
             ? await updateUser(formData)
             : await createUser(formData);
 
-        console.log("Server action result:", result);
-
         if (!result.success) {
-            console.log("Server returned error, showing toast:", result.error);
             toast({
                 title: "エラー",
                 description: result.error || "保存に失敗しました",
@@ -669,7 +808,10 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
         if (profile && onUpdate) {
             onUpdate(updatedData);
         }
-        router.refresh();
+        if (!profile && onCreated) {
+            onCreated();
+        }
+        await queryClient.invalidateQueries({ queryKey: ["users"] });
     };
 
     const handleDelete = async () => {
@@ -704,7 +846,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
         if (onDelete) {
             onDelete(profile.id);
         }
-        router.refresh();
+        await queryClient.invalidateQueries({ queryKey: ["users"] });
     };
 
     const handleRelationshipChange = async (type: string, selectedIds: string[]) => {
@@ -735,48 +877,6 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                 variant: "destructive",
             });
         }
-    };
-
-    const handleAddComment = async (content: string) => {
-        if (!profile) return { success: false, error: "No profile" };
-        try {
-            await addProfileComment(profile.id, content);
-            await refreshComments();
-            return { success: true };
-        } catch (error) {
-            console.error("Failed to add comment:", error);
-            return { success: false, error: "Failed to add comment" };
-        }
-    };
-
-    const handleEditComment = async (commentId: string, content: string) => {
-        try {
-            await updateProfileComment(commentId, content);
-            await refreshComments();
-            return { success: true };
-        } catch (error) {
-            console.error("Failed to update comment:", error);
-            return { success: false, error: "Failed to update comment" };
-        }
-    };
-
-    const handleDeleteComment = async (commentId: string) => {
-        try {
-            await deleteProfileComment(commentId);
-            await refreshComments();
-            return { success: true };
-        } catch (error) {
-            console.error("Failed to delete comment:", error);
-            return { success: false, error: "Failed to delete comment" };
-        }
-    };
-
-    const handleToggleLike = async (commentId: string) => {
-        // Fire and forget - optimistic UI handles the immediate update
-        toggleCommentLike(commentId).catch((error) => {
-            console.error("Failed to toggle like:", error);
-        });
-        return { success: true };
     };
 
     // Helper to get selected IDs for a relationship type
@@ -810,48 +910,69 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-200 bg-white p-0 shadow-xl dark:border-gray-800 dark:bg-gray-900">
+                <DialogContent className="p-0 overflow-hidden flex flex-col max-h-[90vh] rounded-2xl sm:max-w-2xl">
                     <DialogTitle className="sr-only">
                         {profile ? (profile.display_name || "ユーザー編集") : "新規作成"}
                     </DialogTitle>
                     {/* Header */}
-                    <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-                        <div className="flex items-center justify-between px-4 py-3 relative">
+                    <DialogHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900 flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
+                        <button
+                            type="button"
+                            onClick={() => onOpenChange(false)}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
+                            aria-label="戻る"
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                        </button>
+                        <span className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white truncate">
+                            {profile ? (profile.display_name || "ユーザー編集") : "新規作成"}
+                        </span>
+                        {profile ? (
                             <button
                                 type="button"
-                                onClick={() => onOpenChange(false)}
-                                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-0"
-                                aria-label="戻る"
+                                onClick={() => setShowActions(!showActions)}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                aria-label="オプション"
                             >
-                                <ChevronLeft className="h-5 w-5" />
+                                <MoreHorizontal className="h-5 w-5" />
                             </button>
-                            <h2 className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white truncate">
-                                {profile ? (profile.display_name || "ユーザー編集") : "新規作成"}
-                            </h2>
-                            {profile ? (
+                        ) : (role === "guest" || role === "partner") ? (
+                            <>
+                                <input
+                                    ref={businessCardInputRef}
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={handleBusinessCardUpload}
+                                />
                                 <button
                                     type="button"
-                                    onClick={() => setShowActions(!showActions)}
-                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700"
-                                    aria-label="オプション"
+                                    onClick={() => businessCardInputRef.current?.click()}
+                                    disabled={isParsingBusinessCard}
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-r from-violet-500 to-purple-600 text-white hover:from-violet-600 hover:to-purple-700 disabled:opacity-50 transition-all"
+                                    aria-label="名刺から追加"
                                 >
-                                    <MoreHorizontal className="h-4 w-4" />
+                                    {isParsingBusinessCard ? (
+                                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                                    ) : (
+                                        <Sparkles className="h-4 w-4" />
+                                    )}
                                 </button>
-                            ) : (
-                                <div className="w-8 h-8" />
-                            )}
-                        </div>
-                    </div>
+                            </>
+                        ) : (
+                            <div className="w-8 h-8" />
+                        )}
+                    </DialogHeader>
 
                     {/* Actions Menu (positioned relative to the panel) */}
                     {showActions && (
                         <>
                             <div className="fixed inset-0 z-40" onClick={() => setShowActions(false)} />
-                            <div className="absolute right-4 top-14 z-50 w-40 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg p-2 flex flex-col gap-1 text-sm animate-in fade-in zoom-in-95 duration-100">
+                            <div className="absolute right-4 top-14 z-50 w-40 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg p-2 flex flex-col gap-1 text-sm animate-in fade-in zoom-in-95 duration-200">
                                 {pagePermissions?.attendance !== false && (
                                     <button
                                         type="button"
-                                        className="w-full text-left px-3 py-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                        className="w-full text-left px-3 py-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                                         onClick={() => {
                                             setShowActions(false);
                                             setShowAttendanceList(true);
@@ -877,7 +998,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                     )}
 
                     {/* Content */}
-                    <div className="px-4 pb-4 space-y-6">
+                    <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-6">
                     <form
                             ref={formRef}
                             id="profile-form"
@@ -927,61 +1048,17 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                             )}
 
                             {!profile && (
-                                <div className="flex justify-center mb-2">
-                                    <div
-                                        ref={roleToggleRef}
-                                        className="relative inline-flex h-9 items-center rounded-full bg-gray-100 dark:bg-gray-800 p-1 text-xs"
-                                    >
-                                        {/* Sliding indicator */}
-                                        <div
-                                            className="absolute top-1 h-7 rounded-full bg-white dark:bg-gray-700 shadow-sm transition-all duration-300 ease-out"
-                                            style={{
-                                                left: sliderStyle.left || 4,
-                                                width: sliderStyle.width || 'auto',
-                                            }}
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => setRole("cast")}
-                                            className={`relative z-10 px-4 h-full flex items-center justify-center rounded-full font-medium whitespace-nowrap transition-colors duration-300 ${role === "cast"
-                                                ? "text-gray-900 dark:text-white"
-                                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                                                }`}
-                                        >
-                                            キャスト
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setRole("staff")}
-                                            className={`relative z-10 px-4 h-full flex items-center justify-center rounded-full font-medium whitespace-nowrap transition-colors duration-300 ${role === "staff"
-                                                ? "text-gray-900 dark:text-white"
-                                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                                                }`}
-                                        >
-                                            スタッフ
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setRole("guest")}
-                                            className={`relative z-10 px-4 h-full flex items-center justify-center rounded-full font-medium whitespace-nowrap transition-colors duration-300 ${role === "guest"
-                                                ? "text-gray-900 dark:text-white"
-                                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                                                }`}
-                                        >
-                                            ゲスト
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setRole("partner")}
-                                            className={`relative z-10 px-4 h-full flex items-center justify-center rounded-full font-medium whitespace-nowrap transition-colors duration-300 ${role === "partner"
-                                                ? "text-gray-900 dark:text-white"
-                                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                                                }`}
-                                        >
-                                            パートナー
-                                        </button>
-                                    </div>
-                                </div>
+                                <VercelTabs
+                                    tabs={[
+                                        { key: "cast", label: "キャスト" },
+                                        { key: "staff", label: "スタッフ" },
+                                        { key: "guest", label: "ゲスト" },
+                                        { key: "partner", label: "パートナー" },
+                                    ]}
+                                    value={role}
+                                    onChange={setRole}
+                                    className="mb-4"
+                                />
                             )}
 
                             {/* レポートタブ */}
@@ -1106,45 +1183,188 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                             データがありません
                                         </div>
                                     )}
+
+                                    {/* AIレポート生成セクション */}
+                                    <div className="border-t border-gray-200 dark:border-gray-700 pt-6 mt-6">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                                                <Sparkles className="w-4 h-4 text-purple-500" />
+                                                AI分析レポート
+                                            </h4>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={handleGenerateAIReport}
+                                                disabled={isGeneratingAIReport || !reportData}
+                                                className="text-xs"
+                                            >
+                                                {isGeneratingAIReport ? (
+                                                    <>
+                                                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-purple-600 mr-2"></div>
+                                                        生成中...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Sparkles className="w-3 h-3 mr-1" />
+                                                        レポート生成
+                                                    </>
+                                                )}
+                                            </Button>
+                                        </div>
+                                        {aiReport ? (
+                                            <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl p-4 border border-purple-100 dark:border-purple-800">
+                                                <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
+                                                    {aiReport}
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-4 text-center">
+                                                <p className="text-sm text-gray-500">
+                                                    {reportData ? "「レポート生成」をクリックしてAI分析を開始" : "データがないためレポートを生成できません"}
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             )}
 
                             {/* 基本情報タブ */}
                             {(!profile || activeTab === 'info') && (
                                 <>
+                                    {/* 新規作成時: 表示名とアバターセクション（キャスト・スタッフのみ） */}
+                                    {!profile && (role === "cast" || role === "staff") && (
+                                        <div className="space-y-4">
+                                            <div className="flex items-center gap-4">
+                                                <div className="relative">
+                                                    <label htmlFor="newAvatarInput" className="cursor-pointer">
+                                                        <div className="h-16 w-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-blue-500 dark:hover:border-blue-400 transition-colors">
+                                                            <Upload className="h-6 w-6 text-gray-400" />
+                                                        </div>
+                                                    </label>
+                                                    <input
+                                                        id="newAvatarInput"
+                                                        name="avatar"
+                                                        type="file"
+                                                        accept="image/*"
+                                                        className="hidden"
+                                                    />
+                                                </div>
+                                                <div className="flex-1 space-y-2">
+                                                    <Input
+                                                        name="displayName"
+                                                        placeholder="表示名"
+                                                        className="rounded-md"
+                                                        required
+                                                    />
+                                                    <Input
+                                                        name="displayNameKana"
+                                                        placeholder="ひょうじめい（かな）"
+                                                        className="rounded-md"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="newStatus" className="text-sm font-medium text-gray-700 dark:text-gray-200">状態</Label>
+                                                <Select
+                                                    value={statusValue}
+                                                    onValueChange={setStatusValue}
+                                                >
+                                                    <SelectTrigger id="newStatus" className="rounded-md">
+                                                        <SelectValue placeholder="状態を選択" />
+                                                    </SelectTrigger>
+                                                    <SelectContent position="popper" className="z-[9999]">
+                                                        <SelectItem value="在籍中">在籍中</SelectItem>
+                                                        {role === "cast" && <SelectItem value="体入">体入</SelectItem>}
+                                                        <SelectItem value="休職中">休職中</SelectItem>
+                                                        <SelectItem value={role === "cast" ? "退店済み" : "退職済み"}>
+                                                            {role === "cast" ? "退店済み" : "退職済み"}
+                                                        </SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                <input type="hidden" name="status" value={statusValue} />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* 新規作成時: ゲスト・パートナー用セクション */}
+                                    {!profile && (role === "guest" || role === "partner") && (
+                                        <div className="space-y-4">
+                                            {/* アイコン + 表示名 */}
+                                            <div className="flex items-center gap-4">
+                                                <div className="relative">
+                                                    <label htmlFor="guestAvatarInput" className="cursor-pointer">
+                                                        <div className="h-16 w-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-blue-500 dark:hover:border-blue-400 transition-colors">
+                                                            <Upload className="h-6 w-6 text-gray-400" />
+                                                        </div>
+                                                    </label>
+                                                    <input
+                                                        id="guestAvatarInput"
+                                                        name="avatar"
+                                                        type="file"
+                                                        accept="image/*"
+                                                        className="hidden"
+                                                    />
+                                                </div>
+                                                <div className="flex-1 space-y-2">
+                                                    <Input
+                                                        name="displayName"
+                                                        placeholder="表示名（氏名）"
+                                                        className="rounded-md"
+                                                        defaultValue={businessCardFormData.displayName}
+                                                        key={`displayName-${businessCardFormData.displayName}`}
+                                                        required
+                                                    />
+                                                    <Input
+                                                        name="displayNameKana"
+                                                        placeholder="ひょうじめい（かな）"
+                                                        className="rounded-md"
+                                                        defaultValue={businessCardFormData.displayNameKana}
+                                                        key={`displayNameKana-${businessCardFormData.displayNameKana}`}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {/* 表示名セクション - アイコン＋表示名とかな */}
                                     {profile && (
                                         <div className="space-y-4">
                                             {isEditingSection('displayName') ? (
                                                 <>
                                                     <div className="space-y-2">
-                                                        <Label htmlFor="displayName">表示名</Label>
+                                                        <Label htmlFor="displayName" className="text-sm font-medium text-gray-700 dark:text-gray-200">表示名</Label>
                                                         <Input
                                                             id="displayName"
                                                             name="displayName"
                                                             defaultValue={profile?.display_name || ""}
                                                             placeholder="表示名"
                                                             className="rounded-md"
+                                                            onChange={triggerAutoSave}
                                                             required
                                                         />
                                                     </div>
                                                     <div className="space-y-2">
-                                                        <Label htmlFor="displayNameKana">表示名（かな）</Label>
+                                                        <Label htmlFor="displayNameKana" className="text-sm font-medium text-gray-700 dark:text-gray-200">表示名（かな）</Label>
                                                         <Input
                                                             id="displayNameKana"
                                                             name="displayNameKana"
                                                             defaultValue={profile?.display_name_kana || ""}
                                                             placeholder="ひょうじめい"
                                                             className="rounded-md"
+                                                            onChange={triggerAutoSave}
                                                             required
                                                         />
                                                     </div>
                                                     {role === "cast" && (
                                                         <div className="space-y-2">
-                                                            <Label htmlFor="status">ステータス</Label>
+                                                            <Label htmlFor="status" className="text-sm font-medium text-gray-700 dark:text-gray-200">ステータス</Label>
                                                             <Select
                                                                 value={statusValue}
-                                                                onValueChange={setStatusValue}
+                                                                onValueChange={(value) => {
+                                                                    setStatusValue(value);
+                                                                    triggerAutoSave();
+                                                                }}
                                                             >
                                                                 <SelectTrigger id="status" className="rounded-md">
                                                                     <SelectValue placeholder="ステータスを選択" />
@@ -1159,21 +1379,6 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                             <input type="hidden" name="status" value={statusValue} />
                                                         </div>
                                                     )}
-                                                    <div className="grid grid-cols-2 gap-2 pt-2">
-                                                        <Button
-                                                            type="button"
-                                                            variant="outline"
-                                                            onClick={handleSectionCancel}
-                                                        >
-                                                            キャンセル
-                                                        </Button>
-                                                        <Button
-                                                            type="button"
-                                                            onClick={() => handleSectionSave('displayName')}
-                                                        >
-                                                            保存
-                                                        </Button>
-                                                    </div>
                                                 </>
                                             ) : (
                                                 <>
@@ -1186,7 +1391,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                                         {profile.display_name?.[0] || <UserCircle className="h-6 w-6" />}
                                                                     </AvatarFallback>
                                                                     <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                                                        <Upload className="h-4 w-4 text-white" />
+                                                                        <Upload className="h-5 w-5 text-white" />
                                                                     </div>
                                                                 </Avatar>
                                                             </div>
@@ -1247,10 +1452,13 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                     {isEditingSection('staffInfo') ? (
                                         <>
                                             <div className="space-y-2">
-                                                <Label htmlFor="staffStatus">状態</Label>
+                                                <Label htmlFor="staffStatus" className="text-sm font-medium text-gray-700 dark:text-gray-200">状態</Label>
                                                 <Select
                                                     value={statusValue}
-                                                    onValueChange={setStatusValue}
+                                                    onValueChange={(value) => {
+                                                        setStatusValue(value);
+                                                        triggerAutoSave();
+                                                    }}
                                                 >
                                                     <SelectTrigger id="staffStatus" className="rounded-md">
                                                         <SelectValue placeholder="状態を選択" />
@@ -1265,16 +1473,6 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                 </Select>
                                                 <input type="hidden" name="status" value={statusValue} />
                                             </div>
-                                            {profile && (
-                                                <div className="flex justify-end gap-2 pt-2">
-                                                    <Button type="button" variant="outline" size="sm" onClick={handleSectionCancel}>
-                                                        キャンセル
-                                                    </Button>
-                                                    <Button type="button" size="sm" onClick={() => handleSectionSave('staffInfo')}>
-                                                        保存
-                                                    </Button>
-                                                </div>
-                                            )}
                                         </>
                                     ) : (
                                         <div>
@@ -1303,16 +1501,6 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                     </div>
                                     {isEditingSection('partnerInfo') ? (
                                         <>
-                                            <div className="space-y-2">
-                                                <Label htmlFor="partnerPhoneNumber">電話番号</Label>
-                                                <Input
-                                                    id="partnerPhoneNumber"
-                                                    name="phoneNumber"
-                                                    defaultValue={profile?.phone_number || ""}
-                                                    placeholder="090-1234-5678"
-                                                    className="rounded-md"
-                                                />
-                                            </div>
                                             <div className="space-y-4">
                                                 <span className="text-sm text-gray-500 font-medium">住所</span>
                                                 <div className="grid grid-cols-2 gap-4">
@@ -1323,6 +1511,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                             name="zipCode"
                                                             value={addressState.zipCode}
                                                             onChange={handleZipCodeChange}
+                                                            onBlur={triggerAutoSave}
                                                             placeholder="1234567"
                                                             className="rounded-md"
                                                             maxLength={7}
@@ -1335,6 +1524,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                             name="prefecture"
                                                             value={addressState.prefecture}
                                                             onChange={handleAddressChange("prefecture")}
+                                                            onBlur={triggerAutoSave}
                                                             placeholder="東京都"
                                                             className="rounded-md"
                                                         />
@@ -1347,6 +1537,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                         name="city"
                                                         value={addressState.city}
                                                         onChange={handleAddressChange("city")}
+                                                        onBlur={triggerAutoSave}
                                                         placeholder="渋谷区"
                                                         className="rounded-md"
                                                     />
@@ -1358,6 +1549,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                         name="street"
                                                         value={addressState.street}
                                                         onChange={handleAddressChange("street")}
+                                                        onBlur={triggerAutoSave}
                                                         placeholder="道玄坂1-1-1"
                                                         className="rounded-md"
                                                     />
@@ -1369,28 +1561,15 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                         name="building"
                                                         value={addressState.building}
                                                         onChange={handleAddressChange("building")}
+                                                        onBlur={triggerAutoSave}
                                                         placeholder="渋谷ビル 101"
                                                         className="rounded-md"
                                                     />
                                                 </div>
                                             </div>
-                                            {profile && (
-                                                <div className="flex justify-end gap-2 pt-2">
-                                                    <Button type="button" variant="outline" size="sm" onClick={handleSectionCancel}>
-                                                        キャンセル
-                                                    </Button>
-                                                    <Button type="button" size="sm" onClick={() => handleSectionSave('partnerInfo')}>
-                                                        保存
-                                                    </Button>
-                                                </div>
-                                            )}
                                         </>
                                     ) : (
                                         <div className="space-y-3">
-                                            <div>
-                                                <span className="text-xs text-gray-500 dark:text-gray-400">電話番号</span>
-                                                <p className="text-sm text-gray-900 dark:text-white">{profile?.phone_number || "-"}</p>
-                                            </div>
                                             <div className="space-y-2">
                                                 <span className="text-xs text-gray-500 dark:text-gray-400">住所</span>
                                                 <p className="text-sm text-gray-900 dark:text-white">
@@ -1399,7 +1578,6 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                         : "-"}
                                                 </p>
                                             </div>
-                                            <input type="hidden" name="phoneNumber" value={profile?.phone_number || ""} />
                                             <input type="hidden" name="zipCode" value={profile?.zip_code || ""} />
                                             <input type="hidden" name="prefecture" value={profile?.prefecture || ""} />
                                             <input type="hidden" name="city" value={profile?.city || ""} />
@@ -1428,7 +1606,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                     {isEditingSection('guestInfo') ? (
                                         <>
                                             <div className="space-y-2">
-                                                <Label htmlFor="guestAddressee">宛名</Label>
+                                                <Label htmlFor="guestAddressee" className="text-sm font-medium text-gray-700 dark:text-gray-200">宛名</Label>
                                                 <Input
                                                     id="guestAddressee"
                                                     name="guestAddressee"
@@ -1436,13 +1614,15 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                     defaultValue={profile?.guest_addressee ?? ""}
                                                     placeholder="例: 山田様"
                                                     className="rounded-md"
+                                                    onChange={triggerAutoSave}
                                                 />
                                             </div>
                                             <div className="space-y-2">
-                                                <Label htmlFor="guestReceiptType">領収書</Label>
+                                                <Label htmlFor="guestReceiptType" className="text-sm font-medium text-gray-700 dark:text-gray-200">領収書</Label>
                                                 <Select
                                                     name="guestReceiptType"
                                                     defaultValue={profile?.guest_receipt_type || "unspecified"}
+                                                    onValueChange={triggerAutoSave}
                                                 >
                                                     <SelectTrigger id="guestReceiptType" className="rounded-md">
                                                         <SelectValue placeholder="領収書の種類を選択" />
@@ -1455,16 +1635,6 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                     </SelectContent>
                                                 </Select>
                                             </div>
-                                            {profile && (
-                                                <div className="flex justify-end gap-2 pt-2">
-                                                    <Button type="button" variant="outline" size="sm" onClick={handleSectionCancel}>
-                                                        キャンセル
-                                                    </Button>
-                                                    <Button type="button" size="sm" onClick={() => handleSectionSave('guestInfo')}>
-                                                        保存
-                                                    </Button>
-                                                </div>
-                                            )}
                                         </>
                                     ) : (
                                         <>
@@ -1685,8 +1855,8 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                 </div>
                             )}
 
-                            {/* Resume Section (Cast only) */}
-                            {!hidePersonalInfo && role === "cast" && pagePermissions?.resumes !== false && (
+                            {/* Resume Section (Cast only, existing profiles only) */}
+                            {profile && !hidePersonalInfo && role === "cast" && pagePermissions?.resumes !== false && (
                                 <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
                                     <Accordion type="single" collapsible className="w-full" value={isEditingSection('resume') ? 'resume' : resumeAccordionOpen} onValueChange={setResumeAccordionOpen}>
                                         <AccordionItem value="resume" className="border-none">
@@ -1720,30 +1890,32 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                     <div className="space-y-4 pt-2">
                                                         {/* 希望キャスト名 */}
                                                         <div className="space-y-2">
-                                                            <Label htmlFor="desiredCastName">希望キャスト名</Label>
+                                                            <Label htmlFor="desiredCastName" className="text-sm font-medium text-gray-700 dark:text-gray-200">希望キャスト名</Label>
                                                             <Input
                                                                 id="desiredCastName"
                                                                 name="desiredCastName"
                                                                 defaultValue={(profile as any)?.desired_cast_name || ""}
                                                                 placeholder="例: さくら"
                                                                 className="rounded-md"
+                                                                onChange={triggerAutoSave}
                                                             />
                                                         </div>
                                                         {/* 生年月日 */}
                                                         <div className="space-y-2">
-                                                            <Label htmlFor="birthDate">生年月日</Label>
+                                                            <Label htmlFor="birthDate" className="text-sm font-medium text-gray-700 dark:text-gray-200">生年月日</Label>
                                                             <Input
                                                                 id="birthDate"
                                                                 name="birthDate"
                                                                 type="date"
                                                                 defaultValue={(profile as any)?.birth_date || ""}
                                                                 className="rounded-md"
+                                                                onChange={triggerAutoSave}
                                                             />
                                                         </div>
                                                         {/* 希望時給・希望シフト */}
                                                         <div className="grid grid-cols-2 gap-4">
                                                             <div className="space-y-2">
-                                                                <Label htmlFor="desiredHourlyWage">希望時給 (円)</Label>
+                                                                <Label htmlFor="desiredHourlyWage" className="text-sm font-medium text-gray-700 dark:text-gray-200">希望時給 (円)</Label>
                                                                 <Input
                                                                     id="desiredHourlyWage"
                                                                     name="desiredHourlyWage"
@@ -1751,16 +1923,18 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                                     defaultValue={(profile as any)?.desired_hourly_wage || ""}
                                                                     placeholder="3000"
                                                                     className="rounded-md"
+                                                                    onChange={triggerAutoSave}
                                                                 />
                                                             </div>
                                                             <div className="space-y-2">
-                                                                <Label htmlFor="desiredShiftDays">希望シフト</Label>
+                                                                <Label htmlFor="desiredShiftDays" className="text-sm font-medium text-gray-700 dark:text-gray-200">希望シフト</Label>
                                                                 <Input
                                                                     id="desiredShiftDays"
                                                                     name="desiredShiftDays"
                                                                     defaultValue={(profile as any)?.desired_shift_days || ""}
                                                                     placeholder="週3回"
                                                                     className="rounded-md"
+                                                                    onChange={triggerAutoSave}
                                                                 />
                                                             </div>
                                                         </div>
@@ -1768,7 +1942,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                         {profile && (
                                                             <div className="space-y-2 pt-2 border-t border-gray-100 dark:border-gray-800">
                                                                 <div className="flex items-center justify-between">
-                                                                    <Label>過去在籍店</Label>
+                                                                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">過去在籍店</Label>
                                                                     <Button
                                                                         type="button"
                                                                         variant="outline"
@@ -1815,6 +1989,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                                                         updated[index] = { ...employment, store_name: e.target.value };
                                                                                         setPastEmployments(updated);
                                                                                     }}
+                                                                                    onBlur={triggerAutoSave}
                                                                                     className="rounded-md h-8 text-sm"
                                                                                 />
                                                                                 <Input
@@ -1825,6 +2000,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                                                         updated[index] = { ...employment, period: e.target.value };
                                                                                         setPastEmployments(updated);
                                                                                     }}
+                                                                                    onBlur={triggerAutoSave}
                                                                                     className="rounded-md h-8 text-sm"
                                                                                 />
                                                                                 <div className="grid grid-cols-3 gap-2">
@@ -1837,6 +2013,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                                                             updated[index] = { ...employment, hourly_wage: e.target.value ? parseInt(e.target.value) : null };
                                                                                             setPastEmployments(updated);
                                                                                         }}
+                                                                                        onBlur={triggerAutoSave}
                                                                                         className="rounded-md h-8 text-sm"
                                                                                     />
                                                                                     <Input
@@ -1848,6 +2025,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                                                             updated[index] = { ...employment, sales_amount: e.target.value ? parseInt(e.target.value) : null };
                                                                                             setPastEmployments(updated);
                                                                                         }}
+                                                                                        onBlur={triggerAutoSave}
                                                                                         className="rounded-md h-8 text-sm"
                                                                                     />
                                                                                     <Input
@@ -1859,6 +2037,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                                                             updated[index] = { ...employment, customer_count: e.target.value ? parseInt(e.target.value) : null };
                                                                                             setPastEmployments(updated);
                                                                                         }}
+                                                                                        onBlur={triggerAutoSave}
                                                                                         className="rounded-md h-8 text-sm"
                                                                                     />
                                                                                 </div>
@@ -1866,16 +2045,6 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                                         ))
                                                                     )}
                                                                 </div>
-                                                            </div>
-                                                        )}
-                                                        {profile && (
-                                                            <div className="flex justify-end gap-2 pt-2">
-                                                                <Button type="button" variant="outline" size="sm" onClick={handleSectionCancel}>
-                                                                    キャンセル
-                                                                </Button>
-                                                                <Button type="button" size="sm" onClick={() => handleSectionSave('resume')}>
-                                                                    保存
-                                                                </Button>
                                                             </div>
                                                         )}
                                                     </div>
@@ -1912,7 +2081,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                         {/* 過去在籍店（表示モード） */}
                                                         {profile && (
                                                             <div className="space-y-2 pt-2 border-t border-gray-100 dark:border-gray-800">
-                                                                <Label>過去在籍店</Label>
+                                                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">過去在籍店</Label>
                                                                 <div className="space-y-2">
                                                                     {pastEmployments.length === 0 ? (
                                                                         <span className="text-sm text-gray-400 dark:text-gray-500">登録なし</span>
@@ -1982,71 +2151,77 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                         {/* 本名 */}
                                                         <div className="grid grid-cols-2 gap-4">
                                                             <div className="space-y-2">
-                                                                <Label htmlFor="lastName">姓</Label>
+                                                                <Label htmlFor="lastName" className="text-sm font-medium text-gray-700 dark:text-gray-200">姓</Label>
                                                                 <Input
                                                                     id="lastName"
                                                                     name="lastName"
                                                                     defaultValue={profile?.last_name || ""}
                                                                     placeholder="姓"
                                                                     className="rounded-md"
+                                                                    onChange={triggerAutoSave}
                                                                 />
                                                             </div>
                                                             <div className="space-y-2">
-                                                                <Label htmlFor="firstName">名</Label>
+                                                                <Label htmlFor="firstName" className="text-sm font-medium text-gray-700 dark:text-gray-200">名</Label>
                                                                 <Input
                                                                     id="firstName"
                                                                     name="firstName"
                                                                     defaultValue={profile?.first_name || ""}
                                                                     placeholder="名"
                                                                     className="rounded-md"
+                                                                    onChange={triggerAutoSave}
                                                                 />
                                                             </div>
                                                         </div>
 
                                                         <div className="grid grid-cols-2 gap-4">
                                                             <div className="space-y-2">
-                                                                <Label htmlFor="lastNameKana">姓（かな）</Label>
+                                                                <Label htmlFor="lastNameKana" className="text-sm font-medium text-gray-700 dark:text-gray-200">姓（かな）</Label>
                                                                 <Input
                                                                     id="lastNameKana"
                                                                     name="lastNameKana"
                                                                     defaultValue={profile?.last_name_kana || ""}
                                                                     placeholder="せい"
                                                                     className="rounded-md"
+                                                                    onChange={triggerAutoSave}
                                                                 />
                                                             </div>
                                                             <div className="space-y-2">
-                                                                <Label htmlFor="firstNameKana">名（かな）</Label>
+                                                                <Label htmlFor="firstNameKana" className="text-sm font-medium text-gray-700 dark:text-gray-200">名（かな）</Label>
                                                                 <Input
                                                                     id="firstNameKana"
                                                                     name="firstNameKana"
                                                                     defaultValue={profile?.first_name_kana || ""}
                                                                     placeholder="めい"
                                                                     className="rounded-md"
+                                                                    onChange={triggerAutoSave}
                                                                 />
                                                             </div>
                                                         </div>
 
                                                         {/* 生年月日 */}
                                                         <div className="space-y-2">
-                                                            <Label htmlFor="birthDate">生年月日</Label>
+                                                            <Label htmlFor="birthDate" className="text-sm font-medium text-gray-700 dark:text-gray-200">生年月日</Label>
                                                             <Input
                                                                 id="birthDate"
                                                                 name="birthDate"
                                                                 type="date"
                                                                 defaultValue={profile?.birth_date || ""}
                                                                 className="rounded-md"
+                                                                onChange={triggerAutoSave}
                                                             />
                                                         </div>
 
                                                         {/* 電話番号 */}
                                                         <div className="space-y-2">
-                                                            <Label htmlFor="phoneNumber">電話番号</Label>
+                                                            <Label htmlFor="phoneNumber" className="text-sm font-medium text-gray-700 dark:text-gray-200">電話番号</Label>
                                                             <Input
                                                                 id="phoneNumber"
                                                                 name="phoneNumber"
                                                                 defaultValue={profile?.phone_number || ""}
                                                                 placeholder="090-1234-5678"
                                                                 className="rounded-md"
+                                                                onChange={triggerAutoSave}
                                                             />
                                                         </div>
 
@@ -2062,6 +2237,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                                         name="zipCode"
                                                                         value={addressState.zipCode}
                                                                         onChange={handleZipCodeChange}
+                                                                        onBlur={triggerAutoSave}
                                                                         placeholder="1234567"
                                                                         className="rounded-md"
                                                                         maxLength={7}
@@ -2074,6 +2250,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                                         name="prefecture"
                                                                         value={addressState.prefecture}
                                                                         onChange={handleAddressChange("prefecture")}
+                                                                        onBlur={triggerAutoSave}
                                                                         placeholder="東京都"
                                                                         className="rounded-md"
                                                                     />
@@ -2087,6 +2264,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                                     name="city"
                                                                     value={addressState.city}
                                                                     onChange={handleAddressChange("city")}
+                                                                    onBlur={triggerAutoSave}
                                                                     placeholder="渋谷区"
                                                                     className="rounded-md"
                                                                 />
@@ -2099,6 +2277,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                                     name="street"
                                                                     value={addressState.street}
                                                                     onChange={handleAddressChange("street")}
+                                                                    onBlur={triggerAutoSave}
                                                                     placeholder="道玄坂1-1-1"
                                                                     className="rounded-md"
                                                                 />
@@ -2111,6 +2290,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                                     name="building"
                                                                     value={addressState.building}
                                                                     onChange={handleAddressChange("building")}
+                                                                    onBlur={triggerAutoSave}
                                                                     placeholder="渋谷ビル 101"
                                                                     className="rounded-md"
                                                                 />
@@ -2121,38 +2301,30 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                         {(role === "cast" || role === "staff") && (
                                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
                                                                 <div className="space-y-2">
-                                                                    <Label htmlFor="emergencyPhoneNumber">緊急連絡先</Label>
+                                                                    <Label htmlFor="emergencyPhoneNumber" className="text-sm font-medium text-gray-700 dark:text-gray-200">緊急連絡先</Label>
                                                                     <Input
                                                                         id="emergencyPhoneNumber"
                                                                         name="emergencyPhoneNumber"
                                                                         defaultValue={profile?.emergency_phone_number || ""}
                                                                         placeholder="090-1234-5678"
                                                                         className="rounded-md"
+                                                                        onChange={triggerAutoSave}
                                                                     />
                                                                 </div>
                                                                 <div className="space-y-2">
-                                                                    <Label htmlFor="nearestStation">最寄り駅</Label>
+                                                                    <Label htmlFor="nearestStation" className="text-sm font-medium text-gray-700 dark:text-gray-200">最寄り駅</Label>
                                                                     <Input
                                                                         id="nearestStation"
                                                                         name="nearestStation"
                                                                         defaultValue={profile?.nearest_station || ""}
                                                                         placeholder="渋谷駅"
                                                                         className="rounded-md"
+                                                                        onChange={triggerAutoSave}
                                                                     />
                                                                 </div>
                                                             </div>
                                                         )}
 
-                                                        {profile && (
-                                                            <div className="flex justify-end gap-2 pt-2">
-                                                                <Button type="button" variant="outline" size="sm" onClick={handleSectionCancel}>
-                                                                    キャンセル
-                                                                </Button>
-                                                                <Button type="button" size="sm" onClick={() => handleSectionSave('personalInfo')}>
-                                                                    保存
-                                                                </Button>
-                                                            </div>
-                                                        )}
                                                     </div>
                                                 ) : (
                                                     <div className="space-y-4 pt-2">
@@ -2256,8 +2428,8 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                 </div>
                             )}
 
-                            {/* Salary Systems Section - for cast, staff, partner */}
-                            {(role === "cast" || role === "staff" || role === "partner") && pagePermissions?.salarySystems !== false && (() => {
+                            {/* Salary Systems Section - for cast, staff, partner (existing profiles only) */}
+                            {profile && (role === "cast" || role === "staff" || role === "partner") && pagePermissions?.salarySystems !== false && (() => {
                                 const selectedSystem = salarySystems.find(s => s.id === selectedSalarySystemId);
                                 return (
                                     <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
@@ -2337,13 +2509,13 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                         {roleSelectorOpen && (
                                             <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl space-y-2">
                                                 <div className="flex items-center justify-between mb-2">
-                                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">権限セットを選択</span>
+                                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-200">権限セットを選択</span>
                                                     <button
                                                         type="button"
                                                         onClick={() => setRoleSelectorOpen(false)}
                                                         className="text-gray-400 hover:text-gray-600"
                                                     >
-                                                        <X className="h-4 w-4" />
+                                                        <X className="h-5 w-5" />
                                                     </button>
                                                 </div>
 
@@ -2354,7 +2526,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                     className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
                                                         !selectedRoleId
                                                             ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                                                            : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                                                            : "hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
                                                     }`}
                                                 >
                                                     未設定
@@ -2369,7 +2541,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                         className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
                                                             selectedRoleId === r.id
                                                                 ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                                                                : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                                                                : "hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
                                                         }`}
                                                     >
                                                         {r.name}
@@ -2408,7 +2580,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                                                     }}
                                                     className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors border border-dashed border-blue-300 dark:border-blue-700"
                                                 >
-                                                    <Plus className="h-4 w-4" />
+                                                    <Plus className="h-5 w-5" />
                                                     新規作成
                                                 </button>
                                             </div>
@@ -2418,7 +2590,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                             })()}
 
                                     {!profile && (
-                                        <DialogFooter className="mt-6">
+                                        <DialogFooter className="gap-2">
                                             <div className="flex flex-col w-full gap-3">
                                                 <Button type="submit" disabled={isSubmitting} className="w-full rounded-full h-10">
                                                     {isSubmitting ? "作成中..." : "作成する"}
@@ -2439,16 +2611,11 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                         </form>
 
                         {profile && (
-                            <div className="border-t border-gray-100 dark:border-gray-800 pt-4">
-                                <CommentList
-                                    comments={comments}
-                                    currentUserId={currentUserProfileId}
-                                    onAddComment={handleAddComment}
-                                    onEditComment={handleEditComment}
-                                    onDeleteComment={handleDeleteComment}
-                                    onToggleLike={handleToggleLike}
-                                />
-                            </div>
+                            <CommentSection
+                                targetType="profile"
+                                targetId={profile.id}
+                                isOpen={open}
+                            />
                         )}
 
                 </div>
@@ -2473,12 +2640,9 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                 )
             }
 
-            {/* Delete Comment Confirmation Modal */}
-            {/* This modal is now handled internally by CommentList */}
-
             {/* Delete User Confirmation Modal */}
             <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-                <DialogContent className="sm:max-w-[400px] bg-white dark:bg-gray-800 w-[90%] rounded-lg p-6">
+                <DialogContent className="sm:max-w-md bg-white dark:bg-gray-800 w-[90%] rounded-2xl p-6">
                     <DialogHeader>
                         <DialogTitle className="text-center text-lg font-bold text-gray-900 dark:text-white">
                             ユーザーを削除
@@ -2491,7 +2655,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                         <p>本当にこのユーザーを削除しますか？</p>
                         <p className="text-sm mt-2 text-gray-500">この操作は取り消せません。</p>
                     </div>
-                    <DialogFooter className="flex-col sm:flex-row gap-3">
+                    <DialogFooter className="flex-col sm:flex-row gap-2">
                         <Button
                             type="button"
                             variant="destructive"
@@ -2578,11 +2742,10 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
                     onClose={() => setSalarySystemSelectorOpen(false)}
                     salarySystems={salarySystems}
                     selectedId={selectedSalarySystemId}
-                    onSelect={(id) => {
+                    onSelect={async (id) => {
                         setSelectedSalarySystemId(id);
-                        handleSalarySystemChange(id);
+                        await handleSalarySystemChange(id);
                     }}
-                    onSave={() => setSalarySystemSelectorOpen(false)}
                     onOpenDetail={(system) => {
                         setSalarySystemSelectorOpen(false);
                         setSalarySystemDetailFromSelector(true);
@@ -2648,7 +2811,7 @@ export function UserEditModal({ profile, open, onOpenChange, isNested = false, d
 
             {/* Salary System Remove Confirmation */}
             <Dialog open={salarySystemRemoveConfirmOpen} onOpenChange={setSalarySystemRemoveConfirmOpen}>
-                <DialogContent className="sm:max-w-[400px] bg-white dark:bg-gray-800 w-[90%] rounded-lg p-6 z-[110]">
+                <DialogContent className="sm:max-w-md bg-white dark:bg-gray-800 w-[90%] rounded-2xl p-6">
                     <DialogHeader>
                         <DialogTitle className="text-gray-900 dark:text-white">給与システムを解除しますか？</DialogTitle>
                         <DialogDescription className="text-gray-500 dark:text-gray-400">

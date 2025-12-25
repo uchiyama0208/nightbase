@@ -117,7 +117,7 @@ export function StoreInfoForm() {
             <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div className="space-y-2">
-                        <Label htmlFor="name">店舗名 *</Label>
+                        <Label htmlFor="name" className="text-sm font-medium text-gray-700 dark:text-gray-200">店舗名 *</Label>
                         <Input
                             id="name"
                             name="name"
@@ -128,9 +128,9 @@ export function StoreInfoForm() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label htmlFor="industry">業種 *</Label>
+                            <Label htmlFor="industry" className="text-sm font-medium text-gray-700 dark:text-gray-200">業種 *</Label>
                             <Select name="industry" required>
-                                <SelectTrigger className="text-gray-900 dark:text-white">
+                                <SelectTrigger className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                     <SelectValue placeholder="業種を選択" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -144,9 +144,9 @@ export function StoreInfoForm() {
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="prefecture">都道府県 *</Label>
+                            <Label htmlFor="prefecture" className="text-sm font-medium text-gray-700 dark:text-gray-200">都道府県 *</Label>
                             <Select name="prefecture" required>
-                                <SelectTrigger className="text-gray-900 dark:text-white">
+                                <SelectTrigger className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                     <SelectValue placeholder="都道府県を選択" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -168,7 +168,7 @@ export function StoreInfoForm() {
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
-                            <Label htmlFor="business_start_time">営業開始時間</Label>
+                            <Label htmlFor="business_start_time" className="text-sm font-medium text-gray-700 dark:text-gray-200">営業開始時間</Label>
                             <Input
                                 type="time"
                                 id="business_start_time"
@@ -179,7 +179,7 @@ export function StoreInfoForm() {
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="business_end_time">営業終了時間</Label>
+                            <Label htmlFor="business_end_time" className="text-sm font-medium text-gray-700 dark:text-gray-200">営業終了時間</Label>
                             <Input
                                 type="time"
                                 id="business_end_time"
@@ -190,9 +190,9 @@ export function StoreInfoForm() {
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="day_switch_time">日にち切り替え時間</Label>
+                            <Label htmlFor="day_switch_time" className="text-sm font-medium text-gray-700 dark:text-gray-200">日にち切り替え時間</Label>
                             <Select name="day_switch_time" defaultValue="06:00">
-                                <SelectTrigger className="text-gray-900 dark:text-white">
+                                <SelectTrigger className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                     <SelectValue placeholder="選択" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -213,9 +213,9 @@ export function StoreInfoForm() {
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="referral_source">Nightbaseを知ったきっかけ *</Label>
+                        <Label htmlFor="referral_source" className="text-sm font-medium text-gray-700 dark:text-gray-200">Nightbaseを知ったきっかけ *</Label>
                         <Select name="referral_source" required>
-                            <SelectTrigger className="text-gray-900 dark:text-white">
+                            <SelectTrigger className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                 <SelectValue placeholder="選択してください" />
                             </SelectTrigger>
                             <SelectContent>
@@ -229,7 +229,7 @@ export function StoreInfoForm() {
                     </div>
 
                     <div className="space-y-3">
-                        <Label>定休日</Label>
+                        <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">定休日</Label>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                             {DAYS_OF_WEEK.map((day) => (
                                 <div key={day.value} className="flex items-center space-x-2">

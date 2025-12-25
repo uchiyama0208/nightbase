@@ -156,7 +156,7 @@ function MarkerPin({
         <div className="relative flex flex-col items-center cursor-pointer active:scale-95 transition-transform touch-manipulation">
             {/* 吹き出し */}
             <div
-                className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap px-2 py-1 rounded-lg text-xs font-medium shadow-lg"
+                className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap px-2 py-1 rounded-lg text-xs font-medium shadow-md"
                 style={{
                     backgroundColor: color,
                     color: "white",
@@ -200,7 +200,7 @@ function MarkerPin({
 function StoreMarkerPin({ name }: { name: string }) {
     return (
         <div className="relative flex flex-col items-center">
-            <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap px-2 py-1 rounded-lg text-xs font-medium shadow-lg bg-amber-500 text-white">
+            <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap px-2 py-1 rounded-lg text-xs font-medium shadow-md bg-amber-500 text-white">
                 {name}
                 <div
                     className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-0 h-0"
@@ -328,7 +328,7 @@ function MarkerActionSheet({
 
                     {/* ルートに追加/移動 */}
                     <div className="space-y-3">
-                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
                             {isAssigned ? "別のルートに移動" : "ルートに追加"}
                         </p>
                         {routes.length === 0 ? (
@@ -661,7 +661,7 @@ export function PickupMap({ routes, storeLocation, attendees, onRouteChange }: P
 
                 {/* 凡例 - マップ右上にオーバーレイ */}
                 {!isGeocoding && routes.length > 0 && (
-                    <div className="absolute top-3 right-3 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-3 max-w-[200px]">
+                    <div className="absolute top-3 right-3 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-2xl shadow-md border border-gray-200 dark:border-gray-700 p-3 max-w-[200px]">
                         <div className="space-y-2">
                             {/* 未割り当て */}
                             <div className="flex items-center gap-2">
@@ -709,7 +709,7 @@ export function PickupMap({ routes, storeLocation, attendees, onRouteChange }: P
             {/* 送迎先一覧 - タップしやすいサイズ */}
             <div className="overflow-hidden rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
                 <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                    <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                    <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200">
                         送迎先一覧 ({geocodedAttendees.length}件)
                     </h3>
                 </div>
@@ -733,7 +733,7 @@ export function PickupMap({ routes, storeLocation, attendees, onRouteChange }: P
                                     key={attendee.profileId}
                                     type="button"
                                     onClick={() => handleMarkerClick(attendee)}
-                                    className="w-full p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 active:bg-gray-100 dark:active:bg-gray-800 transition-colors text-left touch-manipulation"
+                                    className="w-full p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 active:bg-gray-100 dark:active:bg-gray-800 transition-colors text-left touch-manipulation"
                                 >
                                     <div className="flex items-center gap-4">
                                         <div className="flex-shrink-0 relative">

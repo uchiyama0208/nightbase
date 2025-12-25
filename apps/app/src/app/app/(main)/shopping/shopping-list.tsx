@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,7 @@ import {
     RefreshCcw,
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { VercelTabs } from "@/components/ui/vercel-tabs";
 import {
     ShoppingItem,
     LowStockMenu,
@@ -51,20 +52,6 @@ export function ShoppingList({ initialItems, lowStockMenus, canEdit = false }: S
     const [newItemName, setNewItemName] = useState("");
     const [newItemQuantity, setNewItemQuantity] = useState(1);
     const [isSubmitting, setIsSubmitting] = useState(false);
-
-    // Vercel-style tabs
-    const tabsRef = useRef<{ [key: string]: HTMLButtonElement | null }>({});
-    const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
-
-    useEffect(() => {
-        const activeButton = tabsRef.current[activeTab];
-        if (activeButton) {
-            setIndicatorStyle({
-                left: activeButton.offsetLeft,
-                width: activeButton.offsetWidth,
-            });
-        }
-    }, [activeTab]);
 
     const pendingItems = initialItems.filter(item => !item.is_completed);
     const completedItems = initialItems.filter(item => item.is_completed);
@@ -204,40 +191,16 @@ export function ShoppingList({ initialItems, lowStockMenus, canEdit = false }: S
                 )}
             </div>
 
-            {/* Vercel-style Tab Navigation */}
-            <div className="relative">
-                <div className="flex w-full">
-                    <button
-                        ref={(el) => { tabsRef.current["list"] = el; }}
-                        type="button"
-                        onClick={() => setActiveTab("list")}
-                        className={`flex-1 py-2 text-sm font-medium transition-colors relative ${
-                            activeTab === "list"
-                                ? "text-gray-900 dark:text-white"
-                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                        }`}
-                    >
-                        リスト ({initialItems.length})
-                    </button>
-                    <button
-                        ref={(el) => { tabsRef.current["lowstock"] = el; }}
-                        type="button"
-                        onClick={() => setActiveTab("lowstock")}
-                        className={`flex-1 py-2 text-sm font-medium transition-colors relative ${
-                            activeTab === "lowstock"
-                                ? "text-gray-900 dark:text-white"
-                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                        }`}
-                    >
-                        低在庫 ({lowStockMenus.length})
-                    </button>
-                </div>
-                <div
-                    className="absolute bottom-0 h-0.5 bg-gray-900 dark:bg-white transition-all duration-200"
-                    style={{ left: indicatorStyle.left, width: indicatorStyle.width }}
-                />
-                <div className="absolute bottom-0 left-0 right-0 h-px bg-gray-200 dark:bg-gray-700" />
-            </div>
+            {/* Tab Navigation */}
+            <VercelTabs
+                tabs={[
+                    { key: "list", label: `リスト (${initialItems.length})` },
+                    { key: "lowstock", label: `低在庫 (${lowStockMenus.length})` }
+                ]}
+                value={activeTab}
+                onChange={(val) => setActiveTab(val as TabType)}
+                className="mb-4"
+            />
 
             {/* List Tab */}
             {activeTab === "list" && (
@@ -281,7 +244,7 @@ export function ShoppingList({ initialItems, lowStockMenus, canEdit = false }: S
                                         onClick={() => handleDeleteItem(item.id)}
                                         className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
                                     >
-                                        <Trash2 className="h-4 w-4" />
+                                        <Trash2 className="h-5 w-5" />
                                     </button>
                                 </div>
                             ))
@@ -325,7 +288,7 @@ export function ShoppingList({ initialItems, lowStockMenus, canEdit = false }: S
                                         onClick={() => handleDeleteItem(item.id)}
                                         className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
                                     >
-                                        <Trash2 className="h-4 w-4" />
+                                        <Trash2 className="h-5 w-5" />
                                     </button>
                                 </div>
                             ))}
@@ -344,7 +307,7 @@ export function ShoppingList({ initialItems, lowStockMenus, canEdit = false }: S
                             onClick={handleAddLowStockItems}
                             disabled={isSubmitting}
                         >
-                            <Plus className="h-4 w-4 mr-2" />
+                            <Plus className="h-5 w-5 mr-2" />
                             すべてリストに追加
                         </Button>
                     )}
@@ -396,7 +359,7 @@ export function ShoppingList({ initialItems, lowStockMenus, canEdit = false }: S
 
             {/* Add Item Dialog */}
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                <DialogContent className="max-w-md rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+                <DialogContent className="sm:max-w-md rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
                     <DialogHeader>
                         <DialogTitle className="text-gray-900 dark:text-white">
                             買い出しアイテムを追加
@@ -448,7 +411,7 @@ export function ShoppingList({ initialItems, lowStockMenus, canEdit = false }: S
 
             {/* Replenish Stock Dialog */}
             <Dialog open={isReplenishDialogOpen} onOpenChange={setIsReplenishDialogOpen}>
-                <DialogContent className="max-w-md rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+                <DialogContent className="sm:max-w-md rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
                     <DialogHeader>
                         <DialogTitle className="text-gray-900 dark:text-white">
                             在庫を補充

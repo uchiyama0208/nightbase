@@ -79,7 +79,7 @@ export default async function LoginPage({
                                 <input type="hidden" name="redirect" value={redirectTo} />
                             )}
                             <div className="space-y-2">
-                                <Label htmlFor="email" className="text-sm text-gray-700 dark:text-gray-200">
+                                <Label htmlFor="email" className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                     メールアドレス
                                 </Label>
                                 <Input
@@ -94,7 +94,7 @@ export default async function LoginPage({
 
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between">
-                                    <Label htmlFor="password" className="text-sm text-gray-700 dark:text-gray-200">
+                                    <Label htmlFor="password" className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                         パスワード
                                     </Label>
                                     <a

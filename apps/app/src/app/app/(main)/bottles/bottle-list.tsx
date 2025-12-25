@@ -17,7 +17,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { Plus, Search, Wine, Trash2, Edit, Filter } from "lucide-react";
+import { Plus, Search, Wine, Trash2, Edit, Filter, ChevronLeft } from "lucide-react";
 import { getBottleKeeps, deleteBottleKeep } from "./actions";
 import { BottleModal } from "./bottle-modal";
 import { formatJSTDate } from "@/lib/utils";
@@ -149,7 +149,7 @@ export function BottleList({ storeId, menus, profiles, canEdit = false, pagePerm
             <div className="flex items-center justify-between">
                 <button
                     type="button"
-                    className={`flex items-center gap-1 px-1 py-1 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 ${
+                    className={`flex items-center gap-1 px-1 py-1 rounded-lg transition-colors hover:bg-gray-50 dark:hover:bg-gray-700 ${
                         hasFilters ? "text-blue-600" : "text-gray-500 dark:text-gray-400"
                     }`}
                     onClick={() => setIsFilterDialogOpen(true)}
@@ -171,8 +171,8 @@ export function BottleList({ storeId, menus, profiles, canEdit = false, pagePerm
                 )}
             </div>
 
-            <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-                <Table>
+            <div className="overflow-hidden rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+                <Table className="table-fixed">
                     <TableHeader>
                         <TableRow className="border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
                             <TableHead className="px-3 sm:px-4 text-center text-gray-500 dark:text-gray-400 w-1/5">ゲスト</TableHead>
@@ -237,14 +237,14 @@ export function BottleList({ storeId, menus, profiles, canEdit = false, pagePerm
                                                     size="sm"
                                                     onClick={() => handleEdit(bottle)}
                                                 >
-                                                    <Edit className="h-4 w-4" />
+                                                    <Edit className="h-5 w-5" />
                                                 </Button>
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
                                                     onClick={() => handleDeleteClick(bottle.id)}
                                                 >
-                                                    <Trash2 className="h-4 w-4 text-red-500" />
+                                                    <Trash2 className="h-5 w-5 text-red-500" />
                                                 </Button>
                                             </div>
                                         </TableCell>
@@ -268,14 +268,14 @@ export function BottleList({ storeId, menus, profiles, canEdit = false, pagePerm
 
             {/* 削除確認ダイアログ */}
             <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-                <DialogContent className="max-w-md rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+                <DialogContent className="sm:max-w-md rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
                     <DialogHeader>
                         <DialogTitle className="text-gray-900 dark:text-white">削除の確認</DialogTitle>
                         <DialogDescription className="text-gray-600 dark:text-gray-400">
                             このボトルキープを削除しますか？この操作は取り消せません。
                         </DialogDescription>
                     </DialogHeader>
-                    <DialogFooter className="mt-4 flex justify-end gap-2">
+                    <DialogFooter className="flex justify-end gap-2">
                         <Button
                             variant="outline"
                             onClick={() => setIsDeleteDialogOpen(false)}
@@ -296,11 +296,19 @@ export function BottleList({ storeId, menus, profiles, canEdit = false, pagePerm
 
             {/* フィルターダイアログ */}
             <Dialog open={isFilterDialogOpen} onOpenChange={setIsFilterDialogOpen}>
-                <DialogContent className="max-w-md rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
-                    <DialogHeader>
-                        <DialogTitle className="text-gray-900 dark:text-white">フィルター</DialogTitle>
+                <DialogContent className="sm:max-w-md max-h-[90vh] overflow-hidden !rounded-2xl border border-gray-200 bg-white !p-0 dark:border-gray-800 dark:bg-gray-900">
+                    <DialogHeader className="flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
+                        <button
+                            type="button"
+                            onClick={() => setIsFilterDialogOpen(false)}
+                            className="p-1 -ml-1 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                        >
+                            <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                        </button>
+                        <DialogTitle className="flex-1 text-center text-gray-900 dark:text-white">フィルター</DialogTitle>
+                        <div className="w-7" />
                     </DialogHeader>
-                    <div className="space-y-4 py-4">
+                    <div className="space-y-4 px-6 py-4">
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                 検索
@@ -334,22 +342,19 @@ export function BottleList({ storeId, menus, profiles, canEdit = false, pagePerm
                             </Select>
                         </div>
                     </div>
-                    <DialogFooter className="flex justify-end gap-2">
-                        <Button
-                            variant="outline"
-                            onClick={() => {
-                                setSearchQuery("");
-                                setRemainingFilter("all");
-                            }}
-                            className="rounded-lg"
-                        >
-                            リセット
-                        </Button>
+                    <DialogFooter className="flex flex-col gap-2 px-6 pb-6">
                         <Button
                             onClick={() => setIsFilterDialogOpen(false)}
-                            className="rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
+                            className="w-full rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
                         >
                             適用
+                        </Button>
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsFilterDialogOpen(false)}
+                            className="w-full rounded-lg"
+                        >
+                            戻る
                         </Button>
                     </DialogFooter>
                 </DialogContent>

@@ -7,7 +7,7 @@ import { TableSession, BillSettings, Order } from "@/types/floor";
 import { getBillSettings } from "../seats/bill-actions";
 import { checkoutSession } from "./actions/session";
 import { calculateBill, BillBreakdown } from "@/utils/bill-calculator";
-import { Loader2 } from "lucide-react";
+import { Loader2, ChevronLeft } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -78,15 +78,25 @@ export function BillModal({ session, open, onOpenChange }: BillModalProps) {
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-md max-h-[90vh] flex flex-col">
-                <DialogHeader>
-                    <DialogTitle>お会計詳細</DialogTitle>
+            <DialogContent className="sm:max-w-md w-[95%] p-0 overflow-hidden flex flex-col max-h-[90vh] rounded-2xl bg-white dark:bg-gray-900">
+                <DialogHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900 flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
+                    <button
+                        type="button"
+                        onClick={() => onOpenChange(false)}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        aria-label="戻る"
+                    >
+                        <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <DialogTitle className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white truncate">お会計詳細</DialogTitle>
+                    <div className="w-8 h-8" />
                 </DialogHeader>
 
                 {loading ? (
                     <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>
                 ) : breakdown ? (
-                    <div className="space-y-4 overflow-y-auto flex-1">
+                    <>
+                    <div className="flex-1 overflow-y-auto p-6 space-y-4">
                         <div className="bg-muted/30 p-4 rounded-lg space-y-2 text-sm">
                             <div className="flex justify-between">
                                 <span className="text-muted-foreground">滞在時間</span>
@@ -161,9 +171,10 @@ export function BillModal({ session, open, onOpenChange }: BillModalProps) {
                                 <span>¥{breakdown.total.toLocaleString()}</span>
                             </div>
                         </div>
-
+                    </div>
+                    <div className="flex-shrink-0 px-6 pb-6 pt-2 border-t border-gray-200 dark:border-gray-700">
                         <Button
-                            className="w-full mt-4"
+                            className="w-full"
                             size="lg"
                             onClick={handleCheckoutClick}
                             disabled={checkoutProcessing}
@@ -172,20 +183,21 @@ export function BillModal({ session, open, onOpenChange }: BillModalProps) {
                             会計を確定して退店処理
                         </Button>
                     </div>
+                    </>
                 ) : (
                     <div>計算できませんでした</div>
                 )}
             </DialogContent>
 
             <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-                <DialogContent className="sm:max-w-[400px]">
-                    <DialogHeader>
-                        <DialogTitle>会計確定の確認</DialogTitle>
-                        <DialogDescription>
+                <DialogContent className="sm:max-w-md w-[95%] max-h-[90vh] overflow-y-auto rounded-2xl bg-white dark:bg-gray-900 p-6">
+                    <DialogHeader className="flex flex-col items-center gap-2 mb-4">
+                        <DialogTitle className="text-lg font-semibold text-gray-900 dark:text-white text-center">会計確定の確認</DialogTitle>
+                        <DialogDescription className="text-sm text-gray-500 dark:text-gray-400 text-center mt-2">
                             会計を確定して退店処理を行いますか？
                         </DialogDescription>
                     </DialogHeader>
-                    <DialogFooter className="gap-2">
+                    <DialogFooter className="flex flex-col gap-2">
                         <Button
                             variant="outline"
                             onClick={() => setShowConfirmDialog(false)}

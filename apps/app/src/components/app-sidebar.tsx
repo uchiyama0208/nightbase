@@ -10,7 +10,6 @@ import {
     Users,
     Settings,
     LogOut,
-    Shield,
     Utensils,
     Mail,
     ChevronDown,
@@ -38,25 +37,19 @@ import {
     ShoppingCart,
     Sparkles,
     QrCode,
+    Store,
+    User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { useState, useRef } from "react";
-
-interface StoreFeatures {
-    show_dashboard?: boolean;
-    show_attendance?: boolean;
-    show_timecard?: boolean;
-    show_users?: boolean;
-    show_roles?: boolean;
-    show_menus?: boolean;
-}
+import type { StoreFeatures } from "@/app/app/data-access";
 
 interface SidebarProps {
     userRole?: string;
     profileName?: string;
     storeName?: string;
-    storeFeatures?: StoreFeatures;
+    storeFeatures?: StoreFeatures | null;
     open?: boolean;
     onOpenChange?: (open: boolean) => void;
 }
@@ -68,7 +61,6 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
     const [floorOpen, setFloorOpen] = useState(false);
     const [salaryOpen, setSalaryOpen] = useState(false);
     const [communityOpen, setCommunityOpen] = useState(false);
-    const [settingsOpen, setSettingsOpen] = useState(false);
     const [internalOpen, setInternalOpen] = useState(false);
 
     const shiftContentRef = useRef<HTMLDivElement>(null);
@@ -76,7 +68,6 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
     const floorContentRef = useRef<HTMLDivElement>(null);
     const salaryContentRef = useRef<HTMLDivElement>(null);
     const communityContentRef = useRef<HTMLDivElement>(null);
-    const settingsContentRef = useRef<HTMLDivElement>(null);
 
     const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
     const setOpen = onOpenChange || setInternalOpen;
@@ -128,12 +119,6 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
             icon: FileText,
             href: "/app/resumes",
             key: "resumes",
-        },
-        {
-            label: "権限",
-            icon: Shield,
-            href: "/app/roles",
-            key: "roles",
         },
         {
             label: "招待",
@@ -244,7 +229,7 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
             key: "board",
         },
         {
-            label: "SNS",
+            label: "SNS投稿",
             icon: Share2,
             href: "/app/sns",
             key: "sns",
@@ -257,44 +242,37 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
         },
     ];
 
-    // 設定
-    const settingsRoutes = [
-        {
-            label: "店舗設定",
-            icon: Settings,
-            href: "/app/settings",
-            key: "settings",
-        },
-        {
-            label: "QRコード注文",
-            icon: QrCode,
-            href: "/app/settings/qr-order",
-            key: "qr-order",
-        },
-        {
-            label: "権限",
-            icon: Shield,
-            href: "/app/roles",
-            key: "roles-settings",
-        },
-        {
-            label: "招待",
-            icon: Mail,
-            href: "/app/invitations",
-            key: "invitations-settings",
-        },
-    ];
 
     // admin と staff は全ページにアクセス可能、cast は権限セットに基づく
-    // TODO: 権限セットに基づくフィルタリングを実装
     const isAdminOrStaff = userRole === "admin" || userRole === "staff";
 
-    const filteredShiftRoutes = isAdminOrStaff ? shiftRoutes : shiftRoutes.filter(r => ["timecard", "my-shifts"].includes(r.key));
-    const filteredUserRoutes = isAdminOrStaff ? userRoutes : [];
-    const filteredFloorRoutes = isAdminOrStaff ? floorRoutes : [];
-    const filteredSalaryRoutes = isAdminOrStaff ? salaryRoutes : [];
-    const filteredCommunityRoutes = isAdminOrStaff ? communityRoutes : communityRoutes.filter(r => r.key === "board");
-    const filteredSettingsRoutes = isAdminOrStaff ? settingsRoutes : [];
+    // Helper to check if a feature is visible
+    const isFeatureVisible = (key: string): boolean => {
+        if (!storeFeatures) return true;
+        const featureKey = `show_${key.replace(/-/g, "_")}` as keyof StoreFeatures;
+        return storeFeatures[featureKey] ?? true;
+    };
+
+    // Filter routes based on role and feature visibility
+    const filteredShiftRoutes = shiftRoutes
+        .filter(r => isFeatureVisible(r.key))
+        .filter(r => isAdminOrStaff || ["timecard", "my-shifts"].includes(r.key));
+
+    const filteredUserRoutes = isAdminOrStaff
+        ? userRoutes.filter(r => isFeatureVisible(r.key))
+        : [];
+
+    const filteredFloorRoutes = isAdminOrStaff
+        ? floorRoutes.filter(r => isFeatureVisible(r.key))
+        : [];
+
+    const filteredSalaryRoutes = isAdminOrStaff
+        ? salaryRoutes.filter(r => isFeatureVisible(r.key))
+        : [];
+
+    const filteredCommunityRoutes = communityRoutes
+        .filter(r => isFeatureVisible(r.key))
+        .filter(r => isAdminOrStaff || ["board"].includes(r.key));
 
     const handleSignOut = async () => {
         const { signOut } = await import("@/app/app/(main)/settings/actions");
@@ -315,7 +293,7 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
             <div>
                 <button
                     onClick={() => setIsOpen(!isOpen)}
-                    className="w-full flex items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-400 transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+                    className="w-full flex items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-400 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
                 >
                     <div className="flex items-center gap-3">
                         <Icon className="h-5 w-5" />
@@ -338,7 +316,7 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
                                 href={route.href}
                                 onClick={() => setOpen(false)}
                                 className={cn(
-                                    "flex items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white",
+                                    "flex items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium transition-colors hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white",
                                     pathname === route.href ? "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400"
                                 )}
                             >
@@ -366,8 +344,8 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
             </div>
             <div className="flex-1 px-3 py-3 overflow-y-auto">
                 <nav className="space-y-1.5">
-                    {/* シフト */}
-                    {renderAccordion("シフト", Calendar, shiftOpen, setShiftOpen, shiftContentRef, filteredShiftRoutes)}
+                    {/* シフト管理 */}
+                    {renderAccordion("シフト管理", Calendar, shiftOpen, setShiftOpen, shiftContentRef, filteredShiftRoutes)}
 
                     {/* ユーザー */}
                     {renderAccordion("ユーザー", Users, userOpen, setUserOpen, userContentRef, filteredUserRoutes)}
@@ -381,8 +359,33 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
                     {/* コミュニティ */}
                     {renderAccordion("コミュニティ", MessageSquare, communityOpen, setCommunityOpen, communityContentRef, filteredCommunityRoutes)}
 
-                    {/* 設定 */}
-                    {renderAccordion("設定", Settings, settingsOpen, setSettingsOpen, settingsContentRef, filteredSettingsRoutes)}
+                    {/* 店舗設定 */}
+                    {isAdminOrStaff && (
+                        <Link
+                            href="/app/settings"
+                            onClick={() => setOpen(false)}
+                            className={cn(
+                                "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white",
+                                pathname?.startsWith("/app/settings") ? "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400"
+                            )}
+                        >
+                            <Settings className="h-5 w-5" />
+                            店舗設定
+                        </Link>
+                    )}
+
+                    {/* マイページ */}
+                    <Link
+                        href="/app/me"
+                        onClick={() => setOpen(false)}
+                        className={cn(
+                            "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white",
+                            pathname === "/app/me" ? "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400"
+                        )}
+                    >
+                        <User className="h-5 w-5" />
+                        マイページ
+                    </Link>
                 </nav>
             </div>
             {!isMobile && (
@@ -390,7 +393,7 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
                     {(profileName || storeName) && (
                         <div className="px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-700">
                             {profileName && (
-                                <p className="text-sm font-medium text-gray-900 dark:text-white">{profileName}</p>
+                                <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{profileName}</p>
                             )}
                             {storeName && (
                                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{storeName}</p>
@@ -399,7 +402,7 @@ export function AppSidebar({ userRole, profileName, storeName, storeFeatures, op
                     )}
                     <Button
                         variant="ghost"
-                        className="w-full justify-start gap-3 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+                        className="w-full justify-start gap-3 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
                         onClick={handleSignOut}
                     >
                         <LogOut className="h-5 w-5" />

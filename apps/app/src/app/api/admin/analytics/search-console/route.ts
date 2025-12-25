@@ -125,10 +125,11 @@ export async function GET(request: NextRequest) {
             pages,
             period,
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error("Search Console API error:", error);
+        const message = error instanceof Error ? error.message : "Failed to fetch search console data";
         return NextResponse.json(
-            { error: error.message || "Failed to fetch search console data" },
+            { error: message },
             { status: 500 }
         );
     }

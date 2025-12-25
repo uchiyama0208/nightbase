@@ -97,42 +97,64 @@ export async function createUser(formData: FormData): Promise<{ success: boolean
     }
 }
 
-export async function importUsersFromCsv(formData: FormData) {
+export interface UserImportResult {
+    success: boolean;
+    imported: number;
+    skipped: number;
+    duplicates: number;
+    errors: { row: number; field: string; message: string }[];
+}
+
+export async function importUsersFromCsv(formData: FormData): Promise<UserImportResult> {
     const file = formData.get("file") as File | null;
     if (!file) {
-        throw new Error("CSVファイルが指定されていません");
+        return { success: false, imported: 0, skipped: 0, duplicates: 0, errors: [{ row: 0, field: "", message: "CSVファイルが指定されていません" }] };
     }
 
     const roleOverride = (formData.get("userRole") as string | null) ?? null;
+    const mappingsJson = formData.get("mappings") as string | null;
 
     // 権限チェック
     const { supabase, profile: currentProfile } = await getAuthContextWithPermission("users", "edit");
 
     if (!currentProfile?.store_id) {
-        throw new Error("店舗情報が見つかりません");
+        return { success: false, imported: 0, skipped: 0, duplicates: 0, errors: [{ row: 0, field: "", message: "店舗情報が見つかりません" }] };
     }
 
     const text = await file.text();
-    const lines = text.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0);
+    // Remove BOM if present
+    const cleanText = text.replace(/^\uFEFF/, "");
+    const lines = cleanText.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0);
 
     if (lines.length < 2) {
-        throw new Error("CSVに有効なデータ行がありません");
+        return { success: false, imported: 0, skipped: 0, duplicates: 0, errors: [{ row: 0, field: "", message: "CSVに有効なデータ行がありません" }] };
     }
 
     const header = lines[0].split(",").map((h) => h.trim());
-    const colIndex = {
-        display_name: header.indexOf("display_name"),
-        display_name_kana: header.indexOf("display_name_kana"),
-        real_name: header.indexOf("real_name"),
-        real_name_kana: header.indexOf("real_name_kana"),
-        role: header.indexOf("role"),
-    };
+
+    // Use mappings if provided, otherwise fall back to direct column names
+    let colIndex: Record<string, number>;
+    if (mappingsJson) {
+        const mappings = JSON.parse(mappingsJson) as Record<string, string>;
+        colIndex = {
+            display_name: mappings.display_name ? header.indexOf(mappings.display_name) : -1,
+            display_name_kana: mappings.display_name_kana ? header.indexOf(mappings.display_name_kana) : -1,
+            real_name: mappings.real_name ? header.indexOf(mappings.real_name) : -1,
+            real_name_kana: mappings.real_name_kana ? header.indexOf(mappings.real_name_kana) : -1,
+            role: mappings.role ? header.indexOf(mappings.role) : -1,
+        };
+    } else {
+        colIndex = {
+            display_name: header.indexOf("display_name"),
+            display_name_kana: header.indexOf("display_name_kana"),
+            real_name: header.indexOf("real_name"),
+            real_name_kana: header.indexOf("real_name_kana"),
+            role: header.indexOf("role"),
+        };
+    }
 
     if (colIndex.display_name === -1) {
-        throw new Error("CSVヘッダーに display_name カラムが必要です");
-    }
-    if (colIndex.role === -1 && !roleOverride) {
-        throw new Error("role カラムが存在しない場合は、インポートするロールを画面で選択してください");
+        return { success: false, imported: 0, skipped: 0, duplicates: 0, errors: [{ row: 0, field: "display_name", message: "表示名の列がマッピングされていません" }] };
     }
 
     const { data: existingProfiles } = await supabase
@@ -147,6 +169,9 @@ export async function importUsersFromCsv(formData: FormData) {
     );
 
     const toInsert: any[] = [];
+    const errors: { row: number; field: string; message: string }[] = [];
+    let skipped = 0;
+    let duplicates = 0;
 
     for (let i = 1; i < lines.length; i++) {
         const columns = lines[i].split(",");
@@ -154,13 +179,21 @@ export async function importUsersFromCsv(formData: FormData) {
         const csvRole = colIndex.role !== -1 ? (columns[colIndex.role] || "").trim() : "";
         const role = roleOverride || csvRole;
 
-        if (!displayName || !role) {
+        if (!displayName) {
+            skipped++;
+            errors.push({ row: i + 1, field: "display_name", message: "表示名が空です" });
+            continue;
+        }
+
+        if (!role) {
+            skipped++;
+            errors.push({ row: i + 1, field: "role", message: "ロールが指定されていません" });
             continue;
         }
 
         const key = displayName.toLowerCase();
         if (existingNames.has(key)) {
-            // 同じ display_name が既に存在する場合はスキップ
+            duplicates++;
             continue;
         }
 
@@ -184,17 +217,18 @@ export async function importUsersFromCsv(formData: FormData) {
 
     if (toInsert.length === 0) {
         revalidatePath("/app/users");
-        return;
+        return { success: true, imported: 0, skipped, duplicates, errors };
     }
 
     const { error } = await supabase.from("profiles").insert(toInsert);
 
     if (error) {
         console.error("Error importing users from CSV:", error);
-        throw new Error("CSVのインポート中にエラーが発生しました");
+        return { success: false, imported: 0, skipped, duplicates, errors: [{ row: 0, field: "", message: "CSVのインポート中にエラーが発生しました" }] };
     }
 
     revalidatePath("/app/users");
+    return { success: true, imported: toInsert.length, skipped, duplicates, errors };
 }
 
 export async function updateUser(formData: FormData): Promise<{ success: boolean; error?: string }> {
@@ -744,8 +778,6 @@ export async function addProfileComment(targetProfileId: string, content: string
         console.error("Comment insert error:", error);
         throw new Error(error.message);
     }
-
-    console.log("Comment inserted:", data);
 
     revalidatePath("/app/users");
     return { success: true };
@@ -1542,4 +1574,315 @@ export async function updateProfileSalarySystems(profileId: string, salarySystem
 
     revalidatePath("/app/users");
     return { success: true };
+}
+
+// ユーザーページ初期データ取得（クライアントサイドフェッチ用）
+export async function getUsersPageData() {
+    const supabase = await createServerClient() as any;
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { redirect: "/login" };
+    }
+
+    // Resolve current profile via users.current_profile_id
+    const { data: appUser } = await supabase
+        .from("users")
+        .select("current_profile_id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+    if (!appUser?.current_profile_id) {
+        return { redirect: "/app/me" };
+    }
+
+    const { data: profile } = await supabase
+        .from("profiles")
+        .select("id, store_id, role, role_id")
+        .eq("id", appUser.current_profile_id)
+        .maybeSingle();
+
+    if (!profile || !profile.store_id) {
+        return { redirect: "/app/me" };
+    }
+
+    // Role check - staff and admin can access
+    if (profile.role !== "staff" && profile.role !== "admin") {
+        return { redirect: "/app/dashboard?accessDenied=users" };
+    }
+
+    // 権限チェック用にロール権限を取得
+    let permissions: Record<string, string> | null = null;
+    if (profile.role_id) {
+        const { data: storeRole } = await supabase
+            .from("store_roles")
+            .select("permissions")
+            .eq("id", profile.role_id)
+            .maybeSingle();
+        permissions = storeRole?.permissions || null;
+    }
+
+    // 各ページの権限をチェック
+    const checkPermission = (pageKey: string) => {
+        if (profile.role === "admin") return true;
+        if (!permissions) return profile.role === "staff";
+        const level = permissions[pageKey];
+        return level === "view" || level === "edit";
+    };
+
+    const canEdit = profile.role === "admin" || (permissions?.users === "edit");
+
+    return {
+        data: {
+            storeId: profile.store_id,
+            canEdit,
+            hidePersonalInfo: !checkPermission("users-personal-info"),
+            pagePermissions: {
+                bottles: checkPermission("bottles"),
+                resumes: checkPermission("resumes"),
+                salarySystems: checkPermission("salary-systems"),
+                attendance: checkPermission("attendance"),
+                personalInfo: checkPermission("users-personal-info"),
+            },
+        },
+    };
+}
+
+// プロフィール一覧取得（クライアントサイドフェッチ用）
+export async function getProfiles() {
+    const supabase = await createServerClient() as any;
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return [];
+
+    const { data: appUser } = await supabase
+        .from("users")
+        .select("current_profile_id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+    if (!appUser?.current_profile_id) return [];
+
+    const { data: currentProfile } = await supabase
+        .from("profiles")
+        .select("store_id")
+        .eq("id", appUser.current_profile_id)
+        .maybeSingle();
+
+    if (!currentProfile?.store_id) return [];
+
+    const { data: profiles, error } = await supabase
+        .from("profiles")
+        .select("*, stores(*)")
+        .eq("store_id", currentProfile.store_id)
+        .order("created_at", { ascending: false });
+
+    if (error) {
+        console.error("Error fetching profiles:", error);
+        return [];
+    }
+
+    return profiles || [];
+}
+
+// ============================================
+// AIレポート生成
+// ============================================
+
+export interface AIReportResult {
+    success: boolean;
+    report?: string;
+    error?: string;
+}
+
+export async function generateProfileAIReport(
+    profileId: string,
+    role: string
+): Promise<AIReportResult> {
+    const supabase = await createServerClient() as any;
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { success: false, error: "認証が必要です" };
+    }
+
+    // Get profile data
+    const { data: profile } = await supabase
+        .from("profiles")
+        .select("id, display_name, display_name_kana, real_name, role, status, store_id, created_at")
+        .eq("id", profileId)
+        .maybeSingle();
+
+    if (!profile) {
+        return { success: false, error: "プロフィールが見つかりません" };
+    }
+
+    // Collect data based on role
+    let contextData = "";
+    const now = new Date();
+    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+
+    if (role === "guest") {
+        // Guest: Get session/visit data
+        const { data: sessions } = await supabase
+            .from("sessions")
+            .select("id, start_time, end_time, seat_id, seats(name)")
+            .eq("guest_id", profileId)
+            .order("start_time", { ascending: false })
+            .limit(100);
+
+        const { data: slips } = await supabase
+            .from("slips")
+            .select("id, total_amount, status, created_at")
+            .eq("guest_id", profileId)
+            .eq("status", "paid")
+            .order("created_at", { ascending: false })
+            .limit(50);
+
+        const totalVisits = sessions?.length || 0;
+        const totalSpent = slips?.reduce((sum: number, s: any) => sum + (s.total_amount || 0), 0) || 0;
+        const avgSpent = slips && slips.length > 0 ? Math.round(totalSpent / slips.length) : 0;
+
+        // Monthly visits
+        const monthlyVisits: Record<string, number> = {};
+        sessions?.forEach((s: any) => {
+            const date = new Date(s.start_time);
+            const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            monthlyVisits[key] = (monthlyVisits[key] || 0) + 1;
+        });
+
+        // Recent visits
+        const recentVisits = sessions?.slice(0, 5).map((s: any) => {
+            const date = new Date(s.start_time);
+            return `${date.toLocaleDateString('ja-JP')} (${(s.seats as any)?.name || '不明'})`;
+        }).join(', ') || 'なし';
+
+        // Calculate visit frequency
+        const firstVisit = sessions && sessions.length > 0 ? new Date(sessions[sessions.length - 1].start_time) : null;
+        const daysSinceFirst = firstVisit ? Math.floor((now.getTime() - firstVisit.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+        const visitFrequency = daysSinceFirst > 0 && totalVisits > 0 ? Math.round(daysSinceFirst / totalVisits) : 0;
+
+        contextData = `
+## ゲスト情報
+- 名前: ${profile.display_name || '不明'}
+- ステータス: ${profile.status || '不明'}
+- 登録日: ${profile.created_at ? new Date(profile.created_at).toLocaleDateString('ja-JP') : '不明'}
+
+## 来店データ
+- 総来店回数: ${totalVisits}回
+- 総利用金額: ¥${totalSpent.toLocaleString()}
+- 平均利用金額: ¥${avgSpent.toLocaleString()}
+- 来店頻度: 約${visitFrequency}日に1回
+- 最近の来店: ${recentVisits}
+
+## 月別来店回数（直近6ヶ月）
+${Object.entries(monthlyVisits)
+    .sort(([a], [b]) => b.localeCompare(a))
+    .slice(0, 6)
+    .map(([month, count]) => `- ${month}: ${count}回`)
+    .join('\n') || '- データなし'}
+`;
+    } else {
+        // Cast/Staff: Get attendance and performance data
+        const { data: workRecords } = await supabase
+            .from("work_records")
+            .select("id, work_date, clock_in, clock_out, status")
+            .eq("profile_id", profileId)
+            .gte("work_date", sixMonthsAgo.toISOString().split('T')[0])
+            .order("work_date", { ascending: false });
+
+        // Calculate work stats
+        let totalWorkMinutes = 0;
+        const monthlyData: Record<string, { count: number; minutes: number }> = {};
+
+        workRecords?.forEach((wr: any) => {
+            if (wr.clock_in && wr.clock_out) {
+                const clockIn = new Date(wr.clock_in);
+                const clockOut = new Date(wr.clock_out);
+                const minutes = Math.round((clockOut.getTime() - clockIn.getTime()) / (1000 * 60));
+                if (minutes > 0 && minutes < 24 * 60) {
+                    totalWorkMinutes += minutes;
+                    const key = `${clockIn.getFullYear()}-${String(clockIn.getMonth() + 1).padStart(2, '0')}`;
+                    if (!monthlyData[key]) {
+                        monthlyData[key] = { count: 0, minutes: 0 };
+                    }
+                    monthlyData[key].count += 1;
+                    monthlyData[key].minutes += minutes;
+                }
+            }
+        });
+
+        const totalDays = workRecords?.length || 0;
+        const avgWorkHours = totalDays > 0 ? Math.round(totalWorkMinutes / totalDays / 60 * 10) / 10 : 0;
+
+        // Get session data for cast (if applicable)
+        let sessionStats = "";
+        if (role === "cast") {
+            const { data: castSessions } = await supabase
+                .from("session_casts")
+                .select("session_id, sessions(id, start_time, end_time, guest_id)")
+                .eq("cast_id", profileId)
+                .limit(100);
+
+            const uniqueGuests = new Set(castSessions?.map((sc: any) => (sc.sessions as any)?.guest_id).filter(Boolean));
+            sessionStats = `
+## 接客データ
+- 接客セッション数: ${castSessions?.length || 0}回
+- ユニーク顧客数: ${uniqueGuests.size}名`;
+        }
+
+        contextData = `
+## ${role === 'cast' ? 'キャスト' : 'スタッフ'}情報
+- 名前: ${profile.display_name || '不明'}
+- ステータス: ${profile.status || '不明'}
+- 登録日: ${profile.created_at ? new Date(profile.created_at).toLocaleDateString('ja-JP') : '不明'}
+
+## 勤務データ（直近6ヶ月）
+- 出勤日数: ${totalDays}日
+- 総勤務時間: ${Math.floor(totalWorkMinutes / 60)}時間${totalWorkMinutes % 60}分
+- 平均勤務時間: ${avgWorkHours}時間/日
+
+## 月別勤務実績
+${Object.entries(monthlyData)
+    .sort(([a], [b]) => b.localeCompare(a))
+    .slice(0, 6)
+    .map(([month, data]) => `- ${month}: ${data.count}日 / ${Math.floor(data.minutes / 60)}時間${data.minutes % 60}分`)
+    .join('\n') || '- データなし'}
+${sessionStats}
+`;
+    }
+
+    // Generate AI report using OpenAI
+    try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || ''}/api/ai/generate-report`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                profileId,
+                role,
+                contextData,
+                profileName: profile.display_name || '不明',
+            }),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error("AI report generation failed:", errorText);
+            return { success: false, error: "レポート生成に失敗しました" };
+        }
+
+        const result = await response.json();
+        return { success: true, report: result.report };
+    } catch (error) {
+        console.error("Error generating AI report:", error);
+        return { success: false, error: "レポート生成中にエラーが発生しました" };
+    }
 }

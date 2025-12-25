@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { User, Settings, Wallet, ChevronRight, Loader2 } from "lucide-react";
+import { User, Settings, Building2, CalendarDays } from "lucide-react";
 import { StoreSelectorModal } from "./store-selector-modal";
 import { AttendanceCalendar } from "./attendance-calendar";
+import { formatJSTDate, formatJSTTime } from "@/lib/utils";
+import { VercelTabs } from "@/components/ui/vercel-tabs";
 
 interface TimeCard {
     id: string;
@@ -14,6 +16,7 @@ interface TimeCard {
     clock_out: string | null;
     store_name: string;
     store_icon_url: string | null;
+    earnings: number | null;
 }
 
 interface ScheduledShift {
@@ -32,17 +35,6 @@ interface Profile {
     stores: { id: string; name: string; icon_url?: string | null } | null;
 }
 
-interface PayrollRecord {
-    date: string;
-    label: string;
-    profileId: string;
-    name: string;
-    hourlyWage: number;
-    backAmount: number;
-    deductionAmount: number;
-    totalSalary: number;
-}
-
 interface MeContentProps {
     avatarUrl: string | null;
     displayName: string | null;
@@ -51,14 +43,6 @@ interface MeContentProps {
     currentStore: { id: string; name: string; icon_url?: string | null } | null;
     timeCards: TimeCard[];
     scheduledShifts: ScheduledShift[];
-}
-
-function formatCurrency(amount: number): string {
-    return new Intl.NumberFormat("ja-JP", {
-        style: "currency",
-        currency: "JPY",
-        maximumFractionDigits: 0,
-    }).format(amount);
 }
 
 export function MeContent({
@@ -70,43 +54,17 @@ export function MeContent({
     timeCards,
     scheduledShifts,
 }: MeContentProps) {
-    const [activeTab, setActiveTab] = useState<"calendar" | "salary">("calendar");
-    const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
-    const tabsRef = useRef<{ [key: string]: HTMLButtonElement | null }>({});
+    const [activeTab, setActiveTab] = useState<"history" | "calendar">("history");
 
-    // Payroll state
-    const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>([]);
-    const [payrollLoading, setPayrollLoading] = useState(false);
-    const [payrollLoaded, setPayrollLoaded] = useState(false);
+    // Sort time cards by date (newest first) for history tab
+    const sortedTimeCards = [...timeCards].sort((a, b) =>
+        new Date(b.work_date).getTime() - new Date(a.work_date).getTime()
+    );
 
-    useEffect(() => {
-        const activeButton = tabsRef.current[activeTab];
-        if (activeButton) {
-            setIndicatorStyle({
-                left: activeButton.offsetLeft,
-                width: activeButton.offsetWidth,
-            });
-        }
-    }, [activeTab]);
-
-    // Load payroll data when switching to salary tab
-    useEffect(() => {
-        if (activeTab === "salary" && !payrollLoaded && currentProfileId) {
-            setPayrollLoading(true);
-            fetch(`/api/payroll/me`)
-                .then(res => res.json())
-                .then(data => {
-                    setPayrollRecords(data.records || []);
-                    setPayrollLoaded(true);
-                })
-                .catch(err => {
-                    console.error("Failed to load payroll:", err);
-                })
-                .finally(() => {
-                    setPayrollLoading(false);
-                });
-        }
-    }, [activeTab, payrollLoaded, currentProfileId]);
+    const tabs = [
+        { key: "history", label: "履歴" },
+        { key: "calendar", label: "カレンダー" },
+    ];
 
     return (
         <div className="max-w-2xl mx-auto">
@@ -139,49 +97,19 @@ export function MeContent({
                 />
                 <Link
                     href="/app/me/settings"
-                    className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    className="p-2 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                     <Settings className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                 </Link>
             </div>
 
             {/* Tab Navigation - Vercel Style */}
-            <div className="mt-4 border-b border-gray-200 dark:border-gray-700">
-                <nav className="relative flex gap-6">
-                    <button
-                        ref={(el) => { tabsRef.current["calendar"] = el; }}
-                        type="button"
-                        onClick={() => setActiveTab("calendar")}
-                        className={`relative pb-3 text-sm font-medium transition-colors duration-200 ${
-                            activeTab === "calendar"
-                                ? "text-gray-900 dark:text-white"
-                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                        }`}
-                    >
-                        カレンダー
-                    </button>
-                    <button
-                        ref={(el) => { tabsRef.current["salary"] = el; }}
-                        type="button"
-                        onClick={() => setActiveTab("salary")}
-                        className={`relative pb-3 text-sm font-medium transition-colors duration-200 ${
-                            activeTab === "salary"
-                                ? "text-gray-900 dark:text-white"
-                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                        }`}
-                    >
-                        給与
-                    </button>
-                    {/* Animated indicator */}
-                    <span
-                        className="absolute bottom-0 h-0.5 bg-gray-900 dark:bg-white transition-all duration-300 ease-out"
-                        style={{
-                            left: indicatorStyle.left,
-                            width: indicatorStyle.width,
-                        }}
-                    />
-                </nav>
-            </div>
+            <VercelTabs
+                tabs={tabs}
+                value={activeTab}
+                onChange={(val) => setActiveTab(val as "history" | "calendar")}
+                className="mt-4"
+            />
 
             {/* Content */}
             <div className="mt-4">
@@ -189,52 +117,43 @@ export function MeContent({
                     <AttendanceCalendar timeCards={timeCards} scheduledShifts={scheduledShifts} />
                 ) : (
                     <div className="space-y-3">
-                        {payrollLoading ? (
-                            <div className="flex items-center justify-center py-12">
-                                <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-                            </div>
-                        ) : payrollRecords.length === 0 ? (
+                        {sortedTimeCards.length === 0 ? (
                             <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 p-8 text-center">
-                                <Wallet className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                                <CalendarDays className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
                                 <p className="text-gray-500 dark:text-gray-400">
-                                    給与データがありません
+                                    出勤履歴がありません
                                 </p>
                             </div>
                         ) : (
-                            payrollRecords.map((record, index) => (
+                            sortedTimeCards.map((card) => (
                                 <div
-                                    key={`${record.date}_${index}`}
-                                    className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 hover:border-gray-300 dark:hover:border-gray-600 transition-colors"
+                                    key={card.id}
+                                    className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 p-4"
                                 >
                                     <div className="flex items-center justify-between">
-                                        <div className="space-y-1">
-                                            <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                                {record.label}
-                                            </p>
-                                            <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-                                                <span>時給: {formatCurrency(record.hourlyWage)}</span>
-                                                {record.backAmount > 0 && (
-                                                    <span className="text-emerald-600 dark:text-emerald-400">
-                                                        +{formatCurrency(record.backAmount)}
-                                                    </span>
-                                                )}
-                                                {record.deductionAmount > 0 && (
-                                                    <span className="text-red-500 dark:text-red-400">
-                                                        -{formatCurrency(record.deductionAmount)}
-                                                    </span>
-                                                )}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2">
+                                                <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                                    {formatJSTDate(card.work_date)}
+                                                </p>
+                                                <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                                                    <Building2 className="h-3 w-3" />
+                                                    <span>{card.store_name}</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                                                <span>
+                                                    {card.clock_in ? formatJSTTime(card.clock_in) : "-"} 〜 {card.clock_out ? formatJSTTime(card.clock_out) : "-"}
+                                                </span>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className={`text-base font-semibold ${
-                                                record.totalSalary >= 0
-                                                    ? "text-gray-900 dark:text-white"
-                                                    : "text-red-600 dark:text-red-400"
-                                            }`}>
-                                                {formatCurrency(record.totalSalary)}
-                                            </span>
-                                            <ChevronRight className="h-4 w-4 text-gray-400" />
-                                        </div>
+                                        {card.earnings !== null && (
+                                            <div className="text-right">
+                                                <p className="text-base font-semibold text-gray-900 dark:text-white">
+                                                    ¥{card.earnings.toLocaleString()}
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             ))

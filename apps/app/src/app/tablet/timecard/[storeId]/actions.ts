@@ -3,10 +3,55 @@
 import { revalidatePath } from "next/cache";
 import { createServiceRoleClient } from "@/lib/supabaseServiceClient";
 
+// Helper to get or create a pickup destination
+async function getOrCreatePickupDestination(
+    supabase: any,
+    storeId: string,
+    destinationName: string
+): Promise<string | null> {
+    if (!destinationName || !destinationName.trim()) {
+        return null;
+    }
+
+    const name = destinationName.trim();
+
+    // Check if destination already exists
+    const { data: existing } = await supabase
+        .from("pickup_destinations")
+        .select("id")
+        .eq("store_id", storeId)
+        .eq("name", name)
+        .maybeSingle();
+
+    if (existing) {
+        return existing.id;
+    }
+
+    // Create new destination
+    const { data: newDest, error } = await supabase
+        .from("pickup_destinations")
+        .insert({
+            store_id: storeId,
+            name: name,
+        })
+        .select("id")
+        .single();
+
+    if (error) {
+        console.error("Error creating pickup destination:", error);
+        return null;
+    }
+
+    return newDest.id;
+}
+
 function getTodayDate() {
-  const now = new Date();
-  const jstDate = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-  return jstDate.toISOString().split("T")[0];
+  return new Date().toLocaleDateString("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).replace(/\//g, "-");
 }
 
 // Helper function to round time based on settings
@@ -73,6 +118,12 @@ export async function tabletClockIn(formData: FormData) {
   const pickupRequired = pickupRequiredRaw === "yes";
   const pickupDestination = pickupCustom || pickupPreset || null;
 
+  // Get or create pickup destination if needed
+  let pickupDestinationId: string | null = null;
+  if (pickupRequired && pickupDestination) {
+    pickupDestinationId = await getOrCreatePickupDestination(supabase, storeId, pickupDestination);
+  }
+
   const payload: any = {
     profile_id: profileId,
     store_id: storeId,
@@ -81,29 +132,91 @@ export async function tabletClockIn(formData: FormData) {
     scheduled_start_time: scheduledStartTime,
     status: "working",
     source: "timecard",
+    pickup_required: pickupRequired,
+    pickup_destination_id: pickupDestinationId,
   };
 
-  if (pickupRequired) {
-    payload.pickup_required = true;
-    if (pickupDestination) {
-      payload.pickup_destination = pickupDestination;
-    }
-  } else {
-    payload.pickup_required = false;
-  }
-
-  console.log("Inserting work record:", payload);
-  const { data, error } = await supabase.from("work_records").insert(payload).select();
+  const { data, error } = await supabase.from("work_records").insert(payload).select("id").single();
 
   if (error) {
     console.error("Error inserting work record:", error);
-  } else {
-    console.log("Work record inserted successfully:", data);
+  }
+
+  // Save question answers if provided
+  if (data?.id) {
+    // Get all question answers from formData
+    const questionAnswers: { questionId: string; value: string }[] = [];
+    for (const [key, value] of formData.entries()) {
+      if (key.startsWith("question_") && typeof value === "string") {
+        const questionId = key.replace("question_", "");
+        if (value.trim()) {
+          questionAnswers.push({ questionId, value: value.trim() });
+        }
+      }
+    }
+
+    // Save each answer
+    for (const answer of questionAnswers) {
+      await supabase.from("timecard_question_answers").upsert(
+        {
+          work_record_id: data.id,
+          question_id: answer.questionId,
+          value: answer.value,
+          timing: "clock_in",
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "work_record_id,question_id,timing" }
+      );
+    }
   }
 
   // ダッシュボードの出勤中人数カードを更新
   revalidatePath("/app/dashboard");
   revalidatePath("/app/attendance");
+}
+
+export async function tabletDeletePickupDestination(
+  storeId: string,
+  profileId: string,
+  destinationName: string
+): Promise<void> {
+  if (!storeId || !profileId || !destinationName) {
+    return;
+  }
+
+  const supabase = createServiceRoleClient() as any;
+
+  // Verify the profile belongs to this store
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id, store_id")
+    .eq("id", profileId)
+    .maybeSingle();
+
+  if (!profile || profile.store_id !== storeId) {
+    return;
+  }
+
+  // Find the pickup destination by name
+  const { data: destination } = await supabase
+    .from("pickup_destinations")
+    .select("id")
+    .eq("store_id", storeId)
+    .eq("name", destinationName)
+    .maybeSingle();
+
+  if (!destination) {
+    return;
+  }
+
+  // Clear this destination from user's work_records (only their own)
+  await supabase
+    .from("work_records")
+    .update({ pickup_destination_id: null, pickup_required: false })
+    .eq("profile_id", profileId)
+    .eq("pickup_destination_id", destination.id);
+
+  revalidatePath(`/tablet/timecard/${storeId}`);
 }
 
 export async function tabletClockOut(formData: FormData) {
@@ -170,6 +283,31 @@ export async function tabletClockOut(formData: FormData) {
         status: "completed",
       } as any)
       .eq("id", record.id);
+
+    // Save question answers if provided
+    const questionAnswers: { questionId: string; value: string }[] = [];
+    for (const [key, value] of formData.entries()) {
+      if (key.startsWith("question_") && typeof value === "string") {
+        const questionId = key.replace("question_", "");
+        if (value.trim()) {
+          questionAnswers.push({ questionId, value: value.trim() });
+        }
+      }
+    }
+
+    // Save each answer
+    for (const answer of questionAnswers) {
+      await supabase.from("timecard_question_answers").upsert(
+        {
+          work_record_id: record.id,
+          question_id: answer.questionId,
+          value: answer.value,
+          timing: "clock_out",
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "work_record_id,question_id,timing" }
+      );
+    }
   }
 
   // ダッシュボードの出勤中人数カードを更新

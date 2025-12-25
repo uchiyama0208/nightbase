@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
-    DialogFooter,
 } from "@/components/ui/dialog";
 import {
     Select,
@@ -17,10 +16,14 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Loader2, Plus, User, X } from "lucide-react";
-import { addReservationV2, getCastsForStore, getGuestsForStore, getTablesForStore } from "./actions";
+import { Plus, User, X, ChevronLeft } from "lucide-react";
+import { addReservationV2, getCastsForStore, getGuestsForStore, getTablesForStore, getCustomFields, updateCustomAnswers, type CustomField } from "./actions";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 import { GuestSelectorModal, SelectedGuest } from "@/components/selectors/guest-selector-modal";
 import { CastSelectorModal, SelectedCast, NominationType } from "@/components/selectors/cast-selector-modal";
+import { useGlobalLoading } from "@/components/global-loading";
+import { toast } from "@/components/ui/use-toast";
 
 interface Profile {
     id: string;
@@ -42,6 +45,12 @@ interface ReservationAddModalProps {
     onClose: () => void;
     storeId: string;
     onSuccess: (reservation: any) => void;
+    settings?: {
+        reservation_enabled: boolean;
+        reservation_email_setting: "hidden" | "optional" | "required";
+        reservation_phone_setting: "hidden" | "optional" | "required";
+        reservation_cast_selection_enabled: boolean;
+    };
 }
 
 // 時間選択肢を生成（18:00〜翌5:00、30分刻み）
@@ -81,8 +90,15 @@ export function ReservationAddModal({
     onClose,
     storeId,
     onSuccess,
+    settings,
 }: ReservationAddModalProps) {
-    const [isPending, startTransition] = useTransition();
+    const castSelectionEnabled = settings?.reservation_cast_selection_enabled ?? true;
+    const emailSetting = settings?.reservation_email_setting ?? "hidden";
+    const phoneSetting = settings?.reservation_phone_setting ?? "hidden";
+    const showEmailField = emailSetting !== "hidden";
+    const showPhoneField = phoneSetting !== "hidden";
+
+    const { showLoading, hideLoading } = useGlobalLoading();
     const [casts, setCasts] = useState<Profile[]>([]);
     const [guests, setGuests] = useState<Profile[]>([]);
     const [tables, setTables] = useState<TableInfo[]>([]);
@@ -94,11 +110,17 @@ export function ReservationAddModal({
     const [selectedGuests, setSelectedGuests] = useState<GuestWithCasts[]>([]);
     const [partySize, setPartySize] = useState(1);
     const [selectedTableId, setSelectedTableId] = useState<string>("");
+    const [email, setEmail] = useState("");
+    const [phone, setPhone] = useState("");
 
     // モーダル状態
     const [isGuestSelectorOpen, setIsGuestSelectorOpen] = useState(false);
     const [isCastSelectorOpen, setIsCastSelectorOpen] = useState(false);
     const [currentGuestForCast, setCurrentGuestForCast] = useState<GuestWithCasts | null>(null);
+
+    // カスタム質問関連
+    const [customFields, setCustomFields] = useState<CustomField[]>([]);
+    const [customAnswers, setCustomAnswers] = useState<Record<string, string>>({});
 
     // モーダルが開いたときにキャストとゲスト一覧を取得
     useEffect(() => {
@@ -108,7 +130,8 @@ export function ReservationAddModal({
                 getCastsForStore(storeId),
                 getGuestsForStore(storeId),
                 getTablesForStore(storeId),
-            ]).then(([castsResult, guestsResult, tablesResult]) => {
+                getCustomFields(storeId),
+            ]).then(([castsResult, guestsResult, tablesResult, fieldsResult]) => {
                 if (castsResult.success) {
                     setCasts(castsResult.casts);
                 }
@@ -117,6 +140,9 @@ export function ReservationAddModal({
                 }
                 if (tablesResult.success) {
                     setTables(tablesResult.tables);
+                }
+                if (fieldsResult.success) {
+                    setCustomFields(fieldsResult.fields);
                 }
                 setLoading(false);
             });
@@ -145,6 +171,9 @@ export function ReservationAddModal({
         setReservationDate("");
         setReservationTime("19:00");
         setSelectedTableId("");
+        setEmail("");
+        setPhone("");
+        setCustomAnswers({});
     };
 
     const handleClose = () => {
@@ -179,18 +208,30 @@ export function ReservationAddModal({
         setIsCastSelectorOpen(true);
     };
 
-    const handleSubmit = () => {
-        if (selectedGuests.length === 0 || !reservationDate || !reservationTime) {
+    const handleSubmit = async () => {
+        if (!reservationDate || !reservationTime) {
+            return;
+        }
+        // 必須チェック
+        if (emailSetting === "required" && !email) {
+            toast({ title: "エラー", description: "メールアドレスを入力してください", variant: "destructive" });
+            return;
+        }
+        if (phoneSetting === "required" && !phone) {
+            toast({ title: "エラー", description: "電話番号を入力してください", variant: "destructive" });
             return;
         }
 
-        startTransition(async () => {
+        showLoading("作成中...");
+        try {
             const result = await addReservationV2({
                 storeId,
                 reservationDate,
                 reservationTime,
                 partySize,
                 tableId: selectedTableId || null,
+                email: email || undefined,
+                phone: phone || undefined,
                 guests: selectedGuests.map((g) => ({
                     guestId: g.id,
                     casts: g.casts.map((c) => ({
@@ -201,27 +242,56 @@ export function ReservationAddModal({
             });
 
             if (result.success && result.reservation) {
+                // カスタム回答を保存
+                const answersArray = Object.entries(customAnswers).map(([fieldId, value]) => ({
+                    fieldId,
+                    value,
+                }));
+                if (answersArray.length > 0) {
+                    await updateCustomAnswers(result.reservation.id, answersArray);
+                }
                 onSuccess(result.reservation);
                 handleClose();
             } else if (result.error) {
-                console.error("予約追加エラー:", result.error);
+                toast({
+                    title: "エラー",
+                    description: result.error,
+                    variant: "destructive",
+                });
             }
-        });
+        } catch (error) {
+            toast({
+                title: "エラー",
+                description: "予約の作成に失敗しました",
+                variant: "destructive",
+            });
+        } finally {
+            hideLoading();
+        }
     };
 
-    const isValid = selectedGuests.length > 0 && reservationDate && reservationTime;
+    const isValid = reservationDate && reservationTime;
 
     return (
         <>
             <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-                <DialogContent className="max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900 max-h-[90vh] overflow-y-auto">
-                    <DialogHeader className="space-y-1.5">
-                        <DialogTitle className="text-base font-semibold text-gray-900 dark:text-gray-50">
+                <DialogContent className="sm:max-w-md w-[95%] p-0 overflow-hidden flex flex-col max-h-[90vh] rounded-2xl bg-white dark:bg-gray-900">
+                    <DialogHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900 flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
+                        <button
+                            type="button"
+                            onClick={handleClose}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
+                            aria-label="戻る"
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                        </button>
+                        <DialogTitle className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white truncate">
                             予約を追加
                         </DialogTitle>
+                        <div className="w-8 h-8" />
                     </DialogHeader>
 
-                    <div className="space-y-4 mt-4">
+                    <div className="flex-1 overflow-y-auto p-6 space-y-4">
                         {/* 予約日 */}
                         <div className="space-y-1.5">
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
@@ -231,7 +301,7 @@ export function ReservationAddModal({
                                 type="date"
                                 value={reservationDate}
                                 onChange={(e) => setReservationDate(e.target.value)}
-                                className="flex h-10 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:ring-offset-gray-950 dark:placeholder:text-gray-400"
+                                className="flex h-10 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-base ring-offset-white file:border-0 file:bg-transparent file:text-base file:font-medium placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:ring-offset-gray-950 dark:placeholder:text-gray-400"
                             />
                         </div>
 
@@ -241,7 +311,7 @@ export function ReservationAddModal({
                                 予約時間 <span className="text-red-500">*</span>
                             </label>
                             <Select value={reservationTime} onValueChange={setReservationTime}>
-                                <SelectTrigger className="h-10 rounded-lg">
+                                <SelectTrigger className="h-10">
                                     <SelectValue placeholder="時間を選択" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -260,7 +330,7 @@ export function ReservationAddModal({
                                 席番号
                             </label>
                             <Select value={selectedTableId || "none"} onValueChange={(v) => setSelectedTableId(v === "none" ? "" : v)}>
-                                <SelectTrigger className="h-10 rounded-lg">
+                                <SelectTrigger className="h-10">
                                     <SelectValue placeholder="未指定" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -274,10 +344,42 @@ export function ReservationAddModal({
                             </Select>
                         </div>
 
+                        {/* メールアドレス */}
+                        {showEmailField && (
+                            <div className="space-y-1.5">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                                    メールアドレス {emailSetting === "required" && <span className="text-red-500">*</span>}
+                                </label>
+                                <Input
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    placeholder="example@email.com"
+                                    className="h-10 rounded-lg"
+                                />
+                            </div>
+                        )}
+
+                        {/* 電話番号 */}
+                        {showPhoneField && (
+                            <div className="space-y-1.5">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                                    電話番号 {phoneSetting === "required" && <span className="text-red-500">*</span>}
+                                </label>
+                                <Input
+                                    type="tel"
+                                    value={phone}
+                                    onChange={(e) => setPhone(e.target.value)}
+                                    placeholder="090-1234-5678"
+                                    className="h-10 rounded-lg"
+                                />
+                            </div>
+                        )}
+
                         {/* ゲスト選択 */}
                         <div className="space-y-1.5">
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-                                ゲスト <span className="text-red-500">*</span>
+                                ゲスト
                             </label>
                             <Button
                                 type="button"
@@ -286,7 +388,7 @@ export function ReservationAddModal({
                                 onClick={() => setIsGuestSelectorOpen(true)}
                                 disabled={loading}
                             >
-                                <Plus className="h-4 w-4 mr-2" />
+                                <Plus className="h-5 w-5 mr-2" />
                                 {loading ? "読み込み中..." : "ゲストを選択"}
                             </Button>
 
@@ -314,32 +416,34 @@ export function ReservationAddModal({
                                                     }
                                                     className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                                                 >
-                                                    <X className="h-4 w-4" />
+                                                    <X className="h-5 w-5" />
                                                 </button>
                                             </div>
 
                                             {/* キャスト */}
-                                            <div className="flex flex-wrap gap-1">
-                                                {guest.casts.map((cast) => (
-                                                    <span
-                                                        key={cast.id}
-                                                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${NOMINATION_TYPE_COLORS[cast.nomination_type]}`}
-                                                    >
-                                                        {cast.display_name}
-                                                        <span className="opacity-70">
-                                                            ({NOMINATION_TYPE_LABELS[cast.nomination_type]})
+                                            {castSelectionEnabled && (
+                                                <div className="flex flex-wrap gap-1">
+                                                    {guest.casts.map((cast) => (
+                                                        <span
+                                                            key={cast.id}
+                                                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${NOMINATION_TYPE_COLORS[cast.nomination_type]}`}
+                                                        >
+                                                            {cast.display_name}
+                                                            <span className="opacity-70">
+                                                                ({NOMINATION_TYPE_LABELS[cast.nomination_type]})
+                                                            </span>
                                                         </span>
-                                                    </span>
-                                                ))}
-                                                <button
-                                                    type="button"
-                                                    onClick={() => openCastSelectorForGuest(guest)}
-                                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                                                >
-                                                    <Plus className="h-3 w-3" />
-                                                    キャスト
-                                                </button>
-                                            </div>
+                                                    ))}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => openCastSelectorForGuest(guest)}
+                                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                                                    >
+                                                        <Plus className="h-3 w-3" />
+                                                        キャスト
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -365,28 +469,89 @@ export function ReservationAddModal({
                                 </p>
                             )}
                         </div>
-                    </div>
 
-                    <DialogFooter className="mt-6 flex justify-end gap-2">
-                        <Button
-                            variant="outline"
-                            onClick={handleClose}
-                            className="rounded-lg"
-                        >
-                            キャンセル
-                        </Button>
-                        <Button
-                            onClick={handleSubmit}
-                            disabled={isPending || !isValid}
-                            className="rounded-lg"
-                        >
-                            {isPending ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                                "追加"
-                            )}
-                        </Button>
-                    </DialogFooter>
+                        {/* カスタム質問 */}
+                        {customFields.length > 0 && (
+                            <div className="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                                    カスタム質問
+                                </label>
+                                {customFields.map((field) => (
+                                    <div key={field.id} className="space-y-1.5">
+                                        <label className="block text-sm text-gray-600 dark:text-gray-300">
+                                            {field.label}
+                                            {field.is_required && <span className="text-red-500 ml-1">*</span>}
+                                        </label>
+                                        {field.field_type === "text" && (
+                                            <Input
+                                                value={customAnswers[field.id] || ""}
+                                                onChange={(e) => setCustomAnswers((prev) => ({ ...prev, [field.id]: e.target.value }))}
+                                                placeholder={field.label}
+                                                className="h-10 rounded-lg"
+                                            />
+                                        )}
+                                        {field.field_type === "textarea" && (
+                                            <Textarea
+                                                value={customAnswers[field.id] || ""}
+                                                onChange={(e) => setCustomAnswers((prev) => ({ ...prev, [field.id]: e.target.value }))}
+                                                placeholder={field.label}
+                                                className="min-h-[80px] rounded-lg"
+                                            />
+                                        )}
+                                        {field.field_type === "select" && (
+                                            <Select
+                                                value={customAnswers[field.id] || ""}
+                                                onValueChange={(v) => setCustomAnswers((prev) => ({ ...prev, [field.id]: v }))}
+                                            >
+                                                <SelectTrigger className="h-10">
+                                                    <SelectValue placeholder="選択してください" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {field.options?.map((option) => (
+                                                        <SelectItem key={option} value={option}>
+                                                            {option}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        )}
+                                        {field.field_type === "checkbox" && (
+                                            <div className="flex items-center gap-2">
+                                                <Checkbox
+                                                    id={`custom-field-${field.id}`}
+                                                    checked={customAnswers[field.id] === "true"}
+                                                    onCheckedChange={(checked) => setCustomAnswers((prev) => ({ ...prev, [field.id]: checked ? "true" : "false" }))}
+                                                />
+                                                <label
+                                                    htmlFor={`custom-field-${field.id}`}
+                                                    className="text-sm text-gray-600 dark:text-gray-300 cursor-pointer"
+                                                >
+                                                    はい
+                                                </label>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        <div className="flex flex-col gap-2 pt-4">
+                            <Button
+                                onClick={handleSubmit}
+                                disabled={!isValid}
+                                className="w-full"
+                            >
+                                追加
+                            </Button>
+                            <Button
+                                variant="outline"
+                                onClick={handleClose}
+                                className="w-full"
+                            >
+                                キャンセル
+                            </Button>
+                        </div>
+                    </div>
                 </DialogContent>
             </Dialog>
 
@@ -397,20 +562,30 @@ export function ReservationAddModal({
                 guests={guests}
                 selectedGuests={selectedGuests}
                 onConfirm={handleGuestConfirm}
+                storeId={storeId}
+                onGuestCreated={async () => {
+                    // Refresh guest list after creating a new guest
+                    const result = await getGuestsForStore(storeId);
+                    if (result.success) {
+                        setGuests(result.guests);
+                    }
+                }}
             />
 
             {/* キャスト選択モーダル */}
-            <CastSelectorModal
-                isOpen={isCastSelectorOpen}
-                onClose={() => {
-                    setIsCastSelectorOpen(false);
-                    setCurrentGuestForCast(null);
-                }}
-                casts={casts}
-                selectedCasts={currentGuestForCast?.casts || []}
-                onConfirm={handleCastConfirm}
-                guestName={currentGuestForCast?.display_name}
-            />
+            {castSelectionEnabled && (
+                <CastSelectorModal
+                    isOpen={isCastSelectorOpen}
+                    onClose={() => {
+                        setIsCastSelectorOpen(false);
+                        setCurrentGuestForCast(null);
+                    }}
+                    casts={casts}
+                    selectedCasts={currentGuestForCast?.casts || []}
+                    onConfirm={handleCastConfirm}
+                    guestName={currentGuestForCast?.display_name}
+                />
+            )}
         </>
     );
 }

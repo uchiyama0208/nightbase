@@ -1,56 +1,56 @@
 "use client";
 
-import { CastAssignment } from "@/types/floor";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+// Grid placement item (guest or cast)
+export interface GridPlacement {
+    id: string;
+    type: "guest" | "cast";
+    grid_x: number;
+    grid_y: number;
+    display_name: string;
+}
 
 interface TableGridProps {
     grid: boolean[][];
-    assignments?: CastAssignment[];
-    onCellClick?: (rowIndex: number, colIndex: number) => void;
+    placements?: GridPlacement[];
+    onCellClick?: (rowIndex: number, colIndex: number, placement: GridPlacement | null) => void;
     className?: string;
 }
 
-export function TableGrid({ grid, assignments = [], onCellClick, className = "" }: TableGridProps) {
+export function TableGrid({ grid, placements = [], onCellClick, className = "" }: TableGridProps) {
     if (!grid || grid.length === 0) return null;
 
     return (
-        <div className={`inline-block border border-gray-300 rounded bg-white dark:bg-slate-900 ${className}`}>
+        <div className={`inline-block border border-gray-300 rounded bg-white dark:bg-gray-900 ${className}`}>
             {grid.map((row, rowIndex) => (
                 <div key={rowIndex} className="flex">
                     {row.map((cell, colIndex) => {
-                        // Find assignment at this position
-                        const assignment = assignments.find(
-                            (a: any) => a.grid_x === colIndex && a.grid_y === rowIndex
+                        // Find placement at this position
+                        const placement = placements.find(
+                            (p) => p.grid_x === colIndex && p.grid_y === rowIndex
                         );
+
+                        // Border color based on type
+                        const borderColor = placement
+                            ? placement.type === "guest"
+                                ? "border-blue-500 border-2 rounded"
+                                : "border-pink-500 border-2 rounded"
+                            : "border-gray-100 dark:border-gray-800";
 
                         return (
                             <div
                                 key={colIndex}
-                                onClick={() => onCellClick?.(rowIndex, colIndex)}
+                                onClick={() => onCellClick?.(rowIndex, colIndex, placement || null)}
                                 className={`
-                                    w-7 h-7 sm:w-9 sm:h-9 border border-gray-100 dark:border-gray-800 relative
-                                    ${cell ? "bg-green-100 dark:bg-green-900/20" : "bg-transparent"}
-                                    ${onCellClick && cell ? "cursor-pointer hover:bg-green-200 dark:hover:bg-green-900/40" : ""}
+                                    w-7 h-7 sm:w-9 sm:h-9 border relative
+                                    ${borderColor}
+                                    ${cell ? "bg-gray-200 dark:bg-gray-700" : "bg-transparent"}
+                                    ${onCellClick && cell ? "cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors" : ""}
                                 `}
                             >
-                                {assignment && (
-                                    <div className="absolute inset-0 flex flex-col items-center justify-center z-10 p-0.5">
-                                        <div className="relative">
-                                            <Avatar className="w-4 h-4 sm:w-5 sm:h-5 border border-white dark:border-slate-900 shadow-sm">
-                                                <AvatarImage src={(assignment as any).profiles?.avatar_url} />
-                                                <AvatarFallback className="text-[6px] sm:text-[8px]">
-                                                    {(assignment as any).profiles?.display_name?.[0]}
-                                                </AvatarFallback>
-                                            </Avatar>
-                                            <div
-                                                className={`
-                                                    absolute -bottom-0.5 -right-0.5 w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full border border-white dark:border-slate-900
-                                                    ${assignment.status === 'shime' ? 'bg-pink-500' : 'bg-blue-500'}
-                                                `}
-                                            />
-                                        </div>
-                                        <span className="text-[6px] sm:text-[7px] font-medium text-slate-900 dark:text-slate-100 truncate max-w-full text-center leading-none">
-                                            {(assignment as any).profiles?.display_name}
+                                {placement && (
+                                    <div className="absolute inset-0 flex items-center justify-center z-10 p-0.5 overflow-hidden">
+                                        <span className="text-[8px] sm:text-[10px] font-bold text-gray-900 dark:text-gray-100 truncate w-full text-center leading-tight">
+                                            {placement.display_name}
                                         </span>
                                     </div>
                                 )}

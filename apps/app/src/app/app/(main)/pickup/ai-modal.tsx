@@ -304,28 +304,22 @@ export function AIModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={handleClose}>
-            <DialogContent className="max-w-2xl rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900 max-h-[90vh] overflow-hidden flex flex-col">
-                <DialogHeader className="relative flex flex-row items-center justify-center space-y-0 pb-4">
+            <DialogContent className="p-0 overflow-hidden flex flex-col max-h-[90vh] rounded-2xl sm:max-w-2xl">
+                <DialogHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900 flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
                     <button
                         type="button"
                         onClick={mode === "select" ? handleClose : handleBack}
-                        className="absolute left-0 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
                     >
-                        <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                        <ChevronLeft className="h-4 w-4" />
                     </button>
-                    <DialogTitle className="text-base font-semibold text-gray-900 dark:text-gray-50">
+                    <DialogTitle className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white truncate">
                         AI送迎ルート提案
                     </DialogTitle>
-                    <button
-                        type="button"
-                        onClick={handleClose}
-                        className="absolute right-0 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                    >
-                        <X className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                    </button>
+                    <div className="w-8 h-8" />
                 </DialogHeader>
 
-                <div className="flex-1 overflow-y-auto space-y-4 min-h-0">
+                <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 min-h-0">
                     {/* Error message */}
                     {errorMessage && (
                         <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-3">
@@ -341,7 +335,7 @@ export function AIModal({
                             {/* 送迎車選択 */}
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between">
-                                    <Label className="text-sm font-medium text-gray-900 dark:text-white">
+                                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                         使用する送迎車 ({selectedRouteIds.size}/{routes.length})
                                     </Label>
                                     <div className="flex gap-2">
@@ -361,7 +355,7 @@ export function AIModal({
                                         </button>
                                     </div>
                                 </div>
-                                <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-2">
+                                <div className="rounded-3xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-2">
                                     <div className="space-y-1">
                                         {sortedRoutes.length === 0 ? (
                                             <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-2">
@@ -371,7 +365,7 @@ export function AIModal({
                                             sortedRoutes.map((route) => (
                                                 <div
                                                     key={route.id}
-                                                    className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                                                    className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
                                                 >
                                                     <label className="flex items-center gap-2 flex-1 cursor-pointer">
                                                         <Checkbox
@@ -416,7 +410,7 @@ export function AIModal({
                             {/* 対象ユーザー選択 */}
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between">
-                                    <Label className="text-sm font-medium text-gray-900 dark:text-white">
+                                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                         対象ユーザー ({selectedAttendeeIds.size}/{allAttendeesWithDestination.length})
                                     </Label>
                                     <div className="flex gap-2">
@@ -476,7 +470,7 @@ export function AIModal({
                                         </button>
                                     )}
                                 </div>
-                                <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-2">
+                                <div className="rounded-3xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-2">
                                     <div className="space-y-1">
                                         {attendeesWithDestination.length === 0 ? (
                                             <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-2">
@@ -486,7 +480,7 @@ export function AIModal({
                                             attendeesWithDestination.map((attendee) => (
                                                 <label
                                                     key={attendee.profile_id}
-                                                    className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                                                    className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
                                                 >
                                                     <Checkbox
                                                         checked={selectedAttendeeIds.has(attendee.profile_id)}
@@ -571,7 +565,7 @@ export function AIModal({
                             </div>
 
                             {/* Suggestion preview */}
-                            <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-4">
+                            <div className="rounded-3xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-4">
                                 <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
                                     提案内容
                                 </h4>
@@ -592,7 +586,7 @@ export function AIModal({
                                                         <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs">
                                                             {totalPassengers}
                                                         </span>
-                                                        <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                                             {route.driver_name || "ドライバー未定"}
                                                         </span>
                                                         <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -624,7 +618,7 @@ export function AIModal({
                                                                             <span className="text-gray-500 mr-1">
                                                                                 {pIdx + 1}.
                                                                             </span>
-                                                                            <span className="text-gray-900 dark:text-white">
+                                                                            <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                                                                 {p.name}
                                                                             </span>
                                                                         </span>
@@ -644,7 +638,7 @@ export function AIModal({
                 </div>
 
                 {mode === "suggestion" && suggestion && !isLoading && (
-                    <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
+                    <div className="px-6 pb-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
                         {/* Chat input */}
                         <div className="flex gap-2">
                             <Input
@@ -665,7 +659,7 @@ export function AIModal({
                                 size="icon"
                                 className="h-10 w-10 rounded-lg bg-purple-600 text-white hover:bg-purple-700"
                             >
-                                <Send className="h-4 w-4" />
+                                <Send className="h-5 w-5" />
                             </Button>
                         </div>
                         {/* Buttons */}

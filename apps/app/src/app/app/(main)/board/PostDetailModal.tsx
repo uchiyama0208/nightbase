@@ -86,16 +86,16 @@ export function PostDetailModal({ isOpen, onClose, post, isStaff }: PostDetailMo
     return (
         <>
             <Dialog open={isOpen} onOpenChange={onClose}>
-                <DialogContent className="max-w-2xl rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900 max-h-[90vh] overflow-hidden flex flex-col">
-                    <DialogHeader className="relative flex flex-row items-center justify-center space-y-0 pb-2">
+                <DialogContent className="sm:max-w-2xl rounded-2xl border border-gray-200 bg-white p-0 shadow-xl dark:border-gray-800 dark:bg-gray-900 max-h-[90vh] overflow-hidden flex flex-col">
+                    <DialogHeader className="flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
                         <button
                             type="button"
                             onClick={onClose}
-                            className="absolute left-0 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                            className="p-1 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                         >
                             <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                         </button>
-                        <DialogTitle className="text-base font-semibold text-gray-900 dark:text-gray-50 px-8 text-center">
+                        <DialogTitle className="flex-1 text-center text-base font-semibold text-gray-900 dark:text-white">
                             {post.title}
                         </DialogTitle>
                         {isStaff && (
@@ -103,7 +103,7 @@ export function PostDetailModal({ isOpen, onClose, post, isStaff }: PostDetailMo
                                 <PopoverTrigger asChild>
                                     <button
                                         type="button"
-                                        className="absolute right-0 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                        className="p-1 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                                     >
                                         <MoreHorizontal className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                                     </button>
@@ -112,7 +112,7 @@ export function PostDetailModal({ isOpen, onClose, post, isStaff }: PostDetailMo
                                     <button
                                         type="button"
                                         onClick={handleEdit}
-                                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+                                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded transition-colors"
                                     >
                                         <Pencil className="h-4 w-4" />
                                         編集
@@ -123,9 +123,9 @@ export function PostDetailModal({ isOpen, onClose, post, isStaff }: PostDetailMo
                                             setIsMenuOpen(false);
                                             setShowDeleteConfirm(true);
                                         }}
-                                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                                        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
                                     >
-                                        <Trash2 className="h-4 w-4" />
+                                        <Trash2 className="h-5 w-5" />
                                         削除
                                     </button>
                                 </PopoverContent>
@@ -133,7 +133,7 @@ export function PostDetailModal({ isOpen, onClose, post, isStaff }: PostDetailMo
                         )}
                     </DialogHeader>
 
-                    <div className="flex-1 overflow-y-auto space-y-4 min-h-0">
+                    <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 min-h-0">
                         {/* Meta info with avatar */}
                         <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                             {post.creator?.avatar_url ? (
@@ -179,9 +179,9 @@ export function PostDetailModal({ isOpen, onClose, post, isStaff }: PostDetailMo
 
             {/* Delete confirmation dialog */}
             <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-                <DialogContent className="max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900">
+                <DialogContent className="sm:max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900">
                     <DialogHeader>
-                        <DialogTitle className="text-base font-semibold text-gray-900 dark:text-gray-50">
+                        <DialogTitle className="text-base font-semibold text-gray-900 dark:text-white">
                             投稿を削除
                         </DialogTitle>
                     </DialogHeader>

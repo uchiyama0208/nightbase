@@ -5,13 +5,13 @@ export interface TimecardSettingsPayload {
     show_break_columns: boolean;
     tablet_timecard_enabled: boolean;
     location_check_enabled: boolean;
-    latitude: number | null;
-    longitude: number | null;
     location_radius: number;
     time_rounding_enabled: boolean;
     time_rounding_method: string;
     time_rounding_minutes: number;
     auto_clockout_enabled: boolean;
+    pickup_enabled_cast: boolean;
+    pickup_enabled_staff: boolean;
     tablet_acceptance_start_time?: string | null;
     tablet_acceptance_end_time?: string | null;
     tablet_allowed_roles?: string[];

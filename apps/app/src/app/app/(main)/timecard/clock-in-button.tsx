@@ -1,18 +1,19 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { clockIn, startBreak, endBreak } from "./actions";
-import { MapPin, CheckCircle2, XCircle, RefreshCw, Loader2 } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
+import { clockIn, startBreak, endBreak, deletePickupDestination, getActiveTimecardQuestions, type TimecardQuestion } from "./actions";
+import { CheckCircle2, XCircle, RefreshCw, Loader2, ChevronLeft } from "lucide-react";
 import {
     Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
-    DialogDescription,
 } from "@/components/ui/dialog";
 import { PickupForm } from "@/components/timecard/pickup-form";
+import { TimecardQuestionsForm } from "@/components/timecard/timecard-questions-form";
 import { ClockOutModal } from "./clock-out-modal";
 
 interface ClockButtonsProps {
@@ -22,6 +23,8 @@ interface ClockButtonsProps {
         clock_out: string | null;
         break_start: string | null;
         break_end: string | null;
+        breaks?: { id: string; break_start: string; break_end: string | null }[];
+        isOnBreak?: boolean;
     } | null;
     storeSettings?: {
         location_check_enabled: boolean;
@@ -33,6 +36,7 @@ interface ClockButtonsProps {
     pickupHistory: string[];
     autoOpenModal?: boolean;
     autoClockOut?: boolean;
+    pickupEnabled?: boolean;
 }
 
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -50,8 +54,9 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
     return R * c;
 }
 
-export function ClockButtons({ latestTimeCard, storeSettings, showBreakButtons = true, pickupHistory, autoOpenModal = false, autoClockOut = false }: ClockButtonsProps) {
-    const router = useRouter();
+export function ClockButtons({ latestTimeCard, storeSettings, showBreakButtons = true, pickupHistory, autoOpenModal = false, autoClockOut = false, pickupEnabled = true }: ClockButtonsProps) {
+    const queryClient = useQueryClient();
+    const { toast } = useToast();
     const [currentTime, setCurrentTime] = useState<Date | null>(null);
     const [isPending, setIsPending] = useState(false);
 
@@ -161,20 +166,81 @@ export function ClockButtons({ latestTimeCard, storeSettings, showBreakButtons =
     const [isPickupValid, setIsPickupValid] = useState(false);
     const [pickupRequired, setPickupRequired] = useState<boolean | null>(null);
     const [pickupDestination, setPickupDestination] = useState("");
+    const [currentPickupHistory, setCurrentPickupHistory] = useState(pickupHistory);
+
+    // Custom questions state
+    const [clockInQuestions, setClockInQuestions] = useState<TimecardQuestion[]>([]);
+    const [questionAnswers, setQuestionAnswers] = useState<Record<string, string>>({});
+    const [isQuestionsValid, setIsQuestionsValid] = useState(true);
+    const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
+
+    const handleDeleteDestination = async (destination: string) => {
+        await deletePickupDestination(destination);
+        // Update local state to remove the deleted destination
+        setCurrentPickupHistory(prev => prev.filter(d => d !== destination));
+        // Refresh data from server
+        await queryClient.invalidateQueries({ queryKey: ["timecard", "pageData"] });
+    };
+
+    // Load clock-in questions
+    const loadClockInQuestions = async () => {
+        setIsLoadingQuestions(true);
+        try {
+            const questions = await getActiveTimecardQuestions("clock_in");
+            setClockInQuestions(questions);
+            setQuestionAnswers({});
+            // If no required questions, consider valid
+            const hasRequired = questions.some(q => q.is_required);
+            setIsQuestionsValid(!hasRequired);
+        } catch (error) {
+            console.error("Error loading questions:", error);
+        } finally {
+            setIsLoadingQuestions(false);
+        }
+    };
 
     const handleClockIn = async () => {
         setIsModalOpen(true);
+        loadClockInQuestions();
     };
 
     const handleConfirmClockIn = async () => {
         setIsPending(true);
         try {
-            await clockIn(pickupRequired === true, pickupDestination);
+            // Pass question answers to clockIn
+            await clockIn(
+                pickupRequired === true,
+                pickupDestination,
+                clockInQuestions.length > 0 ? questionAnswers : undefined
+            );
+            // 先にデータを再取得してから、モーダルを閉じる
+            // 勤怠ページのキャッシュも無効化
+            await Promise.all([
+                queryClient.refetchQueries({ queryKey: ["timecard", "pageData"] }),
+                queryClient.refetchQueries({ queryKey: ["dashboard", "pageData"] }),
+                queryClient.invalidateQueries({ queryKey: ["attendance"] }),
+            ]);
             setIsModalOpen(false);
-            router.refresh();
+            // Reset question state
+            setQuestionAnswers({});
+            setClockInQuestions([]);
         } catch (error) {
             console.error("Clock in failed:", error);
-            alert("出勤打刻に失敗しました。もう一度お試しください。");
+            const errorMessage = error instanceof Error ? error.message : "";
+            if (errorMessage.includes("Already completed")) {
+                setIsModalOpen(false);
+                toast({
+                    title: "本日はすでに退勤済みです",
+                    description: "再出勤はできません。",
+                    variant: "destructive",
+                });
+            } else {
+                toast({
+                    title: "出勤打刻に失敗しました",
+                    description: "もう一度お試しください。",
+                    variant: "destructive",
+                });
+            }
         } finally {
             setIsPending(false);
         }
@@ -184,13 +250,23 @@ export function ClockButtons({ latestTimeCard, storeSettings, showBreakButtons =
         setIsClockOutModalOpen(true);
     };
 
-    const handleAction = async (action: () => Promise<void>) => { // Modified handleAction for break actions
+    const handleAction = async (action: () => Promise<void>) => {
         setIsPending(true);
         try {
             await action();
+            // データを即座に再取得、勤怠ページのキャッシュも無効化
+            await Promise.all([
+                queryClient.refetchQueries({ queryKey: ["timecard", "pageData"] }),
+                queryClient.refetchQueries({ queryKey: ["dashboard", "pageData"] }),
+                queryClient.invalidateQueries({ queryKey: ["attendance"] }),
+            ]);
         } catch (error) {
             console.error("Action error:", error);
-            alert("操作に失敗しました");
+            toast({
+                title: "操作に失敗しました",
+                description: "もう一度お試しください。",
+                variant: "destructive",
+            });
         } finally {
             setIsPending(false);
         }
@@ -198,7 +274,10 @@ export function ClockButtons({ latestTimeCard, storeSettings, showBreakButtons =
 
     // 状態判定
     const isClockedIn = latestTimeCard?.clock_in && !latestTimeCard?.clock_out;
-    const isOnBreak = isClockedIn && latestTimeCard?.break_start && !latestTimeCard?.break_end;
+    // Use the new isOnBreak flag from server, fallback to old logic for backward compatibility
+    const isOnBreak = isClockedIn && (
+        latestTimeCard?.isOnBreak ?? (latestTimeCard?.break_start && !latestTimeCard?.break_end)
+    );
 
     // Location UI helpers
     const renderLocationStatus = () => {
@@ -327,26 +406,51 @@ export function ClockButtons({ latestTimeCard, storeSettings, showBreakButtons =
 
 
             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-                <DialogContent className="sm:max-w-[500px] max-w-[calc(100%-2rem)] bg-white dark:bg-white">
-                    <DialogHeader>
-                        <DialogTitle className="text-gray-900">出勤確認</DialogTitle>
-                        <DialogDescription className="text-gray-600">
-                            出勤前に送迎の有無と目的地を確認してください。
-                        </DialogDescription>
+                <DialogContent className="sm:max-w-lg max-w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto bg-white dark:bg-white p-0">
+                    <DialogHeader className="flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
+                        <button
+                            type="button"
+                            onClick={() => setIsModalOpen(false)}
+                            className="p-1 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                        >
+                            <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                        </button>
+                        <DialogTitle className="flex-1 text-center text-base font-semibold text-gray-900 dark:text-white">出勤確認</DialogTitle>
+                        <div className="w-7" />
                     </DialogHeader>
-                    <div className="py-4">
+                    <div className="px-4 py-4 space-y-4">
                         <PickupForm
-                            pickupHistory={pickupHistory}
+                            pickupHistory={currentPickupHistory}
                             onValidationChange={setIsPickupValid}
                             isDarkMode={false}
                             onPickupChange={setPickupRequired}
                             onDestinationChange={setPickupDestination}
+                            onDeleteDestination={handleDeleteDestination}
+                            pickupEnabled={pickupEnabled}
                         />
+
+                        {/* Custom Questions */}
+                        {isLoadingQuestions ? (
+                            <div className="py-4 text-center text-gray-500">
+                                <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
+                                <span className="text-sm">質問を読み込み中...</span>
+                            </div>
+                        ) : clockInQuestions.length > 0 && (
+                            <div className="pt-4 border-t border-gray-200">
+                                <TimecardQuestionsForm
+                                    questions={clockInQuestions}
+                                    answers={questionAnswers}
+                                    onAnswersChange={setQuestionAnswers}
+                                    onValidationChange={setIsQuestionsValid}
+                                    isDarkMode={false}
+                                />
+                            </div>
+                        )}
                     </div>
-                    <div className="flex flex-col gap-3 pt-2">
+                    <div className="flex flex-col gap-3 px-4 pb-4">
                         <Button
                             onClick={handleConfirmClockIn}
-                            disabled={pickupRequired === null || !isPickupValid || isPending}
+                            disabled={pickupRequired === null || !isPickupValid || !isQuestionsValid || isPending}
                             className="w-full bg-[#0088FF] hover:bg-[#0077EE] text-white disabled:bg-gray-300 disabled:cursor-not-allowed"
                         >
                             {isPending ? "登録中..." : "出勤する"}

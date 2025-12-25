@@ -20,7 +20,7 @@ const SheetOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      "fixed inset-0 z-50 bg-slate-950/70 backdrop-blur data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:duration-300 data-[state=closed]:duration-200",
+      "fixed inset-0 z-[1000] bg-gray-950/70 backdrop-blur data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:duration-300 data-[state=closed]:duration-200",
       className
     )}
     {...props}
@@ -39,11 +39,11 @@ const SheetContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed z-50 flex flex-col shadow-2xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:duration-300 data-[state=closed]:duration-200",
-        side === "right" && "right-0 top-0 h-full w-full max-w-md bg-slate-950/95 p-6 text-slate-100 backdrop-blur data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right",
-        side === "left" && "left-0 top-0 h-full w-full max-w-md bg-slate-950/95 p-6 text-slate-100 backdrop-blur data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left",
-        side === "bottom" && "bottom-0 left-0 right-0 w-full data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
-        side === "top" && "top-0 left-0 right-0 w-full bg-slate-950/95 p-6 text-slate-100 backdrop-blur data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top",
+        "fixed z-[1000] flex flex-col shadow-2xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:duration-300 data-[state=closed]:duration-200 data-[state=open]:ease-out data-[state=closed]:ease-in",
+        side === "right" && "right-0 top-0 h-full w-full max-w-md bg-white dark:bg-gray-900 p-6 text-gray-900 dark:text-gray-100 data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right",
+        side === "left" && "left-0 top-0 h-full w-full max-w-md bg-white dark:bg-gray-900 p-6 text-gray-900 dark:text-gray-100 data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left",
+        side === "bottom" && "bottom-0 left-0 right-0 w-full bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom rounded-t-3xl",
+        side === "top" && "top-0 left-0 right-0 w-full bg-white dark:bg-gray-900 p-6 text-gray-900 dark:text-gray-100 data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top rounded-b-3xl",
         className
       )}
       {...props}
@@ -65,7 +65,7 @@ const SheetTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
-    className={cn("text-lg font-semibold text-slate-50", className)}
+    className={cn("text-lg font-semibold text-gray-900 dark:text-white", className)}
     {...props}
   />
 ));
@@ -77,7 +77,7 @@ const SheetDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Description
     ref={ref}
-    className={cn("text-sm text-slate-400", className)}
+    className={cn("text-sm text-gray-600 dark:text-gray-400", className)}
     {...props}
   />
 ));

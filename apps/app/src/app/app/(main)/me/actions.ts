@@ -80,9 +80,6 @@ export async function getUserProfile() {
         profile = data;
     }
 
-    console.log("getUserProfile - user.id:", user.id);
-    console.log("getUserProfile - profile:", profile);
-
     return {
         email: user.email,
         name: profile?.display_name || "",
@@ -269,4 +266,169 @@ export async function enableEmailLogin(email: string, password: string) {
 
     revalidatePath("/app/me");
     return { success: true };
+}
+
+// ページデータ取得（SPA用）
+export async function getMePageData() {
+    const supabase = await createServerClient() as any;
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { redirect: "/login" };
+    }
+
+    // Get current user details to know current_profile_id, avatar, and display_name
+    const { data: appUser } = await supabase
+        .from("users")
+        .select("current_profile_id, avatar_url, display_name")
+        .eq("id", user.id)
+        .single();
+
+    // Fetch all profiles for this user with store details and salary system
+    const { data: profiles } = await supabase
+        .from("profiles")
+        .select(`
+            id, display_name, avatar_url, role,
+            stores(id, name, icon_url),
+            profile_salary_systems(salary_systems(hourly_settings))
+        `)
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+    const currentProfileId = appUser?.current_profile_id;
+
+    // If user has no profiles, redirect to store creation/join page
+    if (!profiles || profiles.length === 0) {
+        return { redirect: "/onboarding/choice" };
+    }
+
+    // Get current profile
+    const currentProfile = profiles.find(p => p.id === currentProfileId) || profiles[0];
+    const storesData = currentProfile?.stores as unknown;
+    const currentStore = (Array.isArray(storesData) ? storesData[0] : storesData) as { id: string; name: string; icon_url?: string | null } | null;
+
+    // Fetch time cards for all user's profiles
+    const profileIds = profiles.map(p => p.id);
+    const { data: timeCardsRaw } = await supabase
+        .from("work_records")
+        .select("id, work_date, clock_in, clock_out, profile_id")
+        .in("profile_id", profileIds)
+        .order("work_date", { ascending: false });
+
+    // Map time cards with store info and calculate earnings
+    const timeCards = (timeCardsRaw || []).map(tc => {
+        const profile = profiles.find(p => p.id === tc.profile_id) as any;
+        const storeData = profile?.stores as unknown;
+        const store = (Array.isArray(storeData) ? storeData[0] : storeData) as { id: string; name: string; icon_url?: string | null } | null;
+
+        // Get hourly wage from salary system
+        const salarySystemData = profile?.profile_salary_systems?.[0]?.salary_systems;
+        const hourlySettings = salarySystemData?.hourly_settings;
+        const hourlyWage = hourlySettings?.base_hourly_wage || 0;
+
+        // Calculate earnings if both clock_in and clock_out exist
+        let earnings: number | null = null;
+        if (tc.clock_in && tc.clock_out && hourlyWage > 0) {
+            const start = new Date(tc.clock_in);
+            const end = new Date(tc.clock_out);
+            const hoursWorked = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+            earnings = Math.floor(hoursWorked * hourlyWage);
+        }
+
+        return {
+            id: tc.id,
+            work_date: tc.work_date,
+            clock_in: tc.clock_in,
+            clock_out: tc.clock_out,
+            store_name: store?.name || "不明",
+            store_icon_url: store?.icon_url || null,
+            earnings,
+        };
+    });
+
+    // Fetch approved shift submissions for all user's profiles
+    const { data: shiftsRaw } = await supabase
+        .from("shift_submissions")
+        .select(`
+            id,
+            availability,
+            status,
+            approved_start_time,
+            approved_end_time,
+            profile_id,
+            shift_request_dates(target_date, shift_requests(store_id))
+        `)
+        .in("profile_id", profileIds)
+        .eq("status", "approved")
+        .eq("availability", "available");
+
+    // Map shifts with store info
+    const scheduledShifts = (shiftsRaw || []).map(shift => {
+        const profile = profiles.find(p => p.id === shift.profile_id);
+        const storeData = profile?.stores as unknown;
+        const store = (Array.isArray(storeData) ? storeData[0] : storeData) as { id: string; name: string; icon_url?: string | null } | null;
+        const dateInfo = shift.shift_request_dates as any;
+        return {
+            id: shift.id,
+            target_date: dateInfo?.target_date || null,
+            start_time: shift.approved_start_time,
+            end_time: shift.approved_end_time,
+            store_name: store?.name || "不明",
+            store_icon_url: store?.icon_url || null,
+        };
+    }).filter(s => s.target_date);
+
+    // Use LINE data (users table) if available, otherwise fall back to profile data
+    const avatarUrl = appUser?.avatar_url || currentProfile?.avatar_url;
+    const displayName = appUser?.display_name || currentProfile?.display_name;
+
+    // Map profiles for client component
+    const mappedProfiles = profiles.map(p => {
+        const s = p.stores as unknown;
+        const store = (Array.isArray(s) ? s[0] : s) as { id: string; name: string; icon_url?: string | null } | null;
+        return {
+            id: p.id,
+            display_name: p.display_name,
+            role: p.role,
+            stores: store,
+        };
+    });
+
+    return {
+        data: {
+            avatarUrl: avatarUrl || null,
+            displayName: displayName || null,
+            profiles: mappedProfiles,
+            currentProfileId: currentProfileId || null,
+            currentStore,
+            timeCards,
+            scheduledShifts,
+        }
+    };
+}
+
+// 設定ページデータ取得（SPA用）
+export async function getMeSettingsPageData() {
+    const supabase = await createServerClient() as any;
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { redirect: "/login" };
+    }
+
+    const profile = await getUserProfile();
+
+    return {
+        data: {
+            email: profile.email || "",
+            name: profile.name,
+            identities: user.identities || [],
+            userId: user.id,
+            lineUserId: profile.lineUserId,
+        }
+    };
 }

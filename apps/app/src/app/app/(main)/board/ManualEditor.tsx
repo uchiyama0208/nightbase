@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, Trash2, MoreHorizontal, Loader2, Sparkles, Send, Tag, Plus, X } from "lucide-react";
+import { ChevronLeft, Trash2, MoreHorizontal, Loader2, Sparkles, Send, Tag, Plus, X } from "lucide-react";
 import {
     Popover,
     PopoverContent,
@@ -243,9 +243,9 @@ export function ManualEditor({ manual, storeId, availableTags }: ManualEditorPro
                     <button
                         type="button"
                         onClick={() => router.push("/app/board")}
-                        className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        className="p-2 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                     >
-                        <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                        <ChevronLeft className="h-4 w-4 text-gray-600 dark:text-gray-400" />
                     </button>
                     <h1 className="text-xl font-bold text-gray-900 dark:text-white">
                         {manual ? "マニュアルを編集" : "新規マニュアル"}
@@ -268,7 +268,7 @@ export function ManualEditor({ manual, storeId, availableTags }: ManualEditorPro
                         <PopoverTrigger asChild>
                             <button
                                 type="button"
-                                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                className="p-2 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                             >
                                 <MoreHorizontal className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                             </button>
@@ -282,7 +282,7 @@ export function ManualEditor({ manual, storeId, availableTags }: ManualEditorPro
                                 }}
                                 className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                             >
-                                <Trash2 className="h-4 w-4" />
+                                <Trash2 className="h-5 w-5" />
                                 削除
                             </button>
                         </PopoverContent>
@@ -362,7 +362,7 @@ export function ManualEditor({ manual, storeId, availableTags }: ManualEditorPro
                                     className="h-8 px-2"
                                 >
                                     {isCreatingTag ? (
-                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                        <Loader2 className="h-4 w-4 animate-spin" />
                                     ) : (
                                         "追加"
                                     )}
@@ -451,9 +451,9 @@ export function ManualEditor({ manual, storeId, availableTags }: ManualEditorPro
 
             {/* Delete confirmation dialog */}
             <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-                <DialogContent className="max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900">
+                <DialogContent className="sm:max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900">
                     <DialogHeader>
-                        <DialogTitle className="text-base font-semibold text-gray-900 dark:text-gray-50">
+                        <DialogTitle className="text-base font-semibold text-gray-900 dark:text-white">
                             マニュアルを削除
                         </DialogTitle>
                     </DialogHeader>
@@ -482,9 +482,9 @@ export function ManualEditor({ manual, storeId, availableTags }: ManualEditorPro
 
             {/* AI Generation Modal */}
             <Dialog open={showAIModal} onOpenChange={setShowAIModal}>
-                <DialogContent className="max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900">
+                <DialogContent className="sm:max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900">
                     <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2 text-base font-semibold text-gray-900 dark:text-gray-50">
+                        <DialogTitle className="flex items-center gap-2 text-base font-semibold text-gray-900 dark:text-white">
                             <Sparkles className="h-5 w-5 text-purple-500" />
                             AIでマニュアルを作成
                         </DialogTitle>
@@ -528,7 +528,7 @@ export function ManualEditor({ manual, storeId, availableTags }: ManualEditorPro
                                 </>
                             ) : (
                                 <>
-                                    <Send className="h-4 w-4 mr-2" />
+                                    <Send className="h-5 w-5 mr-2" />
                                     {hasGenerated && (title || content.length > 0) ? "変更を適用" : "生成する"}
                                 </>
                             )}

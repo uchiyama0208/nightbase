@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { QRCodeCanvas } from "qrcode.react";
 import {
@@ -46,6 +46,8 @@ import {
     updateFieldsOrder,
     generateSubmissionToken,
 } from "./actions";
+import { VercelTabs } from "@/components/ui/vercel-tabs";
+import { useGlobalLoading } from "@/components/global-loading";
 
 interface TemplateField {
     id: string;
@@ -69,6 +71,7 @@ interface VisibleFields {
     street: boolean;
     building: boolean;
     past_employments: boolean;
+    id_verification: boolean;
 }
 
 const defaultVisibleFields: VisibleFields = {
@@ -84,6 +87,7 @@ const defaultVisibleFields: VisibleFields = {
     street: true,
     building: true,
     past_employments: true,
+    id_verification: false,
 };
 
 interface ResumeTemplate {
@@ -103,6 +107,7 @@ interface ResumeTemplateModalProps {
     template: ResumeTemplate | null;
     storeId: string;
     onCreated?: (template: ResumeTemplate) => void;
+    defaultTab?: "share" | "edit";
 }
 
 const fieldTypes = [
@@ -120,16 +125,19 @@ export function ResumeTemplateModal({
     template,
     storeId,
     onCreated,
+    defaultTab = "share",
 }: ResumeTemplateModalProps) {
     const router = useRouter();
     const { toast } = useToast();
+    const { showLoading, hideLoading } = useGlobalLoading();
     const [isLoading, setIsLoading] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [showDeleteFieldConfirm, setShowDeleteFieldConfirm] = useState(false);
+    const [hasUserEdited, setHasUserEdited] = useState(false);
 
     // Tab state for edit modal
-    const [activeTab, setActiveTab] = useState<"edit" | "share">("edit");
+    const [activeTab, setActiveTab] = useState<"edit" | "share">("share");
 
     // Template form state
     const [name, setName] = useState("");
@@ -154,20 +162,8 @@ export function ResumeTemplateModal({
     // QR Code ref
     const qrRef = useRef<HTMLDivElement>(null);
 
-    // Tab refs for Vercel-style indicator
-    const tabsRef = useRef<{ [key: string]: HTMLButtonElement | null }>({});
-    const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
-
-    // Update indicator position when tab changes
-    useEffect(() => {
-        const activeButton = tabsRef.current[activeTab];
-        if (activeButton) {
-            setIndicatorStyle({
-                left: activeButton.offsetLeft,
-                width: activeButton.offsetWidth,
-            });
-        }
-    }, [activeTab]);
+    // autoSave関数のref
+    const autoSaveRef = useRef<(() => Promise<void>) | undefined>(undefined);
 
     useEffect(() => {
         if (template) {
@@ -185,9 +181,10 @@ export function ResumeTemplateModal({
         }
         setIsAddingField(false);
         setEditingField(null);
-        setActiveTab("edit");
+        setActiveTab(defaultTab);
+        setHasUserEdited(false);
         resetNewFieldForm();
-    }, [template, isOpen]);
+    }, [template, isOpen, defaultTab]);
 
     const resetNewFieldForm = () => {
         setNewFieldType("text");
@@ -196,7 +193,48 @@ export function ResumeTemplateModal({
         setNewFieldRequired(false);
     };
 
-    const handleSaveTemplate = async () => {
+    // 自動保存関数（既存テンプレートの編集時のみ使用）
+    const autoSave = useCallback(async () => {
+        if (!template || !name.trim()) return;
+
+        showLoading("保存中...");
+        try {
+            const formData = new FormData();
+            formData.append("id", template.id);
+            formData.append("name", name);
+            formData.append("targetRole", targetRole);
+            formData.append("visibleFields", JSON.stringify(visibleFields));
+            formData.append("isActive", String(isActive));
+            await updateResumeTemplate(formData);
+            router.refresh();
+        } catch (error) {
+            console.error("Failed to save template:", error);
+            toast({
+                title: "保存に失敗しました",
+            });
+        } finally {
+            hideLoading();
+        }
+    }, [template, name, targetRole, visibleFields, isActive, router, toast, showLoading, hideLoading]);
+
+    // autoSave関数をrefに保存
+    useEffect(() => {
+        autoSaveRef.current = autoSave;
+    }, [autoSave]);
+
+    // 自動保存のデバウンス（既存テンプレートの編集時のみ、ユーザーが編集した場合のみ）
+    useEffect(() => {
+        if (!hasUserEdited || !template || !name.trim()) return;
+
+        const timer = setTimeout(() => {
+            autoSaveRef.current?.();
+        }, 800);
+
+        return () => clearTimeout(timer);
+    }, [hasUserEdited, template, name, targetRole, visibleFields, isActive]);
+
+    // 新規作成用の保存関数
+    const handleCreateTemplate = async () => {
         if (!name.trim()) return;
 
         setIsLoading(true);
@@ -206,37 +244,29 @@ export function ResumeTemplateModal({
             formData.append("targetRole", targetRole);
             formData.append("visibleFields", JSON.stringify(visibleFields));
 
-            if (template) {
-                formData.append("id", template.id);
-                formData.append("isActive", String(isActive));
-                await updateResumeTemplate(formData);
-                router.refresh();
-                onClose();
-            } else {
-                const newTemplate = await createResumeTemplate(formData) as any;
-                toast({
-                    title: "保存しました",
+            const newTemplate = await createResumeTemplate(formData) as any;
+            toast({
+                title: "作成しました",
+            });
+            router.refresh();
+            onClose();
+            if (onCreated && newTemplate) {
+                // 新規作成後、編集モーダルを開く
+                onCreated({
+                    id: newTemplate.id,
+                    name: newTemplate.name,
+                    is_active: newTemplate.is_active,
+                    target_role: newTemplate.target_role,
+                    visible_fields: newTemplate.visible_fields,
+                    created_at: newTemplate.created_at,
+                    resume_template_fields: [],
+                    resume_submissions: [],
                 });
-                router.refresh();
-                onClose();
-                if (onCreated && newTemplate) {
-                    // 新規作成後、編集モーダルを開く
-                    onCreated({
-                        id: newTemplate.id,
-                        name: newTemplate.name,
-                        is_active: newTemplate.is_active,
-                        target_role: newTemplate.target_role,
-                        visible_fields: newTemplate.visible_fields,
-                        created_at: newTemplate.created_at,
-                        resume_template_fields: [],
-                        resume_submissions: [],
-                    });
-                }
             }
         } catch (error) {
-            console.error("Failed to save template:", error);
+            console.error("Failed to create template:", error);
             toast({
-                title: "保存に失敗しました",
+                title: "作成に失敗しました",
             });
         } finally {
             setIsLoading(false);
@@ -245,6 +275,7 @@ export function ResumeTemplateModal({
 
     const toggleVisibleField = (field: keyof VisibleFields) => {
         setVisibleFields(prev => ({ ...prev, [field]: !prev[field] }));
+        setHasUserEdited(true);
     };
 
     const handleDeleteTemplate = async () => {
@@ -422,9 +453,9 @@ export function ResumeTemplateModal({
     const renderFieldForm = () => (
         <div className="space-y-4">
             <div className="space-y-2">
-                <Label className="text-gray-700 dark:text-gray-200">回答タイプ</Label>
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">回答タイプ</Label>
                 <Select value={newFieldType} onValueChange={setNewFieldType}>
-                    <SelectTrigger className="rounded-lg">
+                    <SelectTrigger>
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent position="popper" className="z-[9999]">
@@ -438,29 +469,28 @@ export function ResumeTemplateModal({
             </div>
 
             <div className="space-y-2">
-                <Label className="text-gray-700 dark:text-gray-200">質問文</Label>
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">質問文</Label>
                 <Input
                     value={newFieldLabel}
                     onChange={(e) => setNewFieldLabel(e.target.value)}
                     placeholder="例: 身長を教えてください"
-                    className="rounded-lg"
                 />
             </div>
 
             {newFieldType === "select" && (
                 <div className="space-y-2">
-                    <Label className="text-gray-700 dark:text-gray-200">選択肢（1行に1つ）</Label>
+                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">選択肢（1行に1つ）</Label>
                     <Textarea
                         value={newFieldOptions}
                         onChange={(e) => setNewFieldOptions(e.target.value)}
                         placeholder={"可能\n不可\n相談次第"}
-                        className="rounded-lg min-h-[100px]"
+                        className="min-h-[100px]"
                     />
                 </div>
             )}
 
             <div className="flex items-center justify-between">
-                <Label className="text-gray-700 dark:text-gray-200">必須項目</Label>
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">必須項目</Label>
                 <Switch
                     checked={newFieldRequired}
                     onCheckedChange={setNewFieldRequired}
@@ -475,14 +505,14 @@ export function ResumeTemplateModal({
                         setEditingField(null);
                         resetNewFieldForm();
                     }}
-                    className="flex-1 rounded-lg"
+                    className="flex-1"
                 >
                     キャンセル
                 </Button>
                 <Button
                     onClick={editingField ? handleUpdateField : handleAddField}
                     disabled={isLoading || !newFieldLabel.trim()}
-                    className="flex-1 rounded-lg"
+                    className="flex-1"
                 >
                     {isLoading ? "保存中..." : editingField ? "更新" : "追加"}
                 </Button>
@@ -493,7 +523,7 @@ export function ResumeTemplateModal({
     const renderFieldsList = () => (
         <div className="space-y-4">
             <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200">
                     カスタム質問 ({fields.length}件)
                 </h3>
                 <Button
@@ -503,9 +533,8 @@ export function ResumeTemplateModal({
                         setEditingField(null);
                         resetNewFieldForm();
                     }}
-                    className="rounded-lg"
                 >
-                    <Plus className="h-4 w-4 mr-1" />
+                    <Plus className="h-5 w-5 mr-1" />
                     追加
                 </Button>
             </div>
@@ -550,7 +579,7 @@ export function ResumeTemplateModal({
                                     {field.is_required && " • 必須"}
                                 </p>
                             </div>
-                            <ChevronLeft className="h-4 w-4 text-gray-400 rotate-180" />
+                            <ChevronLeft className="h-5 w-5 text-gray-400 rotate-180" />
                         </div>
                     ))}
                 </div>
@@ -561,9 +590,9 @@ export function ResumeTemplateModal({
     return (
         <>
             <Dialog open={isOpen} onOpenChange={onClose}>
-                <DialogContent className="max-w-lg rounded-2xl border border-gray-200 bg-white p-0 dark:border-gray-800 dark:bg-gray-900 max-h-[90vh] overflow-y-auto">
+                <DialogContent className="p-0 overflow-hidden flex flex-col max-h-[90vh] rounded-2xl sm:max-w-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
                     {/* Header */}
-                    <DialogHeader className="flex flex-row items-center justify-between gap-2 px-6 py-4 mb-0 relative">
+                    <DialogHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900 flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
                         <button
                             type="button"
                             onClick={() => {
@@ -572,15 +601,16 @@ export function ResumeTemplateModal({
                                     setEditingField(null);
                                     resetNewFieldForm();
                                 } else {
+                                    setHasUserEdited(false);
                                     onClose();
                                 }
                             }}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
                             aria-label="戻る"
                         >
-                            <ChevronLeft className="h-5 w-5" />
+                            <ChevronLeft className="h-4 w-4" />
                         </button>
-                        <DialogTitle className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white">
+                        <DialogTitle className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white truncate">
                             {isAddingField
                                 ? "新しい質問を追加"
                                 : editingField
@@ -596,7 +626,7 @@ export function ResumeTemplateModal({
                             <button
                                 type="button"
                                 onClick={() => setShowDeleteConfirm(true)}
-                                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                                 aria-label="削除"
                             >
                                 <Trash2 className="h-4 w-4" />
@@ -605,7 +635,7 @@ export function ResumeTemplateModal({
                             <button
                                 type="button"
                                 onClick={() => setShowDeleteFieldConfirm(true)}
-                                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                                 aria-label="削除"
                             >
                                 <Trash2 className="h-4 w-4" />
@@ -613,49 +643,23 @@ export function ResumeTemplateModal({
                         ) : (
                             <div className="w-8 h-8" />
                         )}
-
                     </DialogHeader>
 
                     {/* Tab Navigation (only for existing templates and not in field edit mode) */}
                     {template && !isAddingField && !editingField && (
-                        <div className="px-6 pb-4">
-                            <div className="relative">
-                                <div className="flex">
-                                    <button
-                                        ref={(el) => { tabsRef.current["edit"] = el; }}
-                                        type="button"
-                                        onClick={() => setActiveTab("edit")}
-                                        className={`flex-1 py-2 text-sm font-medium transition-colors relative ${
-                                            activeTab === "edit"
-                                                ? "text-gray-900 dark:text-white"
-                                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                                        }`}
-                                    >
-                                        編集
-                                    </button>
-                                    <button
-                                        ref={(el) => { tabsRef.current["share"] = el; }}
-                                        type="button"
-                                        onClick={() => setActiveTab("share")}
-                                        className={`flex-1 py-2 text-sm font-medium transition-colors relative ${
-                                            activeTab === "share"
-                                                ? "text-gray-900 dark:text-white"
-                                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                                        }`}
-                                    >
-                                        共有
-                                    </button>
-                                </div>
-                                <div
-                                    className="absolute bottom-0 h-0.5 bg-gray-900 dark:bg-white transition-all duration-200"
-                                    style={{ left: indicatorStyle.left, width: indicatorStyle.width }}
-                                />
-                                <div className="absolute bottom-0 left-0 right-0 h-px bg-gray-200 dark:bg-gray-700" />
-                            </div>
+                        <div className="flex-shrink-0 px-6 pb-4">
+                            <VercelTabs
+                                tabs={[
+                                    { key: "share", label: "共有" },
+                                    { key: "edit", label: "編集" },
+                                ]}
+                                value={activeTab}
+                                onChange={(val) => setActiveTab(val as "edit" | "share")}
+                            />
                         </div>
                     )}
 
-                    <div className="p-6 pt-0">
+                    <div className="flex-1 overflow-y-auto p-6">
                         {(isAddingField || editingField) ? (
                             renderFieldForm()
                         ) : activeTab === "share" && template ? (
@@ -686,15 +690,15 @@ export function ResumeTemplateModal({
                                         <Button
                                             variant="outline"
                                             onClick={handleDownloadQR}
-                                            className="w-full rounded-lg"
+                                            className="w-full"
                                         >
-                                            <Download className="h-4 w-4 mr-2" />
+                                            <Download className="h-5 w-5 mr-2" />
                                             QR保存
                                         </Button>
                                         <Button
                                             variant="outline"
                                             onClick={handleCopyUrl}
-                                            className="w-full rounded-lg"
+                                            className="w-full"
                                         >
                                             {copiedUrl ? (
                                                 <>
@@ -711,7 +715,7 @@ export function ResumeTemplateModal({
                                         {/* LINE Share Button */}
                                         <Button
                                             onClick={handleShareToLine}
-                                            className="w-full rounded-lg bg-[#06C755] hover:bg-[#05b34c] text-white"
+                                            className="w-full bg-[#06C755] hover:bg-[#05b34c] text-white"
                                         >
                                             <svg
                                                 className="h-5 w-5 mr-2"
@@ -731,18 +735,20 @@ export function ResumeTemplateModal({
                                 {/* Basic Info */}
                                 <div className="space-y-4">
                                     <div className="space-y-2">
-                                        <Label className="text-gray-700 dark:text-gray-200">履歴書名</Label>
+                                        <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">履歴書名</Label>
                                         <Input
                                             value={name}
-                                            onChange={(e) => setName(e.target.value)}
+                                            onChange={(e) => {
+                                                setName(e.target.value);
+                                                setHasUserEdited(true);
+                                            }}
                                             placeholder="例: キャスト用履歴書"
-                                            className="rounded-lg"
                                         />
                                     </div>
 
                                     {!template && (
                                         <div className="space-y-2">
-                                            <Label className="text-gray-700 dark:text-gray-200">対象</Label>
+                                            <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">対象</Label>
                                             <div className="relative flex h-10 items-center rounded-full bg-gray-100 dark:bg-gray-800 p-1">
                                                 <div
                                                     className="absolute h-8 rounded-full bg-white dark:bg-gray-700 shadow-sm transition-transform duration-300 ease-in-out"
@@ -754,14 +760,20 @@ export function ResumeTemplateModal({
                                                 />
                                                 <button
                                                     type="button"
-                                                    onClick={() => setTargetRole("cast")}
+                                                    onClick={() => {
+                                                        setTargetRole("cast");
+                                                        setHasUserEdited(true);
+                                                    }}
                                                     className={`relative z-10 flex-1 flex items-center justify-center h-8 rounded-full text-sm font-medium transition-colors duration-200 ${targetRole === "cast" ? "text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
                                                 >
                                                     キャスト
                                                 </button>
                                                 <button
                                                     type="button"
-                                                    onClick={() => setTargetRole("staff")}
+                                                    onClick={() => {
+                                                        setTargetRole("staff");
+                                                        setHasUserEdited(true);
+                                                    }}
                                                     className={`relative z-10 flex-1 flex items-center justify-center h-8 rounded-full text-sm font-medium transition-colors duration-200 ${targetRole === "staff" ? "text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
                                                 >
                                                     スタッフ
@@ -772,14 +784,17 @@ export function ResumeTemplateModal({
 
                                     {template && (
                                         <div className="flex items-center justify-between">
-                                            <Label className="text-gray-700 dark:text-gray-200">公開状態</Label>
+                                            <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">公開状態</Label>
                                             <div className="flex items-center gap-2">
                                                 <span className="text-sm text-gray-500 dark:text-gray-400">
                                                     {isActive ? "公開中" : "非公開"}
                                                 </span>
                                                 <Switch
                                                     checked={isActive}
-                                                    onCheckedChange={setIsActive}
+                                                    onCheckedChange={(checked) => {
+                                                        setIsActive(checked);
+                                                        setHasUserEdited(true);
+                                                    }}
                                                 />
                                             </div>
                                         </div>
@@ -789,7 +804,7 @@ export function ResumeTemplateModal({
                                 {/* Visible Fields Settings */}
                                 <div className="border-t border-gray-200 dark:border-gray-700" />
                                 <div className="space-y-3">
-                                    <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                                    <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                         表示項目
                                     </h3>
                                     <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -896,6 +911,13 @@ export function ResumeTemplateModal({
                                             />
                                             <span className="text-sm text-gray-700 dark:text-gray-300">過去在籍店</span>
                                         </label>
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <Checkbox
+                                                checked={visibleFields.id_verification}
+                                                onCheckedChange={() => toggleVisibleField("id_verification")}
+                                            />
+                                            <span className="text-sm text-gray-700 dark:text-gray-300">身分証明証</span>
+                                        </label>
                                     </div>
                                 </div>
 
@@ -905,7 +927,7 @@ export function ResumeTemplateModal({
                                     renderFieldsList()
                                 ) : (
                                     <div className="space-y-2">
-                                        <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                                        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                             カスタム質問
                                         </h3>
                                         <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -917,19 +939,23 @@ export function ResumeTemplateModal({
                         )}
                     </div>
 
-                    {!isAddingField && !editingField && activeTab === "edit" && (
-                        <div className="flex flex-col gap-2 px-6 pb-6">
+                    {/* 新規作成時のみフッターを表示（既存テンプレートは自動保存） */}
+                    {!isAddingField && !editingField && activeTab === "edit" && !template && (
+                        <div className="flex-shrink-0 flex flex-col gap-2 px-6 pb-6">
                             <Button
-                                onClick={handleSaveTemplate}
+                                onClick={handleCreateTemplate}
                                 disabled={isLoading || !name.trim()}
-                                className="w-full rounded-lg"
+                                className="w-full"
                             >
-                                {isLoading ? "保存中..." : "保存"}
+                                {isLoading ? "作成中..." : "作成"}
                             </Button>
                             <Button
                                 variant="outline"
-                                onClick={onClose}
-                                className="w-full rounded-lg"
+                                onClick={() => {
+                                    setHasUserEdited(false);
+                                    onClose();
+                                }}
+                                className="w-full"
                             >
                                 キャンセル
                             </Button>
@@ -940,7 +966,7 @@ export function ResumeTemplateModal({
 
             {/* Delete Confirmation Dialog */}
             <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-                <DialogContent className="max-w-sm rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+                <DialogContent className="sm:max-w-sm rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
                     <DialogHeader>
                         <DialogTitle className="text-lg font-semibold text-gray-900 dark:text-white">
                             フォーマットを削除
@@ -949,11 +975,10 @@ export function ResumeTemplateModal({
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                         このフォーマットを削除すると、関連する回答データも全て削除されます。この操作は取り消せません。
                     </p>
-                    <DialogFooter className="mt-4 gap-2">
+                    <DialogFooter className="gap-2">
                         <Button
                             variant="outline"
                             onClick={() => setShowDeleteConfirm(false)}
-                            className="rounded-lg"
                         >
                             キャンセル
                         </Button>
@@ -961,7 +986,6 @@ export function ResumeTemplateModal({
                             variant="destructive"
                             onClick={handleDeleteTemplate}
                             disabled={isDeleting}
-                            className="rounded-lg"
                         >
                             {isDeleting ? "削除中..." : "削除する"}
                         </Button>
@@ -971,7 +995,7 @@ export function ResumeTemplateModal({
 
             {/* Delete Field Confirmation Dialog */}
             <Dialog open={showDeleteFieldConfirm} onOpenChange={setShowDeleteFieldConfirm}>
-                <DialogContent className="max-w-sm rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+                <DialogContent className="sm:max-w-sm rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
                     <DialogHeader>
                         <DialogTitle className="text-lg font-semibold text-gray-900 dark:text-white">
                             質問を削除
@@ -980,11 +1004,10 @@ export function ResumeTemplateModal({
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                         この質問を削除しますか？この操作は取り消せません。
                     </p>
-                    <DialogFooter className="mt-4 gap-2">
+                    <DialogFooter className="gap-2">
                         <Button
                             variant="outline"
                             onClick={() => setShowDeleteFieldConfirm(false)}
-                            className="rounded-lg"
                         >
                             キャンセル
                         </Button>
@@ -999,7 +1022,6 @@ export function ResumeTemplateModal({
                                 }
                             }}
                             disabled={isLoading}
-                            className="rounded-lg"
                         >
                             {isLoading ? "削除中..." : "削除する"}
                         </Button>

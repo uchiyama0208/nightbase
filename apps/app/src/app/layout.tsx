@@ -13,6 +13,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "NightBase App",
   description: "NightBase App",
+  manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

@@ -114,36 +114,36 @@ export function JoinRequestModal({ request, isOpen, onClose, onRequestProcessed,
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-[calc(100vw-32px)] max-h-[calc(100vh-32px)] sm:max-w-[500px] bg-white dark:bg-gray-800 text-gray-900 dark:text-white !p-0 overflow-y-auto">
-                <div className="sticky top-0 flex items-center justify-between p-4 sm:p-6 pb-2 bg-white dark:bg-gray-800 z-10">
-                    <Button
-                        variant="ghost"
-                        size="icon"
+            <DialogContent className="max-w-[calc(100vw-32px)] max-h-[calc(100vh-32px)] sm:max-w-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white !p-0 overflow-hidden flex flex-col rounded-2xl">
+                <DialogHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900 flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
+                    <button
+                        type="button"
                         onClick={onClose}
-                        className="text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        aria-label="戻る"
                     >
-                        <ChevronLeft className="h-5 w-5" />
-                    </Button>
-                    <DialogTitle className="text-gray-900 dark:text-white text-base font-semibold">参加申請の確認</DialogTitle>
-                    <Button
-                        variant="ghost"
-                        size="icon"
+                        <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <DialogTitle className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white truncate">
+                        参加申請の確認
+                    </DialogTitle>
+                    <button
+                        type="button"
                         onClick={handleDeleteConfirm}
-                        className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                        aria-label="削除"
                     >
-                        <Trash2 className="h-5 w-5" />
-                    </Button>
-                </div>
-                <DialogHeader className="sr-only">
-                    <DialogDescription>
+                        <Trash2 className="h-4 w-4" />
+                    </button>
+                    <DialogDescription className="sr-only">
                         申請者の情報を確認し、承認または拒否してください
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="px-4 sm:px-6 pb-4 space-y-4">
+                <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-4">
                     <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                            <Label htmlFor="role" className="text-gray-900 dark:text-white">権限ロール</Label>
+                            <Label htmlFor="role" className="text-sm font-medium text-gray-700 dark:text-gray-200">権限ロール</Label>
                             <Link
                                 href="/app/roles"
                                 className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700"
@@ -172,7 +172,7 @@ export function JoinRequestModal({ request, isOpen, onClose, onRequestProcessed,
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="displayName" className="text-gray-900 dark:text-white">表示名</Label>
+                        <Label htmlFor="displayName" className="text-sm font-medium text-gray-700 dark:text-gray-200">表示名</Label>
                         <Input
                             id="displayName"
                             value={displayName}
@@ -183,7 +183,7 @@ export function JoinRequestModal({ request, isOpen, onClose, onRequestProcessed,
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="displayNameKana" className="text-gray-900 dark:text-white">表示名（ふりがな）</Label>
+                        <Label htmlFor="displayNameKana" className="text-sm font-medium text-gray-700 dark:text-gray-200">表示名（ふりがな）</Label>
                         <Input
                             id="displayNameKana"
                             value={displayNameKana}
@@ -194,7 +194,7 @@ export function JoinRequestModal({ request, isOpen, onClose, onRequestProcessed,
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="realName" className="text-gray-900 dark:text-white">本名</Label>
+                        <Label htmlFor="realName" className="text-sm font-medium text-gray-700 dark:text-gray-200">本名</Label>
                         <Input
                             id="realName"
                             value={realName}
@@ -205,7 +205,7 @@ export function JoinRequestModal({ request, isOpen, onClose, onRequestProcessed,
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="realNameKana" className="text-gray-900 dark:text-white">本名（ふりがな）</Label>
+                        <Label htmlFor="realNameKana" className="text-sm font-medium text-gray-700 dark:text-gray-200">本名（ふりがな）</Label>
                         <Input
                             id="realNameKana"
                             value={realNameKana}
@@ -217,7 +217,7 @@ export function JoinRequestModal({ request, isOpen, onClose, onRequestProcessed,
 
                     <div>
                         <Label className="text-sm text-gray-600 dark:text-gray-400">申請日時</Label>
-                        <p className="text-gray-900 dark:text-white">
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
                             {new Date(request.created_at).toLocaleString("ja-JP", {
                                 timeZone: "Asia/Tokyo",
                                 year: "numeric",
@@ -250,23 +250,16 @@ export function JoinRequestModal({ request, isOpen, onClose, onRequestProcessed,
                             disabled={isProcessing}
                             className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
                         >
-                            <CheckCircle className="h-4 w-4 mr-2" />
+                            <CheckCircle className="h-5 w-5 mr-2" />
                             {isProcessing ? "処理中..." : "許可する"}
                         </Button>
                     </div>
-                    <Button
-                        variant="ghost"
-                        onClick={onClose}
-                        className="w-full text-blue-600 hover:text-blue-700 hover:bg-transparent"
-                    >
-                        戻る
-                    </Button>
                 </div>
             </DialogContent>
 
             {/* Reject Confirmation Dialog */}
             <Dialog open={showRejectConfirm} onOpenChange={setShowRejectConfirm}>
-                <DialogContent className="sm:max-w-[400px] bg-white dark:bg-gray-900">
+                <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
                             <AlertTriangle className="h-5 w-5 text-red-500" />
@@ -297,7 +290,7 @@ export function JoinRequestModal({ request, isOpen, onClose, onRequestProcessed,
 
             {/* Delete Confirmation Dialog */}
             <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-                <DialogContent className="sm:max-w-[400px] bg-white dark:bg-gray-900">
+                <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
                             <Trash2 className="h-5 w-5 text-red-500" />

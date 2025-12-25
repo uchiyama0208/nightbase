@@ -1,7 +1,7 @@
 // @ts-nocheck
 "use server";
 
-import { createServerClient as createClient } from "@/lib/supabaseServerClient";
+import { createServerClient as createClient, createServiceRoleClient } from "@/lib/supabaseServerClient";
 import { nanoid } from "nanoid";
 
 interface SubmitResumeFormData {
@@ -31,6 +31,7 @@ interface SubmitResumeFormData {
         customer_count: string;
     }[];
     customAnswers: Record<string, string>;
+    idVerificationImages?: File[];
 }
 
 export async function submitResumeForm(data: SubmitResumeFormData) {
@@ -70,6 +71,38 @@ export async function submitResumeForm(data: SubmitResumeFormData) {
     }
 
     const submissionId = submission.id;
+
+    // Upload ID verification images
+    if (data.idVerificationImages && data.idVerificationImages.length > 0) {
+        const adminClient = createServiceRoleClient();
+        const imageUrls: string[] = [];
+
+        for (const file of data.idVerificationImages) {
+            const fileExt = file.name.split(".").pop() || "jpg";
+            const fileName = `${submissionId}/${nanoid()}.${fileExt}`;
+            const filePath = `resume-id-verification/${fileName}`;
+
+            const { error: uploadError } = await adminClient.storage
+                .from("private")
+                .upload(filePath, file, {
+                    contentType: file.type,
+                    upsert: false,
+                });
+
+            if (uploadError) {
+                console.error("Failed to upload ID image:", uploadError);
+            } else {
+                imageUrls.push(filePath);
+            }
+        }
+
+        // Update submission with image URLs
+        if (imageUrls.length > 0) {
+            await (adminClient.from("resume_submissions") as any)
+                .update({ id_verification_images: imageUrls })
+                .eq("id", submissionId);
+        }
+    }
 
     // Insert past employments
     if (data.pastEmployments.length > 0) {

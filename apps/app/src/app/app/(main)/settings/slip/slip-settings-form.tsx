@@ -81,7 +81,7 @@ export function SlipSettingsForm({ store }: SlipSettingsFormProps) {
                                 className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 focus:ring-blue-500 dark:focus:ring-blue-400"
                                 style={{ accentColor: '#2563eb' }}
                             />
-                            <Label htmlFor="slip_rounding_enabled" className="cursor-pointer text-gray-900 dark:text-gray-200">
+                            <Label htmlFor="slip_rounding_enabled" className="text-sm font-medium text-gray-700 dark:text-gray-200 cursor-pointer">
                                 金額丸めを有効にする
                             </Label>
                         </div>
@@ -97,7 +97,7 @@ export function SlipSettingsForm({ store }: SlipSettingsFormProps) {
                     {roundingEnabled && (
                         <>
                             <div className="space-y-2">
-                                <Label htmlFor="slip_rounding_method" className="text-gray-900 dark:text-gray-200">丸め方法</Label>
+                                <Label htmlFor="slip_rounding_method" className="text-sm font-medium text-gray-700 dark:text-gray-200">丸め方法</Label>
                                 <Select
                                     value={roundingMethod}
                                     onValueChange={setRoundingMethod}
@@ -114,7 +114,7 @@ export function SlipSettingsForm({ store }: SlipSettingsFormProps) {
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="slip_rounding_unit" className="text-gray-900 dark:text-gray-200">丸め単位</Label>
+                                <Label htmlFor="slip_rounding_unit" className="text-sm font-medium text-gray-700 dark:text-gray-200">丸め単位</Label>
                                 <Select
                                     value={roundingUnit.toString()}
                                     onValueChange={(value) => setRoundingUnit(parseInt(value))}

@@ -25,9 +25,9 @@ export function BackButton({ fallbackHref }: BackButtonProps) {
         <button
             type="button"
             onClick={handleClick}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
         >
-            <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+            <ChevronLeft className="h-4 w-4 text-gray-600 dark:text-gray-400" />
         </button>
     );
 }

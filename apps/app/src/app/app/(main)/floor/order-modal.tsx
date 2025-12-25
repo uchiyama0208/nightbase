@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, ShoppingCart, Minus, Plus } from "lucide-react";
+import { Search, ShoppingCart, Minus, Plus, ChevronLeft } from "lucide-react";
 import { getMenus } from "./actions/menu";
 import { createOrder } from "./actions/order";
 import { useToast } from "@/components/ui/use-toast";
@@ -104,9 +104,20 @@ export function OrderModal({ session, open, onOpenChange, onOrderComplete }: Ord
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 gap-0">
+            <DialogContent className="sm:max-w-4xl w-[95%] p-0 overflow-hidden flex flex-col max-h-[90vh] rounded-2xl bg-white dark:bg-gray-900">
+                <DialogHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900 flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
+                    <button
+                        type="button"
+                        onClick={() => onOpenChange(false)}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        aria-label="戻る"
+                    >
+                        <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <DialogTitle className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white truncate">注文入力</DialogTitle>
+                    <div className="w-8 h-8" />
+                </DialogHeader>
                 <div className="p-4 border-b">
-                    <DialogTitle>注文入力</DialogTitle>
 
                     {/* Target Selector */}
                     <div className="flex gap-2 mt-4 overflow-x-auto pb-2">
@@ -203,7 +214,7 @@ export function OrderModal({ session, open, onOpenChange, onOrderComplete }: Ord
                     </div>
 
                     {/* Cart Sidebar */}
-                    <div className="w-80 flex flex-col bg-slate-50 dark:bg-slate-900">
+                    <div className="w-80 flex flex-col bg-gray-50 dark:bg-gray-900">
                         <div className="p-4 border-b font-semibold flex items-center gap-2">
                             <ShoppingCart className="h-4 w-4" />
                             カート ({totalItems})

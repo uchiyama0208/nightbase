@@ -3,6 +3,24 @@
 import { getAuthContext } from "@/lib/auth-helpers";
 import { revalidatePath } from "next/cache";
 
+/**
+ * 注文ページ用のデータを取得
+ */
+export async function getOrdersPageData() {
+    const { storeId } = await getAuthContext();
+
+    const [orders, tableCalls] = await Promise.all([
+        getAllOrders(),
+        getTableCalls(),
+    ]);
+
+    return {
+        storeId,
+        orders,
+        tableCalls,
+    };
+}
+
 export interface OrderWithDetails {
     id: string;
     table_session_id: string;
@@ -26,8 +44,8 @@ export interface OrderWithDetails {
     } | null;
 }
 
-// 特別料金のリスト
-const SPECIAL_FEE_NAMES = ["セット料金", "指名料", "場内料金", "同伴料", "延長料金"];
+// 特別料金のリスト（注文一覧から除外するもの）
+const SPECIAL_FEE_NAMES = ["セット料金", "指名料", "場内料金", "同伴料", "延長料金", "待機", "接客中", "ヘルプ", "終了"];
 
 // 営業日の開始時刻を計算
 function getBusinessDayStart(daySwitchTime: string): string {

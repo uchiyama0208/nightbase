@@ -45,7 +45,7 @@ export function AdminLoginCard() {
       </p>
       <form className="space-y-5" onSubmit={handleSubmit} autoComplete="on">
         <div className="space-y-2">
-          <Label htmlFor="admin-email" className="text-gray-900 dark:text-white">メールアドレス</Label>
+          <Label htmlFor="admin-email" className="text-sm font-medium text-gray-700 dark:text-gray-200">メールアドレス</Label>
           <Input
             id="admin-email"
             type="email"
@@ -58,7 +58,7 @@ export function AdminLoginCard() {
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="admin-password" className="text-gray-900 dark:text-white">パスワード</Label>
+          <Label htmlFor="admin-password" className="text-sm font-medium text-gray-700 dark:text-gray-200">パスワード</Label>
           <Input
             id="admin-password"
             type={showPassword ? "text" : "password"}
@@ -69,7 +69,7 @@ export function AdminLoginCard() {
             required
             disabled={loading}
           />
-          <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400" htmlFor="admin-show-password">
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200" htmlFor="admin-show-password">
             <input
               id="admin-show-password"
               type="checkbox"

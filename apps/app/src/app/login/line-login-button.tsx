@@ -1,9 +1,12 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/use-toast";
 
 
 export function LineLoginButton() {
+    const { toast } = useToast();
+
     const handleLineLogin = async () => {
         try {
             // Redirect to the line-auth Edge Function via Next.js API route
@@ -13,7 +16,7 @@ export function LineLoginButton() {
 
         } catch (error) {
             console.error("Login error:", error);
-            alert("ログインに失敗しました");
+            toast({ title: "ログインに失敗しました", variant: "destructive" });
         }
     };
 

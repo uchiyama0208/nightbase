@@ -8,6 +8,13 @@ const __dirname = dirname(__filename);
 const nextConfig = {
     reactStrictMode: true,
 
+    // Server Actionsのボディサイズ制限を10MBに拡大（参考画像アップロード用）
+    experimental: {
+        serverActions: {
+            bodySizeLimit: '10mb',
+        },
+    },
+
     turbopack: {
         root: join(__dirname, '../..'),
     },
@@ -16,11 +23,19 @@ const nextConfig = {
         remotePatterns: [
             {
                 protocol: 'https',
-                hostname: '**.supabase.co',
+                hostname: '*.supabase.co',
+            },
+            {
+                protocol: 'https',
+                hostname: 'ghjuspyjqlmjlqvfstmz.supabase.co',
             },
             {
                 protocol: 'https',
                 hostname: 'profile.line-scdn.net',
+            },
+            {
+                protocol: 'https',
+                hostname: 'image.pollinations.ai',
             },
         ],
     },
@@ -37,8 +52,12 @@ const withPWA = (await import("@ducanh2912/next-pwa")).default({
     reloadOnOnline: true,
     swcMinify: true,
     disable: process.env.NODE_ENV === "development",
+    customWorkerSrc: "public",
+    customWorkerDest: "public",
+    customWorkerPrefix: "custom-sw",
     workboxOptions: {
         disableDevLogs: true,
+        importScripts: ['/custom-sw.js'],
         runtimeCaching: [
             {
                 urlPattern: /^https?.*/,

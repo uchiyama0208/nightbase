@@ -1,4 +1,6 @@
 import { ThemeProvider } from "@/components/theme-provider";
+import { GlobalLoadingProvider } from "@/components/global-loading";
+import { QueryProvider } from "./providers";
 import { getAppData } from "./data-access";
 
 export default async function AppRootLayout({
@@ -9,10 +11,14 @@ export default async function AppRootLayout({
     const { theme } = await getAppData();
 
     return (
-        <ThemeProvider initialTheme={theme}>
-            <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-                {children}
-            </div>
-        </ThemeProvider>
+        <QueryProvider>
+            <ThemeProvider initialTheme={theme}>
+                <GlobalLoadingProvider>
+                    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+                        {children}
+                    </div>
+                </GlobalLoadingProvider>
+            </ThemeProvider>
+        </QueryProvider>
     );
 }

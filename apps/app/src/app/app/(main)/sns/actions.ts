@@ -2,14 +2,13 @@
 
 import { createServerClient } from "@/lib/supabaseServerClient";
 import { revalidatePath } from "next/cache";
-import OpenAI from "openai";
 
 // ========== Types ==========
 
 export interface SnsAccount {
     id: string;
     store_id: string;
-    platform: "x" | "instagram";
+    platform: "x";
     account_name: string | null;
     account_id: string | null;
     is_connected: boolean;
@@ -36,7 +35,6 @@ export interface SnsScheduledPost {
     image_url: string | null;
     image_style: "photo_collage" | "text_design" | "none" | null;
     platforms: string[];
-    instagram_type: "post" | "story" | null;
     scheduled_at: string;
     status: "pending" | "posted" | "failed";
     error_message: string | null;
@@ -49,10 +47,9 @@ export interface SnsRecurringSchedule {
     store_id: string;
     template_id: string | null;
     name: string;
-    content_type: "cast_list" | "template" | "ai_generated";
+    content_type: "cast_list" | "template";
     image_style: "photo_collage" | "text_design" | "none" | null;
     platforms: string[];
-    instagram_type: "post" | "story" | null;
     schedule_hour: number;
     is_active: boolean;
     last_run_at: string | null;
@@ -111,7 +108,7 @@ export async function getSnsAccounts(): Promise<SnsAccount[]> {
     return data || [];
 }
 
-export async function disconnectSnsAccount(platform: "x" | "instagram") {
+export async function disconnectSnsAccount(platform: "x") {
     const { supabase, profile } = await checkSnsPermission();
 
     const { error } = await supabase
@@ -304,7 +301,6 @@ export async function createScheduledPost(formData: FormData) {
     const imageUrl = formData.get("image_url") as string | null;
     const imageStyle = formData.get("image_style") as string | null;
     const platformsJson = formData.get("platforms") as string;
-    const instagramType = formData.get("instagram_type") as string | null;
     const scheduledAt = formData.get("scheduled_at") as string;
     const templateId = formData.get("template_id") as string | null;
 
@@ -319,7 +315,6 @@ export async function createScheduledPost(formData: FormData) {
             image_url: imageUrl || null,
             image_style: imageStyle || null,
             platforms,
-            instagram_type: instagramType || null,
             scheduled_at: scheduledAt,
             created_by: profileId,
         })
@@ -381,7 +376,6 @@ export async function createRecurringSchedule(formData: FormData) {
     const contentType = formData.get("content_type") as string;
     const imageStyle = formData.get("image_style") as string | null;
     const platformsJson = formData.get("platforms") as string;
-    const instagramType = formData.get("instagram_type") as string | null;
     const scheduleHour = parseInt(formData.get("schedule_hour") as string);
     const templateId = formData.get("template_id") as string | null;
 
@@ -396,7 +390,6 @@ export async function createRecurringSchedule(formData: FormData) {
             content_type: contentType,
             image_style: imageStyle || null,
             platforms,
-            instagram_type: instagramType || null,
             schedule_hour: scheduleHour,
             created_by: profileId,
         })
@@ -420,7 +413,6 @@ export async function updateRecurringSchedule(formData: FormData) {
     const contentType = formData.get("content_type") as string;
     const imageStyle = formData.get("image_style") as string | null;
     const platformsJson = formData.get("platforms") as string;
-    const instagramType = formData.get("instagram_type") as string | null;
     const scheduleHour = parseInt(formData.get("schedule_hour") as string);
     const templateId = formData.get("template_id") as string | null;
     const isActive = formData.get("is_active") === "true";
@@ -435,7 +427,6 @@ export async function updateRecurringSchedule(formData: FormData) {
             content_type: contentType,
             image_style: imageStyle || null,
             platforms,
-            instagram_type: instagramType || null,
             schedule_hour: scheduleHour,
             is_active: isActive,
             updated_at: new Date().toISOString(),
@@ -486,50 +477,6 @@ export async function toggleRecurringSchedule(id: string, isActive: boolean) {
 
     revalidatePath("/app/sns");
     return { success: true };
-}
-
-// ========== AI Content Generation ==========
-
-export async function generateSnsContent(prompt: string): Promise<string> {
-    const { supabase, profile } = await checkSnsPermission();
-
-    // 店舗情報を取得
-    const { data: store } = await supabase
-        .from("stores")
-        .select("name")
-        .eq("id", profile.store_id)
-        .single();
-
-    const openai = new OpenAI({
-        apiKey: process.env.OPENAI_API_KEY,
-    });
-
-    const systemPrompt = `あなたは夜のお店（キャバクラ、クラブ、バーなど）のSNS投稿を作成するアシスタントです。
-店舗名: ${store?.name || ""}
-
-以下の点に注意して投稿文を作成してください：
-- 親しみやすく、魅力的な文章
-- 適度に絵文字を使用
-- ハッシュタグは3〜5個程度
-- 280文字以内（X対応）
-
-投稿文のみを返してください。`;
-
-    const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: prompt },
-        ],
-        temperature: 0.8,
-    });
-
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
-        throw new Error("AIからの応答がありません");
-    }
-
-    return content;
 }
 
 // ========== Template Variable Replacement ==========
@@ -633,6 +580,135 @@ export async function getTodayCasts(): Promise<{ id: string; display_name: strin
         .filter((c: any) => c.id && c.display_name) || [];
 }
 
+// ========== X API Helper Functions ==========
+
+const X_TOKEN_URL = "https://api.twitter.com/2/oauth2/token";
+const X_TWEET_URL = "https://api.twitter.com/2/tweets";
+
+interface XTokenResponse {
+    access_token: string;
+    refresh_token?: string;
+    expires_in: number;
+    token_type: string;
+    scope: string;
+}
+
+async function refreshXToken(refreshToken: string): Promise<XTokenResponse> {
+    const credentials = Buffer.from(
+        `${process.env.X_CLIENT_ID}:${process.env.X_CLIENT_SECRET}`
+    ).toString("base64");
+
+    const response = await fetch(X_TOKEN_URL, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Authorization": `Basic ${credentials}`,
+        },
+        body: new URLSearchParams({
+            grant_type: "refresh_token",
+            refresh_token: refreshToken,
+        }).toString(),
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Failed to refresh X token:", errorText);
+        throw new Error("Xのトークン更新に失敗しました。再連携が必要です。");
+    }
+
+    return response.json();
+}
+
+async function getValidXToken(supabase: any, account: any): Promise<string> {
+    // Check if token is expired
+    const expiresAt = account.token_expires_at ? new Date(account.token_expires_at) : null;
+    const now = new Date();
+
+    // If token expires within 5 minutes, refresh it
+    if (expiresAt && expiresAt.getTime() - now.getTime() < 5 * 60 * 1000) {
+        if (!account.refresh_token) {
+            throw new Error("リフレッシュトークンがありません。再連携が必要です。");
+        }
+
+        try {
+            const newTokens = await refreshXToken(account.refresh_token);
+            const newExpiresAt = new Date(Date.now() + newTokens.expires_in * 1000).toISOString();
+
+            // Update tokens in database
+            await supabase
+                .from("sns_accounts")
+                .update({
+                    access_token: newTokens.access_token,
+                    refresh_token: newTokens.refresh_token || account.refresh_token,
+                    token_expires_at: newExpiresAt,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq("id", account.id);
+
+            return newTokens.access_token;
+        } catch (error) {
+            // Mark account as disconnected if refresh fails
+            await supabase
+                .from("sns_accounts")
+                .update({
+                    is_connected: false,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq("id", account.id);
+            throw error;
+        }
+    }
+
+    return account.access_token;
+}
+
+async function postToX(supabase: any, account: any, content: string): Promise<{ id: string }> {
+    // Get valid access token (refresh if needed)
+    const accessToken = await getValidXToken(supabase, account);
+
+    // Post tweet
+    const response = await fetch(X_TWEET_URL, {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            text: content,
+        }),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error("X API error:", response.status, errorData);
+
+        if (response.status === 401) {
+            // Token is invalid, mark as disconnected
+            await supabase
+                .from("sns_accounts")
+                .update({
+                    is_connected: false,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq("id", account.id);
+            throw new Error("Xの認証が無効です。再連携が必要です。");
+        }
+
+        if (response.status === 403) {
+            throw new Error("Xへの投稿権限がありません。アプリの権限設定を確認してください。");
+        }
+
+        if (response.status === 429) {
+            throw new Error("X APIのレート制限に達しました。しばらく待ってから再試行してください。");
+        }
+
+        throw new Error(errorData.detail || errorData.title || "Xへの投稿に失敗しました");
+    }
+
+    const data = await response.json();
+    return { id: data.data.id };
+}
+
 // ========== Immediate Post ==========
 
 export async function postNow(formData: FormData) {
@@ -640,7 +716,6 @@ export async function postNow(formData: FormData) {
 
     const content = formData.get("content") as string;
     const platformsJson = formData.get("platforms") as string;
-    const instagramType = formData.get("instagram_type") as string | null;
     const imageUrl = formData.get("image_url") as string | null;
 
     const platforms = JSON.parse(platformsJson) as string[];
@@ -667,18 +742,19 @@ export async function postNow(formData: FormData) {
 
         try {
             if (platform === "x") {
-                // X API投稿（実装予定）
-                // await postToX(account.access_token, content, imageUrl);
-                results.push({ platform, success: true });
-            } else if (platform === "instagram") {
-                // Instagram API投稿（実装予定）
-                // await postToInstagram(account.access_token, content, imageUrl, instagramType);
+                // X API投稿
+                const result = await postToX(supabase, account, content);
                 results.push({ platform, success: true });
             }
-        } catch (error: any) {
-            results.push({ platform, success: false, error: error.message });
+        } catch (error) {
+            console.error(`Error posting to ${platform}:`, error);
+            const message = error instanceof Error ? error.message : "投稿に失敗しました";
+            results.push({ platform, success: false, error: message });
         }
     }
+
+    // 投稿結果を確認
+    const allFailed = results.every(r => !r.success);
 
     // 投稿履歴として保存
     const now = new Date().toISOString();
@@ -689,9 +765,9 @@ export async function postNow(formData: FormData) {
             content,
             image_url: imageUrl || null,
             platforms,
-            instagram_type: instagramType || null,
             scheduled_at: now,
-            status: "posted",
+            status: allFailed ? "failed" : "posted",
+            error_message: allFailed ? results.map(r => r.error).filter(Boolean).join(", ") : null,
             created_by: profileId,
         });
 
@@ -699,6 +775,11 @@ export async function postNow(formData: FormData) {
     await cleanupOldPosts(supabase, profile.store_id);
 
     revalidatePath("/app/sns");
+
+    if (allFailed) {
+        throw new Error(results.map(r => r.error).filter(Boolean).join(", "));
+    }
+
     return { success: true, results };
 }
 

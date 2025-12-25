@@ -21,6 +21,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import { toast } from "@/components/ui/use-toast";
 import {
     ChevronLeft,
     ChevronRight,
@@ -660,7 +661,7 @@ export default function TableViewerPage() {
             // Refresh main data to reflect changes
             fetchData();
         } catch (err: any) {
-            alert(`保存に失敗しました: ${err.message}`);
+            toast({ title: `保存に失敗しました: ${err.message}`, variant: "destructive" });
         } finally {
             setIsSavingRelated(false);
         }
@@ -681,7 +682,7 @@ export default function TableViewerPage() {
             setIsEditModalOpen(false);
             fetchData();
         } catch (err: any) {
-            alert(`保存に失敗しました: ${err.message}`);
+            toast({ title: `保存に失敗しました: ${err.message}`, variant: "destructive" });
         } finally {
             setIsSaving(false);
         }
@@ -710,7 +711,7 @@ export default function TableViewerPage() {
             setIsDeleteModalOpen(false);
             fetchData();
         } catch (err: any) {
-            alert(`削除に失敗しました: ${err.message}`);
+            toast({ title: `削除に失敗しました: ${err.message}`, variant: "destructive" });
         } finally {
             setIsDeleting(false);
         }
@@ -733,7 +734,7 @@ export default function TableViewerPage() {
             setIsCreateModalOpen(false);
             fetchData();
         } catch (err: any) {
-            alert(`作成に失敗しました: ${err.message}`);
+            toast({ title: `作成に失敗しました: ${err.message}`, variant: "destructive" });
         } finally {
             setIsCreating(false);
         }
@@ -856,7 +857,7 @@ export default function TableViewerPage() {
                 <div className="flex items-center gap-3">
                     <Link
                         href="/admin"
-                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors shrink-0"
+                        className="p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors shrink-0"
                     >
                         <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                     </Link>
@@ -876,7 +877,7 @@ export default function TableViewerPage() {
                         className={`h-8 w-8 shrink-0 ${showFilterUI || filters.length > 0 ? "bg-blue-600 hover:bg-blue-700 text-white" : ""}`}
                         onClick={() => setShowFilterUI(!showFilterUI)}
                     >
-                        <Filter className="h-4 w-4" />
+                        <Filter className="h-5 w-5" />
                     </Button>
                     <Button
                         variant="outline"
@@ -894,14 +895,14 @@ export default function TableViewerPage() {
                         onClick={exportToCsv}
                         disabled={data.length === 0}
                     >
-                        <Download className="h-4 w-4" />
+                        <Download className="h-5 w-5" />
                     </Button>
                     <Button
                         size="sm"
                         onClick={handleCreate}
                         className="bg-blue-600 hover:bg-blue-700 text-white whitespace-nowrap"
                     >
-                        <Plus className="h-4 w-4 sm:mr-1" />
+                        <Plus className="h-5 w-5 sm:mr-1" />
                         <span className="hidden sm:inline">新規作成</span>
                     </Button>
                 </div>
@@ -909,7 +910,7 @@ export default function TableViewerPage() {
 
             {/* Filter UI */}
             {showFilterUI && (
-                <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 space-y-3">
+                <div className="p-4 bg-white dark:bg-gray-800 rounded-3xl border border-gray-200 dark:border-gray-700 space-y-3">
                     <div className="flex flex-col sm:flex-row gap-2">
                         <select
                             value={filterColumn}
@@ -949,7 +950,7 @@ export default function TableViewerPage() {
                                     key={index}
                                     className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-xs"
                                 >
-                                    <span className="font-medium">{COLUMN_LABELS[filter.column] || filter.column}</span>
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{COLUMN_LABELS[filter.column] || filter.column}</span>
                                     <span>=</span>
                                     <span>"{filter.value}"</span>
                                     <button
@@ -980,7 +981,7 @@ export default function TableViewerPage() {
                             key={index}
                             className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-xs"
                         >
-                            <span className="font-medium">{COLUMN_LABELS[filter.column] || filter.column}</span>
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{COLUMN_LABELS[filter.column] || filter.column}</span>
                             <span>=</span>
                             <span>"{filter.value}"</span>
                             <button
@@ -1002,7 +1003,7 @@ export default function TableViewerPage() {
             )}
 
             {/* Table */}
-            <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
+            <div className="rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
                 <div className="overflow-x-auto">
                     <Table>
                         <TableHeader>
@@ -1040,7 +1041,7 @@ export default function TableViewerPage() {
                                 filteredData.map((row, idx) => (
                                     <TableRow
                                         key={row.id || idx}
-                                        className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer"
+                                        className="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer"
                                         onClick={() => handleEdit(row)}
                                     >
                                         {columns.map((col) => {
@@ -1092,7 +1093,7 @@ export default function TableViewerPage() {
                             onClick={() => setPage((p) => Math.max(0, p - 1))}
                             disabled={page === 0}
                         >
-                            <ChevronLeft className="h-4 w-4" />
+                            <ChevronLeft className="h-5 w-5" />
                         </Button>
                         <span className="text-sm text-gray-600 dark:text-gray-400">
                             {page + 1} / {totalPages}
@@ -1114,15 +1115,15 @@ export default function TableViewerPage() {
                 setIsEditModalOpen(open);
                 if (!open) setShowActions(false);
             }}>
-                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto bg-white dark:bg-gray-800 p-6">
+                <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto bg-white dark:bg-gray-800 p-6">
                     <DialogHeader className="flex flex-row items-center justify-between gap-2 relative">
                         <button
                             type="button"
                             onClick={() => setIsEditModalOpen(false)}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 focus-visible:outline-none"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 focus-visible:outline-none"
                             aria-label="戻る"
                         >
-                            <ChevronLeft className="h-4 w-4" />
+                            <ChevronLeft className="h-5 w-5" />
                         </button>
                         <DialogTitle className="flex-1 text-center text-lg font-bold text-gray-900 dark:text-white truncate">
                             {TABLE_LABELS[tableName] || tableName}
@@ -1133,16 +1134,16 @@ export default function TableViewerPage() {
                         <button
                             type="button"
                             onClick={() => setShowActions(!showActions)}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700"
                             aria-label="オプション"
                         >
-                            <MoreHorizontal className="h-4 w-4" />
+                            <MoreHorizontal className="h-5 w-5" />
                         </button>
 
                         {showActions && (
                             <>
                                 <div className="fixed inset-0 z-40" onClick={() => setShowActions(false)} />
-                                <div className="absolute right-0 top-10 z-50 w-40 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg p-2 flex flex-col gap-1 text-sm animate-in fade-in zoom-in-95 duration-100">
+                                <div className="absolute right-0 top-10 z-50 w-40 rounded-3xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg p-2 flex flex-col gap-1 text-sm animate-in fade-in zoom-in-95 duration-200">
                                     <button
                                         type="button"
                                         className="w-full text-left px-3 py-2 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
@@ -1164,7 +1165,7 @@ export default function TableViewerPage() {
 
                             return (
                             <div key={col} className="space-y-1">
-                                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                     {COLUMN_LABELS[col] || col}
                                     {isDateTime && <span className="ml-2 text-xs text-gray-400">(JST)</span>}
                                     {hasRelation && <span className="ml-2 text-xs text-blue-500">→ {RELATION_CONFIG[col].table}</span>}
@@ -1290,7 +1291,7 @@ export default function TableViewerPage() {
 
             {/* Delete Confirmation Modal */}
             <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
-                <DialogContent className="max-w-md bg-white dark:bg-gray-800">
+                <DialogContent className="sm:max-w-md bg-white dark:bg-gray-800">
                     <DialogHeader>
                         <DialogTitle className="text-gray-900 dark:text-white">
                             削除の確認
@@ -1319,15 +1320,15 @@ export default function TableViewerPage() {
 
             {/* Create Modal */}
             <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto bg-white dark:bg-gray-800 p-6">
+                <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto bg-white dark:bg-gray-800 p-6">
                     <DialogHeader className="flex flex-row items-center justify-between gap-2">
                         <button
                             type="button"
                             onClick={() => setIsCreateModalOpen(false)}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 focus-visible:outline-none"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 focus-visible:outline-none"
                             aria-label="戻る"
                         >
-                            <ChevronLeft className="h-4 w-4" />
+                            <ChevronLeft className="h-5 w-5" />
                         </button>
                         <DialogTitle className="flex-1 text-center text-lg font-bold text-gray-900 dark:text-white truncate">
                             新規作成
@@ -1345,7 +1346,7 @@ export default function TableViewerPage() {
 
                             return (
                             <div key={col} className="space-y-1">
-                                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                     {COLUMN_LABELS[col] || col}
                                     {isDateTime && <span className="ml-2 text-xs text-gray-400">(JST)</span>}
                                     {hasRelation && <span className="ml-2 text-xs text-blue-500">→ {RELATION_CONFIG[col].table}</span>}
@@ -1440,15 +1441,15 @@ export default function TableViewerPage() {
 
             {/* Related Record Modal (Editable) */}
             <Dialog open={isRelatedModalOpen} onOpenChange={setIsRelatedModalOpen}>
-                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto bg-white dark:bg-gray-800 p-6">
+                <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto bg-white dark:bg-gray-800 p-6">
                     <DialogHeader className="flex flex-row items-center justify-between gap-2">
                         <button
                             type="button"
                             onClick={() => setIsRelatedModalOpen(false)}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 focus-visible:outline-none"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 focus-visible:outline-none"
                             aria-label="閉じる"
                         >
-                            <ChevronLeft className="h-4 w-4" />
+                            <ChevronLeft className="h-5 w-5" />
                         </button>
                         <DialogTitle className="flex-1 text-center text-lg font-bold text-gray-900 dark:text-white truncate">
                             {TABLE_LABELS[relatedTableName] || relatedTableName}
@@ -1477,7 +1478,7 @@ export default function TableViewerPage() {
 
                                 return (
                                     <div key={col} className="space-y-1">
-                                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                             {COLUMN_LABELS[col] || col}
                                             {isDateTime && <span className="ml-2 text-xs text-gray-400">(JST)</span>}
                                             {hasRelation && <span className="ml-2 text-xs text-blue-500">→ {RELATION_CONFIG[col].table}</span>}

@@ -1,8 +1,19 @@
-import { getStoreForQueue, getWaitingCount } from "./actions";
+import type { Metadata } from "next";
+import { getStoreForQueue, getWaitingCount, getCastsForQueue, getQueueCustomFieldsForForm } from "./actions";
 import { QueueForm } from "./queue-form";
 
 interface QueuePageProps {
     params: Promise<{ storeId: string }>;
+}
+
+export async function generateMetadata({ params }: QueuePageProps): Promise<Metadata> {
+    const { storeId } = await params;
+    const storeResult = await getStoreForQueue(storeId);
+    const storeName = storeResult.success && storeResult.store ? storeResult.store.name : "";
+
+    return {
+        title: `順番待ち登録 | ${storeName}`,
+    };
 }
 
 export default async function QueuePage({ params }: QueuePageProps) {
@@ -28,14 +39,20 @@ export default async function QueuePage({ params }: QueuePageProps) {
         );
     }
 
-    // 待ち組数を取得
-    const waitingResult = await getWaitingCount(storeId);
+    // 待ち組数、キャスト一覧、カスタム質問を並列取得
+    const [waitingResult, castsResult, customFieldsResult] = await Promise.all([
+        getWaitingCount(storeId),
+        getCastsForQueue(storeId),
+        getQueueCustomFieldsForForm(storeId),
+    ]);
     const waitingCount = waitingResult.count || 0;
+    const casts = castsResult.casts || [];
+    const customFields = customFieldsResult.fields || [];
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
             <div className="max-w-md w-full">
-                <QueueForm store={storeResult.store} waitingCount={waitingCount} />
+                <QueueForm store={storeResult.store} waitingCount={waitingCount} casts={casts} customFields={customFields} />
             </div>
         </div>
     );

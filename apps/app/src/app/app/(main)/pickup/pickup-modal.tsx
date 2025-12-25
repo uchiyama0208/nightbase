@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
     Dialog,
@@ -20,14 +20,9 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { X, Trash2, ChevronLeft, MoreHorizontal, ChevronUp, ChevronDown, ChevronRight, Plus } from "lucide-react";
+import { X, Trash2, ChevronLeft, ChevronUp, ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { DriverSelectModal } from "./driver-select-modal";
 import { CastSelectModal } from "./cast-select-modal";
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "@/components/ui/popover";
 import {
     createPickupRoute,
     updatePickupRoute,
@@ -35,6 +30,8 @@ import {
     type PickupRouteWithPassengers,
     type TodayAttendee,
 } from "./actions";
+import { useGlobalLoading } from "@/components/global-loading";
+import { toast } from "@/components/ui/use-toast";
 
 interface PickupModalProps {
     isOpen: boolean;
@@ -67,10 +64,12 @@ export function PickupModal({
     date,
 }: PickupModalProps) {
     const router = useRouter();
+    const { showLoading, hideLoading } = useGlobalLoading();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const isInitializedRef = useRef(false);
 
     // 移動確認ダイアログ用
     const [moveConfirm, setMoveConfirm] = useState<{
@@ -103,6 +102,7 @@ export function PickupModal({
 
     // Initialize form when editing
     useEffect(() => {
+        isInitializedRef.current = false;
         if (editingRoute) {
             setDriverProfileId(editingRoute.driver_profile_id || "");
             setDriverName(editingRoute.driver_name || "");
@@ -124,13 +124,76 @@ export function PickupModal({
             setAvoidTolls(false);
             setPassengers([]);
         }
+        // 初期化完了後にフラグを立てる
+        setTimeout(() => {
+            isInitializedRef.current = true;
+        }, 100);
     }, [editingRoute, isOpen]);
+
+    // 自動保存関数（編集モードのみ）
+    const autoSave = useCallback(async () => {
+        if (!editingRoute) return;
+
+        showLoading("保存中...");
+        try {
+            const formData = new FormData();
+            formData.append("storeId", storeId);
+            formData.append("date", date);
+            formData.append("driverProfileId", driverProfileId || "");
+            formData.append("roundTrips", roundTrips.toString());
+            formData.append("capacity", capacity.toString());
+            formData.append("departureTime", departureTime || "");
+            formData.append("returnDepartureTime", returnDepartureTime || "");
+            formData.append("avoidHighways", avoidHighways.toString());
+            formData.append("avoidTolls", avoidTolls.toString());
+            formData.append(
+                "passengers",
+                JSON.stringify(
+                    passengers.map((p, idx) => ({
+                        cast_profile_id: p.cast_profile_id,
+                        trip_number: p.trip_number,
+                        order_index: idx,
+                    }))
+                )
+            );
+            formData.append("routeId", editingRoute.id);
+            await updatePickupRoute(formData);
+            router.refresh();
+        } catch (error) {
+            console.error("Error auto-saving pickup route:", error);
+            toast({
+                title: "保存に失敗しました",
+                variant: "destructive",
+            });
+        } finally {
+            hideLoading();
+        }
+    }, [editingRoute, storeId, date, driverProfileId, roundTrips, capacity, departureTime, returnDepartureTime, avoidHighways, avoidTolls, passengers, router, showLoading, hideLoading]);
+
+    // 自動保存のデバウンス（編集モードのみ）
+    useEffect(() => {
+        // 編集モードでない場合、または初期化中の場合はスキップ
+        if (!editingRoute || !isInitializedRef.current) return;
+
+        if (autoSaveTimeoutRef.current) {
+            clearTimeout(autoSaveTimeoutRef.current);
+        }
+
+        autoSaveTimeoutRef.current = setTimeout(() => {
+            autoSave();
+        }, 800);
+
+        return () => {
+            if (autoSaveTimeoutRef.current) {
+                clearTimeout(autoSaveTimeoutRef.current);
+            }
+        };
+    }, [driverProfileId, roundTrips, capacity, departureTime, returnDepartureTime, avoidHighways, avoidTolls, passengers, editingRoute, autoSave]);
 
     const handleClose = () => {
         setShowDeleteConfirm(false);
         setErrorMessage(null);
         setMoveConfirm(null);
-        setIsMenuOpen(false);
         onClose();
     };
 
@@ -147,7 +210,10 @@ export function PickupModal({
         return null;
     };
 
-    const handleSubmit = async () => {
+    // 新規作成時のみ使用
+    const handleCreate = async () => {
+        if (editingRoute) return; // 編集モードでは使用しない
+
         setIsSubmitting(true);
         setErrorMessage(null);
         try {
@@ -172,18 +238,12 @@ export function PickupModal({
                 )
             );
 
-            if (editingRoute) {
-                formData.append("routeId", editingRoute.id);
-                await updatePickupRoute(formData);
-            } else {
-                await createPickupRoute(formData);
-            }
-
+            await createPickupRoute(formData);
             router.refresh();
             handleClose();
         } catch (error) {
-            console.error("Error saving pickup route:", error);
-            setErrorMessage("保存に失敗しました");
+            console.error("Error creating pickup route:", error);
+            setErrorMessage("作成に失敗しました");
         } finally {
             setIsSubmitting(false);
         }
@@ -372,45 +432,33 @@ export function PickupModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={handleClose}>
-            <DialogContent className="max-w-lg rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900 max-h-[90vh] overflow-y-auto">
-                <DialogHeader className="relative flex flex-row items-center justify-center space-y-0 pb-2">
+            <DialogContent className="p-0 overflow-hidden flex flex-col max-h-[90vh] rounded-2xl">
+                <DialogHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900 flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
                     <button
                         type="button"
                         onClick={handleClose}
-                        className="absolute left-0 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
                     >
-                        <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                        <ChevronLeft className="h-4 w-4" />
                     </button>
-                    <DialogTitle className="text-base font-semibold text-gray-900 dark:text-gray-50">
+                    <DialogTitle className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white truncate">
                         {editingRoute ? "送迎ルート編集" : "送迎ルート作成"}
                     </DialogTitle>
-                    {editingRoute && (
-                        <Popover open={isMenuOpen} onOpenChange={setIsMenuOpen}>
-                            <PopoverTrigger asChild>
-                                <button
-                                    type="button"
-                                    className="absolute right-0 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                                >
-                                    <MoreHorizontal className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                                </button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-40 p-1" align="end">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setIsMenuOpen(false);
-                                        setShowDeleteConfirm(true);
-                                    }}
-                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                    削除
-                                </button>
-                            </PopoverContent>
-                        </Popover>
+                    {editingRoute ? (
+                        <button
+                            type="button"
+                            onClick={() => setShowDeleteConfirm(true)}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                            aria-label="削除"
+                        >
+                            <Trash2 className="h-4 w-4" />
+                        </button>
+                    ) : (
+                        <div className="w-8 h-8" />
                     )}
                 </DialogHeader>
 
+                <div className="flex-1 overflow-y-auto px-6 py-4 min-h-0">
                 {moveConfirm ? (
                     <div className="space-y-4">
                         <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -429,13 +477,12 @@ export function PickupModal({
                             <Button
                                 variant="outline"
                                 onClick={() => setMoveConfirm(null)}
-                                className="rounded-lg"
                             >
                                 キャンセル
                             </Button>
                             <Button
                                 onClick={handleMoveConfirm}
-                                className="rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                                className="bg-blue-600 text-white hover:bg-blue-700"
                             >
                                 移動する
                             </Button>
@@ -450,7 +497,6 @@ export function PickupModal({
                             <Button
                                 variant="outline"
                                 onClick={() => setShowDeleteConfirm(false)}
-                                className="rounded-lg"
                             >
                                 キャンセル
                             </Button>
@@ -458,7 +504,6 @@ export function PickupModal({
                                 variant="destructive"
                                 onClick={handleDelete}
                                 disabled={isSubmitting}
-                                className="rounded-lg"
                             >
                                 {isSubmitting ? "削除中..." : "削除"}
                             </Button>
@@ -492,7 +537,7 @@ export function PickupModal({
                                 value={roundTrips.toString()}
                                 onValueChange={(v) => setRoundTrips(parseInt(v))}
                             >
-                                <SelectTrigger className="h-10 rounded-lg border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+                                <SelectTrigger className="h-10 border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -633,7 +678,7 @@ export function PickupModal({
                                                                 moveUp(tripNum, index);
                                                             }}
                                                             disabled={index === 0}
-                                                            className="p-0.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded disabled:opacity-30"
+                                                            className="p-0.5 hover:bg-gray-50 dark:hover:bg-gray-700 rounded disabled:opacity-30"
                                                         >
                                                             <ChevronUp className="h-3 w-3 text-gray-400" />
                                                         </button>
@@ -644,7 +689,7 @@ export function PickupModal({
                                                                 moveDown(tripNum, index, tripPassengers.length);
                                                             }}
                                                             disabled={index === tripPassengers.length - 1}
-                                                            className="p-0.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded disabled:opacity-30"
+                                                            className="p-0.5 hover:bg-gray-50 dark:hover:bg-gray-700 rounded disabled:opacity-30"
                                                         >
                                                             <ChevronDown className="h-3 w-3 text-gray-400" />
                                                         </button>
@@ -666,7 +711,7 @@ export function PickupModal({
                                                             e.stopPropagation();
                                                             removePassenger(passenger.id);
                                                         }}
-                                                        className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
+                                                        className="p-1 hover:bg-gray-50 dark:hover:bg-gray-700 rounded"
                                                     >
                                                         <X className="h-3 w-3 text-gray-400" />
                                                     </button>
@@ -682,7 +727,7 @@ export function PickupModal({
                                             onClick={() => openCastModal(tripNum)}
                                             className="w-full h-9 px-3 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 flex items-center justify-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-colors"
                                         >
-                                            <Plus className="h-4 w-4 text-gray-400" />
+                                            <Plus className="h-5 w-5 text-gray-400" />
                                             <span className="text-sm text-gray-500 dark:text-gray-400">
                                                 キャストを追加
                                             </span>
@@ -708,24 +753,27 @@ export function PickupModal({
                             </div>
                         )}
 
-                        <DialogFooter className="gap-2 mt-6">
-                            <Button
-                                variant="outline"
-                                onClick={handleClose}
-                                className="rounded-lg"
-                            >
-                                キャンセル
-                            </Button>
-                            <Button
-                                onClick={handleSubmit}
-                                disabled={isSubmitting}
-                                className="rounded-lg bg-blue-600 text-white hover:bg-blue-700"
-                            >
-                                {isSubmitting ? "保存中..." : "保存"}
-                            </Button>
-                        </DialogFooter>
+                        {/* 新規作成時のみフッターを表示 */}
+                        {!editingRoute && (
+                            <DialogFooter className="gap-2">
+                                <Button
+                                    variant="outline"
+                                    onClick={handleClose}
+                                >
+                                    キャンセル
+                                </Button>
+                                <Button
+                                    onClick={handleCreate}
+                                    disabled={isSubmitting}
+                                    className="bg-blue-600 text-white hover:bg-blue-700"
+                                >
+                                    {isSubmitting ? "作成中..." : "作成"}
+                                </Button>
+                            </DialogFooter>
+                        )}
                     </div>
                 )}
+                </div>
             </DialogContent>
 
             {/* Driver Select Modal */}

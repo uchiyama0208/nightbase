@@ -1,6 +1,6 @@
 import { createServerClient } from "@/lib/supabaseServerClient";
 import type { Store } from "@/types/common";
-import { PAGE_LABELS, type PageKey, type PermissionLevel } from "./(main)/roles/constants";
+import { PAGE_LABELS, type PageKey, type PermissionLevel } from "./(main)/settings/roles/constants";
 
 export interface ProfileWithStoreData {
     id: string;
@@ -15,6 +15,37 @@ export interface ProfileWithStoreData {
     theme?: string | null;
     approval_status?: string | null;
     stores: Store | null;
+}
+
+// Feature visibility settings from store_settings
+export interface StoreFeatures {
+    show_attendance: boolean;
+    show_pickup: boolean;
+    show_timecard: boolean;
+    show_shifts: boolean;
+    show_my_shifts: boolean;
+    show_users: boolean;
+    show_resumes: boolean;
+    show_invitations: boolean;
+    show_roles: boolean;
+    show_floor: boolean;
+    show_orders: boolean;
+    show_queue: boolean;
+    show_reservations: boolean;
+    show_seats: boolean;
+    show_slips: boolean;
+    show_menus: boolean;
+    show_bottles: boolean;
+    show_shopping: boolean;
+    show_sales: boolean;
+    show_payroll: boolean;
+    show_ranking: boolean;
+    show_pricing_systems: boolean;
+    show_salary_systems: boolean;
+    show_board: boolean;
+    show_sns: boolean;
+    show_ai_create: boolean;
+    show_services: boolean;
 }
 
 export type PagePermissions = {
@@ -68,7 +99,55 @@ export async function getAppData() {
     // Extract permissions from store_roles
     const permissions = profile?.store_roles?.permissions || null;
 
-    return { user, profile, storeId, theme, permissions };
+    // Fetch store_settings for feature visibility
+    let storeFeatures: StoreFeatures | null = null;
+    if (storeId) {
+        const { data: storeSettings } = await supabase
+            .from("store_settings")
+            .select(`
+                show_attendance, show_pickup, show_timecard, show_shifts, show_my_shifts,
+                show_users, show_resumes, show_invitations, show_roles,
+                show_floor, show_orders, show_queue, show_reservations, show_seats, show_slips, show_menus, show_bottles, show_shopping,
+                show_sales, show_payroll, show_ranking, show_pricing_systems, show_salary_systems,
+                show_board, show_sns, show_ai_create, show_services
+            `)
+            .eq("store_id", storeId)
+            .maybeSingle();
+
+        if (storeSettings) {
+            storeFeatures = {
+                show_attendance: storeSettings.show_attendance ?? true,
+                show_pickup: storeSettings.show_pickup ?? true,
+                show_timecard: storeSettings.show_timecard ?? true,
+                show_shifts: storeSettings.show_shifts ?? true,
+                show_my_shifts: storeSettings.show_my_shifts ?? true,
+                show_users: storeSettings.show_users ?? true,
+                show_resumes: storeSettings.show_resumes ?? true,
+                show_invitations: storeSettings.show_invitations ?? true,
+                show_roles: storeSettings.show_roles ?? true,
+                show_floor: storeSettings.show_floor ?? true,
+                show_orders: storeSettings.show_orders ?? true,
+                show_queue: storeSettings.show_queue ?? true,
+                show_reservations: storeSettings.show_reservations ?? true,
+                show_seats: storeSettings.show_seats ?? true,
+                show_slips: storeSettings.show_slips ?? true,
+                show_menus: storeSettings.show_menus ?? true,
+                show_bottles: storeSettings.show_bottles ?? true,
+                show_shopping: storeSettings.show_shopping ?? true,
+                show_sales: storeSettings.show_sales ?? true,
+                show_payroll: storeSettings.show_payroll ?? true,
+                show_ranking: storeSettings.show_ranking ?? true,
+                show_pricing_systems: storeSettings.show_pricing_systems ?? true,
+                show_salary_systems: storeSettings.show_salary_systems ?? true,
+                show_board: storeSettings.show_board ?? true,
+                show_sns: storeSettings.show_sns ?? true,
+                show_ai_create: storeSettings.show_ai_create ?? true,
+                show_services: storeSettings.show_services ?? true,
+            };
+        }
+    }
+
+    return { user, profile, storeId, theme, permissions, storeFeatures };
 }
 
 /**
@@ -124,10 +203,32 @@ export async function getAppDataWithPermissionCheck(
 /**
  * Get access denied redirect URL with notification message
  * @param pageKey - The page key for which access was denied
- * @returns The dashboard URL with encoded denied message
+ * @param userRole - The user's role (optional, used for cast-specific redirect)
+ * @returns The redirect URL with encoded denied message
  */
-export function getAccessDeniedRedirectUrl(pageKey: PageKey): string {
+export function getAccessDeniedRedirectUrl(pageKey: PageKey, userRole?: string): string {
     const pageName = PAGE_LABELS[pageKey] || pageKey;
     const message = `${pageName}ページへのアクセス権限がありません`;
+
+    // キャストはタイムカードにリダイレクト
+    if (userRole === "cast") {
+        return `/app/timecard`;
+    }
+
     return `/app/dashboard?denied=${encodeURIComponent(message)}`;
+}
+
+/**
+ * キャストがアクセス可能なページかどうかをチェック
+ * キャストは: timecard, my-shifts, ranking, board, me のみアクセス可能
+ */
+export function isCastAllowedPage(pathname: string): boolean {
+    const allowedPaths = [
+        "/app/timecard",
+        "/app/my-shifts",
+        "/app/ranking",
+        "/app/board",
+        "/app/me",
+    ];
+    return allowedPaths.some(path => pathname.startsWith(path));
 }

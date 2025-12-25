@@ -156,3 +156,11 @@ export async function setDefaultPricingSystem(id: string): Promise<{ success: bo
     revalidatePath("/app/pricing-systems");
     return { success: true };
 }
+
+/**
+ * ページデータを取得（SPA用）
+ */
+export async function getPricingSystemsPageData() {
+    const systems = await getPricingSystems();
+    return { data: { systems } };
+}

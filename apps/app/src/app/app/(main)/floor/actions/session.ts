@@ -1,11 +1,12 @@
 "use server";
 
 import { createServerClient } from "@/lib/supabaseServerClient";
+import { getAuthContextForPage } from "@/lib/auth-helpers";
 import { getAuthenticatedStoreId, revalidateFloorAndSlips } from "./auth";
 import type { SessionUpdateData, SessionDataV2 } from "./types";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type SupabaseClient = any;
+import { getTables } from "../../seats/actions";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/supabase";
 
 /**
  * 新規セッションを作成
@@ -16,6 +17,7 @@ export async function createSession(
     pricingSystemId?: string
 ) {
     const { supabase, storeId, role } = await getAuthenticatedStoreId();
+    const sb = supabase as any;
 
     if (role !== "admin" && role !== "staff") {
         throw new Error("権限がありません");
@@ -24,7 +26,7 @@ export async function createSession(
     // デフォルトの料金システムを取得
     let finalPricingSystemId = pricingSystemId;
     if (!finalPricingSystemId) {
-        const { data: defaultPricingSystem } = await supabase
+        const { data: defaultPricingSystem } = await sb
             .from("pricing_systems")
             .select("id")
             .eq("store_id", storeId)
@@ -36,7 +38,7 @@ export async function createSession(
         }
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await sb
         .from("table_sessions")
         .insert({
             store_id: storeId,
@@ -63,13 +65,14 @@ export async function updateSession(
     updates: SessionUpdateData
 ) {
     const { supabase, storeId, role } = await getAuthenticatedStoreId();
+    const sb = supabase as any;
 
     if (role !== "admin" && role !== "staff") {
         throw new Error("権限がありません");
     }
 
     // セッションの店舗を確認
-    const { data: session } = await supabase
+    const { data: session } = await sb
         .from("table_sessions")
         .select("store_id")
         .eq("id", sessionId)
@@ -80,14 +83,14 @@ export async function updateSession(
     }
 
     const dbUpdates: Record<string, unknown> = {};
-    if (updates.tableId) dbUpdates.table_id = updates.tableId;
+    if (updates.tableId !== undefined) dbUpdates.table_id = updates.tableId;
     if (updates.guestCount !== undefined) dbUpdates.guest_count = updates.guestCount;
     if (updates.startTime !== undefined) dbUpdates.start_time = updates.startTime;
     if (updates.endTime !== undefined) dbUpdates.end_time = updates.endTime;
     if (updates.pricingSystemId !== undefined) dbUpdates.pricing_system_id = updates.pricingSystemId;
     if (updates.mainGuestId !== undefined) dbUpdates.main_guest_id = updates.mainGuestId;
 
-    const { error } = await supabase
+    const { error } = await sb
         .from("table_sessions")
         .update(dbUpdates)
         .eq("id", sessionId);
@@ -106,13 +109,14 @@ export async function updateSessionTimes(
     endTime?: string | null
 ) {
     const { supabase, storeId, role } = await getAuthenticatedStoreId();
+    const sb = supabase as any;
 
     if (role !== "admin" && role !== "staff") {
         throw new Error("権限がありません");
     }
 
     // セッションの店舗を確認
-    const { data: session } = await supabase
+    const { data: session } = await sb
         .from("table_sessions")
         .select("store_id")
         .eq("id", sessionId)
@@ -126,7 +130,7 @@ export async function updateSessionTimes(
     if (startTime !== undefined) updates.start_time = startTime;
     if (endTime !== undefined) updates.end_time = endTime;
 
-    const { error } = await supabase
+    const { error } = await sb
         .from("table_sessions")
         .update(updates)
         .eq("id", sessionId);
@@ -141,13 +145,14 @@ export async function updateSessionTimes(
  */
 export async function checkoutSession(sessionId: string) {
     const { supabase, storeId, role } = await getAuthenticatedStoreId();
+    const sb = supabase as any;
 
     if (role !== "admin" && role !== "staff") {
         throw new Error("権限がありません");
     }
 
     // セッション情報を取得
-    const { data: session } = await supabase
+    const { data: session } = await sb
         .from("table_sessions")
         .select("*")
         .eq("id", sessionId)
@@ -156,7 +161,7 @@ export async function checkoutSession(sessionId: string) {
     if (!session || session.store_id !== storeId) throw new Error("Session not found");
 
     // 合計金額を計算
-    const { data: orders } = await supabase
+    const { data: orders } = await sb
         .from("orders")
         .select("amount")
         .eq("table_session_id", sessionId)
@@ -166,7 +171,7 @@ export async function checkoutSession(sessionId: string) {
         sum + (order.amount || 0), 0) || 0;
 
     // セッションを完了に更新
-    const { error } = await supabase
+    const { error } = await sb
         .from("table_sessions")
         .update({
             status: "completed",
@@ -177,12 +182,12 @@ export async function checkoutSession(sessionId: string) {
 
     if (error) throw error;
 
-    // 全ての接客中キャストを終了に
-    await supabase
+    // 全ての接客中キャストを終了に（cast_idがあるオーダー全て）
+    await sb
         .from("orders")
-        .update({ cast_status: 'ended' })
+        .update({ cast_status: 'ended', item_name: '終了' })
         .eq("table_session_id", sessionId)
-        .in("item_name", ['指名料', '場内料金', '同伴料'])
+        .not("cast_id", "is", null)
         .neq("cast_status", 'ended');
 
     revalidateFloorAndSlips();
@@ -201,12 +206,13 @@ export async function closeSession(sessionId: string) {
  */
 export async function reopenSession(sessionId: string) {
     const { supabase, storeId, role } = await getAuthenticatedStoreId();
+    const sb = supabase as any;
 
     if (role !== "admin" && role !== "staff") {
         throw new Error("権限がありません");
     }
 
-    const { data: session } = await supabase
+    const { data: session } = await sb
         .from("table_sessions")
         .select("store_id")
         .eq("id", sessionId)
@@ -216,7 +222,7 @@ export async function reopenSession(sessionId: string) {
         throw new Error("Session not found");
     }
 
-    const { error } = await supabase
+    const { error } = await sb
         .from("table_sessions")
         .update({
             status: "active",
@@ -235,12 +241,13 @@ export async function reopenSession(sessionId: string) {
  */
 export async function deleteSession(sessionId: string) {
     const { supabase, storeId, role } = await getAuthenticatedStoreId();
+    const sb = supabase as any;
 
     if (role !== "admin" && role !== "staff") {
         throw new Error("権限がありません");
     }
 
-    const { data: session } = await supabase
+    const { data: session } = await sb
         .from("table_sessions")
         .select("store_id")
         .eq("id", sessionId)
@@ -255,7 +262,7 @@ export async function deleteSession(sessionId: string) {
     }
 
     // 1. 関連オーダーを削除
-    const { error: ordersError } = await supabase
+    const { error: ordersError } = await sb
         .from("orders")
         .delete()
         .eq("table_session_id", sessionId);
@@ -263,7 +270,7 @@ export async function deleteSession(sessionId: string) {
     if (ordersError) throw ordersError;
 
     // 2. セッションゲストを削除
-    const { error: guestsError } = await supabase
+    const { error: guestsError } = await sb
         .from("session_guests")
         .delete()
         .eq("table_session_id", sessionId);
@@ -271,7 +278,7 @@ export async function deleteSession(sessionId: string) {
     if (guestsError) throw guestsError;
 
     // 3. セッションを削除
-    const { error: sessionError } = await supabase
+    const { error: sessionError } = await sb
         .from("table_sessions")
         .delete()
         .eq("id", sessionId);
@@ -286,7 +293,7 @@ export async function deleteSession(sessionId: string) {
  * アクティブなセッション一覧を取得（V2）
  */
 export async function getActiveSessionsV2(): Promise<SessionDataV2[]> {
-    const supabase = await createServerClient() as SupabaseClient;
+    const supabase = await createServerClient();
 
     const { data: sessions, error } = await supabase
         .from("table_sessions")
@@ -309,7 +316,7 @@ export async function getActiveSessionsV2(): Promise<SessionDataV2[]> {
  * 完了済みセッション一覧を取得（V2）
  */
 export async function getCompletedSessionsV2(): Promise<SessionDataV2[]> {
-    const supabase = await createServerClient() as SupabaseClient;
+    const supabase = await createServerClient();
 
     const { data: sessions, error } = await supabase
         .from("table_sessions")
@@ -333,7 +340,7 @@ export async function getCompletedSessionsV2(): Promise<SessionDataV2[]> {
  * 単一セッションを取得（V2）
  */
 export async function getSessionByIdV2(sessionId: string): Promise<SessionDataV2 | null> {
-    const supabase = await createServerClient() as SupabaseClient;
+    const supabase = await createServerClient();
 
     const { data: session, error } = await supabase
         .from("table_sessions")
@@ -351,4 +358,68 @@ export async function getSessionByIdV2(sessionId: string): Promise<SessionDataV2
     }
 
     return session;
+}
+
+/**
+ * フロアページ用の初期データを取得（クライアントサイドフェッチ用）
+ */
+export async function getFloorPageData() {
+    const result = await getAuthContextForPage({ requireStaff: true });
+
+    if ("redirect" in result) {
+        return { redirect: result.redirect };
+    }
+
+    const { context } = result;
+    const { supabase, storeId, profileId, role } = context;
+
+    // 編集権限チェック
+    const canEdit = role === "admin" || role === "staff";
+
+    // ページ権限を取得
+    const { data: profileData } = await supabase
+        .from("profiles")
+        .select("role_id")
+        .eq("id", profileId)
+        .maybeSingle();
+
+    let permissions: Record<string, string> | null = null;
+    if (profileData?.role_id) {
+        const { data: storeRole } = await supabase
+            .from("store_roles")
+            .select("permissions")
+            .eq("id", profileData.role_id)
+            .maybeSingle();
+        permissions = storeRole?.permissions || null;
+    }
+
+    const checkPermission = (pageKey: string) => {
+        if (role === "admin") return true;
+        if (!permissions) return role === "staff";
+        const level = permissions[pageKey];
+        return level === "view" || level === "edit";
+    };
+
+    const pagePermissions = {
+        bottles: checkPermission("bottles"),
+        resumes: checkPermission("resumes"),
+        salarySystems: checkPermission("salary-systems"),
+        attendance: checkPermission("attendance"),
+        personalInfo: checkPermission("users-personal-info"),
+    };
+
+    // 初期データを並列取得
+    const [initialSessions, initialTables] = await Promise.all([
+        getActiveSessionsV2(),
+        getTables(),
+    ]);
+
+    return {
+        data: {
+            canEdit,
+            pagePermissions,
+            initialSessions,
+            initialTables,
+        }
+    };
 }

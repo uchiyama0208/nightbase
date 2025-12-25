@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Table, TableType, PricingSystem } from "@/types/floor";
+import { Table, TableType } from "@/types/floor";
 import { getTables, createTable, updateTable, deleteTable, getTableTypes } from "./actions";
-import { getPricingSystems } from "@/app/app/(main)/pricing-systems/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { useToast } from "@/components/ui/use-toast";
 import { Plus, ChevronLeft, Trash2 } from "lucide-react";
 import { TableTypeManageModal } from "./table-type-manage-modal";
+import { CommentSection } from "@/components/comment-section";
 
 const GRID_SIZE = 8;
 
@@ -37,7 +37,7 @@ function GridEditor({ grid, onChange }: { grid: boolean[][]; onChange: (grid: bo
                                     onClick={() => toggleCell(rowIndex, colIndex)}
                                     className={`w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 border border-gray-100 dark:border-gray-800 transition-colors ${cell
                                         ? "bg-blue-500 hover:bg-blue-600"
-                                        : "bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800"
+                                        : "bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-700"
                                         }`}
                                 />
                             ))}
@@ -56,7 +56,6 @@ interface SeatsClientProps {
 export function SeatsClient({ canEdit = false }: SeatsClientProps) {
     const [tables, setTables] = useState<Table[]>([]);
     const [tableTypes, setTableTypes] = useState<TableType[]>([]);
-    const [pricingSystems, setPricingSystems] = useState<PricingSystem[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isTypeModalOpen, setIsTypeModalOpen] = useState(false);
@@ -67,7 +66,6 @@ export function SeatsClient({ canEdit = false }: SeatsClientProps) {
     const [formData, setFormData] = useState({
         name: "",
         type_id: "" as string | null,
-        pricing_system_id: "" as string | null,
         grid: Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(false)),
     });
 
@@ -76,14 +74,12 @@ export function SeatsClient({ canEdit = false }: SeatsClientProps) {
     }, []);
 
     const loadData = async () => {
-        const [tablesData, typesData, pricingSystemsData] = await Promise.all([
+        const [tablesData, typesData] = await Promise.all([
             getTables(),
             getTableTypes(),
-            getPricingSystems()
         ]);
         setTables(tablesData);
         setTableTypes(typesData as TableType[]);
-        setPricingSystems(pricingSystemsData);
     };
 
     const loadTables = async () => {
@@ -98,17 +94,13 @@ export function SeatsClient({ canEdit = false }: SeatsClientProps) {
             setFormData({
                 name: table.name,
                 type_id: table.type_id || "",
-                pricing_system_id: table.pricing_system_id || "",
                 grid: grid,
             });
         } else {
             setEditingTable(null);
-            // デフォルトの料金システムを取得
-            const defaultPricingSystem = pricingSystems.find(ps => ps.is_default);
             setFormData({
                 name: "",
                 type_id: "",
-                pricing_system_id: defaultPricingSystem?.id || "",
                 grid: Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(false)),
             });
         }
@@ -127,7 +119,6 @@ export function SeatsClient({ canEdit = false }: SeatsClientProps) {
                 await updateTable(editingTable.id, {
                     name: formData.name,
                     type_id: formData.type_id || null,
-                    pricing_system_id: formData.pricing_system_id || null,
                     layout_data: layoutData,
                 });
                 toast({ title: "テーブルを更新しました" });
@@ -135,7 +126,6 @@ export function SeatsClient({ canEdit = false }: SeatsClientProps) {
                 await createTable({
                     name: formData.name,
                     type_id: formData.type_id || null,
-                    pricing_system_id: formData.pricing_system_id || null,
                     x: 100,
                     y: 100,
                     width: 120,
@@ -184,7 +174,7 @@ export function SeatsClient({ canEdit = false }: SeatsClientProps) {
         if (!grid || grid.length === 0) return <span className="text-gray-500 dark:text-gray-400">未設定</span>;
 
         return (
-            <div className="inline-block border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+            <div className="inline-block border border-gray-200 dark:border-gray-700 rounded overflow-hidden">
                 {grid.map((row, rowIndex) => (
                     <div key={rowIndex} className="flex">
                         {row.map((cell, colIndex) => (
@@ -221,7 +211,7 @@ export function SeatsClient({ canEdit = false }: SeatsClientProps) {
                         <div className="text-center text-gray-500 dark:text-gray-400">
                             <p className="mb-4">テーブルがありません</p>
                             <Button onClick={() => handleOpenModal()} className="bg-blue-600 text-white hover:bg-blue-700">
-                                <Plus className="h-4 w-4 mr-2" />
+                                <Plus className="h-5 w-5 mr-2" />
                                 最初のテーブルを追加
                             </Button>
                         </div>
@@ -231,16 +221,14 @@ export function SeatsClient({ canEdit = false }: SeatsClientProps) {
                         {tables.map((table) => (
                             <div
                                 key={table.id}
-                                className="cursor-pointer bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:shadow-md transition-all"
+                                className="cursor-pointer bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:shadow-md transition-all"
                                 onClick={() => handleOpenModal(table)}
                             >
                                 <div className="flex flex-col items-center gap-3">
                                     <h3 className="font-semibold text-base text-gray-900 dark:text-white text-center">
                                         {table.name}
                                     </h3>
-                                    <div className="bg-gray-50 dark:bg-gray-800 p-2 rounded-lg">
-                                        {renderGridPreview(table.layout_data?.grid)}
-                                    </div>
+                                    {renderGridPreview(table.layout_data?.grid)}
                                 </div>
                             </div>
                         ))}
@@ -250,13 +238,13 @@ export function SeatsClient({ canEdit = false }: SeatsClientProps) {
 
             {/* Add/Edit Modal */}
             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+                <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
                     {/* Custom Header */}
-                    <DialogHeader className="px-4 py-2 border-b border-gray-200 dark:border-gray-700 flex flex-row items-center justify-between gap-2 relative">
+                    <DialogHeader className="flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] border-b border-gray-200 dark:border-gray-700 px-4 flex-shrink-0">
                         <button
                             type="button"
                             onClick={() => setIsModalOpen(false)}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-0"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-0"
                             aria-label="戻る"
                         >
                             <ChevronLeft className="h-5 w-5" />
@@ -281,7 +269,7 @@ export function SeatsClient({ canEdit = false }: SeatsClientProps) {
                         )}
                     </DialogHeader>
 
-                    <div className="p-4 space-y-4">
+                    <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
                         <div className="space-y-2">
                             <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">テーブル名 *</Label>
                             <Input
@@ -318,36 +306,21 @@ export function SeatsClient({ canEdit = false }: SeatsClientProps) {
                                 ))}
                             </select>
                         </div>
-                        <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">料金システム</Label>
-                                <button
-                                    type="button"
-                                    onClick={() => window.open('/app/pricing-systems', '_blank')}
-                                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-                                >
-                                    <Plus className="h-3 w-3" />
-                                    料金システム追加
-                                </button>
-                            </div>
-                            <select
-                                className="flex h-11 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-base text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                value={formData.pricing_system_id || ""}
-                                onChange={(e) => setFormData((prev) => ({ ...prev, pricing_system_id: e.target.value || null }))}
-                            >
-                                <option value="">デフォルト</option>
-                                {pricingSystems.map((system) => (
-                                    <option key={system.id} value={system.id}>
-                                        {system.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
                         <GridEditor
                             grid={formData.grid}
                             onChange={(grid) => setFormData((prev) => ({ ...prev, grid }))}
                         />
-                        <div className="pt-2 space-y-2">
+
+                        {/* Comments Section (only for existing tables) */}
+                        {editingTable && (
+                            <CommentSection
+                                targetType="table"
+                                targetId={editingTable.id}
+                                isOpen={isModalOpen}
+                            />
+                        )}
+                    </div>
+                    <div className="flex-shrink-0 px-6 pb-6 space-y-2">
                             <Button
                                 className="w-full h-11 bg-blue-600 text-white hover:bg-blue-700 rounded-lg"
                                 onClick={handleSave}
@@ -362,21 +335,20 @@ export function SeatsClient({ canEdit = false }: SeatsClientProps) {
                             >
                                 キャンセル
                             </Button>
-                        </div>
                     </div>
                 </DialogContent>
             </Dialog>
 
             {/* Delete Confirmation Modal */}
             <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
-                <DialogContent className="max-w-sm rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
+                <DialogContent className="sm:max-w-sm rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
                     <DialogHeader className="space-y-1.5">
                         <DialogTitle className="text-lg font-semibold text-gray-900 dark:text-white">削除確認</DialogTitle>
                         <DialogDescription className="text-sm text-gray-600 dark:text-gray-400">
                             このテーブルを削除しますか？この操作は取り消せません。
                         </DialogDescription>
                     </DialogHeader>
-                    <DialogFooter className="mt-4 flex flex-col-reverse gap-2">
+                    <DialogFooter className="flex flex-col-reverse gap-2">
                         <Button
                             variant="outline"
                             onClick={() => setIsDeleteModalOpen(false)}

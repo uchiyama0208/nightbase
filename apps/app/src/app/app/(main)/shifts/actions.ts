@@ -1,6 +1,7 @@
 "use server";
 
 import { createServerClient } from "@/lib/supabaseServerClient";
+import { getAuthContextForPage } from "@/lib/auth-helpers";
 import { revalidatePath } from "next/cache";
 
 // =====================================================
@@ -483,6 +484,26 @@ export async function getCalendarData(storeId: string, year: number, month: numb
         staffNotSubmitted: number;
     }>();
 
+    // ユニークなprofile_idを追跡するためのSet
+    const uniqueProfiles = new Map<string, {
+        castConfirmed: Set<string>;
+        staffConfirmed: Set<string>;
+        castSubmitted: Set<string>;
+        staffSubmitted: Set<string>;
+    }>();
+
+    const getOrCreateUniqueSet = (date: string) => {
+        if (!uniqueProfiles.has(date)) {
+            uniqueProfiles.set(date, {
+                castConfirmed: new Set(),
+                staffConfirmed: new Set(),
+                castSubmitted: new Set(),
+                staffSubmitted: new Set(),
+            });
+        }
+        return uniqueProfiles.get(date)!;
+    };
+
     // 募集日付を先に登録
     if (requestDates) {
         for (const rd of requestDates) {
@@ -503,13 +524,16 @@ export async function getCalendarData(storeId: string, year: number, month: numb
         }
     }
 
-    // work_records をカウント
+    // work_records をカウント (ユニークなprofile_idのみ)
     if (workRecords) {
         for (const record of workRecords) {
             const date = record.work_date;
+            const profileId = record.profile_id;
             const role = record.profiles?.role;
             const isCast = role === "cast";
             const isStaff = role === "staff" || role === "admin";
+
+            if (!profileId) continue;
 
             if (!calendarData.has(date)) {
                 calendarData.set(date, {
@@ -527,26 +551,32 @@ export async function getCalendarData(storeId: string, year: number, month: numb
             }
 
             const existing = calendarData.get(date)!;
+            const uniqueSets = getOrCreateUniqueSet(date);
             const status = record.status;
 
-            // pending = 提出済み（未確認）、scheduled/working/completed = 確定済み
+            // pending = 提出済み (未確認), scheduled/working/completed = 確定済み (出勤予定)
             if (status === "pending") {
-                // 提出済み（未確認）
-                if (isCast) {
+                // 提出済み (未確認) - ユニークなprofile_idのみカウント
+                if (isCast && !uniqueSets.castSubmitted.has(profileId)) {
+                    uniqueSets.castSubmitted.add(profileId);
                     existing.castSubmitted++;
-                } else if (isStaff) {
+                } else if (isStaff && !uniqueSets.staffSubmitted.has(profileId)) {
+                    uniqueSets.staffSubmitted.add(profileId);
                     existing.staffSubmitted++;
                 }
-            } else {
-                // 確定済み（scheduled/working/completed）
-                if (isCast) {
+            } else if (status === "scheduled" || status === "working" || status === "completed") {
+                // 確定済み (出勤予定としてカウント) - ユニークなprofile_idのみカウント
+                if (isCast && !uniqueSets.castConfirmed.has(profileId)) {
+                    uniqueSets.castConfirmed.add(profileId);
                     existing.castCount++;
                     existing.castConfirmed++;
-                } else if (isStaff) {
+                } else if (isStaff && !uniqueSets.staffConfirmed.has(profileId)) {
+                    uniqueSets.staffConfirmed.add(profileId);
                     existing.staffCount++;
                     existing.staffConfirmed++;
                 }
             }
+            // rejected, absent などはカウントしない
         }
     }
 
@@ -811,13 +841,19 @@ export async function getRequestDateCounts(requestDateIds: string[]): Promise<{
         const request = rd.shift_requests as any;
         const date = rd.target_date;
 
-        // 出勤記録を取得
-        const { data: workRecords } = await supabase
-            .from("work_records")
-            .select("id, profile_id, status")
-            .eq("store_id", request.store_id)
-            .eq("work_date", date)
-            .neq("status", "cancelled");
+        // 出勤記録とshift_submissionsを並列で取得
+        const [{ data: workRecords }, { data: shiftSubmissions }] = await Promise.all([
+            supabase
+                .from("work_records")
+                .select("id, profile_id, status")
+                .eq("store_id", request.store_id)
+                .eq("work_date", date)
+                .neq("status", "cancelled"),
+            supabase
+                .from("shift_submissions")
+                .select("id, profile_id, availability, status")
+                .eq("request_date_id", rd.id),
+        ]);
 
         // 対象プロフィール取得
         let profilesQuery = supabase
@@ -826,16 +862,22 @@ export async function getRequestDateCounts(requestDateIds: string[]): Promise<{
             .eq("store_id", request.store_id)
             .in("status", ["在籍中", "体入"]);
 
-        if (request.target_roles && request.target_roles.length > 0) {
-            profilesQuery = profilesQuery.in("role", request.target_roles);
-        }
         if (request.target_profile_ids && request.target_profile_ids.length > 0) {
             profilesQuery = profilesQuery.in("id", request.target_profile_ids);
+        } else if (request.target_roles && request.target_roles.length > 0) {
+            // staffが含まれる場合はadminも対象に含める
+            const rolesFilter = request.target_roles.includes("staff")
+                ? [...request.target_roles, "admin"]
+                : request.target_roles;
+            profilesQuery = profilesQuery.in("role", rolesFilter);
         }
 
         const { data: profiles } = await profilesQuery;
 
+        // work_recordsとshift_submissionsの両方からプロフィールIDを取得
         const workRecordProfileIds = new Set((workRecords || []).map((r: any) => r.profile_id));
+        const shiftSubmissionProfileIds = new Set((shiftSubmissions || []).map((s: any) => s.profile_id));
+        const registeredProfileIds = new Set([...workRecordProfileIds, ...shiftSubmissionProfileIds]);
 
         let pendingCount = 0;
         let confirmedCount = 0;
@@ -850,9 +892,9 @@ export async function getRequestDateCounts(requestDateIds: string[]): Promise<{
             }
         }
 
-        // 未提出（出勤記録がないプロフィール）をカウント
+        // 未提出（出勤記録もshift_submissionsもないプロフィール）をカウント
         for (const p of profiles || []) {
-            if (!workRecordProfileIds.has(p.id)) {
+            if (!registeredProfileIds.has(p.id)) {
                 notSubmittedCount++;
             }
         }
@@ -1051,11 +1093,18 @@ export async function checkExistingRequestConflicts(
         return { conflicts: [], error: error.message };
     }
 
+    // プロフィールごとに日付をグループ化
+    const conflictMap = new Map<string, string[]>();
+    for (const d of data || []) {
+        const existing = conflictMap.get(d.profile_id) || [];
+        existing.push(d.work_date);
+        conflictMap.set(d.profile_id, existing);
+    }
+
     // 重複しているプロフィールと日付の組み合わせを返す
-    const conflicts = (data || []).map((d: any) => ({
-        profileId: d.profile_id,
-        profileName: d.profiles?.display_name || "名前なし",
-        date: d.work_date,
+    const conflicts = Array.from(conflictMap.entries()).map(([profileId, dates]) => ({
+        profileId,
+        dates,
     }));
     return { conflicts };
 }
@@ -1466,5 +1515,120 @@ export async function getGridData(
         dates,
         cells,
         requestDateIds,
+    };
+}
+
+// =====================================================
+// ページデータ取得（クライアントサイドフェッチ用）
+// =====================================================
+
+export async function getShiftsPageData() {
+    const result = await getAuthContextForPage({ requireStaff: true });
+
+    if ("redirect" in result) {
+        return { redirect: result.redirect };
+    }
+
+    const { context } = result;
+    const { supabase, storeId, profileId, role } = context;
+
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+
+    // 店舗情報を取得
+    const [storeResult, settingsResult] = await Promise.all([
+        supabase
+            .from("stores")
+            .select("name, closed_days, default_cast_start_time, default_cast_end_time, default_staff_start_time, default_staff_end_time")
+            .eq("id", storeId)
+            .single(),
+        supabase
+            .from("store_settings")
+            .select("day_switch_time")
+            .eq("store_id", storeId)
+            .single(),
+    ]);
+
+    const storeName = storeResult.data?.name || "店舗";
+    const closedDays = (storeResult.data?.closed_days as string[]) || [];
+    const daySwitchTime = settingsResult.data?.day_switch_time || "05:00";
+    const storeDefaults = storeResult.data ? {
+        default_cast_start_time: storeResult.data.default_cast_start_time,
+        default_cast_end_time: storeResult.data.default_cast_end_time,
+        default_staff_start_time: storeResult.data.default_staff_start_time,
+        default_staff_end_time: storeResult.data.default_staff_end_time,
+    } : null;
+
+    // プロフィール一覧を取得
+    const { data: profilesData } = await supabase
+        .from("profiles")
+        .select("id, display_name, avatar_url, role, line_user_id, status")
+        .eq("store_id", storeId)
+        .in("role", ["cast", "staff", "admin"])
+        .order("display_name", { ascending: true });
+
+    const profiles = profilesData || [];
+
+    // カレンダーデータを取得
+    const calendarData = await getCalendarData(storeId, year, month);
+
+    // 既存の募集日付を取得
+    const existingDates = await getExistingRequestDates(storeId);
+
+    // シフト募集を取得
+    const shiftRequests = await getShiftRequests(storeId);
+    const openShiftRequests = shiftRequests.filter((r) => r.status === "open");
+
+    // 編集権限チェック
+    const canEdit = role === "admin" || role === "staff";
+
+    // ページ権限を取得
+    const { data: profileData } = await supabase
+        .from("profiles")
+        .select("role_id")
+        .eq("id", profileId)
+        .maybeSingle();
+
+    let permissions: Record<string, string> | null = null;
+    if (profileData?.role_id) {
+        const { data: storeRole } = await supabase
+            .from("store_roles")
+            .select("permissions")
+            .eq("id", profileData.role_id)
+            .maybeSingle();
+        permissions = storeRole?.permissions || null;
+    }
+
+    const checkPermission = (pageKey: string) => {
+        if (role === "admin") return true;
+        if (!permissions) return role === "staff";
+        const level = permissions[pageKey];
+        return level === "view" || level === "edit";
+    };
+
+    const pagePermissions = {
+        bottles: checkPermission("bottles"),
+        resumes: checkPermission("resumes"),
+        salarySystems: checkPermission("salary-systems"),
+        attendance: checkPermission("attendance"),
+        personalInfo: checkPermission("users-personal-info"),
+    };
+
+    return {
+        data: {
+            initialCalendarData: calendarData,
+            profiles,
+            storeId,
+            profileId,
+            storeDefaults,
+            storeName,
+            existingDates,
+            closedDays,
+            daySwitchTime,
+            openShiftRequests,
+            canEdit,
+            pagePermissions,
+        }
     };
 }

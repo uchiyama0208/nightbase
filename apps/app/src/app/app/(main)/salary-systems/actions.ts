@@ -5,12 +5,18 @@ import { revalidatePath } from "next/cache";
 
 // Types
 export interface HourlySettings {
-    is_monthly: boolean;
-    amount: number;
-    time_unit_minutes?: number; // 時給の場合のみ
-    time_rounding_type?: 'round' | 'up' | 'down'; // 時間丸め: 四捨五入、繰り上げ、繰り下げ
-    during_service_only?: boolean; // 時給の場合のみ
-    includes_break?: boolean; // 時給の場合のみ
+    // Legacy fields (for backward compatibility)
+    is_monthly?: boolean;
+    amount?: number;
+    // New fields
+    hourly_amount?: number;      // 時給額
+    monthly_amount?: number;     // 月給額
+    time_unit_minutes?: number;  // 時給分割単位
+    time_rounding_type?: 'round' | 'up' | 'down'; // 時間の丸め方
+    amount_rounding_type?: 'round' | 'up' | 'down';  // 金額の端数処理
+    amount_rounding_unit?: 10 | 100 | 1000 | 10000;  // 金額の端数単位
+    during_service_only?: boolean;
+    includes_break?: boolean;
 }
 
 export interface BackTier {
@@ -275,4 +281,34 @@ export async function removeSalarySystemFromProfile(profileId: string, salarySys
 
     revalidatePath("/app/salary-systems");
     return { success: true };
+}
+
+// Get page data for SPA
+export async function getSalarySystemsPageData() {
+    const supabase = await createServerClient() as any;
+    const storeId = await getCurrentStoreId();
+
+    if (!storeId) {
+        return { redirect: "/app/me" };
+    }
+
+    const [salarySystems, storeResult] = await Promise.all([
+        getSalarySystems(),
+        supabase
+            .from("stores")
+            .select("show_break_columns, time_rounding_enabled, time_rounding_minutes")
+            .eq("id", storeId)
+            .single()
+    ]);
+
+    const store = storeResult.data;
+
+    return {
+        data: {
+            salarySystems,
+            storeShowBreakColumns: store?.show_break_columns ?? false,
+            storeTimeRoundingEnabled: store?.time_rounding_enabled ?? false,
+            storeTimeRoundingMinutes: store?.time_rounding_minutes ?? 15,
+        }
+    };
 }

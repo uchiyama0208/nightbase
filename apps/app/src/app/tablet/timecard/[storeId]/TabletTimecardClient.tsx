@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useTransition, useCallback } from "react";
+import { useState, useEffect, useTransition, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PickupForm } from "@/components/timecard/pickup-form";
+import { TabletTimecardQuestions, type TimecardQuestion } from "@/components/timecard/tablet-timecard-questions";
 
 type TabletProfile = {
   id: string;
@@ -25,6 +26,8 @@ type StoreSettings = {
   name: string;
   tablet_theme: string | null;
   tablet_allowed_roles: string[] | null;
+  pickup_enabled_cast: boolean;
+  pickup_enabled_staff: boolean;
 };
 
 type TabletTimecardClientProps = {
@@ -33,8 +36,10 @@ type TabletTimecardClientProps = {
   initialProfiles: TabletProfile[];
   initialTodayCards: TodayCard[];
   initialPickupHistory: Record<string, string[]>;
+  timecardQuestions: TimecardQuestion[];
   tabletClockIn: (formData: FormData) => Promise<void>;
   tabletClockOut: (formData: FormData) => Promise<void>;
+  tabletDeletePickupDestination: (storeId: string, profileId: string, destinationName: string) => Promise<void>;
 };
 
 const kanaGroups = [
@@ -67,9 +72,12 @@ function formatTime(value: string | null): string {
 }
 
 function getTodayDate() {
-  const now = new Date();
-  const jstDate = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-  return jstDate.toISOString().split("T")[0];
+  return new Date().toLocaleDateString("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).replace(/\//g, "-");
 }
 
 export function TabletTimecardClient({
@@ -78,30 +86,60 @@ export function TabletTimecardClient({
   initialProfiles,
   initialTodayCards,
   initialPickupHistory,
+  timecardQuestions,
   tabletClockIn,
   tabletClockOut,
+  tabletDeletePickupDestination,
 }: TabletTimecardClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  
+
   // State
   const [profiles] = useState<TabletProfile[]>(initialProfiles);
   const [todayCards, setTodayCards] = useState<TodayCard[]>(initialTodayCards);
-  const [pickupHistory] = useState<Record<string, string[]>>(initialPickupHistory);
-  
+  const [pickupHistory, setPickupHistory] = useState<Record<string, string[]>>(initialPickupHistory);
+
   // UI State
   const [mode, setMode] = useState<"clockIn" | "clockOut" | null>(null);
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const [selectedKanaGroup, setSelectedKanaGroup] = useState<string | null>(null);
   const [selectedProfile, setSelectedProfile] = useState<TabletProfile | null>(null);
   const [isPickupValid, setIsPickupValid] = useState(false);
+  const [isQuestionsValid, setIsQuestionsValid] = useState(true);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Filter questions based on selected profile's role and current mode
+  const filteredQuestions = useMemo(() => {
+    if (!selectedProfile || !mode) return [];
+
+    const role = selectedProfile.role;
+    const timing = mode === "clockIn" ? "clock_in" : "clock_out";
+
+    return timecardQuestions.filter(q => {
+      const roleMatch = q.target_role === "both" || q.target_role === role;
+      const timingMatch = q.timing === "both" || q.timing === timing;
+      return roleMatch && timingMatch;
+    });
+  }, [selectedProfile, mode, timecardQuestions]);
+
+  // Update questions validity when filtered questions change
+  useEffect(() => {
+    if (filteredQuestions.length === 0) {
+      setIsQuestionsValid(true);
+    } else {
+      // Will be set by the TabletTimecardQuestions component
+      const hasRequired = filteredQuestions.some(q => q.is_required);
+      if (!hasRequired) {
+        setIsQuestionsValid(true);
+      }
+    }
+  }, [filteredQuestions]);
 
   // Theme
   const isDarkMode = store.tablet_theme === "dark";
-  const bgClass = isDarkMode ? "bg-slate-900 text-white" : "bg-gray-50 text-gray-900";
-  const borderClass = isDarkMode ? "border-slate-700" : "border-gray-200";
-  const cardBgClass = isDarkMode ? "bg-slate-800" : "bg-white";
+  const bgClass = isDarkMode ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-900";
+  const borderClass = isDarkMode ? "border-gray-700" : "border-gray-200";
+  const cardBgClass = isDarkMode ? "bg-gray-800" : "bg-white";
   const textMutedClass = isDarkMode ? "text-gray-400" : "text-gray-600";
 
   const allowedRoles = store.tablet_allowed_roles ?? ["staff", "cast"];
@@ -204,6 +242,19 @@ export function TabletTimecardClient({
     });
   };
 
+  // Handler for deleting pickup destination
+  const handleDeleteDestination = async (profileId: string, destinationName: string) => {
+    await tabletDeletePickupDestination(storeId, profileId, destinationName);
+    // Update local state to remove the deleted destination
+    setPickupHistory(prev => {
+      const updated = { ...prev };
+      if (updated[profileId]) {
+        updated[profileId] = updated[profileId].filter(d => d !== destinationName);
+      }
+      return updated;
+    });
+  };
+
   // Success message auto-hide
   useEffect(() => {
     if (successMessage) {
@@ -216,7 +267,7 @@ export function TabletTimecardClient({
     <div className={`min-h-screen ${bgClass} flex flex-col lg:flex-row`}>
       {/* Success Toast */}
       {successMessage && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-6 py-4 bg-green-500 text-white rounded-xl shadow-lg text-xl font-bold animate-pulse">
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-6 py-4 bg-green-500 text-white rounded-xl shadow-md text-xl font-bold animate-pulse">
           {successMessage}
         </div>
       )}
@@ -233,7 +284,7 @@ export function TabletTimecardClient({
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className={`border-b ${borderClass} ${isDarkMode ? "bg-slate-900/40" : "bg-gray-50"}`}>
+                  <tr className={`border-b ${borderClass} ${isDarkMode ? "bg-gray-900/40" : "bg-gray-50"}`}>
                     <th className={`text-center py-2 px-3 font-semibold ${textMutedClass} w-1/3`}>名前</th>
                     <th className={`text-center py-2 px-3 font-semibold ${textMutedClass} w-1/3`}>出勤</th>
                     <th className={`text-center py-2 px-3 font-semibold ${textMutedClass} w-1/3`}>退勤</th>
@@ -245,7 +296,7 @@ export function TabletTimecardClient({
                     .map((card) => {
                       const p = profileMap.get(card.user_id);
                       return (
-                        <tr key={card.id} className={`border-b ${isDarkMode ? "border-slate-700 hover:bg-slate-700" : "border-gray-100 hover:bg-gray-50"}`}>
+                        <tr key={card.id} className={`border-b ${isDarkMode ? "border-gray-700 hover:bg-gray-700" : "border-gray-100 hover:bg-gray-50"}`}>
                           <td className="py-2 px-3 font-medium text-center">{p?.display_name || "(不明)"}</td>
                           <td className="py-2 px-3 text-center">{formatTime(card.clock_in)}</td>
                           <td className="py-2 px-3 text-center">{formatTime(card.clock_out)}</td>
@@ -266,13 +317,13 @@ export function TabletTimecardClient({
           <div className="flex-1 flex flex-col gap-6">
             <button
               onClick={() => setMode("clockIn")}
-              className="flex-1 flex items-center justify-center rounded-2xl bg-blue-500 hover:bg-blue-600 text-white text-5xl font-bold shadow-lg transition-colors"
+              className="flex-1 flex items-center justify-center rounded-2xl bg-blue-500 hover:bg-blue-600 text-white text-5xl font-bold shadow-md transition-colors"
             >
               出勤する
             </button>
             <button
               onClick={() => setMode("clockOut")}
-              className="flex-1 flex items-center justify-center rounded-2xl bg-rose-500 hover:bg-rose-600 text-white text-5xl font-bold shadow-lg transition-colors"
+              className="flex-1 flex items-center justify-center rounded-2xl bg-rose-500 hover:bg-rose-600 text-white text-5xl font-bold shadow-md transition-colors"
             >
               退勤する
             </button>
@@ -284,7 +335,7 @@ export function TabletTimecardClient({
           <div className="flex-1 flex flex-col gap-6">
             <button
               onClick={resetToStart}
-              className={`self-start flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${isDarkMode ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-900"}`}
+              className={`self-start flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${isDarkMode ? "bg-gray-700 hover:bg-gray-600 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-900"}`}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -294,13 +345,13 @@ export function TabletTimecardClient({
             <div className="flex-1 flex flex-col gap-6">
               <button
                 onClick={() => setSelectedRole("staff")}
-                className="flex-1 flex items-center justify-center rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-5xl font-bold shadow-lg transition-colors"
+                className="flex-1 flex items-center justify-center rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-5xl font-bold shadow-md transition-colors"
               >
                 スタッフで打刻
               </button>
               <button
                 onClick={() => setSelectedRole("cast")}
-                className="flex-1 flex items-center justify-center rounded-2xl bg-purple-500 hover:bg-purple-600 text-white text-5xl font-bold shadow-lg transition-colors"
+                className="flex-1 flex items-center justify-center rounded-2xl bg-purple-500 hover:bg-purple-600 text-white text-5xl font-bold shadow-md transition-colors"
               >
                 キャストで打刻
               </button>
@@ -319,7 +370,7 @@ export function TabletTimecardClient({
                   resetToStart();
                 }
               }}
-              className={`self-start flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${isDarkMode ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-900"}`}
+              className={`self-start flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${isDarkMode ? "bg-gray-700 hover:bg-gray-600 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-900"}`}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -337,7 +388,7 @@ export function TabletTimecardClient({
                     className={`flex-1 px-6 rounded-xl ${cardBgClass} border-2 ${borderClass} ${
                       count === 0 
                         ? "opacity-40 cursor-not-allowed" 
-                        : `hover:border-blue-400 ${isDarkMode ? "hover:bg-slate-700" : "hover:bg-blue-50"}`
+                        : `hover:border-blue-400 ${isDarkMode ? "hover:bg-gray-700" : "hover:bg-blue-50"}`
                     } flex items-center justify-between transition-all`}
                   >
                     <div className={`text-xl font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
@@ -356,7 +407,7 @@ export function TabletTimecardClient({
           <div className="flex-1 flex flex-col gap-4">
             <button
               onClick={() => setSelectedKanaGroup(null)}
-              className={`self-start flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${isDarkMode ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-900"}`}
+              className={`self-start flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${isDarkMode ? "bg-gray-700 hover:bg-gray-600 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-900"}`}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -371,7 +422,7 @@ export function TabletTimecardClient({
                 <button
                   key={p.id}
                   onClick={() => setSelectedProfile(p)}
-                  className={`px-4 py-6 rounded-xl ${cardBgClass} border-2 ${borderClass} hover:border-blue-400 ${isDarkMode ? "hover:bg-slate-700" : "hover:bg-blue-50"} text-center text-lg font-medium transition-all ${isDarkMode ? "text-white" : "text-gray-900"}`}
+                  className={`px-4 py-6 rounded-3xl ${cardBgClass} border-2 ${borderClass} hover:border-blue-400 ${isDarkMode ? "hover:bg-gray-700" : "hover:bg-blue-50"} text-center text-lg font-medium transition-all ${isDarkMode ? "text-white" : "text-gray-900"}`}
                 >
                   {p.display_name || "(名前未設定)"}
                 </button>
@@ -382,11 +433,11 @@ export function TabletTimecardClient({
 
         {/* Step 5: Confirm and Submit */}
         {step === 5 && mode && selectedProfile && (
-          <div className={`flex-1 flex flex-col rounded-xl ${cardBgClass} border ${borderClass} p-6`}>
+          <div className={`flex-1 flex flex-col rounded-3xl ${cardBgClass} border ${borderClass} p-6`}>
             <div className="flex flex-col gap-3 mb-4">
               <button
                 onClick={() => setSelectedProfile(null)}
-                className={`self-start flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${isDarkMode ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-900"}`}
+                className={`self-start flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${isDarkMode ? "bg-gray-700 hover:bg-gray-600 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-900"}`}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -416,14 +467,33 @@ export function TabletTimecardClient({
                     pickupHistory={pickupHistory[selectedProfile.id] || []}
                     onValidationChange={setIsPickupValid}
                     isDarkMode={isDarkMode}
+                    onDeleteDestination={async (dest) => {
+                      await handleDeleteDestination(selectedProfile.id, dest);
+                    }}
+                    pickupEnabled={
+                      selectedProfile.role === "cast"
+                        ? store.pickup_enabled_cast
+                        : store.pickup_enabled_staff
+                    }
                   />
+
+                  {/* Custom Questions */}
+                  {filteredQuestions.length > 0 && (
+                    <div className={`pt-4 border-t ${isDarkMode ? "border-gray-700" : "border-gray-200"}`}>
+                      <TabletTimecardQuestions
+                        questions={filteredQuestions}
+                        onValidationChange={setIsQuestionsValid}
+                        isDarkMode={isDarkMode}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <button
                   type="submit"
-                  disabled={!isPickupValid}
-                  className={`mt-4 w-full py-8 rounded-2xl text-white text-2xl font-bold shadow-lg transition-colors ${
-                    isPickupValid
+                  disabled={!isPickupValid || !isQuestionsValid}
+                  className={`mt-4 w-full py-8 rounded-2xl text-white text-2xl font-bold shadow-md transition-colors ${
+                    isPickupValid && isQuestionsValid
                       ? "bg-blue-500 hover:bg-blue-600 cursor-pointer"
                       : "bg-gray-400 cursor-not-allowed"
                   }`}
@@ -443,11 +513,25 @@ export function TabletTimecardClient({
                 <input type="hidden" name="store_id" value={storeId} />
                 <input type="hidden" name="profile_id" value={selectedProfile.id} />
 
-                <div className="flex-1"></div>
+                <div className="flex-1 overflow-auto space-y-4">
+                  {/* Custom Questions for Clock Out */}
+                  {filteredQuestions.length > 0 && (
+                    <TabletTimecardQuestions
+                      questions={filteredQuestions}
+                      onValidationChange={setIsQuestionsValid}
+                      isDarkMode={isDarkMode}
+                    />
+                  )}
+                </div>
 
                 <button
                   type="submit"
-                  className="mt-4 w-full py-8 rounded-2xl bg-rose-500 hover:bg-rose-600 text-white text-2xl font-bold shadow-lg transition-colors"
+                  disabled={!isQuestionsValid}
+                  className={`mt-4 w-full py-8 rounded-2xl text-white text-2xl font-bold shadow-md transition-colors ${
+                    isQuestionsValid
+                      ? "bg-rose-500 hover:bg-rose-600 cursor-pointer"
+                      : "bg-gray-400 cursor-not-allowed"
+                  }`}
                 >
                   退勤する
                 </button>

@@ -114,9 +114,9 @@ export function LikeButton({ itemId, type, initialLikes, onToggle, onGetLikes }:
 
             {/* Users modal */}
             <Dialog open={showUsersModal} onOpenChange={setShowUsersModal}>
-                <DialogContent className="max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900">
+                <DialogContent className="sm:max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900">
                     <DialogHeader>
-                        <DialogTitle className="text-base font-semibold text-gray-900 dark:text-gray-50 flex items-center gap-2">
+                        <DialogTitle className="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                             <Heart className="h-5 w-5 text-pink-500 fill-pink-500" />
                             いいねした人
                         </DialogTitle>
@@ -130,7 +130,7 @@ export function LikeButton({ itemId, type, initialLikes, onToggle, onGetLikes }:
                             users.map((user) => (
                                 <div
                                     key={user.profile_id}
-                                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50"
                                 >
                                     {user.avatar_url ? (
                                         <img
@@ -143,7 +143,7 @@ export function LikeButton({ itemId, type, initialLikes, onToggle, onGetLikes }:
                                             <User className="h-4 w-4 text-gray-400" />
                                         </div>
                                     )}
-                                    <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                         {user.display_name || "名前未設定"}
                                     </span>
                                 </div>

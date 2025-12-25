@@ -36,7 +36,7 @@ const RichEditor = dynamic(
     () => import("@/components/rich-editor").then((mod) => ({ default: mod.RichEditor })),
     {
         loading: () => (
-            <div className="min-h-[400px] border border-gray-200 dark:border-gray-700 rounded-xl flex items-center justify-center">
+            <div className="min-h-[400px] border border-gray-200 dark:border-gray-700 rounded-3xl flex items-center justify-center">
                 <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
             </div>
         ),
@@ -230,9 +230,10 @@ export function CmsEditor({ entry, type, typeLabel, backUrl }: CmsEditorProps) {
 
             router.push(backUrl);
             router.refresh();
-        } catch (error: any) {
+        } catch (error) {
             console.error("Error saving entry:", error);
-            setErrorMessage(error.message || "保存に失敗しました");
+            const message = error instanceof Error ? error.message : "保存に失敗しました";
+            setErrorMessage(message);
         } finally {
             setIsSubmitting(false);
         }
@@ -254,9 +255,10 @@ export function CmsEditor({ entry, type, typeLabel, backUrl }: CmsEditorProps) {
 
             router.push(backUrl);
             router.refresh();
-        } catch (error: any) {
+        } catch (error) {
             console.error("Error deleting entry:", error);
-            setErrorMessage(error.message || "削除に失敗しました");
+            const message = error instanceof Error ? error.message : "削除に失敗しました";
+            setErrorMessage(message);
         } finally {
             setIsSubmitting(false);
         }
@@ -270,7 +272,7 @@ export function CmsEditor({ entry, type, typeLabel, backUrl }: CmsEditorProps) {
                     <button
                         type="button"
                         onClick={() => router.push(backUrl)}
-                        className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        className="p-2 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                     >
                         <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                     </button>
@@ -284,7 +286,7 @@ export function CmsEditor({ entry, type, typeLabel, backUrl }: CmsEditorProps) {
                             <PopoverTrigger asChild>
                                 <button
                                     type="button"
-                                    className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                    className="p-2 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                                 >
                                     <MoreHorizontal className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                                 </button>
@@ -298,7 +300,7 @@ export function CmsEditor({ entry, type, typeLabel, backUrl }: CmsEditorProps) {
                                     }}
                                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                                 >
-                                    <Trash2 className="h-4 w-4" />
+                                    <Trash2 className="h-5 w-5" />
                                     削除
                                 </button>
                             </PopoverContent>
@@ -328,7 +330,7 @@ export function CmsEditor({ entry, type, typeLabel, backUrl }: CmsEditorProps) {
                                 value={title}
                                 onChange={(e) => setTitle(e.target.value)}
                                 placeholder="タイトルを入力"
-                                className="h-11 rounded-lg border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 text-base"
+                                className="h-10 rounded-lg border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 text-base"
                             />
                         </div>
 
@@ -341,7 +343,7 @@ export function CmsEditor({ entry, type, typeLabel, backUrl }: CmsEditorProps) {
                                 value={slug}
                                 onChange={(e) => setSlug(e.target.value)}
                                 placeholder="url-friendly-slug"
-                                className="h-11 rounded-lg border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 text-base font-mono"
+                                className="h-10 rounded-lg border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 text-base font-mono"
                             />
                             <p className="text-xs text-gray-500 dark:text-gray-400">
                                 URLに使用されます: /blog/{slug || "xxx"}
@@ -382,7 +384,7 @@ export function CmsEditor({ entry, type, typeLabel, backUrl }: CmsEditorProps) {
                                     onClick={() => setCoverImageUrl(null)}
                                     className="absolute top-2 right-2 p-1 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
                                 >
-                                    <X className="h-4 w-4" />
+                                    <X className="h-5 w-5" />
                                 </button>
                             </div>
                         ) : (
@@ -508,9 +510,9 @@ export function CmsEditor({ entry, type, typeLabel, backUrl }: CmsEditorProps) {
 
             {/* Delete confirmation dialog */}
             <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-                <DialogContent className="max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900">
+                <DialogContent className="sm:max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900">
                     <DialogHeader>
-                        <DialogTitle className="text-base font-semibold text-gray-900 dark:text-gray-50">
+                        <DialogTitle className="text-base font-semibold text-gray-900 dark:text-white">
                             {typeLabel}を削除
                         </DialogTitle>
                     </DialogHeader>

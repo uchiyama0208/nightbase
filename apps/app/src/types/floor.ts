@@ -32,7 +32,6 @@ export interface Table {
     store_id: string;
     name: string;
     type_id: string | null;
-    pricing_system_id: string | null;
     x: number;
     y: number;
     width: number;

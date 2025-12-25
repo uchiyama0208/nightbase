@@ -110,7 +110,7 @@ export function JoinForm({ store, isLoggedIn }: JoinFormProps) {
     return (
         <div className="space-y-4">
             {/* Store Info Header */}
-            <Card className="border-2 border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20">
+            <Card className="border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20">
                 <CardContent className="py-4">
                     <div className="flex items-center gap-4">
                         {store.icon_url ? (
@@ -175,7 +175,7 @@ export function JoinForm({ store, isLoggedIn }: JoinFormProps) {
                                     <form action="/app/auth/signup" method="post" className="space-y-4">
                                         <input type="hidden" name="redirect" value={redirectPath} />
                                         <div>
-                                            <Label htmlFor="email" className="text-gray-900 dark:text-white">
+                                            <Label htmlFor="email" className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                                 メールアドレス <span className="text-red-500">*</span>
                                             </Label>
                                             <Input
@@ -191,7 +191,7 @@ export function JoinForm({ store, isLoggedIn }: JoinFormProps) {
                                         </div>
 
                                         <div>
-                                            <Label htmlFor="password" className="text-gray-900 dark:text-white">
+                                            <Label htmlFor="password" className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                                 パスワード <span className="text-red-500">*</span>
                                             </Label>
                                             <div className="relative mt-1">
@@ -216,7 +216,7 @@ export function JoinForm({ store, isLoggedIn }: JoinFormProps) {
                                         </div>
 
                                         <div>
-                                            <Label htmlFor="confirmPassword" className="text-gray-900 dark:text-white">
+                                            <Label htmlFor="confirmPassword" className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                                 パスワード（確認） <span className="text-red-500">*</span>
                                             </Label>
                                             <div className="relative mt-1">
@@ -419,7 +419,7 @@ export function JoinForm({ store, isLoggedIn }: JoinFormProps) {
                                 <form action="/app/auth/login" method="post" className="space-y-4">
                                     <input type="hidden" name="redirect" value={redirectPath} />
                                     <div>
-                                        <Label htmlFor="login-email" className="text-gray-900 dark:text-white">
+                                        <Label htmlFor="login-email" className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                             メールアドレス
                                         </Label>
                                         <Input
@@ -435,7 +435,7 @@ export function JoinForm({ store, isLoggedIn }: JoinFormProps) {
 
                                     <div>
                                         <div className="flex items-center justify-between">
-                                            <Label htmlFor="login-password" className="text-gray-900 dark:text-white">
+                                            <Label htmlFor="login-password" className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                                 パスワード
                                             </Label>
                                             <Link
@@ -503,7 +503,7 @@ export function JoinForm({ store, isLoggedIn }: JoinFormProps) {
                     <CardContent className="space-y-6">
                         <RadioGroup value={role} onValueChange={(value) => setRole(value as "cast" | "staff")}>
                             <div className="space-y-3">
-                                <div className="flex items-center space-x-3 border rounded-lg p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                                <div className="flex items-center space-x-3 border rounded-lg p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                                     <RadioGroupItem value="cast" id="cast" />
                                     <Label htmlFor="cast" className="flex-1 cursor-pointer">
                                         <div className="flex items-center gap-3">
@@ -513,7 +513,7 @@ export function JoinForm({ store, isLoggedIn }: JoinFormProps) {
                                     </Label>
                                 </div>
 
-                                <div className="flex items-center space-x-3 border rounded-lg p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                                <div className="flex items-center space-x-3 border rounded-lg p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                                     <RadioGroupItem value="staff" id="staff" />
                                     <Label htmlFor="staff" className="flex-1 cursor-pointer">
                                         <div className="flex items-center gap-3">

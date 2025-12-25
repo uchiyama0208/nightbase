@@ -97,6 +97,11 @@ export function RichEditor({
                 .bn-suggestion-menu .bn-suggestion-menu-item {
                     padding: 8px 12px;
                 }
+                /* スラッシュメニューの説明とショートカットを非表示 */
+                .bn-mt-suggestion-menu-item-subtitle,
+                .bn-mt-suggestion-menu-item-section[data-position="right"] {
+                    display: none;
+                }
                 /* フォーマットツールバーのサイズ調整 */
                 .bn-formatting-toolbar {
                     flex-wrap: wrap;

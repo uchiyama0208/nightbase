@@ -1,15 +1,19 @@
 "use server";
 
 import { createServerClient } from "@/lib/supabaseServerClient";
+import { createServiceRoleClient } from "@/lib/supabaseServiceClient";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function searchStore(storeId: string) {
     const supabase = await createServerClient() as any;
+    // Use service role client to bypass RLS for store_settings (new users don't have profiles yet)
+    const serviceSupabase = createServiceRoleClient() as any;
 
+    // Fetch store basic info
     const { data: store, error } = await supabase
         .from("stores")
-        .select("id, name, industry, prefecture, allow_join_requests")
+        .select("id, name, industry, prefecture")
         .eq("id", storeId)
         .maybeSingle();
 
@@ -17,11 +21,55 @@ export async function searchStore(storeId: string) {
         return { success: false, error: "店舗が見つかりませんでした" };
     }
 
-    if (!store.allow_join_requests) {
-        return { success: false, error: "この店舗は参加申請を受け付けていません" };
+    // Fetch store settings to check join permissions (use service role to bypass RLS)
+    const { data: settings } = await serviceSupabase
+        .from("store_settings")
+        .select("allow_join_requests, allow_join_by_code")
+        .eq("store_id", storeId)
+        .maybeSingle();
+
+    if (!settings?.allow_join_requests || !settings?.allow_join_by_code) {
+        return { success: false, error: "この店舗はコードによる参加申請を受け付けていません" };
     }
 
     return { success: true, store };
+}
+
+export async function resetRejectedJoinRequest(storeId: string) {
+    const supabase = await createServerClient() as any;
+    const serviceSupabase = createServiceRoleClient() as any;
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { success: false, error: "Unauthorized" };
+    }
+
+    // Find existing profile for this user+store
+    const { data: existingProfile } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("store_id", storeId)
+        .maybeSingle();
+
+    if (!existingProfile) {
+        // No profile, nothing to reset
+        return { success: true };
+    }
+
+    // Delete rejected join request (use service role to bypass RLS)
+    const { error: deleteError } = await serviceSupabase
+        .from("join_requests")
+        .delete()
+        .eq("profile_id", existingProfile.id)
+        .eq("status", "rejected");
+
+    if (deleteError) {
+        console.error("Error deleting rejected join request:", deleteError);
+        return { success: false, error: deleteError.message };
+    }
+
+    return { success: true };
 }
 
 export async function createPendingProfile(formData: FormData) {
@@ -97,8 +145,9 @@ export async function createPendingProfile(formData: FormData) {
             .eq("id", user.id);
     }
 
-    // Create join request
-    const { error: joinRequestError } = await supabase
+    // Create join request (use service role to bypass RLS)
+    const serviceSupabase = createServiceRoleClient() as any;
+    const { error: joinRequestError } = await serviceSupabase
         .from("join_requests")
         .insert({
             store_id: storeId,

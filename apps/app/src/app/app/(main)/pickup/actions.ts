@@ -158,7 +158,7 @@ export async function getPickupData(dateParam?: string): Promise<
     // Get work_records for both dates (business day spans two calendar dates)
     const { data: workRecords } = await serviceSupabase
         .from("work_records")
-        .select("profile_id, pickup_destination, clock_in, scheduled_start_time, work_date, status")
+        .select("profile_id, pickup_destination_id, clock_in, scheduled_start_time, work_date, status, pickup_destinations(id, name)")
         .in("work_date", [targetDate, nextDate])
         .in("profile_id", Object.keys(profileMap));
 
@@ -203,7 +203,8 @@ export async function getPickupData(dateParam?: string): Promise<
     // 同じユーザーが複数のwork_recordsを持つ場合は最新のものを使用
     const attendeeMap = new Map<string, TodayAttendee>();
     for (const wr of filteredWorkRecords) {
-        if (!wr.pickup_destination) continue;
+        const pickupDestName = wr.pickup_destinations?.name;
+        if (!pickupDestName) continue;
         const existing = attendeeMap.get(wr.profile_id);
         // 既存のレコードがない、または新しいclock_inの場合は上書き
         if (!existing || (wr.clock_in && (!existing.start_time || wr.clock_in > existing.start_time))) {
@@ -211,7 +212,7 @@ export async function getPickupData(dateParam?: string): Promise<
                 profile_id: wr.profile_id,
                 display_name: profileMap[wr.profile_id]?.display_name || "不明",
                 display_name_kana: profileMap[wr.profile_id]?.display_name_kana || null,
-                pickup_destination: wr.pickup_destination,
+                pickup_destination: pickupDestName,
                 start_time: wr.scheduled_start_time || wr.clock_in,
                 role: profileMap[wr.profile_id]?.role || "cast",
             });
@@ -1087,7 +1088,7 @@ export async function calculateRouteDuration(
 }
 
 /**
- * 送迎先を削除（work_recordsのpickup_destinationをnullに設定）
+ * 送迎先を削除（work_recordsのpickup_destination_idをnullに設定）
  */
 export async function clearPickupDestination(profileId: string, date: string) {
     const supabase = await createServerClient() as any;
@@ -1103,7 +1104,7 @@ export async function clearPickupDestination(profileId: string, date: string) {
     const { error } = await supabase
         .from("work_records")
         .update({
-            pickup_destination: null,
+            pickup_destination_id: null,
             pickup_required: false,
         })
         .eq("profile_id", profileId)

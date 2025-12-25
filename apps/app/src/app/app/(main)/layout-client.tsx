@@ -3,19 +3,13 @@
 import { AppSidebar } from "@/components/app-sidebar";
 import { MobileHeader } from "@/components/mobile-header";
 import { MobileBottomTabs } from "@/components/mobile-bottom-tabs";
+import { CastBottomTabs } from "@/components/cast-bottom-tabs";
 import { AIFab } from "@/components/ai-fab";
 import { DashboardTabProvider } from "@/contexts/dashboard-tab-context";
 import { useState } from "react";
 import { Suspense } from "react";
 import { usePathname } from "next/navigation";
-
-interface StoreFeatures {
-  show_dashboard: boolean;
-  show_attendance: boolean;
-  show_timecard: boolean;
-  show_users: boolean;
-  show_roles: boolean;
-}
+import type { StoreFeatures } from "@/app/app/data-access";
 
 interface AppLayoutClientProps {
   children: React.ReactNode;
@@ -23,13 +17,19 @@ interface AppLayoutClientProps {
   profileName?: string;
   avatarUrl?: string;
   storeName?: string;
-  storeFeatures?: StoreFeatures;
+  storeFeatures?: StoreFeatures | null;
   hideSidebar?: boolean;
 }
 
 export function AppLayoutClient({ children, userRole, profileName, avatarUrl, storeName, storeFeatures, hideSidebar = false }: AppLayoutClientProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
+
+  // キャストかどうかを判定
+  const isCast = userRole === "cast";
+
+  // キャストはサイドバーを非表示
+  const shouldHideSidebar = hideSidebar || isCast;
 
   // Dashboard has its own tab bar built into TabMenuCards
   const isDashboard = pathname === "/app/dashboard";
@@ -38,12 +38,13 @@ export function AppLayoutClient({ children, userRole, profileName, avatarUrl, st
     <DashboardTabProvider>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <MobileHeader
-          onMenuClick={hideSidebar ? () => { } : () => setSidebarOpen(true)}
+          onMenuClick={shouldHideSidebar ? () => { } : () => setSidebarOpen(true)}
           profileName={profileName}
           avatarUrl={avatarUrl}
-          hasSidebar={!hideSidebar}
+          hasSidebar={!shouldHideSidebar}
+          userRole={userRole}
         />
-        {!hideSidebar && (
+        {!shouldHideSidebar && (
           <AppSidebar
             userRole={userRole}
             profileName={profileName}
@@ -53,20 +54,27 @@ export function AppLayoutClient({ children, userRole, profileName, avatarUrl, st
             onOpenChange={setSidebarOpen}
           />
         )}
-        <main className={hideSidebar ? "min-h-screen pt-12 pb-28 lg:pb-4" : "min-h-screen pt-12 pb-28 lg:pb-4 lg:pl-72"}>
+        <main className={shouldHideSidebar ? "min-h-screen pt-12 pb-20" : "min-h-screen pt-12 pb-28 lg:pb-4 lg:pl-72"}>
           <div className="px-4 py-4">
             {children}
           </div>
         </main>
 
-        {/* Mobile Bottom Tabs - Hidden on Dashboard (has its own integrated tab bar) */}
-        {!hideSidebar && !isDashboard && (
+        {/* Cast Bottom Tabs */}
+        {isCast && (
+          <Suspense fallback={null}>
+            <CastBottomTabs />
+          </Suspense>
+        )}
+
+        {/* Mobile Bottom Tabs - Hidden on Dashboard (has its own integrated tab bar) and for Cast */}
+        {!shouldHideSidebar && !isDashboard && (
           <Suspense fallback={null}>
             <MobileBottomTabs />
           </Suspense>
         )}
 
-        {/* AI Assistant FAB - only for admin/staff */}
+        {/* AI Assistant FAB - only for admin/staff (not cast) */}
         {(userRole === "admin" || userRole === "staff") && <AIFab />}
       </div>
     </DashboardTabProvider>

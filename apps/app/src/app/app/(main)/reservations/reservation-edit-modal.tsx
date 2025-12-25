@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -9,6 +9,8 @@ import {
     DialogTitle,
     DialogFooter,
 } from "@/components/ui/dialog";
+import { useGlobalLoading } from "@/components/global-loading";
+import { toast } from "@/components/ui/use-toast";
 import {
     Select,
     SelectContent,
@@ -17,7 +19,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Loader2, Plus, User, X, Trash2, ChevronLeft, Copy, Check } from "lucide-react";
+import { Plus, User, X, Trash2, ChevronLeft, Copy, Check, Loader2, Mail, Phone } from "lucide-react";
 import {
     updateReservationV2,
     updateUrlReservation,
@@ -26,7 +28,14 @@ import {
     getGuestsForStore,
     getTablesForStore,
     getReservationDetail,
+    getCustomFields,
+    getCustomAnswers,
+    updateCustomAnswers,
+    updateReservationStatus,
+    type CustomField,
 } from "./actions";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 import { GuestSelectorModal, SelectedGuest } from "@/components/selectors/guest-selector-modal";
 import { CastSelectorModal, SelectedCast, NominationType } from "@/components/selectors/cast-selector-modal";
 
@@ -51,7 +60,14 @@ interface ReservationEditModalProps {
     onClose: () => void;
     storeId: string;
     reservationId: string;
-    onSuccess: () => void;
+    onSuccess: (reservationId?: string, updates?: Record<string, unknown>) => void;
+    onDelete?: () => void;
+    settings?: {
+        reservation_enabled: boolean;
+        reservation_email_setting: "hidden" | "optional" | "required";
+        reservation_phone_setting: "hidden" | "optional" | "required";
+        reservation_cast_selection_enabled: boolean;
+    };
 }
 
 // 時間選択肢を生成（18:00〜翌5:00、30分刻み）
@@ -92,13 +108,24 @@ export function ReservationEditModal({
     storeId,
     reservationId,
     onSuccess,
+    onDelete,
+    settings,
 }: ReservationEditModalProps) {
-    const [isPending, startTransition] = useTransition();
+    const emailSetting = settings?.reservation_email_setting ?? "hidden";
+    const phoneSetting = settings?.reservation_phone_setting ?? "hidden";
+    const showEmailField = emailSetting !== "hidden";
+    const showPhoneField = phoneSetting !== "hidden";
+
+    const { showLoading, hideLoading } = useGlobalLoading();
     const [isDeleting, setIsDeleting] = useState(false);
     const [casts, setCasts] = useState<Profile[]>([]);
     const [guests, setGuests] = useState<Profile[]>([]);
     const [tables, setTables] = useState<TableInfo[]>([]);
     const [loading, setLoading] = useState(false);
+    const [isInitialized, setIsInitialized] = useState(false);
+    const [hasUserEdited, setHasUserEdited] = useState(false);
+    const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const autoSaveRef = useRef<(() => Promise<void>) | undefined>(undefined);
 
     // フォーム状態
     const [reservationDate, setReservationDate] = useState("");
@@ -106,6 +133,8 @@ export function ReservationEditModal({
     const [selectedGuests, setSelectedGuests] = useState<GuestWithCasts[]>([]);
     const [partySize, setPartySize] = useState(1);
     const [selectedTableId, setSelectedTableId] = useState<string>("");
+    const [email, setEmail] = useState("");
+    const [phone, setPhone] = useState("");
 
     // URL経由予約の場合のゲスト情報（profiles未登録）
     const [isUrlReservation, setIsUrlReservation] = useState(false);
@@ -121,6 +150,14 @@ export function ReservationEditModal({
     const [currentGuestForCast, setCurrentGuestForCast] = useState<GuestWithCasts | null>(null);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [copied, setCopied] = useState(false);
+
+    // カスタム質問関連
+    const [customFields, setCustomFields] = useState<CustomField[]>([]);
+    const [customAnswers, setCustomAnswers] = useState<Record<string, string>>({});
+
+    // ステータス関連
+    const [status, setStatus] = useState<"waiting" | "visited" | "cancelled">("waiting");
+    const [isStatusUpdating, setIsStatusUpdating] = useState(false);
 
     const handleCopyContact = async () => {
         if (contactValue) {
@@ -139,7 +176,9 @@ export function ReservationEditModal({
                 getGuestsForStore(storeId),
                 getTablesForStore(storeId),
                 getReservationDetail(reservationId),
-            ]).then(([castsResult, guestsResult, tablesResult, reservationResult]) => {
+                getCustomFields(storeId),
+                getCustomAnswers(reservationId),
+            ]).then(([castsResult, guestsResult, tablesResult, reservationResult, fieldsResult, answersResult]) => {
                 if (castsResult.success) {
                     setCasts(castsResult.casts);
                 }
@@ -155,6 +194,16 @@ export function ReservationEditModal({
                     setReservationTime(r.reservation_time?.slice(0, 5) || "19:00");
                     setPartySize(r.party_size || 1);
                     setSelectedTableId(r.table_id || "");
+                    setStatus(r.status || "waiting");
+
+                    // 連絡先情報を設定
+                    if (r.contact_type === "email" && r.contact_value) {
+                        setEmail(r.contact_value);
+                        setPhone("");
+                    } else if (r.contact_type === "phone" && r.contact_value) {
+                        setPhone(r.contact_value);
+                        setEmail("");
+                    }
 
                     // ゲストとキャストを設定
                     if (r.guests && r.guests.length > 0) {
@@ -176,7 +225,21 @@ export function ReservationEditModal({
                         setSelectedGuests([]);
                     }
                 }
+                // カスタム質問フィールドを設定
+                if (fieldsResult.success) {
+                    setCustomFields(fieldsResult.fields);
+                }
+                // カスタム質問の回答を設定
+                if (answersResult.success) {
+                    const answersMap: Record<string, string> = {};
+                    answersResult.answers.forEach((a: any) => {
+                        answersMap[a.field_id] = a.answer_value;
+                    });
+                    setCustomAnswers(answersMap);
+                }
                 setLoading(false);
+                // 初期化完了フラグを少し遅延させて設定（初期値セット後に自動保存が走らないように）
+                setTimeout(() => setIsInitialized(true), 100);
             });
         }
     }, [isOpen, storeId, reservationId]);
@@ -194,6 +257,8 @@ export function ReservationEditModal({
         setReservationDate("");
         setReservationTime("19:00");
         setSelectedTableId("");
+        setEmail("");
+        setPhone("");
         setShowDeleteConfirm(false);
         setIsUrlReservation(false);
         setGuestName("");
@@ -202,6 +267,39 @@ export function ReservationEditModal({
         setContactValue("");
         setNominatedCastId("");
         setCopied(false);
+        setIsInitialized(false);
+        setHasUserEdited(false);
+        setCustomFields([]);
+        setCustomAnswers({});
+        setStatus("waiting");
+        if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+            saveTimeoutRef.current = null;
+        }
+    };
+
+    // ステータス切り替えハンドラー（楽観的UI）
+    const handleStatusChange = async (newStatus: "waiting" | "visited" | "cancelled") => {
+        if (status === newStatus) return;
+
+        const previousStatus = status;
+
+        // 楽観的に即座にUIを更新
+        setStatus(newStatus);
+        onSuccess(reservationId, { status: newStatus });
+
+        // バックグラウンドでAPI呼び出し
+        const result = await updateReservationStatus(reservationId, newStatus);
+        if (!result.success) {
+            // 失敗時は元に戻す
+            setStatus(previousStatus);
+            onSuccess(reservationId, { status: previousStatus });
+            toast({
+                title: "エラー",
+                description: "ステータスの更新に失敗しました",
+                variant: "destructive",
+            });
+        }
     };
 
     const handleClose = () => {
@@ -219,6 +317,7 @@ export function ReservationEditModal({
             };
         });
         setSelectedGuests(newSelectedGuests);
+        setHasUserEdited(true);
     };
 
     const handleCastConfirm = (casts: SelectedCast[]) => {
@@ -229,6 +328,7 @@ export function ReservationEditModal({
             )
         );
         setCurrentGuestForCast(null);
+        setHasUserEdited(true);
     };
 
     const openCastSelectorForGuest = (guest: GuestWithCasts) => {
@@ -236,16 +336,22 @@ export function ReservationEditModal({
         setIsCastSelectorOpen(true);
     };
 
-    const handleSubmit = () => {
+    // 自動保存関数
+    const autoSave = useCallback(async () => {
         if (!reservationDate || !reservationTime) {
             return;
         }
 
-        if (isUrlReservation) {
-            // URL経由の予約
-            if (!guestName) return;
+        showLoading("保存中...");
 
-            startTransition(async () => {
+        try {
+            if (isUrlReservation) {
+                // URL経由の予約
+                if (!guestName) {
+                    hideLoading();
+                    return;
+                }
+
                 const result = await updateUrlReservation({
                     reservationId,
                     reservationDate,
@@ -260,23 +366,36 @@ export function ReservationEditModal({
                 });
 
                 if (result.success) {
+                    // カスタム回答も保存
+                    const answersArray = Object.entries(customAnswers).map(([fieldId, value]) => ({
+                        fieldId,
+                        value,
+                    }));
+                    await updateCustomAnswers(reservationId, answersArray);
                     onSuccess();
-                    handleClose();
                 } else if (result.error) {
                     console.error("予約更新エラー:", result.error);
+                    toast({
+                        title: "エラー",
+                        description: "予約の更新に失敗しました",
+                        variant: "destructive",
+                    });
                 }
-            });
-        } else {
-            // 管理画面からの予約
-            if (selectedGuests.length === 0) return;
+            } else {
+                // 管理画面からの予約
+                if (selectedGuests.length === 0) {
+                    hideLoading();
+                    return;
+                }
 
-            startTransition(async () => {
                 const result = await updateReservationV2({
                     reservationId,
                     reservationDate,
                     reservationTime,
                     partySize,
                     tableId: selectedTableId || null,
+                    email: email || undefined,
+                    phone: phone || undefined,
                     guests: selectedGuests.map((g) => ({
                         guestId: g.id,
                         casts: g.casts.map((c) => ({
@@ -287,14 +406,83 @@ export function ReservationEditModal({
                 });
 
                 if (result.success) {
+                    // カスタム回答も保存
+                    const answersArray = Object.entries(customAnswers).map(([fieldId, value]) => ({
+                        fieldId,
+                        value,
+                    }));
+                    await updateCustomAnswers(reservationId, answersArray);
                     onSuccess();
-                    handleClose();
                 } else if (result.error) {
                     console.error("予約更新エラー:", result.error);
+                    toast({
+                        title: "エラー",
+                        description: "予約の更新に失敗しました",
+                        variant: "destructive",
+                    });
                 }
-            });
+            }
+        } finally {
+            hideLoading();
         }
-    };
+    }, [
+        reservationId,
+        reservationDate,
+        reservationTime,
+        partySize,
+        selectedTableId,
+        isUrlReservation,
+        guestName,
+        guestNameKana,
+        contactType,
+        contactValue,
+        nominatedCastId,
+        selectedGuests,
+        customAnswers,
+        showLoading,
+        hideLoading,
+        onSuccess,
+    ]);
+
+    // autoSaveRefを常に最新に保つ
+    useEffect(() => {
+        autoSaveRef.current = autoSave;
+    }, [autoSave]);
+
+    // デバウンスによる自動保存
+    useEffect(() => {
+        if (!isInitialized || !hasUserEdited) return;
+
+        // 既存のタイマーをクリア
+        if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+        }
+
+        // 800msデバウンスで自動保存
+        saveTimeoutRef.current = setTimeout(() => {
+            autoSaveRef.current?.();
+        }, 800);
+
+        return () => {
+            if (saveTimeoutRef.current) {
+                clearTimeout(saveTimeoutRef.current);
+            }
+        };
+    }, [
+        isInitialized,
+        hasUserEdited,
+        reservationDate,
+        reservationTime,
+        partySize,
+        selectedTableId,
+        email,
+        phone,
+        guestName,
+        guestNameKana,
+        nominatedCastId,
+        selectedGuests,
+        customAnswers,
+    ]);
 
     const handleDelete = async () => {
         setIsDeleting(true);
@@ -302,50 +490,108 @@ export function ReservationEditModal({
         setIsDeleting(false);
 
         if (result.success) {
-            onSuccess();
+            onDelete?.();
             handleClose();
         } else if (result.error) {
             console.error("予約削除エラー:", result.error);
         }
     };
 
-    const isValid = reservationDate && reservationTime && (
-        isUrlReservation ? guestName.trim() !== "" : selectedGuests.length > 0
-    );
-
     return (
         <>
             <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-                <DialogContent className="max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900 max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                        <div className="flex items-center justify-between">
-                            <button
-                                type="button"
-                                onClick={handleClose}
-                                className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
-                            >
-                                <ChevronLeft className="h-5 w-5" />
-                            </button>
-                            <DialogTitle className="text-base font-semibold text-gray-900 dark:text-gray-50">
-                                予約を編集
-                            </DialogTitle>
-                            <button
-                                type="button"
-                                onClick={() => setShowDeleteConfirm(true)}
-                                className="p-2 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
-                                title="削除"
-                            >
-                                <Trash2 className="h-4 w-4" />
-                            </button>
-                        </div>
+                <DialogContent className="sm:max-w-md w-[95%] p-0 overflow-hidden flex flex-col max-h-[90vh] rounded-2xl bg-white dark:bg-gray-900">
+                    <DialogHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900 flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
+                        <button
+                            type="button"
+                            onClick={handleClose}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                        </button>
+                        <DialogTitle className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white truncate">
+                            予約を編集
+                        </DialogTitle>
+                        <button
+                            type="button"
+                            onClick={() => setShowDeleteConfirm(true)}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-red-500 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-red-400 dark:hover:bg-gray-700 transition-colors"
+                            title="削除"
+                        >
+                            <Trash2 className="h-4 w-4" />
+                        </button>
                     </DialogHeader>
 
                     {loading ? (
-                        <div className="flex items-center justify-center py-8">
+                        <div className="flex-1 flex items-center justify-center py-8">
                             <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
                         </div>
                     ) : (
-                        <div className="space-y-4 mt-4">
+                        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                            {/* ステータス切り替えボタン */}
+                            <div className="flex rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700">
+                                <button
+                                    type="button"
+                                    onClick={() => handleStatusChange("waiting")}
+                                    disabled={isStatusUpdating}
+                                    className={`flex-1 py-3 text-sm font-medium transition-colors ${
+                                        status === "waiting"
+                                            ? "bg-yellow-500 text-white"
+                                            : "bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                    }`}
+                                >
+                                    予約
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleStatusChange("visited")}
+                                    disabled={isStatusUpdating}
+                                    className={`flex-1 py-3 text-sm font-medium transition-colors ${
+                                        status === "visited"
+                                            ? "bg-green-500 text-white"
+                                            : "bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                    }`}
+                                >
+                                    来店済
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleStatusChange("cancelled")}
+                                    disabled={isStatusUpdating}
+                                    className={`flex-1 py-3 text-sm font-medium transition-colors ${
+                                        status === "cancelled"
+                                            ? "bg-red-500 text-white"
+                                            : "bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                    }`}
+                                >
+                                    キャンセル
+                                </button>
+                            </div>
+
+                            {/* 連絡先アクションボタン */}
+                            {(email || phone || contactValue) && (
+                                <div className="flex gap-2">
+                                    {(email || (contactType === "email" && contactValue)) && (
+                                        <a
+                                            href={`mailto:${email || contactValue}`}
+                                            className="flex-1 flex items-center justify-center gap-2 h-12 rounded-xl bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+                                        >
+                                            <Mail className="h-5 w-5" />
+                                            <span className="text-sm font-medium">メール送信</span>
+                                        </a>
+                                    )}
+                                    {(phone || (contactType === "phone" && contactValue)) && (
+                                        <a
+                                            href={`tel:${phone || contactValue}`}
+                                            className="flex-1 flex items-center justify-center gap-2 h-12 rounded-xl bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
+                                        >
+                                            <Phone className="h-5 w-5" />
+                                            <span className="text-sm font-medium">電話発信</span>
+                                        </a>
+                                    )}
+                                </div>
+                            )}
+
                             {/* 予約日 */}
                             <div className="space-y-1.5">
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
@@ -354,8 +600,8 @@ export function ReservationEditModal({
                                 <input
                                     type="date"
                                     value={reservationDate}
-                                    onChange={(e) => setReservationDate(e.target.value)}
-                                    className="flex h-10 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:ring-offset-gray-950 dark:placeholder:text-gray-400"
+                                    onChange={(e) => { setReservationDate(e.target.value); setHasUserEdited(true); }}
+                                    className="flex h-10 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-base ring-offset-white file:border-0 file:bg-transparent file:text-base file:font-medium placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:ring-offset-gray-950 dark:placeholder:text-gray-400"
                                 />
                             </div>
 
@@ -364,8 +610,8 @@ export function ReservationEditModal({
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
                                     予約時間 <span className="text-red-500">*</span>
                                 </label>
-                                <Select value={reservationTime} onValueChange={setReservationTime}>
-                                    <SelectTrigger className="h-10 rounded-lg">
+                                <Select value={reservationTime} onValueChange={(v) => { setReservationTime(v); setHasUserEdited(true); }}>
+                                    <SelectTrigger className="h-10">
                                         <SelectValue placeholder="時間を選択" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -383,8 +629,8 @@ export function ReservationEditModal({
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
                                     席番号
                                 </label>
-                                <Select value={selectedTableId || "none"} onValueChange={(v) => setSelectedTableId(v === "none" ? "" : v)}>
-                                    <SelectTrigger className="h-10 rounded-lg">
+                                <Select value={selectedTableId || "none"} onValueChange={(v) => { setSelectedTableId(v === "none" ? "" : v); setHasUserEdited(true); }}>
+                                    <SelectTrigger className="h-10">
                                         <SelectValue placeholder="未指定" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -398,6 +644,38 @@ export function ReservationEditModal({
                                 </Select>
                             </div>
 
+                            {/* メールアドレス（管理画面予約のみ） */}
+                            {!isUrlReservation && (
+                                <div className="space-y-1.5">
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                                        メールアドレス
+                                    </label>
+                                    <Input
+                                        type="email"
+                                        value={email}
+                                        onChange={(e) => { setEmail(e.target.value); setHasUserEdited(true); }}
+                                        placeholder="example@email.com"
+                                        className="h-10 rounded-lg"
+                                    />
+                                </div>
+                            )}
+
+                            {/* 電話番号（管理画面予約のみ） */}
+                            {!isUrlReservation && (
+                                <div className="space-y-1.5">
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                                        電話番号
+                                    </label>
+                                    <Input
+                                        type="tel"
+                                        value={phone}
+                                        onChange={(e) => { setPhone(e.target.value); setHasUserEdited(true); }}
+                                        placeholder="090-1234-5678"
+                                        className="h-10 rounded-lg"
+                                    />
+                                </div>
+                            )}
+
                             {/* ゲスト情報 */}
                             {isUrlReservation ? (
                                 <>
@@ -408,7 +686,7 @@ export function ReservationEditModal({
                                         </label>
                                         <Input
                                             value={guestName}
-                                            onChange={(e) => setGuestName(e.target.value)}
+                                            onChange={(e) => { setGuestName(e.target.value); setHasUserEdited(true); }}
                                             placeholder="お名前"
                                             className="h-10 rounded-lg"
                                         />
@@ -421,36 +699,52 @@ export function ReservationEditModal({
                                         </label>
                                         <Input
                                             value={guestNameKana}
-                                            onChange={(e) => setGuestNameKana(e.target.value)}
+                                            onChange={(e) => { setGuestNameKana(e.target.value); setHasUserEdited(true); }}
                                             placeholder="おなまえ"
                                             className="h-10 rounded-lg"
                                         />
                                     </div>
 
-                                    {/* 連絡先（読み取り専用＋コピー可能） */}
+                                    {/* メールアドレス */}
                                     <div className="space-y-1.5">
                                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-                                            {contactType === "phone" ? "電話番号" : "メールアドレス"}
+                                            メールアドレス
                                         </label>
-                                        <div className="flex gap-2">
-                                            <div className="flex-1 h-10 px-3 flex items-center rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-900 dark:text-gray-100">
-                                                {contactValue || "-"}
-                                            </div>
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="icon"
-                                                className="h-10 w-10 rounded-lg shrink-0"
-                                                onClick={handleCopyContact}
-                                                disabled={!contactValue}
-                                            >
-                                                {copied ? (
-                                                    <Check className="h-4 w-4 text-green-500" />
-                                                ) : (
-                                                    <Copy className="h-4 w-4" />
-                                                )}
-                                            </Button>
-                                        </div>
+                                        <Input
+                                            type="email"
+                                            value={contactType === "email" ? contactValue : email}
+                                            onChange={(e) => {
+                                                if (contactType === "email") {
+                                                    setContactValue(e.target.value);
+                                                } else {
+                                                    setEmail(e.target.value);
+                                                }
+                                                setHasUserEdited(true);
+                                            }}
+                                            placeholder="example@email.com"
+                                            className="h-10 rounded-lg"
+                                        />
+                                    </div>
+
+                                    {/* 電話番号 */}
+                                    <div className="space-y-1.5">
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                                            電話番号
+                                        </label>
+                                        <Input
+                                            type="tel"
+                                            value={contactType === "phone" ? contactValue : phone}
+                                            onChange={(e) => {
+                                                if (contactType === "phone") {
+                                                    setContactValue(e.target.value);
+                                                } else {
+                                                    setPhone(e.target.value);
+                                                }
+                                                setHasUserEdited(true);
+                                            }}
+                                            placeholder="090-1234-5678"
+                                            className="h-10 rounded-lg"
+                                        />
                                     </div>
 
                                     {/* 指名キャスト */}
@@ -459,8 +753,8 @@ export function ReservationEditModal({
                                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
                                                 指名キャスト
                                             </label>
-                                            <Select value={nominatedCastId || "none"} onValueChange={(v) => setNominatedCastId(v === "none" ? "" : v)}>
-                                                <SelectTrigger className="h-10 rounded-lg">
+                                            <Select value={nominatedCastId || "none"} onValueChange={(v) => { setNominatedCastId(v === "none" ? "" : v); setHasUserEdited(true); }}>
+                                                <SelectTrigger className="h-10">
                                                     <SelectValue placeholder="指名なし" />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -493,7 +787,7 @@ export function ReservationEditModal({
                                             className="w-full justify-start h-10 rounded-lg"
                                             onClick={() => setIsGuestSelectorOpen(true)}
                                         >
-                                            <Plus className="h-4 w-4 mr-2" />
+                                            <Plus className="h-5 w-5 mr-2" />
                                             ゲストを選択
                                         </Button>
 
@@ -514,14 +808,15 @@ export function ReservationEditModal({
                                                             </div>
                                                             <button
                                                                 type="button"
-                                                                onClick={() =>
+                                                                onClick={() => {
                                                                     setSelectedGuests(
                                                                         selectedGuests.filter((g) => g.id !== guest.id)
-                                                                    )
-                                                                }
+                                                                    );
+                                                                    setHasUserEdited(true);
+                                                                }}
                                                                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                                                             >
-                                                                <X className="h-4 w-4" />
+                                                                <X className="h-5 w-5" />
                                                             </button>
                                                         </div>
 
@@ -565,7 +860,7 @@ export function ReservationEditModal({
                                     min={isUrlReservation ? 1 : (selectedGuests.length || 1)}
                                     max={20}
                                     value={partySize}
-                                    onChange={(e) => setPartySize(Math.max(isUrlReservation ? 1 : (selectedGuests.length || 1), parseInt(e.target.value, 10) || 1))}
+                                    onChange={(e) => { setPartySize(Math.max(isUrlReservation ? 1 : (selectedGuests.length || 1), parseInt(e.target.value, 10) || 1)); setHasUserEdited(true); }}
                                     className="h-10 rounded-lg"
                                 />
                                 {!isUrlReservation && partySize > selectedGuests.length && selectedGuests.length > 0 && (
@@ -575,29 +870,84 @@ export function ReservationEditModal({
                                 )}
                             </div>
 
+                            {/* カスタム質問 */}
+                            {customFields.length > 0 && (
+                                <div className="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                                        カスタム質問
+                                    </label>
+                                    {customFields.map((field) => (
+                                        <div key={field.id} className="space-y-1.5">
+                                            <label className="block text-sm text-gray-600 dark:text-gray-300">
+                                                {field.label}
+                                                {field.is_required && <span className="text-red-500 ml-1">*</span>}
+                                            </label>
+                                            {field.field_type === "text" && (
+                                                <Input
+                                                    value={customAnswers[field.id] || ""}
+                                                    onChange={(e) => {
+                                                        setCustomAnswers((prev) => ({ ...prev, [field.id]: e.target.value }));
+                                                        setHasUserEdited(true);
+                                                    }}
+                                                    placeholder={field.label}
+                                                    className="h-10 rounded-lg"
+                                                />
+                                            )}
+                                            {field.field_type === "textarea" && (
+                                                <Textarea
+                                                    value={customAnswers[field.id] || ""}
+                                                    onChange={(e) => {
+                                                        setCustomAnswers((prev) => ({ ...prev, [field.id]: e.target.value }));
+                                                        setHasUserEdited(true);
+                                                    }}
+                                                    placeholder={field.label}
+                                                    className="min-h-[80px] rounded-lg"
+                                                />
+                                            )}
+                                            {field.field_type === "select" && (
+                                                <Select
+                                                    value={customAnswers[field.id] || ""}
+                                                    onValueChange={(v) => {
+                                                        setCustomAnswers((prev) => ({ ...prev, [field.id]: v }));
+                                                        setHasUserEdited(true);
+                                                    }}
+                                                >
+                                                    <SelectTrigger className="h-10">
+                                                        <SelectValue placeholder="選択してください" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {field.options?.map((option) => (
+                                                            <SelectItem key={option} value={option}>
+                                                                {option}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            )}
+                                            {field.field_type === "checkbox" && (
+                                                <div className="flex items-center gap-2">
+                                                    <Checkbox
+                                                        id={`custom-field-${field.id}`}
+                                                        checked={customAnswers[field.id] === "true"}
+                                                        onCheckedChange={(checked) => {
+                                                            setCustomAnswers((prev) => ({ ...prev, [field.id]: checked ? "true" : "false" }));
+                                                            setHasUserEdited(true);
+                                                        }}
+                                                    />
+                                                    <label
+                                                        htmlFor={`custom-field-${field.id}`}
+                                                        className="text-sm text-gray-600 dark:text-gray-300 cursor-pointer"
+                                                    >
+                                                        はい
+                                                    </label>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     )}
-
-                    <DialogFooter className="mt-6 flex justify-end gap-2">
-                        <Button
-                            variant="outline"
-                            onClick={handleClose}
-                            className="rounded-lg"
-                        >
-                            キャンセル
-                        </Button>
-                        <Button
-                            onClick={handleSubmit}
-                            disabled={isPending || !isValid || loading}
-                            className="rounded-lg"
-                        >
-                            {isPending ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                                "保存"
-                            )}
-                        </Button>
-                    </DialogFooter>
                 </DialogContent>
             </Dialog>
 
@@ -608,6 +958,7 @@ export function ReservationEditModal({
                 guests={guests}
                 selectedGuests={selectedGuests}
                 onConfirm={handleGuestConfirm}
+                storeId={storeId}
             />
 
             {/* キャスト選択モーダル */}
@@ -625,20 +976,19 @@ export function ReservationEditModal({
 
             {/* 削除確認モーダル */}
             <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-                <DialogContent className="max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900">
+                <DialogContent className="sm:max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900">
                     <DialogHeader>
-                        <DialogTitle className="text-base font-semibold text-gray-900 dark:text-gray-50">
+                        <DialogTitle className="text-base font-semibold text-gray-900 dark:text-white">
                             予約を削除
                         </DialogTitle>
                     </DialogHeader>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
                         この予約を削除しますか？この操作は取り消せません。
                     </p>
-                    <DialogFooter className="mt-6 flex justify-end gap-2">
+                    <DialogFooter className="flex justify-end gap-2">
                         <Button
                             variant="outline"
                             onClick={() => setShowDeleteConfirm(false)}
-                            className="rounded-lg"
                         >
                             キャンセル
                         </Button>
@@ -646,7 +996,6 @@ export function ReservationEditModal({
                             variant="destructive"
                             onClick={handleDelete}
                             disabled={isDeleting}
-                            className="rounded-lg"
                         >
                             {isDeleting ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />

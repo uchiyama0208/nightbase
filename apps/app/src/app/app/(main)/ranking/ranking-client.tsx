@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Loader2, Trophy, Crown, Medal, Award } from "lucide-react";
+import { VercelTabs } from "@/components/ui/vercel-tabs";
 
 interface RankingEntry {
     rank: number;
@@ -49,7 +50,7 @@ function getRankBgClass(rank: number) {
         case 1:
             return "bg-gradient-to-r from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20 border-yellow-200 dark:border-yellow-700";
         case 2:
-            return "bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-800/50 dark:to-slate-800/50 border-gray-300 dark:border-gray-600";
+            return "bg-gradient-to-r from-gray-50 to-gray-50 dark:from-gray-800/50 dark:to-gray-800/50 border-gray-300 dark:border-gray-600";
         case 3:
             return "bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border-amber-200 dark:border-amber-700";
         default:
@@ -67,10 +68,6 @@ export function RankingClient({ canEdit = false }: RankingClientProps) {
     const [error, setError] = useState<string | null>(null);
     const [period, setPeriod] = useState<Period>("today");
 
-    // Vercel-style tabs with animated underline
-    const tabsRef = useRef<{ [key: string]: HTMLButtonElement | null }>({});
-    const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
-
     const periodLabels: Record<Period, string> = {
         today: "今日",
         week: "週間",
@@ -79,16 +76,6 @@ export function RankingClient({ canEdit = false }: RankingClientProps) {
     };
 
     const periods: Period[] = ["today", "week", "month", "year"];
-
-    useEffect(() => {
-        const activeButton = tabsRef.current[period];
-        if (activeButton) {
-            setIndicatorStyle({
-                left: activeButton.offsetLeft,
-                width: activeButton.offsetWidth,
-            });
-        }
-    }, [period]);
 
     useEffect(() => {
         loadRankingData();
@@ -119,7 +106,7 @@ export function RankingClient({ canEdit = false }: RankingClientProps) {
                 <p className="text-red-600 dark:text-red-400">{error}</p>
                 <button
                     onClick={loadRankingData}
-                    className="mt-4 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800"
+                    className="mt-4 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
                     再試行
                 </button>
@@ -127,33 +114,21 @@ export function RankingClient({ canEdit = false }: RankingClientProps) {
         );
     }
 
+    const tabs = periods.map((p) => ({
+        key: p,
+        label: periodLabels[p],
+    }));
+
     return (
         <div className="space-y-6">
 
             {/* Vercel-style Tab Navigation */}
-            <div className="relative">
-                <div className="flex border-b border-gray-200 dark:border-gray-700">
-                    {periods.map((p) => (
-                        <button
-                            key={p}
-                            ref={(el) => { tabsRef.current[p] = el; }}
-                            type="button"
-                            onClick={() => setPeriod(p)}
-                            className={`flex-1 px-4 py-2 text-sm font-medium transition-colors duration-200 ${
-                                period === p
-                                    ? "text-gray-900 dark:text-white"
-                                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                            }`}
-                        >
-                            {periodLabels[p]}
-                        </button>
-                    ))}
-                </div>
-                <span
-                    className="absolute bottom-0 h-0.5 bg-gray-900 dark:bg-white transition-all duration-300 ease-out"
-                    style={{ left: indicatorStyle.left, width: indicatorStyle.width }}
-                />
-            </div>
+            <VercelTabs
+                tabs={tabs}
+                value={period}
+                onChange={(val) => setPeriod(val as Period)}
+                className="mb-4"
+            />
 
             {/* Rankings */}
             {isLoading ? (
@@ -206,7 +181,7 @@ export function RankingClient({ canEdit = false }: RankingClientProps) {
                                         <h3 className="font-semibold text-gray-900 dark:text-white truncate flex items-center gap-1">
                                             {entry.name}
                                             {entry.status === "体入" && (
-                                                <span className="text-[9px] px-1 py-0.5 rounded bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 flex-shrink-0">
+                                                <span className="text-[10px] px-1 py-0.5 rounded bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 flex-shrink-0">
                                                     体入
                                                 </span>
                                             )}

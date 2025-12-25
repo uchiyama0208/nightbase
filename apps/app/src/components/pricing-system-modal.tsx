@@ -176,43 +176,47 @@ export function PricingSystemModal({
     return (
         <>
             <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-                <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-                    <DialogHeader className="flex flex-row items-center justify-between border-b pb-4 space-y-0">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="-ml-2"
+                <DialogContent className="p-0 overflow-hidden flex flex-col max-h-[90vh] rounded-2xl">
+                    <DialogHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900 flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
+                        <button
+                            type="button"
                             onClick={onClose}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
+                            aria-label="戻る"
                         >
-                            <ChevronLeft className="h-5 w-5" />
-                        </Button>
-                        <DialogTitle>料金システム編集</DialogTitle>
+                            <ChevronLeft className="h-4 w-4" />
+                        </button>
+                        <DialogTitle className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white truncate">料金システム編集</DialogTitle>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="-mr-2">
+                                <button
+                                    type="button"
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700"
+                                >
                                     <MoreHorizontal className="h-5 w-5" />
-                                </Button>
+                                </button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                            <DropdownMenuContent align="end" className="p-1">
                                 {!system.is_default && (
                                     <DropdownMenuItem onClick={handleSetDefault}>
                                         <Star className="h-4 w-4 mr-2" />
                                         デフォルトに設定
                                     </DropdownMenuItem>
                                 )}
-                                <DropdownMenuItem
-                                    className="text-destructive focus:text-destructive"
+                                <button
+                                    type="button"
                                     onClick={() => setIsDeleteModalOpen(true)}
+                                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
                                 >
-                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    <Trash2 className="h-4 w-4" />
                                     削除
-                                </DropdownMenuItem>
+                                </button>
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </DialogHeader>
-                    <div className="space-y-4 py-4">
+                    <div className="flex-1 overflow-y-auto p-6 space-y-4">
                         <div className="space-y-2">
-                            <Label>名前 *</Label>
+                            <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">名前 *</Label>
                             <Input
                                 value={formData.name}
                                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -221,7 +225,7 @@ export function PricingSystemModal({
                         </div>
                         <div className="space-y-4">
                             <div className="space-y-2">
-                                <Label>セット料金 (円)</Label>
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">セット料金 (円)</Label>
                                 <Input
                                     type="number"
                                     value={formData.set_fee}
@@ -230,7 +234,7 @@ export function PricingSystemModal({
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>セット時間 (分)</Label>
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">セット時間 (分)</Label>
                                 <Input
                                     type="number"
                                     value={formData.set_duration_minutes}
@@ -239,7 +243,7 @@ export function PricingSystemModal({
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>延長料金 (円)</Label>
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">延長料金 (円)</Label>
                                 <Input
                                     type="number"
                                     value={formData.extension_fee}
@@ -248,7 +252,7 @@ export function PricingSystemModal({
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>延長時間 (分)</Label>
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">延長時間 (分)</Label>
                                 <Input
                                     type="number"
                                     value={formData.extension_duration_minutes}
@@ -257,7 +261,7 @@ export function PricingSystemModal({
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>指名料金</Label>
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">指名料金</Label>
                                 <Input
                                     type="number"
                                     value={formData.nomination_fee}
@@ -266,7 +270,7 @@ export function PricingSystemModal({
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>指名セット時間 (分)</Label>
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">指名セット時間 (分)</Label>
                                 <Input
                                     type="number"
                                     value={formData.nomination_set_duration_minutes}
@@ -275,7 +279,7 @@ export function PricingSystemModal({
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>同伴料金</Label>
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">同伴料金</Label>
                                 <Input
                                     type="number"
                                     value={formData.douhan_fee}
@@ -284,7 +288,7 @@ export function PricingSystemModal({
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>同伴セット時間 (分)</Label>
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">同伴セット時間 (分)</Label>
                                 <Input
                                     type="number"
                                     value={formData.douhan_set_duration_minutes}
@@ -293,7 +297,7 @@ export function PricingSystemModal({
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>場内料金</Label>
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">場内料金</Label>
                                 <Input
                                     type="number"
                                     value={formData.companion_fee}
@@ -302,7 +306,7 @@ export function PricingSystemModal({
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>場内セット時間 (分)</Label>
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">場内セット時間 (分)</Label>
                                 <Input
                                     type="number"
                                     value={formData.companion_set_duration_minutes}
@@ -311,7 +315,7 @@ export function PricingSystemModal({
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>サービス料 (%)</Label>
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">サービス料 (%)</Label>
                                 <Input
                                     type="number"
                                     value={formData.service_rate}
@@ -320,7 +324,7 @@ export function PricingSystemModal({
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>消費税 (%)</Label>
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">消費税 (%)</Label>
                                 <Input
                                     type="number"
                                     value={formData.tax_rate}
@@ -337,10 +341,10 @@ export function PricingSystemModal({
                                 onChange={(e) => setFormData({ ...formData, is_default: e.target.checked })}
                                 className="h-4 w-4 rounded border-gray-300"
                             />
-                            <Label htmlFor="is_default_modal" className="cursor-pointer">デフォルトに設定</Label>
+                            <Label htmlFor="is_default_modal" className="text-sm font-medium text-gray-700 dark:text-gray-200 cursor-pointer">デフォルトに設定</Label>
                         </div>
                     </div>
-                    <DialogFooter className="flex flex-col-reverse gap-2 sm:flex-row">
+                    <DialogFooter className="flex-shrink-0 px-6 pb-6 flex flex-col-reverse gap-2 sm:flex-row">
                         <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">
                             キャンセル
                         </Button>
@@ -353,9 +357,9 @@ export function PricingSystemModal({
 
             {/* Delete Confirmation Modal */}
             <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
-                <DialogContent className="max-w-sm">
+                <DialogContent className="sm:max-w-sm">
                     <DialogHeader>
-                        <DialogTitle>削除確認</DialogTitle>
+                        <DialogTitle className="text-gray-900 dark:text-white">削除確認</DialogTitle>
                     </DialogHeader>
                     <div className="py-4">
                         <p>この料金システムを削除しますか？</p>

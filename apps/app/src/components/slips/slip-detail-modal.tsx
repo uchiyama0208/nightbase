@@ -28,7 +28,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ChevronLeft, Plus, MoreHorizontal, Trash2, Pencil, X, Check, Save, Printer, UserPlus, RotateCcw } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, MoreHorizontal, Trash2, X, Check, Save, Printer, UserPlus, RotateCcw } from "lucide-react";
 import {
     getSessionByIdV2,
     updateSessionTimes,
@@ -48,12 +48,14 @@ import { getTables } from "@/app/app/(main)/seats/actions";
 import { getPricingSystems } from "@/app/app/(main)/pricing-systems/actions";
 import { Table as FloorTable, PricingSystem } from "@/types/floor";
 import { PricingSystemModal } from "@/components/pricing-system-modal";
+import { CommentSection } from "@/components/comment-section";
 
 interface SlipDetailModalProps {
     isOpen: boolean;
     onClose: () => void;
     sessionId: string | null;
     onUpdate?: () => void;
+    onSessionDeleted?: () => void; // セッション削除時のコールバック（フロア管理モーダルを閉じる用）
     editable?: boolean;
     initialTables?: any[];
     initialSessions?: any[];
@@ -84,6 +86,7 @@ export function SlipDetailModal({
     onClose,
     sessionId,
     onUpdate,
+    onSessionDeleted,
     editable = true,
     initialTables,
     initialSessions,
@@ -110,7 +113,7 @@ export function SlipDetailModal({
     const [editingDouhanIds, setEditingDouhanIds] = useState<string[]>([]);
     const [editingCompanionIds, setEditingCompanionIds] = useState<string[]>([]);
     const [editingGuestIds, setEditingGuestIds] = useState<string[]>([]);
-    const [editingOrderValues, setEditingOrderValues] = useState<Record<string, { quantity?: number, amount?: number, castId?: string | null, startTime?: string, endTime?: string }>>({});
+    const [editingOrderValues, setEditingOrderValues] = useState<Record<string, { quantity?: number, amount?: number, castId?: string | null, guestId?: string | null, startTime?: string, endTime?: string }>>({});
 
     const [editTableId, setEditTableId] = useState("");
     const [editGuestCount, setEditGuestCount] = useState(0);
@@ -128,6 +131,7 @@ export function SlipDetailModal({
     const [isReopenDialogOpen, setIsReopenDialogOpen] = useState(false);
     const [isCheckingOut, setIsCheckingOut] = useState(false);
     const [isReopening, setIsReopening] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
     const [isAddingOrder, setIsAddingOrder] = useState(false);
     const [isRecalculating, setIsRecalculating] = useState(false);
     const [selectedFeeType, setSelectedFeeType] = useState<'nomination' | 'companion' | 'douhan' | null>(null);
@@ -363,11 +367,6 @@ export function SlipDetailModal({
                 newEndTime = endDate.toISOString();
             }
 
-            const oldGuestCount = session?.guest_count || 0;
-            const newGuestCount = editGuestCount || 0;
-
-            console.log("Saving times:", { editDate, startTime, endTime, newStartTime, newEndTime });
-
             await updateSession(sessionId, {
                 tableId: editTableId,
                 guestCount: editGuestCount,
@@ -376,24 +375,6 @@ export function SlipDetailModal({
                 pricingSystemId: editPricingSystemId === "none" ? null : editPricingSystemId,
                 mainGuestId: editMainGuestId === "none" ? null : editMainGuestId,
             });
-
-            // 人数が変更された場合、セット料金と延長料金の人数を自動更新
-            if (oldGuestCount !== newGuestCount) {
-                const setFeeOrders = orders.filter(o => o.name === 'セット料金');
-                const extensionFeeOrders = orders.filter(o => o.name === '延長料金');
-
-                for (const order of setFeeOrders) {
-                    if (order.quantity !== newGuestCount) {
-                        await updateOrder(order.id, { quantity: newGuestCount });
-                    }
-                }
-
-                for (const order of extensionFeeOrders) {
-                    if (order.quantity !== newGuestCount) {
-                        await updateOrder(order.id, { quantity: newGuestCount });
-                    }
-                }
-            }
 
             toast({ title: "詳細を更新しました" });
             setIsEditingHeader(false);
@@ -467,7 +448,7 @@ export function SlipDetailModal({
         }
     };
 
-    const handleEditOrderChange = (orderId: string, field: 'quantity' | 'amount' | 'castId' | 'startTime' | 'endTime', value: any) => {
+    const handleEditOrderChange = (orderId: string, field: 'quantity' | 'amount' | 'castId' | 'guestId' | 'startTime' | 'endTime', value: any) => {
         setEditingOrderValues(prev => ({
             ...prev,
             [orderId]: {
@@ -502,6 +483,9 @@ export function SlipDetailModal({
                 updatedOrder.castName = undefined;
             }
         }
+        if (values.guestId !== undefined) {
+            updatedOrder.guestId = values.guestId === "none" ? null : values.guestId;
+        }
         if (values.startTime !== undefined) {
             if (values.startTime) {
                 const baseDate = session?.start_time
@@ -532,11 +516,12 @@ export function SlipDetailModal({
         toast({ title: "更新しました" });
 
         try {
-            const updates: { quantity?: number; amount?: number; castId?: string | null; startTime?: string | null; endTime?: string | null } = {};
+            const updates: { quantity?: number; amount?: number; castId?: string | null; guestId?: string | null; startTime?: string | null; endTime?: string | null } = {};
 
             if (values.quantity !== undefined) updates.quantity = values.quantity;
             if (values.amount !== undefined) updates.amount = values.amount;
             if (values.castId !== undefined) updates.castId = values.castId === "none" ? null : values.castId;
+            if (values.guestId !== undefined) updates.guestId = values.guestId === "none" ? null : values.guestId;
 
             // Handle time conversions
             if (values.startTime !== undefined) {
@@ -562,15 +547,6 @@ export function SlipDetailModal({
             }
 
             await updateOrder(orderId, updates);
-
-            if (!isExtension && values.startTime) {
-                const baseDate = session?.start_time
-                    ? new Date(session.start_time).toISOString().slice(0, 10)
-                    : new Date().toISOString().slice(0, 10);
-                const newStartIso = new Date(`${baseDate}T${values.startTime}`).toISOString();
-                await updateSessionTimes(sessionId!, newStartIso, session.end_time);
-                setStartTime(values.startTime);
-            }
 
             // バックグラウンドで最新データを取得（loading表示なし）
             await loadAllData(true);
@@ -1071,31 +1047,35 @@ export function SlipDetailModal({
     const handleCastSelectForFee = async (profile: any) => {
         if (!sessionId || !selectedFeeType) return;
 
-        // ゲストが複数いる場合はゲスト選択モーダルを表示
+        // selectedFeeTypeの値を保存（onCloseでnullになる前に）
+        const feeType = selectedFeeType;
         const sessionGuests = session?.session_guests || [];
-        if (sessionGuests.length > 1) {
-            setSelectedCastForFee(profile);
+
+        // ゲストが1人以上いる場合はゲスト選択モーダルを表示
+        if (sessionGuests.length >= 1) {
+            setSelectedCastForFee({ ...profile, feeType });
             setIsCastPlacementOpen(false);
             setIsGuestSelectOpen(true);
             return;
         }
 
-        // ゲストが1人の場合は直接追加
-        const guestId = sessionGuests.length === 1 ? sessionGuests[0].guest_id : null;
-        await addCastFeeWithGuest(profile, guestId);
+        // ゲストが0人の場合は直接追加（guestIdはnull）
+        await addCastFeeWithGuestDirect(profile, null, feeType);
     };
 
     // ゲスト選択後にキャスト料金を追加
     const handleGuestSelectForFee = async (guestId: string) => {
         if (!selectedCastForFee) return;
+        const { feeType, ...profile } = selectedCastForFee;
         setIsGuestSelectOpen(false);
-        await addCastFeeWithGuest(selectedCastForFee, guestId);
+        await addCastFeeWithGuestDirect(profile, guestId, feeType);
         setSelectedCastForFee(null);
+        setSelectedFeeType(null);
     };
 
     // キャスト料金追加の実処理
-    const addCastFeeWithGuest = async (profile: any, guestId: string | null) => {
-        if (!sessionId || !selectedFeeType) return;
+    const addCastFeeWithGuestDirect = async (profile: any, guestId: string | null, feeType: 'nomination' | 'companion' | 'douhan') => {
+        if (!sessionId || !feeType) return;
         const pricingSystem = getSelectedPricingSystem();
         if (!pricingSystem) {
             toast({ title: "料金システムが設定されていません" });
@@ -1106,11 +1086,11 @@ export function SlipDetailModal({
         let amount: number;
         let feeName: string;
 
-        if (selectedFeeType === 'nomination') {
+        if (feeType === 'nomination') {
             menuId = 'nomination-fee';
             amount = pricingSystem.nomination_fee;
             feeName = '指名料';
-        } else if (selectedFeeType === 'douhan') {
+        } else if (feeType === 'douhan') {
             menuId = 'douhan-fee';
             amount = pricingSystem.douhan_fee || 0;
             feeName = '同伴料';
@@ -1127,7 +1107,7 @@ export function SlipDetailModal({
         let orderEndTime: string | null = null;
         let quantity = 0;
 
-        if (selectedFeeType === 'nomination' || selectedFeeType === 'douhan') {
+        if (feeType === 'nomination' || feeType === 'douhan') {
             orderStartTime = session?.start_time || null;
             orderEndTime = session?.end_time || null;
 
@@ -1277,15 +1257,18 @@ export function SlipDetailModal({
     const handleDeleteSession = async () => {
         if (!sessionId) return;
 
+        setIsDeleting(true);
         try {
             await deleteSession(sessionId);
-            await loadAllData();
             setIsDeleteDialogOpen(false);
             onClose();
             toast({ title: "伝票とセッションを削除しました" });
             onUpdate?.();
+            onSessionDeleted?.();
         } catch (error) {
             toast({ title: "削除に失敗しました" });
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -1620,7 +1603,7 @@ export function SlipDetailModal({
 
             <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }} modal={true}>
                 <DialogContent
-                    className="max-w-md h-[90vh] flex flex-col p-4 overflow-hidden z-[60]"
+                    className="p-0 overflow-hidden flex flex-col max-h-[90vh] rounded-2xl"
                     onPointerDownOutside={(e) => {
                         if (preventOutsideClose) {
                             e.preventDefault();
@@ -1635,36 +1618,51 @@ export function SlipDetailModal({
                     }}
                     onClick={(e) => e.stopPropagation()}
                 >
-                    <DialogHeader className="flex flex-row items-center justify-between border-b pb-1 mb-0 space-y-0 no-print flex-shrink-0">
-                        <Button variant="ghost" size="icon" className="-ml-2 h-8 w-8" onClick={(e) => { e.stopPropagation(); onClose(); }}>
+                    <DialogHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900 flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4 no-print">
+                        <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); onClose(); }}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
+                            aria-label="戻る"
+                        >
                             <ChevronLeft className="h-4 w-4" />
-                        </Button>
-                        <DialogTitle className="flex items-center gap-2 text-base">
+                        </button>
+                        <DialogTitle className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white truncate">
                             {editable ? `${tableName} - 伝票詳細` : "伝票詳細"}
                         </DialogTitle>
-                        <div className="flex items-center gap-0">
-                            <Button variant="ghost" size="icon" onClick={() => window.print()} className="no-print h-8 w-8">
-                                <Printer className="h-4 w-4" />
-                            </Button>
+                        <div className="flex items-center">
+                            <button
+                                type="button"
+                                onClick={() => window.print()}
+                                className="p-1 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors no-print"
+                                aria-label="印刷"
+                            >
+                                <Printer className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                            </button>
                             {editable ? (
                                 <DropdownMenu modal={false}>
                                     <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="-mr-2 no-print h-8 w-8">
-                                            <MoreHorizontal className="h-4 w-4" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="bg-white dark:bg-slate-900 border-gray-200 dark:border-white/10 z-[300]">
-                                        <DropdownMenuItem
-                                            className="text-destructive focus:text-destructive focus:bg-red-50 dark:focus:bg-red-900/20"
-                                            onClick={() => setIsDeleteDialogOpen(true)}
+                                        <button
+                                            type="button"
+                                            className="p-1 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors no-print"
+                                            aria-label="メニュー"
                                         >
-                                            <Trash2 className="h-4 w-4 mr-2" />
+                                            <MoreHorizontal className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                                        </button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="bg-white dark:bg-gray-900 border-gray-200 dark:border-white/10 z-[300] p-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsDeleteDialogOpen(true)}
+                                            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
                                             削除
-                                        </DropdownMenuItem>
+                                        </button>
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             ) : (
-                                <div className="w-8" />
+                                <div className="w-7" />
                             )}
                         </div>
                     </DialogHeader>
@@ -1674,45 +1672,34 @@ export function SlipDetailModal({
                             読み込み中...
                         </div>
                     ) : (
-                        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+                        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pt-4">
                         <div className="space-y-3 pb-4 font-mono text-sm print-content">
                             {/* Header Info */}
                             <div className="border rounded-lg p-3 bg-muted/30 relative">
-                                {editable && !isEditingHeader && (
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="absolute top-2 right-2 h-8 w-8 text-muted-foreground hover:text-foreground no-print"
-                                        onClick={() => setIsEditingHeader(true)}
-                                    >
-                                        <Pencil className="h-4 w-4" />
-                                    </Button>
-                                )}
-
                                 {isEditingHeader ? (
                                     <div className="grid grid-cols-1 gap-3">
                                         <div className="grid grid-cols-2 gap-2">
                                             <div>
-                                                <Label className="text-sm text-muted-foreground">日付</Label>
+                                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">日付</Label>
                                                 <Input
                                                     type="date"
                                                     value={editDate}
                                                     onChange={(e) => setEditDate(e.target.value)}
-                                                    className="h-11 text-base"
+                                                    className="h-10 text-base"
                                                 />
                                             </div>
                                             <div>
-                                                <Label className="text-sm text-muted-foreground">人数</Label>
-                                                <div className="h-11 text-base flex items-center px-3 bg-muted rounded-md">
+                                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">人数</Label>
+                                                <div className="h-9 text-base flex items-center px-3 bg-muted rounded-md">
                                                     {editGuestCount || 0}名
                                                 </div>
                                             </div>
                                         </div>
                                         <div className="grid grid-cols-2 gap-2">
                                             <div>
-                                                <Label className="text-sm text-muted-foreground">テーブル</Label>
+                                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">テーブル</Label>
                                                 <Select value={editTableId} onValueChange={setEditTableId}>
-                                                    <SelectTrigger className="h-11 text-base">
+                                                    <SelectTrigger className="h-10 text-base">
                                                         <SelectValue placeholder="テーブルを選択" />
                                                     </SelectTrigger>
                                                     <SelectContent className="z-[100]" position="popper" sideOffset={4}>
@@ -1725,9 +1712,9 @@ export function SlipDetailModal({
                                                 </Select>
                                             </div>
                                             <div>
-                                                <Label className="text-sm text-muted-foreground">料金システム</Label>
+                                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">料金システム</Label>
                                                 <Select value={editPricingSystemId} onValueChange={setEditPricingSystemId}>
-                                                    <SelectTrigger className="h-11 text-base">
+                                                    <SelectTrigger className="h-10 text-base">
                                                         <SelectValue placeholder="選択" />
                                                     </SelectTrigger>
                                                     <SelectContent className="z-[100]" position="popper" sideOffset={4}>
@@ -1743,21 +1730,21 @@ export function SlipDetailModal({
                                         </div>
                                         <div className="grid grid-cols-2 gap-2">
                                             <div>
-                                                <Label className="text-sm text-muted-foreground">入店時間</Label>
+                                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">入店時間</Label>
                                                 <Input
                                                     type="time"
                                                     value={startTime}
                                                     onChange={(e) => setStartTime(e.target.value)}
-                                                    className="h-11 text-base"
+                                                    className="h-10 text-base"
                                                 />
                                             </div>
                                             <div>
-                                                <Label className="text-sm text-muted-foreground">退店時間</Label>
+                                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">退店時間</Label>
                                                 <Input
                                                     type="time"
                                                     value={endTime}
                                                     onChange={(e) => setEndTime(e.target.value)}
-                                                    className="h-11 text-base"
+                                                    className="h-10 text-base"
                                                 />
                                             </div>
                                         </div>
@@ -1786,53 +1773,62 @@ export function SlipDetailModal({
                                         </Button>
                                     </div>
                                 ) : (
-                                    <div className="grid gap-3 text-sm">
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <div className="text-muted-foreground text-xs mb-1">日付</div>
-                                                <div className="font-medium text-sm">{new Date(session.start_time).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' })}</div>
+                                    <div
+                                        className={`flex items-center gap-3 ${editable ? 'cursor-pointer' : ''}`}
+                                        onClick={() => editable && setIsEditingHeader(true)}
+                                    >
+                                        <div className="flex-1 grid gap-3 text-sm">
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <div className="text-muted-foreground text-xs mb-1">日付</div>
+                                                    <div className="font-medium text-sm">{new Date(session.start_time).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' })}</div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-muted-foreground text-xs mb-1">人数</div>
+                                                    <div className="font-medium text-sm">{session.guest_count || 0}名</div>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <div className="text-muted-foreground text-xs mb-1">人数</div>
-                                                <div className="font-medium text-sm">{session.guest_count || 0}名</div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <div className="text-muted-foreground text-xs mb-1">テーブル</div>
+                                                    <div className="font-medium text-sm">{tables.find(t => t.id === session.table_id)?.name || '-'}</div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-muted-foreground text-xs mb-1">料金システム</div>
+                                                    {session.pricing_system_id ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                const ps = pricingSystems.find(p => p.id === session.pricing_system_id);
+                                                                if (ps) {
+                                                                    setSelectedPricingSystemForEdit(ps);
+                                                                    setIsPricingSystemModalOpen(true);
+                                                                }
+                                                            }}
+                                                            className="font-medium text-sm text-blue-600 dark:text-blue-400 hover:underline text-left"
+                                                        >
+                                                            {pricingSystems.find(p => p.id === session.pricing_system_id)?.name || '-'}
+                                                        </button>
+                                                    ) : (
+                                                        <div className="font-medium text-sm">-</div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <div className="text-muted-foreground text-xs mb-1">入店</div>
+                                                    <div className="font-medium text-sm">{startTime}</div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-muted-foreground text-xs mb-1">退店</div>
+                                                    <div className="font-medium text-sm">{endTime}</div>
+                                                </div>
                                             </div>
                                         </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <div className="text-muted-foreground text-xs mb-1">テーブル</div>
-                                                <div className="font-medium text-sm">{tables.find(t => t.id === session.table_id)?.name || '-'}</div>
-                                            </div>
-                                            <div>
-                                                <div className="text-muted-foreground text-xs mb-1">料金システム</div>
-                                                {session.pricing_system_id ? (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            const ps = pricingSystems.find(p => p.id === session.pricing_system_id);
-                                                            if (ps) {
-                                                                setSelectedPricingSystemForEdit(ps);
-                                                                setIsPricingSystemModalOpen(true);
-                                                            }
-                                                        }}
-                                                        className="font-medium text-sm text-blue-600 dark:text-blue-400 hover:underline text-left"
-                                                    >
-                                                        {pricingSystems.find(p => p.id === session.pricing_system_id)?.name || '-'}
-                                                    </button>
-                                                ) : (
-                                                    <div className="font-medium text-sm">-</div>
-                                                )}
-                                            </div>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <div className="text-muted-foreground text-xs mb-1">入店</div>
-                                                <div className="font-medium text-sm">{startTime}</div>
-                                            </div>
-                                            <div>
-                                                <div className="text-muted-foreground text-xs mb-1">退店</div>
-                                                <div className="font-medium text-sm">{endTime}</div>
-                                            </div>
-                                        </div>
+                                        {editable && (
+                                            <ChevronRight className="h-5 w-5 text-muted-foreground no-print" />
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -1840,7 +1836,30 @@ export function SlipDetailModal({
                             {/* Guests Section with Set Fee */}
                             <div className="border rounded-lg overflow-hidden relative">
                                 <div className="flex items-center justify-between px-3 py-2 bg-muted/50 border-b">
-                                    <span className="font-medium text-xs">セット料金</span>
+                                    <div className="flex items-center gap-3">
+                                        <span className="font-medium text-xs">セット料金</span>
+                                        {editable && isEditingHeader ? (
+                                            <div className="flex items-center gap-1 text-xs">
+                                                <Input
+                                                    type="time"
+                                                    value={startTime}
+                                                    onChange={(e) => setStartTime(e.target.value)}
+                                                    className="w-24 h-7 text-xs"
+                                                />
+                                                <span>〜</span>
+                                                <Input
+                                                    type="time"
+                                                    value={endTime}
+                                                    onChange={(e) => setEndTime(e.target.value)}
+                                                    className="w-24 h-7 text-xs"
+                                                />
+                                            </div>
+                                        ) : (
+                                            <span className="text-xs text-muted-foreground">
+                                                {startTime && `${startTime}`}{endTime && ` 〜 ${endTime}`}
+                                            </span>
+                                        )}
+                                    </div>
                                     {editable && (
                                         <div className="flex items-center gap-1 no-print">
                                             <Button
@@ -1852,7 +1871,7 @@ export function SlipDetailModal({
                                                     handleAddGuest();
                                                 }}
                                             >
-                                                <UserPlus className="h-4 w-4" />
+                                                <UserPlus className="h-5 w-5" />
                                             </Button>
                                         </div>
                                     )}
@@ -1864,7 +1883,11 @@ export function SlipDetailModal({
                                             const guestSetFeeOrder = orders.find(
                                                 o => o.name === 'セット料金' && o.castId === assignment.guest_id
                                             );
-                                            const setFeeAmount = guestSetFeeOrder?.price ?? (getSelectedPricingSystem()?.set_fee ?? 0);
+                                            // ゲスト別セット料金がない場合、通常のセット料金を参照
+                                            const generalSetFeeOrder = orders.find(
+                                                o => o.name === 'セット料金' && !o.castId
+                                            );
+                                            const setFeeAmount = guestSetFeeOrder?.price ?? generalSetFeeOrder?.price ?? 0;
                                             const isEditingSet = editingGuestIds.includes(assignment.id);
 
                                             return (
@@ -1880,14 +1903,13 @@ export function SlipDetailModal({
                                                             <span className="text-xs font-medium">{assignment.profiles?.display_name || "不明"}</span>
                                                         </div>
                                                         {editable && isEditingSet && (
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10 no-print"
+                                                            <button
+                                                                type="button"
                                                                 onClick={() => handleRemoveGuest(assignment.id)}
+                                                                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-red-500 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20 no-print"
                                                             >
-                                                                <Trash2 className="h-3 w-3" />
-                                                            </Button>
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </button>
                                                         )}
                                                     </div>
                                                     {/* Set Fee for this guest */}
@@ -1944,17 +1966,13 @@ export function SlipDetailModal({
                                                                     </Button>
                                                                 </div>
                                                             ) : (
-                                                                <div className="flex items-center gap-2">
+                                                                <div
+                                                                    className={`flex items-center gap-2 ${editable ? 'cursor-pointer' : ''}`}
+                                                                    onClick={() => editable && setEditingGuestIds(prev => [...prev, assignment.id])}
+                                                                >
                                                                     <span>¥{setFeeAmount.toLocaleString()}</span>
                                                                     {editable && (
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="icon"
-                                                                            className="h-6 w-6 no-print"
-                                                                            onClick={() => setEditingGuestIds(prev => [...prev, assignment.id])}
-                                                                        >
-                                                                            <Pencil className="h-3 w-3" />
-                                                                        </Button>
+                                                                        <ChevronRight className="h-4 w-4 text-muted-foreground no-print" />
                                                                     )}
                                                                 </div>
                                                             )}
@@ -1972,13 +1990,16 @@ export function SlipDetailModal({
                                 {/* Total Set Fee */}
                                 {guestAssignments.length > 0 && (
                                     <div className="flex items-center justify-between px-3 py-2 bg-muted/30 border-t text-xs">
-                                        <span className="font-medium">セット料金 合計</span>
-                                        <span className="font-medium">
+                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-200">セット料金 合計</span>
+                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                             ¥{guestAssignments.reduce((total: number, assignment: any) => {
                                                 const guestSetFeeOrder = orders.find(
                                                     o => o.name === 'セット料金' && o.castId === assignment.guest_id
                                                 );
-                                                const setFeeAmount = guestSetFeeOrder?.price ?? (getSelectedPricingSystem()?.set_fee ?? 0);
+                                                const generalSetFeeOrder = orders.find(
+                                                    o => o.name === 'セット料金' && !o.castId
+                                                );
+                                                const setFeeAmount = guestSetFeeOrder?.price ?? generalSetFeeOrder?.price ?? 0;
                                                 return total + setFeeAmount;
                                             }, 0).toLocaleString()}
                                         </span>
@@ -2003,7 +2024,7 @@ export function SlipDetailModal({
                                                     onClick={handleAddExtensionFee}
                                                     disabled={isAddingOrder}
                                                 >
-                                                    <Plus className="h-4 w-4" />
+                                                    <Plus className="h-5 w-5" />
                                                 </Button>
                                             </div>
                                         </div>
@@ -2015,39 +2036,26 @@ export function SlipDetailModal({
                                                     const isEditing = editingExtensionFeeIds.includes(order.id);
                                                     return (
                                                         <div key={order.id} className="p-3 space-y-3">
-                                                            <div className="flex justify-between text-xs items-center">
+                                                            <div
+                                                                className={`flex justify-between text-xs items-center ${!isEditing ? 'cursor-pointer' : ''}`}
+                                                                onClick={() => !isEditing && setEditingExtensionFeeIds(prev => [...prev, order.id])}
+                                                            >
                                                                 <div className="flex items-center gap-2">
-                                                                    <span className="font-medium">{order.name} {index + 1}</span>
+                                                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{order.name} {index + 1}</span>
                                                                     <span className="text-muted-foreground">({order.quantity}名 × ¥{order.price.toLocaleString()})</span>
                                                                     <span>¥{(order.price * order.quantity).toLocaleString()}</span>
                                                                 </div>
                                                                 <div className="flex items-center gap-2 ml-auto">
                                                                     {!isEditing ? (
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="icon"
-                                                                            className="h-6 w-6"
-                                                                            onClick={() => setEditingExtensionFeeIds(prev => [...prev, order.id])}
-                                                                        >
-                                                                            <Pencil className="h-3 w-3" />
-                                                                        </Button>
+                                                                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
                                                                     ) : (
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="icon"
-                                                                            className="h-6 w-6 text-green-600 hover:text-green-700 hover:bg-green-50"
-                                                                            onClick={() => setEditingExtensionFeeIds(prev => prev.filter(id => id !== order.id))}
-                                                                        >
-                                                                            <Check className="h-4 w-4" />
-                                                                        </Button>
-                                                                    )}
-                                                                    {isEditing && (
                                                                         <>
                                                                             <Button
                                                                                 variant="ghost"
                                                                                 size="icon"
                                                                                 className="h-6 w-6 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                                                                onClick={async () => {
+                                                                                onClick={async (e) => {
+                                                                                    e.stopPropagation();
                                                                                     await handleSaveOrder(order.id, true);
                                                                                     setEditingExtensionFeeIds(prev => prev.filter(id => id !== order.id));
                                                                                 }}
@@ -2057,11 +2065,24 @@ export function SlipDetailModal({
                                                                             <Button
                                                                                 variant="ghost"
                                                                                 size="icon"
-                                                                                className="h-6 w-6 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                                                                onClick={() => handleDeleteOrder(order.id, `${order.name} ${index + 1}`)}
+                                                                                className="h-6 w-6"
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    setEditingExtensionFeeIds(prev => prev.filter(id => id !== order.id));
+                                                                                }}
                                                                             >
-                                                                                <Trash2 className="h-3 w-3" />
+                                                                                <X className="h-3 w-3" />
                                                                             </Button>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    handleDeleteOrder(order.id, `${order.name} ${index + 1}`);
+                                                                                }}
+                                                                                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-red-500 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
+                                                                            >
+                                                                                <Trash2 className="h-4 w-4" />
+                                                                            </button>
                                                                         </>
                                                                     )}
                                                                 </div>
@@ -2069,30 +2090,30 @@ export function SlipDetailModal({
                                                             {isEditing ? (
                                                                 <div className="grid grid-cols-3 gap-2">
                                                                     <div>
-                                                                        <Label className="text-xs text-muted-foreground">人数</Label>
+                                                                        <Label className="text-xs font-medium text-gray-700 dark:text-gray-200">人数</Label>
                                                                         <Input
                                                                             type="number"
                                                                             value={editingOrderValues[order.id]?.quantity ?? order.quantity}
-                                                                            className="h-11 text-base"
+                                                                            className="h-10 text-base"
                                                                             onChange={(e) => handleEditOrderChange(order.id, 'quantity', parseInt(e.target.value) || 0)}
                                                                         />
                                                                     </div>
                                                                     <div>
-                                                                        <Label className="text-xs text-muted-foreground">開始</Label>
+                                                                        <Label className="text-xs font-medium text-gray-700 dark:text-gray-200">開始</Label>
                                                                         <Input
                                                                             type="time"
                                                                             value={feeSchedule[order.id]?.start || ""}
                                                                             readOnly
-                                                                            className="h-11 text-base bg-muted"
+                                                                            className="h-10 text-base bg-muted"
                                                                         />
                                                                     </div>
                                                                     <div>
-                                                                        <Label className="text-xs text-muted-foreground">終了</Label>
+                                                                        <Label className="text-xs font-medium text-gray-700 dark:text-gray-200">終了</Label>
                                                                         <Input
                                                                             type="time"
                                                                             value={feeSchedule[order.id]?.end || ""}
                                                                             readOnly
-                                                                            className="h-11 text-base bg-muted"
+                                                                            className="h-10 text-base bg-muted"
                                                                         />
                                                                     </div>
                                                                 </div>
@@ -2131,7 +2152,7 @@ export function SlipDetailModal({
                                             className="h-6 w-6"
                                             onClick={() => setIsQuickOrderOpen(true)}
                                         >
-                                            <Plus className="h-4 w-4" />
+                                            <Plus className="h-5 w-5" />
                                         </Button>
                                     </div>
                                 </div>
@@ -2146,7 +2167,11 @@ export function SlipDetailModal({
                                         .map(order => {
                                             const isEditing = editingDrinkIds.includes(order.id);
                                             return (
-                                                <div key={order.id} className="p-3 flex justify-between items-center">
+                                                <div
+                                                    key={order.id}
+                                                    className={`p-3 flex justify-between items-center ${!isEditing ? 'cursor-pointer' : ''}`}
+                                                    onClick={() => !isEditing && setEditingDrinkIds(prev => [...prev, order.id])}
+                                                >
                                                     <div className="space-y-1 flex-1">
                                                         <div className="text-xs font-medium">{order.name}</div>
                                                         <div className="text-xs text-muted-foreground">
@@ -2154,32 +2179,14 @@ export function SlipDetailModal({
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-3 ml-auto">
-                                                        {!isEditing ? (
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-6 w-6"
-                                                                onClick={() => setEditingDrinkIds(prev => [...prev, order.id])}
-                                                            >
-                                                                <Pencil className="h-3 w-3" />
-                                                            </Button>
-                                                        ) : (
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-6 w-6 text-green-600 hover:text-green-700 hover:bg-green-50"
-                                                                onClick={() => setEditingDrinkIds(prev => prev.filter(id => id !== order.id))}
-                                                            >
-                                                                <Check className="h-4 w-4" />
-                                                            </Button>
-                                                        )}
                                                         {isEditing ? (
                                                             <>
                                                                 <div className="w-20">
                                                                     <Input
                                                                         type="number"
                                                                         value={editingOrderValues[order.id]?.quantity ?? order.quantity}
-                                                                        className="h-9 text-sm"
+                                                                        className="h-10 text-base"
+                                                                        onClick={(e) => e.stopPropagation()}
                                                                         onChange={(e) => handleEditOrderChange(order.id, 'quantity', parseInt(e.target.value) || 0)}
                                                                     />
                                                                 </div>
@@ -2187,26 +2194,43 @@ export function SlipDetailModal({
                                                                     variant="ghost"
                                                                     size="icon"
                                                                     className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                                                    onClick={async () => {
+                                                                    onClick={async (e) => {
+                                                                        e.stopPropagation();
                                                                         await handleSaveOrder(order.id);
                                                                         setEditingDrinkIds(prev => prev.filter(id => id !== order.id));
                                                                     }}
                                                                 >
-                                                                    <Save className="h-4 w-4" />
+                                                                    <Save className="h-5 w-5" />
                                                                 </Button>
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="icon"
-                                                                    className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                                                    onClick={() => handleDeleteOrder(order.id, order.name)}
+                                                                    className="h-6 w-6"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setEditingDrinkIds(prev => prev.filter(id => id !== order.id));
+                                                                    }}
+                                                                >
+                                                                    <X className="h-3 w-3" />
+                                                                </Button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleDeleteOrder(order.id, order.name);
+                                                                    }}
+                                                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full text-red-500 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
                                                                 >
                                                                     <Trash2 className="h-4 w-4" />
-                                                                </Button>
+                                                                </button>
                                                             </>
                                                         ) : (
-                                                            <div className="font-medium text-sm">
-                                                                ¥{(order.price * order.quantity).toLocaleString()}
-                                                            </div>
+                                                            <>
+                                                                <div className="font-medium text-sm">
+                                                                    ¥{(order.price * order.quantity).toLocaleString()}
+                                                                </div>
+                                                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                                            </>
                                                         )}
                                                     </div>
                                                 </div>
@@ -2227,7 +2251,7 @@ export function SlipDetailModal({
                                             onClick={handleAddNominationFee}
                                             disabled={isAddingOrder}
                                         >
-                                            <Plus className="h-4 w-4" />
+                                            <Plus className="h-5 w-5" />
                                         </Button>
                                     </div>
                                 </div>
@@ -2244,12 +2268,35 @@ export function SlipDetailModal({
                                                     return "-";
                                                 }
                                             };
+                                            // ゲスト名を取得
+                                            const guestName = order.guestId
+                                                ? session?.session_guests?.find((sg: any) => sg.guest_id === order.guestId)?.profiles?.display_name
+                                                : null;
                                             return (
                                                 <div key={order.id} className="p-3 space-y-3">
-                                                    <div className="flex justify-between items-center">
+                                                    <div
+                                                        className={`flex justify-between items-center ${!isEditing ? 'cursor-pointer' : ''}`}
+                                                        onClick={() => {
+                                                            if (!isEditing) {
+                                                                setEditingNominationIds(prev => [...prev, order.id]);
+                                                                setEditingOrderValues(prev => ({
+                                                                    ...prev,
+                                                                    [order.id]: {
+                                                                        quantity: order.quantity,
+                                                                        amount: order.price,
+                                                                        castId: order.castId || "none",
+                                                                        guestId: order.guestId || "none",
+                                                                        startTime: order.startTime ? new Date(order.startTime).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) : "",
+                                                                        endTime: order.endTime ? new Date(order.endTime).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) : "",
+                                                                    }
+                                                                }));
+                                                            }
+                                                        }}
+                                                    >
                                                         <div className="space-y-1 flex-1">
                                                             <div className="text-xs font-medium">
                                                                 {order.castName ? `${order.castName}` : '指名料'}
+                                                                {guestName && <span className="text-muted-foreground ml-1">→ {guestName}</span>}
                                                             </div>
                                                             {!isEditing && (
                                                                 <>
@@ -2264,95 +2311,99 @@ export function SlipDetailModal({
                                                         </div>
                                                         <div className="flex items-center gap-2 ml-auto">
                                                             {!isEditing ? (
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="h-6 w-6"
-                                                                    onClick={() => {
-                                                                        setEditingNominationIds(prev => [...prev, order.id]);
-                                                                        setEditingOrderValues(prev => ({
-                                                                            ...prev,
-                                                                            [order.id]: {
-                                                                                quantity: order.quantity,
-                                                                                amount: order.price,
-                                                                                castId: order.castId || "none",
-                                                                                startTime: order.startTime ? new Date(order.startTime).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) : "",
-                                                                                endTime: order.endTime ? new Date(order.endTime).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) : "",
-                                                                            }
-                                                                        }));
-                                                                    }}
-                                                                >
-                                                                    <Pencil className="h-3 w-3" />
-                                                                </Button>
+                                                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
                                                             ) : (
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="h-6 w-6 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                                                    onClick={() => handleDeleteOrder(order.id, order.name)}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleDeleteOrder(order.id, order.name);
+                                                                    }}
+                                                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full text-red-500 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
                                                                 >
-                                                                    <Trash2 className="h-3 w-3" />
-                                                                </Button>
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                </button>
                                                             )}
                                                         </div>
                                                     </div>
                                                     {isEditing && (
                                                         <div className="grid grid-cols-1 gap-2">
-                                                            <div>
-                                                                <Label className="text-xs text-muted-foreground">キャスト</Label>
-                                                                <Select
-                                                                    value={editingOrderValues[order.id]?.castId || "none"}
-                                                                    onValueChange={(value) => handleEditOrderChange(order.id, 'castId', value)}
-                                                                >
-                                                                    <SelectTrigger className="h-11 text-base">
-                                                                        <SelectValue placeholder="キャストを選択" />
-                                                                    </SelectTrigger>
-                                                                    <SelectContent className="z-[100]" position="popper" sideOffset={4}>
-                                                                        <SelectItem value="none">なし</SelectItem>
-                                                                        {casts.map((cast) => (
-                                                                            <SelectItem key={cast.id} value={cast.id}>
-                                                                                {cast.display_name}
-                                                                            </SelectItem>
-                                                                        ))}
-                                                                    </SelectContent>
-                                                                </Select>
+                                                            <div className="grid grid-cols-2 gap-2">
+                                                                <div>
+                                                                    <Label className="text-xs font-medium text-gray-700 dark:text-gray-200">キャスト</Label>
+                                                                    <Select
+                                                                        value={editingOrderValues[order.id]?.castId || "none"}
+                                                                        onValueChange={(value) => handleEditOrderChange(order.id, 'castId', value)}
+                                                                    >
+                                                                        <SelectTrigger className="h-10 text-base">
+                                                                            <SelectValue placeholder="キャストを選択" />
+                                                                        </SelectTrigger>
+                                                                        <SelectContent className="z-[100]" position="popper" sideOffset={4}>
+                                                                            <SelectItem value="none">なし</SelectItem>
+                                                                            {casts.map((cast) => (
+                                                                                <SelectItem key={cast.id} value={cast.id}>
+                                                                                    {cast.display_name}
+                                                                                </SelectItem>
+                                                                            ))}
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                </div>
+                                                                <div>
+                                                                    <Label className="text-xs font-medium text-gray-700 dark:text-gray-200">ゲスト</Label>
+                                                                    <Select
+                                                                        value={editingOrderValues[order.id]?.guestId || "none"}
+                                                                        onValueChange={(value) => handleEditOrderChange(order.id, 'guestId', value)}
+                                                                    >
+                                                                        <SelectTrigger className="h-10 text-base">
+                                                                            <SelectValue placeholder="ゲストを選択" />
+                                                                        </SelectTrigger>
+                                                                        <SelectContent className="z-[100]" position="popper" sideOffset={4}>
+                                                                            <SelectItem value="none">なし</SelectItem>
+                                                                            {(session?.session_guests || []).map((sg: any) => (
+                                                                                <SelectItem key={sg.guest_id} value={sg.guest_id}>
+                                                                                    {sg.profiles?.display_name || "不明"}
+                                                                                </SelectItem>
+                                                                            ))}
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                </div>
                                                             </div>
                                                             <div className="grid grid-cols-2 gap-2">
                                                                 <div>
-                                                                    <Label className="text-xs text-muted-foreground">金額</Label>
+                                                                    <Label className="text-xs font-medium text-gray-700 dark:text-gray-200">金額</Label>
                                                                     <Input
                                                                         type="number"
                                                                         value={editingOrderValues[order.id]?.amount ?? order.price}
-                                                                        className="h-11 text-base"
+                                                                        className="h-10 text-base"
                                                                         onChange={(e) => handleEditOrderChange(order.id, 'amount', parseInt(e.target.value) || 0)}
                                                                     />
                                                                 </div>
                                                                 <div>
-                                                                    <Label className="text-xs text-muted-foreground">数量</Label>
+                                                                    <Label className="text-xs font-medium text-gray-700 dark:text-gray-200">数量</Label>
                                                                     <Input
                                                                         type="number"
                                                                         value={editingOrderValues[order.id]?.quantity ?? order.quantity}
-                                                                        className="h-11 text-base"
+                                                                        className="h-10 text-base"
                                                                         onChange={(e) => handleEditOrderChange(order.id, 'quantity', parseInt(e.target.value) || 0)}
                                                                     />
                                                                 </div>
                                                             </div>
                                                             <div className="grid grid-cols-2 gap-2">
                                                                 <div>
-                                                                    <Label className="text-xs text-muted-foreground">開始時刻</Label>
+                                                                    <Label className="text-xs font-medium text-gray-700 dark:text-gray-200">開始時刻</Label>
                                                                     <Input
                                                                         type="time"
                                                                         value={editingOrderValues[order.id]?.startTime || ""}
-                                                                        className="h-11 text-base"
+                                                                        className="h-10 text-base"
                                                                         onChange={(e) => handleEditOrderChange(order.id, 'startTime', e.target.value)}
                                                                     />
                                                                 </div>
                                                                 <div>
-                                                                    <Label className="text-xs text-muted-foreground">終了時刻</Label>
+                                                                    <Label className="text-xs font-medium text-gray-700 dark:text-gray-200">終了時刻</Label>
                                                                     <Input
                                                                         type="time"
                                                                         value={editingOrderValues[order.id]?.endTime || ""}
-                                                                        className="h-11 text-base"
+                                                                        className="h-10 text-base"
                                                                         onChange={(e) => handleEditOrderChange(order.id, 'endTime', e.target.value)}
                                                                     />
                                                                 </div>
@@ -2405,7 +2456,7 @@ export function SlipDetailModal({
                                             onClick={handleAddDouhanFee}
                                             disabled={isAddingOrder}
                                         >
-                                            <Plus className="h-4 w-4" />
+                                            <Plus className="h-5 w-5" />
                                         </Button>
                                     </div>
                                 </div>
@@ -2422,12 +2473,35 @@ export function SlipDetailModal({
                                                     return "-";
                                                 }
                                             };
+                                            // ゲスト名を取得
+                                            const guestName = order.guestId
+                                                ? session?.session_guests?.find((sg: any) => sg.guest_id === order.guestId)?.profiles?.display_name
+                                                : null;
                                             return (
                                                 <div key={order.id} className="p-3 space-y-3">
-                                                    <div className="flex justify-between items-center">
+                                                    <div
+                                                        className={`flex justify-between items-center ${!isEditing ? 'cursor-pointer' : ''}`}
+                                                        onClick={() => {
+                                                            if (!isEditing) {
+                                                                setEditingDouhanIds(prev => [...prev, order.id]);
+                                                                setEditingOrderValues(prev => ({
+                                                                    ...prev,
+                                                                    [order.id]: {
+                                                                        quantity: order.quantity,
+                                                                        amount: order.price,
+                                                                        castId: order.castId || "none",
+                                                                        guestId: order.guestId || "none",
+                                                                        startTime: order.startTime ? new Date(order.startTime).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) : "",
+                                                                        endTime: order.endTime ? new Date(order.endTime).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) : "",
+                                                                    }
+                                                                }));
+                                                            }
+                                                        }}
+                                                    >
                                                         <div className="space-y-1 flex-1">
                                                             <div className="text-xs font-medium">
                                                                 {order.castName ? `${order.castName}` : '同伴料'}
+                                                                {guestName && <span className="text-muted-foreground ml-1">→ {guestName}</span>}
                                                             </div>
                                                             {!isEditing && (
                                                                 <>
@@ -2442,95 +2516,99 @@ export function SlipDetailModal({
                                                         </div>
                                                         <div className="flex items-center gap-2 ml-auto">
                                                             {!isEditing ? (
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="h-6 w-6"
-                                                                    onClick={() => {
-                                                                        setEditingDouhanIds(prev => [...prev, order.id]);
-                                                                        setEditingOrderValues(prev => ({
-                                                                            ...prev,
-                                                                            [order.id]: {
-                                                                                quantity: order.quantity,
-                                                                                amount: order.price,
-                                                                                castId: order.castId || "none",
-                                                                                startTime: order.startTime ? new Date(order.startTime).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) : "",
-                                                                                endTime: order.endTime ? new Date(order.endTime).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) : "",
-                                                                            }
-                                                                        }));
-                                                                    }}
-                                                                >
-                                                                    <Pencil className="h-3 w-3" />
-                                                                </Button>
+                                                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
                                                             ) : (
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="h-6 w-6 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                                                    onClick={() => handleDeleteOrder(order.id, order.name)}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleDeleteOrder(order.id, order.name);
+                                                                    }}
+                                                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full text-red-500 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
                                                                 >
-                                                                    <Trash2 className="h-3 w-3" />
-                                                                </Button>
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                </button>
                                                             )}
                                                         </div>
                                                     </div>
                                                     {isEditing && (
                                                         <div className="grid grid-cols-1 gap-2">
-                                                            <div>
-                                                                <Label className="text-xs text-muted-foreground">キャスト</Label>
-                                                                <Select
-                                                                    value={editingOrderValues[order.id]?.castId || "none"}
-                                                                    onValueChange={(value) => handleEditOrderChange(order.id, 'castId', value)}
-                                                                >
-                                                                    <SelectTrigger className="h-11 text-base">
-                                                                        <SelectValue placeholder="キャストを選択" />
-                                                                    </SelectTrigger>
-                                                                    <SelectContent className="z-[100]" position="popper" sideOffset={4}>
-                                                                        <SelectItem value="none">なし</SelectItem>
-                                                                        {casts.map((cast) => (
-                                                                            <SelectItem key={cast.id} value={cast.id}>
-                                                                                {cast.display_name}
-                                                                            </SelectItem>
-                                                                        ))}
-                                                                    </SelectContent>
-                                                                </Select>
+                                                            <div className="grid grid-cols-2 gap-2">
+                                                                <div>
+                                                                    <Label className="text-xs font-medium text-gray-700 dark:text-gray-200">キャスト</Label>
+                                                                    <Select
+                                                                        value={editingOrderValues[order.id]?.castId || "none"}
+                                                                        onValueChange={(value) => handleEditOrderChange(order.id, 'castId', value)}
+                                                                    >
+                                                                        <SelectTrigger className="h-10 text-base">
+                                                                            <SelectValue placeholder="キャストを選択" />
+                                                                        </SelectTrigger>
+                                                                        <SelectContent className="z-[100]" position="popper" sideOffset={4}>
+                                                                            <SelectItem value="none">なし</SelectItem>
+                                                                            {casts.map((cast) => (
+                                                                                <SelectItem key={cast.id} value={cast.id}>
+                                                                                    {cast.display_name}
+                                                                                </SelectItem>
+                                                                            ))}
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                </div>
+                                                                <div>
+                                                                    <Label className="text-xs font-medium text-gray-700 dark:text-gray-200">ゲスト</Label>
+                                                                    <Select
+                                                                        value={editingOrderValues[order.id]?.guestId || "none"}
+                                                                        onValueChange={(value) => handleEditOrderChange(order.id, 'guestId', value)}
+                                                                    >
+                                                                        <SelectTrigger className="h-10 text-base">
+                                                                            <SelectValue placeholder="ゲストを選択" />
+                                                                        </SelectTrigger>
+                                                                        <SelectContent className="z-[100]" position="popper" sideOffset={4}>
+                                                                            <SelectItem value="none">なし</SelectItem>
+                                                                            {(session?.session_guests || []).map((sg: any) => (
+                                                                                <SelectItem key={sg.guest_id} value={sg.guest_id}>
+                                                                                    {sg.profiles?.display_name || "不明"}
+                                                                                </SelectItem>
+                                                                            ))}
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                </div>
                                                             </div>
                                                             <div className="grid grid-cols-2 gap-2">
                                                                 <div>
-                                                                    <Label className="text-xs text-muted-foreground">金額</Label>
+                                                                    <Label className="text-xs font-medium text-gray-700 dark:text-gray-200">金額</Label>
                                                                     <Input
                                                                         type="number"
                                                                         value={editingOrderValues[order.id]?.amount ?? order.price}
-                                                                        className="h-11 text-base"
+                                                                        className="h-10 text-base"
                                                                         onChange={(e) => handleEditOrderChange(order.id, 'amount', parseInt(e.target.value) || 0)}
                                                                     />
                                                                 </div>
                                                                 <div>
-                                                                    <Label className="text-xs text-muted-foreground">数量</Label>
+                                                                    <Label className="text-xs font-medium text-gray-700 dark:text-gray-200">数量</Label>
                                                                     <Input
                                                                         type="number"
                                                                         value={editingOrderValues[order.id]?.quantity ?? order.quantity}
-                                                                        className="h-11 text-base"
+                                                                        className="h-10 text-base"
                                                                         onChange={(e) => handleEditOrderChange(order.id, 'quantity', parseInt(e.target.value) || 0)}
                                                                     />
                                                                 </div>
                                                             </div>
                                                             <div className="grid grid-cols-2 gap-2">
                                                                 <div>
-                                                                    <Label className="text-xs text-muted-foreground">開始時刻</Label>
+                                                                    <Label className="text-xs font-medium text-gray-700 dark:text-gray-200">開始時刻</Label>
                                                                     <Input
                                                                         type="time"
                                                                         value={editingOrderValues[order.id]?.startTime || ""}
-                                                                        className="h-11 text-base"
+                                                                        className="h-10 text-base"
                                                                         onChange={(e) => handleEditOrderChange(order.id, 'startTime', e.target.value)}
                                                                     />
                                                                 </div>
                                                                 <div>
-                                                                    <Label className="text-xs text-muted-foreground">終了時刻</Label>
+                                                                    <Label className="text-xs font-medium text-gray-700 dark:text-gray-200">終了時刻</Label>
                                                                     <Input
                                                                         type="time"
                                                                         value={editingOrderValues[order.id]?.endTime || ""}
-                                                                        className="h-11 text-base"
+                                                                        className="h-10 text-base"
                                                                         onChange={(e) => handleEditOrderChange(order.id, 'endTime', e.target.value)}
                                                                     />
                                                                 </div>
@@ -2583,7 +2661,7 @@ export function SlipDetailModal({
                                             onClick={handleAddCompanionFee}
                                             disabled={isAddingOrder}
                                         >
-                                            <Plus className="h-4 w-4" />
+                                            <Plus className="h-5 w-5" />
                                         </Button>
                                     </div>
                                 </div>
@@ -2600,12 +2678,35 @@ export function SlipDetailModal({
                                                     return "-";
                                                 }
                                             };
+                                            // ゲスト名を取得
+                                            const guestName = order.guestId
+                                                ? session?.session_guests?.find((sg: any) => sg.guest_id === order.guestId)?.profiles?.display_name
+                                                : null;
                                             return (
                                                 <div key={order.id} className="p-3 space-y-3">
-                                                    <div className="flex justify-between items-center">
+                                                    <div
+                                                        className={`flex justify-between items-center ${!isEditing ? 'cursor-pointer' : ''}`}
+                                                        onClick={() => {
+                                                            if (!isEditing) {
+                                                                setEditingCompanionIds(prev => [...prev, order.id]);
+                                                                setEditingOrderValues(prev => ({
+                                                                    ...prev,
+                                                                    [order.id]: {
+                                                                        quantity: order.quantity,
+                                                                        amount: order.price,
+                                                                        castId: order.castId || "none",
+                                                                        guestId: order.guestId || "none",
+                                                                        startTime: order.startTime ? new Date(order.startTime).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) : "",
+                                                                        endTime: order.endTime ? new Date(order.endTime).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) : "",
+                                                                    }
+                                                                }));
+                                                            }
+                                                        }}
+                                                    >
                                                         <div className="space-y-1 flex-1">
                                                             <div className="text-xs font-medium">
                                                                 {order.castName ? `${order.castName}` : '場内料金'}
+                                                                {guestName && <span className="text-muted-foreground ml-1">→ {guestName}</span>}
                                                             </div>
                                                             {!isEditing && (
                                                                 <>
@@ -2620,95 +2721,99 @@ export function SlipDetailModal({
                                                         </div>
                                                         <div className="flex items-center gap-2 ml-auto">
                                                             {!isEditing ? (
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="h-6 w-6"
-                                                                    onClick={() => {
-                                                                        setEditingCompanionIds(prev => [...prev, order.id]);
-                                                                        setEditingOrderValues(prev => ({
-                                                                            ...prev,
-                                                                            [order.id]: {
-                                                                                quantity: order.quantity,
-                                                                                amount: order.price,
-                                                                                castId: order.castId || "none",
-                                                                                startTime: order.startTime ? new Date(order.startTime).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) : "",
-                                                                                endTime: order.endTime ? new Date(order.endTime).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) : "",
-                                                                            }
-                                                                        }));
-                                                                    }}
-                                                                >
-                                                                    <Pencil className="h-3 w-3" />
-                                                                </Button>
+                                                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
                                                             ) : (
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="h-6 w-6 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                                                    onClick={() => handleDeleteOrder(order.id, order.name)}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleDeleteOrder(order.id, order.name);
+                                                                    }}
+                                                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full text-red-500 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
                                                                 >
-                                                                    <Trash2 className="h-3 w-3" />
-                                                                </Button>
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                </button>
                                                             )}
                                                         </div>
                                                     </div>
                                                     {isEditing && (
                                                         <div className="grid grid-cols-1 gap-2">
-                                                            <div>
-                                                                <Label className="text-xs text-muted-foreground">キャスト</Label>
-                                                                <Select
-                                                                    value={editingOrderValues[order.id]?.castId || "none"}
-                                                                    onValueChange={(value) => handleEditOrderChange(order.id, 'castId', value)}
-                                                                >
-                                                                    <SelectTrigger className="h-11 text-base">
-                                                                        <SelectValue placeholder="キャストを選択" />
-                                                                    </SelectTrigger>
-                                                                    <SelectContent className="z-[100]" position="popper" sideOffset={4}>
-                                                                        <SelectItem value="none">なし</SelectItem>
-                                                                        {casts.map((cast) => (
-                                                                            <SelectItem key={cast.id} value={cast.id}>
-                                                                                {cast.display_name}
-                                                                            </SelectItem>
-                                                                        ))}
-                                                                    </SelectContent>
-                                                                </Select>
+                                                            <div className="grid grid-cols-2 gap-2">
+                                                                <div>
+                                                                    <Label className="text-xs font-medium text-gray-700 dark:text-gray-200">キャスト</Label>
+                                                                    <Select
+                                                                        value={editingOrderValues[order.id]?.castId || "none"}
+                                                                        onValueChange={(value) => handleEditOrderChange(order.id, 'castId', value)}
+                                                                    >
+                                                                        <SelectTrigger className="h-10 text-base">
+                                                                            <SelectValue placeholder="キャストを選択" />
+                                                                        </SelectTrigger>
+                                                                        <SelectContent className="z-[100]" position="popper" sideOffset={4}>
+                                                                            <SelectItem value="none">なし</SelectItem>
+                                                                            {casts.map((cast) => (
+                                                                                <SelectItem key={cast.id} value={cast.id}>
+                                                                                    {cast.display_name}
+                                                                                </SelectItem>
+                                                                            ))}
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                </div>
+                                                                <div>
+                                                                    <Label className="text-xs font-medium text-gray-700 dark:text-gray-200">ゲスト</Label>
+                                                                    <Select
+                                                                        value={editingOrderValues[order.id]?.guestId || "none"}
+                                                                        onValueChange={(value) => handleEditOrderChange(order.id, 'guestId', value)}
+                                                                    >
+                                                                        <SelectTrigger className="h-10 text-base">
+                                                                            <SelectValue placeholder="ゲストを選択" />
+                                                                        </SelectTrigger>
+                                                                        <SelectContent className="z-[100]" position="popper" sideOffset={4}>
+                                                                            <SelectItem value="none">なし</SelectItem>
+                                                                            {(session?.session_guests || []).map((sg: any) => (
+                                                                                <SelectItem key={sg.guest_id} value={sg.guest_id}>
+                                                                                    {sg.profiles?.display_name || "不明"}
+                                                                                </SelectItem>
+                                                                            ))}
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                </div>
                                                             </div>
                                                             <div className="grid grid-cols-2 gap-2">
                                                                 <div>
-                                                                    <Label className="text-xs text-muted-foreground">金額</Label>
+                                                                    <Label className="text-xs font-medium text-gray-700 dark:text-gray-200">金額</Label>
                                                                     <Input
                                                                         type="number"
                                                                         value={editingOrderValues[order.id]?.amount ?? order.price}
-                                                                        className="h-11 text-base"
+                                                                        className="h-10 text-base"
                                                                         onChange={(e) => handleEditOrderChange(order.id, 'amount', parseInt(e.target.value) || 0)}
                                                                     />
                                                                 </div>
                                                                 <div>
-                                                                    <Label className="text-xs text-muted-foreground">数量</Label>
+                                                                    <Label className="text-xs font-medium text-gray-700 dark:text-gray-200">数量</Label>
                                                                     <Input
                                                                         type="number"
                                                                         value={editingOrderValues[order.id]?.quantity ?? order.quantity}
-                                                                        className="h-11 text-base"
+                                                                        className="h-10 text-base"
                                                                         onChange={(e) => handleEditOrderChange(order.id, 'quantity', parseInt(e.target.value) || 0)}
                                                                     />
                                                                 </div>
                                                             </div>
                                                             <div className="grid grid-cols-2 gap-2">
                                                                 <div>
-                                                                    <Label className="text-xs text-muted-foreground">開始時刻</Label>
+                                                                    <Label className="text-xs font-medium text-gray-700 dark:text-gray-200">開始時刻</Label>
                                                                     <Input
                                                                         type="time"
                                                                         value={editingOrderValues[order.id]?.startTime || ""}
-                                                                        className="h-11 text-base"
+                                                                        className="h-10 text-base"
                                                                         onChange={(e) => handleEditOrderChange(order.id, 'startTime', e.target.value)}
                                                                     />
                                                                 </div>
                                                                 <div>
-                                                                    <Label className="text-xs text-muted-foreground">終了時刻</Label>
+                                                                    <Label className="text-xs font-medium text-gray-700 dark:text-gray-200">終了時刻</Label>
                                                                     <Input
                                                                         type="time"
                                                                         value={editingOrderValues[order.id]?.endTime || ""}
-                                                                        className="h-11 text-base"
+                                                                        className="h-10 text-base"
                                                                         onChange={(e) => handleEditOrderChange(order.id, 'endTime', e.target.value)}
                                                                     />
                                                                 </div>
@@ -2767,7 +2872,7 @@ export function SlipDetailModal({
                                                 }}
                                                 disabled={isAddingOrder}
                                             >
-                                                <Plus className="h-4 w-4" />
+                                                <Plus className="h-5 w-5" />
                                             </Button>
                                         </div>
                                     </div>
@@ -2775,7 +2880,7 @@ export function SlipDetailModal({
                                         {orders
                                             .filter(o => {
                                                 // その他を識別: menu_idがnullでitem_nameが存在し、特殊料金名でない
-                                                const specialFeeNames = ['セット料金', '延長料金', '指名料', '場内料金', '同伴料'];
+                                                const specialFeeNames = ['セット料金', '延長料金', '指名料', '場内料金', '同伴料', '待機', 'ヘルプ', '接客中', '終了'];
                                                 return o.menu_id === null &&
                                                     o.item_name &&
                                                     !specialFeeNames.includes(o.item_name);
@@ -2785,7 +2890,21 @@ export function SlipDetailModal({
                                                 const totalAmount = order.price * order.quantity;
                                                 const isNegative = totalAmount < 0;
                                                 return (
-                                                    <div key={order.id} className="p-3 flex justify-between items-center">
+                                                    <div
+                                                        key={order.id}
+                                                        className={`p-3 flex justify-between items-center ${!isEditing ? 'cursor-pointer' : ''}`}
+                                                        onClick={() => {
+                                                            if (!isEditing) {
+                                                                setEditingDiscountIds(prev => [...prev, order.id]);
+                                                                setEditingOrderValues(prev => ({
+                                                                    ...prev,
+                                                                    [order.id]: {
+                                                                        amount: Math.abs(order.price),
+                                                                    }
+                                                                }));
+                                                            }
+                                                        }}
+                                                    >
                                                         <div className="space-y-1 flex-1">
                                                             <div className="text-xs font-medium">{order.name}</div>
                                                             <div className={`text-xs ${isNegative ? 'text-red-500' : 'text-green-600'}`}>
@@ -2793,40 +2912,14 @@ export function SlipDetailModal({
                                                             </div>
                                                         </div>
                                                         <div className="flex items-center gap-3 ml-auto">
-                                                            {!isEditing ? (
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="h-6 w-6"
-                                                                    onClick={() => {
-                                                                        setEditingDiscountIds(prev => [...prev, order.id]);
-                                                                        setEditingOrderValues(prev => ({
-                                                                            ...prev,
-                                                                            [order.id]: {
-                                                                                amount: Math.abs(order.price),
-                                                                            }
-                                                                        }));
-                                                                    }}
-                                                                >
-                                                                    <Pencil className="h-3 w-3" />
-                                                                </Button>
-                                                            ) : (
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="h-6 w-6 text-green-600 hover:text-green-700 hover:bg-green-50"
-                                                                    onClick={() => setEditingDiscountIds(prev => prev.filter(id => id !== order.id))}
-                                                                >
-                                                                    <Check className="h-4 w-4" />
-                                                                </Button>
-                                                            )}
                                                             {isEditing ? (
                                                                 <>
                                                                     <div className="w-24">
                                                                         <Input
                                                                             type="number"
                                                                             value={editingOrderValues[order.id]?.amount ?? Math.abs(order.price)}
-                                                                            className="h-9 text-sm"
+                                                                            className="h-9 text-base"
+                                                                            onClick={(e) => e.stopPropagation()}
                                                                             onChange={(e) => handleEditOrderChange(order.id, 'amount', -Math.abs(parseInt(e.target.value) || 0))}
                                                                         />
                                                                     </div>
@@ -2834,26 +2927,43 @@ export function SlipDetailModal({
                                                                         variant="ghost"
                                                                         size="icon"
                                                                         className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                                                        onClick={async () => {
+                                                                        onClick={async (e) => {
+                                                                            e.stopPropagation();
                                                                             await handleSaveOrder(order.id);
                                                                             setEditingDiscountIds(prev => prev.filter(id => id !== order.id));
                                                                         }}
                                                                     >
-                                                                        <Save className="h-4 w-4" />
+                                                                        <Save className="h-5 w-5" />
                                                                     </Button>
                                                                     <Button
                                                                         variant="ghost"
                                                                         size="icon"
-                                                                        className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                                                        onClick={() => handleDeleteOrder(order.id, order.name)}
+                                                                        className="h-6 w-6"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setEditingDiscountIds(prev => prev.filter(id => id !== order.id));
+                                                                        }}
+                                                                    >
+                                                                        <X className="h-3 w-3" />
+                                                                    </Button>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleDeleteOrder(order.id, order.name);
+                                                                        }}
+                                                                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-red-500 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
                                                                     >
                                                                         <Trash2 className="h-4 w-4" />
-                                                                    </Button>
+                                                                    </button>
                                                                 </>
                                                             ) : (
-                                                                <div className="font-medium text-sm text-red-600">
-                                                                    -¥{Math.abs(order.price * order.quantity).toLocaleString()}
-                                                                </div>
+                                                                <>
+                                                                    <div className="font-medium text-sm text-red-600">
+                                                                        -¥{Math.abs(order.price * order.quantity).toLocaleString()}
+                                                                    </div>
+                                                                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                                                </>
                                                             )}
                                                         </div>
                                                     </div>
@@ -2897,7 +3007,7 @@ export function SlipDetailModal({
                                             className="w-full h-11 bg-blue-600 text-white hover:bg-blue-700"
                                             onClick={() => setIsReopenDialogOpen(true)}
                                         >
-                                            <RotateCcw className="h-4 w-4 mr-2" />
+                                            <RotateCcw className="h-5 w-5 mr-2" />
                                             進行中に戻す
                                         </Button>
                                     ) : (
@@ -2916,6 +3026,15 @@ export function SlipDetailModal({
                                         戻る
                                     </Button>
                                 </div>
+                            )}
+
+                            {/* Comments Section - shared with floor modal */}
+                            {sessionId && (
+                                <CommentSection
+                                    targetType="session"
+                                    targetId={sessionId}
+                                    isOpen={isOpen}
+                                />
                             )}
                         </div>
                         </div>
@@ -2946,7 +3065,10 @@ export function SlipDetailModal({
                         isOpen={isCastPlacementOpen}
                         onClose={() => {
                             setIsCastPlacementOpen(false);
-                            setSelectedFeeType(null);
+                            // ゲスト選択中でなければselectedFeeTypeをクリア
+                            if (!isGuestSelectOpen && !selectedCastForFee) {
+                                setSelectedFeeType(null);
+                            }
                         }}
                         onProfileSelect={handleCastSelectForFee}
                         mode="cast"
@@ -2985,18 +3107,18 @@ export function SlipDetailModal({
                             </div>
                             <div className="space-y-4" style={{ pointerEvents: 'auto' }}>
                                 <div className="space-y-2">
-                                    <Label>項目名</Label>
+                                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">項目名</Label>
                                     <input
                                         type="text"
                                         value={discountName}
                                         onChange={(e) => setDiscountName(e.target.value)}
                                         placeholder="項目名を入力"
-                                        className="flex h-11 w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-base text-slate-900 placeholder:text-slate-400 shadow-sm transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-950 dark:text-slate-50 dark:border-slate-800"
+                                        className="flex h-11 w-full rounded-xl border border-gray-300 bg-white px-4 py-2 text-base text-gray-900 placeholder:text-gray-400 shadow-sm transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:bg-gray-950 dark:text-gray-50 dark:border-gray-800"
                                         style={{ pointerEvents: 'auto' }}
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>種類</Label>
+                                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">種類</Label>
                                     <div className="relative inline-flex h-10 items-center rounded-full bg-gray-100 dark:bg-gray-800 p-1">
                                         <div
                                             className="absolute h-8 rounded-full bg-white dark:bg-gray-700 shadow-sm transition-transform duration-300 ease-in-out"
@@ -3023,13 +3145,13 @@ export function SlipDetailModal({
                                     </div>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>金額</Label>
+                                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">金額</Label>
                                     <input
                                         type="number"
                                         value={discountAmount || ''}
                                         onChange={(e) => setDiscountAmount(parseInt(e.target.value) || 0)}
                                         placeholder="0"
-                                        className="flex h-11 w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-base text-slate-900 placeholder:text-slate-400 shadow-sm transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-950 dark:text-slate-50 dark:border-slate-800"
+                                        className="flex h-11 w-full rounded-xl border border-gray-300 bg-white px-4 py-2 text-base text-gray-900 placeholder:text-gray-400 shadow-sm transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:bg-gray-950 dark:text-gray-50 dark:border-gray-800"
                                         min={0}
                                         style={{ pointerEvents: 'auto' }}
                                     />
@@ -3066,7 +3188,7 @@ export function SlipDetailModal({
                 <>
                     <div
                         className="fixed inset-0 z-[500] bg-black/50"
-                        onClick={() => setIsDeleteDialogOpen(false)}
+                        onClick={() => !isDeleting && setIsDeleteDialogOpen(false)}
                     />
                     <div className="fixed inset-0 z-[501] flex items-center justify-center pointer-events-none">
                         <div className="pointer-events-auto w-[calc(100%-2rem)] max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-700 dark:bg-gray-900">
@@ -3075,11 +3197,11 @@ export function SlipDetailModal({
                                 この操作は取り消せません。伝票と関連するセッション、注文、キャスト割り当て情報もすべて削除されます。
                             </p>
                             <div className="flex justify-end gap-2">
-                                <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+                                <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} disabled={isDeleting}>
                                     キャンセル
                                 </Button>
-                                <Button variant="destructive" onClick={handleDeleteSession}>
-                                    削除
+                                <Button variant="destructive" onClick={handleDeleteSession} disabled={isDeleting}>
+                                    {isDeleting ? "削除中..." : "削除"}
                                 </Button>
                             </div>
                         </div>
@@ -3089,24 +3211,21 @@ export function SlipDetailModal({
             )}
 
             {/* Checkout Confirmation Dialog */}
-            {isCheckoutDialogOpen && (
+            {isCheckoutDialogOpen && typeof document !== 'undefined' && createPortal(
                 <>
                     <div
-                        className="fixed inset-0 z-[200] bg-black/50"
+                        className="fixed inset-0 z-[500] bg-black/50"
                         onClick={() => !isCheckingOut && setIsCheckoutDialogOpen(false)}
                     />
-                    <div className="fixed inset-0 z-[201] flex items-center justify-center pointer-events-none">
+                    <div className="fixed inset-0 z-[501] flex items-center justify-center pointer-events-none">
                         <div className="pointer-events-auto w-[calc(100%-2rem)] max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-700 dark:bg-gray-900">
                             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">会計終了</h2>
                             <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
                                 会計を確定して退店処理を行いますか？
                             </p>
-                            <div className="flex justify-end gap-2">
-                                <Button variant="outline" onClick={() => setIsCheckoutDialogOpen(false)} disabled={isCheckingOut}>
-                                    キャンセル
-                                </Button>
+                            <div className="flex flex-col gap-2">
                                 <Button
-                                    className="bg-blue-600 text-white hover:bg-blue-700"
+                                    className="w-full bg-blue-600 text-white hover:bg-blue-700"
                                     disabled={isCheckingOut}
                                     onClick={async () => {
                                         if (!sessionId) return;
@@ -3127,20 +3246,24 @@ export function SlipDetailModal({
                                 >
                                     {isCheckingOut ? "処理中..." : "会計終了"}
                                 </Button>
+                                <Button variant="outline" className="w-full" onClick={() => setIsCheckoutDialogOpen(false)} disabled={isCheckingOut}>
+                                    キャンセル
+                                </Button>
                             </div>
                         </div>
                     </div>
-                </>
+                </>,
+                document.body
             )}
 
             {/* Reopen Confirmation Dialog */}
-            {isReopenDialogOpen && (
+            {isReopenDialogOpen && typeof document !== 'undefined' && createPortal(
                 <>
                     <div
-                        className="fixed inset-0 z-[200] bg-black/50"
+                        className="fixed inset-0 z-[500] bg-black/50"
                         onClick={() => !isReopening && setIsReopenDialogOpen(false)}
                     />
-                    <div className="fixed inset-0 z-[201] flex items-center justify-center pointer-events-none">
+                    <div className="fixed inset-0 z-[501] flex items-center justify-center pointer-events-none">
                         <div className="pointer-events-auto w-[calc(100%-2rem)] max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-700 dark:bg-gray-900">
                             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">進行中に戻す</h2>
                             <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
@@ -3175,7 +3298,8 @@ export function SlipDetailModal({
                             </div>
                         </div>
                     </div>
-                </>
+                </>,
+                document.body
             )}
 
             {/* Placement Modal for Guest Selection */}
@@ -3219,7 +3343,7 @@ export function SlipDetailModal({
                                 <div className="h-8 w-8" />
                             </div>
                             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                                {selectedCastForFee?.display_name}の{selectedFeeType === 'nomination' ? '指名料' : selectedFeeType === 'douhan' ? '同伴料' : '場内料金'}を追加するゲストを選択してください
+                                {selectedCastForFee?.display_name}の{selectedCastForFee?.feeType === 'nomination' ? '指名料' : selectedCastForFee?.feeType === 'douhan' ? '同伴料' : '場内料金'}を追加するゲストを選択してください
                             </p>
                             <div className="space-y-2">
                                 {(session?.session_guests || []).map((sg: any) => {
@@ -3230,13 +3354,13 @@ export function SlipDetailModal({
                                             key={sg.id}
                                             type="button"
                                             onClick={() => handleGuestSelectForFee(sg.guest_id)}
-                                            className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                                            className="w-full flex items-center gap-3 p-3 rounded-3xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                                         >
                                             <Avatar className="h-10 w-10">
                                                 <AvatarImage src={guest.avatar_url} />
                                                 <AvatarFallback>{guest.display_name?.[0] || "?"}</AvatarFallback>
                                             </Avatar>
-                                            <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                            <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                                 {guest.display_name || "不明"}
                                             </span>
                                         </button>

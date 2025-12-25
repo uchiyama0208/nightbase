@@ -280,7 +280,7 @@ export function OrderPageContent({ store, table, session: initialSession, catego
                                 <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
                                 <>
-                                    <Bell className="h-4 w-4 mr-1" />
+                                    <Bell className="h-5 w-5 mr-1" />
                                     呼ぶ
                                 </>
                             )}
@@ -357,7 +357,7 @@ export function OrderPageContent({ store, table, session: initialSession, catego
                                                 className="w-full rounded-full bg-blue-600 hover:bg-blue-700 text-white"
                                                 onClick={() => addToCart(menu)}
                                             >
-                                                <Plus className="h-4 w-4 mr-1" />
+                                                <Plus className="h-5 w-5 mr-1" />
                                                 追加
                                             </Button>
                                         ) : (
@@ -378,7 +378,7 @@ export function OrderPageContent({ store, table, session: initialSession, catego
                                                     className="h-8 w-8 rounded-full bg-blue-600 hover:bg-blue-700 text-white"
                                                     onClick={() => addToCart(menu)}
                                                 >
-                                                    <Plus className="h-4 w-4" />
+                                                    <Plus className="h-5 w-5" />
                                                 </Button>
                                             </div>
                                         )}
@@ -401,7 +401,7 @@ export function OrderPageContent({ store, table, session: initialSession, catego
                 <button
                     type="button"
                     onClick={() => setIsCartOpen(true)}
-                    className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white rounded-full px-6 py-4 shadow-lg flex items-center gap-3 transition-transform hover:scale-105 active:scale-95"
+                    className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white rounded-full px-6 py-4 shadow-md flex items-center gap-3 transition-transform hover:scale-105 active:scale-95"
                 >
                     <div className="relative">
                         <ShoppingCart className="h-6 w-6" />
@@ -486,7 +486,7 @@ export function OrderPageContent({ store, table, session: initialSession, catego
                                             className="h-8 w-8 rounded-full bg-blue-600 hover:bg-blue-700 text-white"
                                             onClick={() => addToCart(item.menu)}
                                         >
-                                            <Plus className="h-4 w-4" />
+                                            <Plus className="h-5 w-5" />
                                         </Button>
                                     </div>
                                 </div>
@@ -507,7 +507,7 @@ export function OrderPageContent({ store, table, session: initialSession, catego
                                 disabled={isSubmitting}
                             >
                                 {isSubmitting ? (
-                                    <Loader2 className="h-5 w-5 animate-spin" />
+                                    <Loader2 className="h-4 w-4 animate-spin" />
                                 ) : (
                                     "注文を確定する"
                                 )}
@@ -585,7 +585,7 @@ export function OrderPageContent({ store, table, session: initialSession, catego
                                                     </Badge>
                                                 ) : (
                                                     <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
-                                                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
                                                         準備中
                                                     </Badge>
                                                 )}

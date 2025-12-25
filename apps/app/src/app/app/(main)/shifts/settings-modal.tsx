@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Loader2, ChevronDown } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Loader2, ChevronLeft } from "lucide-react";
 import {
     Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
@@ -19,8 +19,9 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { useGlobalLoading } from "@/components/global-loading";
+import { toast } from "@/components/ui/use-toast";
 import { updateStoreShiftDefaults, getAutomationSettings, updateAutomationSettings } from "./actions";
-import { useRouter } from "next/navigation";
 
 interface StoreDefaults {
     default_cast_start_time: string | null;
@@ -53,10 +54,13 @@ export function SettingsModal({
     storeId,
     storeDefaults,
 }: SettingsModalProps) {
-    const router = useRouter();
-    const [isSubmitting, setIsSubmitting] = useState(false);
+    const queryClient = useQueryClient();
+    const { showLoading, hideLoading } = useGlobalLoading();
     const [isLoading, setIsLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<"basic" | "automation">("basic");
+    const isInitializedRef = useRef(false);
+    const [hasUserEdited, setHasUserEdited] = useState(false);
+    const autoSaveRef = useRef<(() => Promise<void>) | undefined>(undefined);
 
     // Basic settings
     const [castStartTime, setCastStartTime] = useState(
@@ -84,6 +88,7 @@ export function SettingsModal({
 
     useEffect(() => {
         if (isOpen) {
+            setHasUserEdited(false);
             loadAutomationSettings();
         }
     }, [isOpen]);
@@ -105,12 +110,16 @@ export function SettingsModal({
         } catch (error) {
             console.error("Failed to load automation settings:", error);
         } finally {
-            setIsLoading(false);
+                setIsLoading(false);
+            isInitializedRef.current = true;
         }
     };
 
-    const handleSubmit = async () => {
-        setIsSubmitting(true);
+    // Auto-save function
+    const autoSave = useCallback(async () => {
+        if (!isInitializedRef.current) return;
+
+        showLoading("保存中...");
         try {
             // Update basic settings
             const basicResult = await updateStoreShiftDefaults(storeId, {
@@ -133,27 +142,98 @@ export function SettingsModal({
             });
 
             if (basicResult.success && automationResult.success) {
-                router.refresh();
-                onClose();
+                await queryClient.invalidateQueries({ queryKey: ["shifts"] });
             } else {
-                console.error("Failed to update settings");
+                toast({
+                    title: "エラー",
+                    description: "設定の保存に失敗しました",
+                    variant: "destructive",
+                });
             }
         } catch (error) {
             console.error("Error updating settings:", error);
+            toast({
+                title: "エラー",
+                description: "設定の保存に失敗しました",
+                variant: "destructive",
+            });
         } finally {
-            setIsSubmitting(false);
+            hideLoading();
         }
-    };
+    }, [
+        storeId,
+        castStartTime,
+        castEndTime,
+        staffStartTime,
+        staffEndTime,
+        automationEnabled,
+        targetRoles,
+        periodType,
+        sendDayOffset,
+        sendHour,
+        reminderEnabled,
+        reminderDayOffset,
+        reminderHour,
+        queryClient,
+        showLoading,
+        hideLoading,
+    ]);
+
+    // Update autoSaveRef when autoSave changes
+    useEffect(() => {
+        autoSaveRef.current = autoSave;
+    }, [autoSave]);
+
+    // Debounced auto-save effect
+    useEffect(() => {
+        if (!isInitializedRef.current || !hasUserEdited) return;
+
+        const timeoutId = setTimeout(() => {
+            autoSaveRef.current?.();
+        }, 800);
+
+        return () => clearTimeout(timeoutId);
+    }, [
+        hasUserEdited,
+        castStartTime,
+        castEndTime,
+        staffStartTime,
+        staffEndTime,
+        automationEnabled,
+        targetRoles,
+        periodType,
+        sendDayOffset,
+        sendHour,
+        reminderEnabled,
+        reminderDayOffset,
+        reminderHour,
+    ]);
 
     const tabIndex = activeTab === "basic" ? 0 : 1;
 
     return (
-        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0">
-                <DialogHeader className="border-b px-4 py-3 flex-shrink-0 mb-0">
-                    <DialogTitle className="text-lg font-semibold text-gray-900 dark:text-white">
+        <Dialog
+            open={isOpen}
+            onOpenChange={(open) => {
+                if (!open) {
+                    setHasUserEdited(false);
+                    onClose();
+                }
+            }}
+        >
+            <DialogContent className="sm:max-w-lg p-0 overflow-hidden flex flex-col max-h-[90vh] rounded-2xl">
+                <DialogHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900 flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    >
+                        <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <DialogTitle className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white truncate">
                         シフト設定
                     </DialogTitle>
+                    <div className="w-8 h-8" />
                 </DialogHeader>
 
                 {/* Tab Switcher */}
@@ -192,7 +272,7 @@ export function SettingsModal({
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-4 min-h-0">
+                <div className="flex-1 overflow-y-auto p-6">
                     {isLoading ? (
                         <div className="flex items-center justify-center py-8">
                             <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
@@ -212,7 +292,10 @@ export function SettingsModal({
                                         <Input
                                             type="time"
                                             value={castStartTime}
-                                            onChange={(e) => setCastStartTime(e.target.value)}
+                                            onChange={(e) => {
+                                                setCastStartTime(e.target.value);
+                                                setHasUserEdited(true);
+                                            }}
                                             className="h-10"
                                         />
                                     </div>
@@ -224,7 +307,10 @@ export function SettingsModal({
                                         <Input
                                             type="time"
                                             value={castEndTime}
-                                            onChange={(e) => setCastEndTime(e.target.value)}
+                                            onChange={(e) => {
+                                                setCastEndTime(e.target.value);
+                                                setHasUserEdited(true);
+                                            }}
                                             className="h-10"
                                         />
                                     </div>
@@ -244,7 +330,10 @@ export function SettingsModal({
                                         <Input
                                             type="time"
                                             value={staffStartTime}
-                                            onChange={(e) => setStaffStartTime(e.target.value)}
+                                            onChange={(e) => {
+                                                setStaffStartTime(e.target.value);
+                                                setHasUserEdited(true);
+                                            }}
                                             className="h-10"
                                         />
                                     </div>
@@ -256,7 +345,10 @@ export function SettingsModal({
                                         <Input
                                             type="time"
                                             value={staffEndTime}
-                                            onChange={(e) => setStaffEndTime(e.target.value)}
+                                            onChange={(e) => {
+                                                setStaffEndTime(e.target.value);
+                                                setHasUserEdited(true);
+                                            }}
                                             className="h-10"
                                         />
                                     </div>
@@ -272,7 +364,7 @@ export function SettingsModal({
                             {/* Automation Enable */}
                             <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50 dark:bg-gray-800">
                                 <div>
-                                    <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                                    <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                         シフト募集の自動化
                                     </h3>
                                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -281,7 +373,10 @@ export function SettingsModal({
                                 </div>
                                 <Switch
                                     checked={automationEnabled}
-                                    onCheckedChange={setAutomationEnabled}
+                                    onCheckedChange={(checked) => {
+                                        setAutomationEnabled(checked);
+                                        setHasUserEdited(true);
+                                    }}
                                 />
                             </div>
 
@@ -302,6 +397,7 @@ export function SettingsModal({
                                                                 ? [...prev, "cast"]
                                                                 : prev.filter((r) => r !== "cast")
                                                         );
+                                                        setHasUserEdited(true);
                                                     }}
                                                 />
                                                 <span className="text-sm text-gray-700 dark:text-gray-300">
@@ -317,6 +413,7 @@ export function SettingsModal({
                                                                 ? [...prev, "staff"]
                                                                 : prev.filter((r) => r !== "staff")
                                                         );
+                                                        setHasUserEdited(true);
                                                     }}
                                                 />
                                                 <span className="text-sm text-gray-700 dark:text-gray-300">
@@ -331,7 +428,13 @@ export function SettingsModal({
                                         <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
                                             募集期間
                                         </h3>
-                                        <Select value={periodType} onValueChange={(v) => setPeriodType(v as typeof periodType)}>
+                                        <Select
+                                            value={periodType}
+                                            onValueChange={(v) => {
+                                                setPeriodType(v as typeof periodType);
+                                                setHasUserEdited(true);
+                                            }}
+                                        >
                                             <SelectTrigger className="h-10">
                                                 <SelectValue />
                                             </SelectTrigger>
@@ -355,7 +458,10 @@ export function SettingsModal({
                                                 </label>
                                                 <Select
                                                     value={String(sendDayOffset)}
-                                                    onValueChange={(v) => setSendDayOffset(Number(v))}
+                                                    onValueChange={(v) => {
+                                                        setSendDayOffset(Number(v));
+                                                        setHasUserEdited(true);
+                                                    }}
                                                 >
                                                     <SelectTrigger className="h-10">
                                                         <SelectValue />
@@ -375,7 +481,10 @@ export function SettingsModal({
                                                 </label>
                                                 <Select
                                                     value={String(sendHour)}
-                                                    onValueChange={(v) => setSendHour(Number(v))}
+                                                    onValueChange={(v) => {
+                                                        setSendHour(Number(v));
+                                                        setHasUserEdited(true);
+                                                    }}
                                                 >
                                                     <SelectTrigger className="h-10">
                                                         <SelectValue />
@@ -396,7 +505,7 @@ export function SettingsModal({
                                     <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-800 space-y-4">
                                         <div className="flex items-center justify-between">
                                             <div>
-                                                <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                                                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                                     自動催促
                                                 </h3>
                                                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -405,7 +514,10 @@ export function SettingsModal({
                                             </div>
                                             <Switch
                                                 checked={reminderEnabled}
-                                                onCheckedChange={setReminderEnabled}
+                                                onCheckedChange={(checked) => {
+                                                    setReminderEnabled(checked);
+                                                    setHasUserEdited(true);
+                                                }}
                                             />
                                         </div>
 
@@ -417,7 +529,10 @@ export function SettingsModal({
                                                     </label>
                                                     <Select
                                                         value={String(reminderDayOffset)}
-                                                        onValueChange={(v) => setReminderDayOffset(Number(v))}
+                                                        onValueChange={(v) => {
+                                                            setReminderDayOffset(Number(v));
+                                                            setHasUserEdited(true);
+                                                        }}
                                                     >
                                                         <SelectTrigger className="h-10">
                                                             <SelectValue />
@@ -437,7 +552,10 @@ export function SettingsModal({
                                                     </label>
                                                     <Select
                                                         value={String(reminderHour)}
-                                                        onValueChange={(v) => setReminderHour(Number(v))}
+                                                        onValueChange={(v) => {
+                                                            setReminderHour(Number(v));
+                                                            setHasUserEdited(true);
+                                                        }}
                                                     >
                                                         <SelectTrigger className="h-10">
                                                             <SelectValue />
@@ -458,22 +576,6 @@ export function SettingsModal({
                             )}
                         </div>
                     )}
-                </div>
-
-                <div className="border-t px-4 py-3 flex gap-2 flex-shrink-0">
-                    <Button variant="outline" onClick={onClose} disabled={isSubmitting} className="flex-1">
-                        キャンセル
-                    </Button>
-                    <Button onClick={handleSubmit} disabled={isSubmitting || isLoading} className="flex-1">
-                        {isSubmitting ? (
-                            <>
-                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                保存中...
-                            </>
-                        ) : (
-                            "保存"
-                        )}
-                    </Button>
                 </div>
             </DialogContent>
         </Dialog>

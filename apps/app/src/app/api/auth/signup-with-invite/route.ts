@@ -40,8 +40,8 @@ export async function POST(request: Request) {
         }
 
         // Check invitation expiration/status if available
-        if (invitation.invite_expires_at) {
-            const expiresAt = new Date(invitation.invite_expires_at);
+        if (invitation.expires_at) {
+            const expiresAt = new Date(invitation.expires_at);
             if (new Date() > expiresAt) {
                 return NextResponse.json(
                     { success: false, message: "招待リンクの有効期限が切れています" },

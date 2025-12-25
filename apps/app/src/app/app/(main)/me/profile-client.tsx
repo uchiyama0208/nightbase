@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "@/components/theme-provider";
-import { Sun, Moon, Mail, Lock, MessageCircle, AlertCircle, ChevronRight, Check, Eye, EyeOff } from "lucide-react";
+import { Sun, Moon, Mail, Lock, MessageCircle, AlertCircle, ChevronRight, ChevronLeft, Check, Eye, EyeOff, Settings, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,6 +14,14 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+    SheetTrigger,
+    SheetClose,
+} from "@/components/ui/sheet";
 import { updateUserEmail, updateUserPassword, enableEmailLogin, unlinkLine } from "./actions";
 
 interface ProfileClientProps {
@@ -32,13 +40,10 @@ export function ProfileClient({ initialEmail, initialName, identities, userId, l
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [loading, setLoading] = useState(false);
-    const [showEmailEdit, setShowEmailEdit] = useState(false);
-    const [showPasswordEdit, setShowPasswordEdit] = useState(false);
     const [showNewPassword, setShowNewPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     // State for enabling email login (LINE users)
-    const [showEnableLogin, setShowEnableLogin] = useState(false);
     const [loginEmail, setLoginEmail] = useState("");
     const [loginPassword, setLoginPassword] = useState("");
     const [loginConfirmPassword, setLoginConfirmPassword] = useState("");
@@ -52,12 +57,7 @@ export function ProfileClient({ initialEmail, initialName, identities, userId, l
     // State for LINE unlink confirmation
     const [showUnlinkConfirm, setShowUnlinkConfirm] = useState(false);
 
-    // Debug logging
-    console.log("ProfileClient - lineUserId:", lineUserId);
-    console.log("ProfileClient - identities:", identities);
-
-    // Check if LINE is linked by checking user identities OR lineUserId
-    // Supabase stores OAuth providers in identities array, but we also store it in profiles
+    // Check if LINE is linked
     const isLineLinked = !!lineUserId || identities.some(
         (identity) =>
             identity.provider === "line" ||
@@ -67,13 +67,8 @@ export function ProfileClient({ initialEmail, initialName, identities, userId, l
     // Check if user has a placeholder email (LINE login only)
     const isLinePlaceholderEmail = initialEmail && initialEmail.endsWith("@line.nightbase.app");
 
-    console.log("ProfileClient - isLineLinked:", isLineLinked);
-    console.log("ProfileClient - isLinePlaceholderEmail:", isLinePlaceholderEmail);
-
     const handleLineLink = () => {
-        // Use Next.js API route to avoid JWT verification issues
         const apiUrl = `/api/line-link?mode=link&userId=${userId}`;
-        console.log("Navigating to:", apiUrl);
         window.location.href = apiUrl;
     };
 
@@ -117,7 +112,6 @@ export function ProfileClient({ initialEmail, initialName, identities, userId, l
         if (result.success) {
             setSuccessMessage("メールアドレスとパスワードでのログインを有効にしました。");
             setShowSuccessModal(true);
-            setShowEnableLogin(false);
         } else {
             setErrorMessage(result.error || "エラーが発生しました");
             setShowErrorModal(true);
@@ -138,7 +132,6 @@ export function ProfileClient({ initialEmail, initialName, identities, userId, l
         if (result.success) {
             setSuccessMessage("メールアドレスを更新しました。");
             setShowSuccessModal(true);
-            setShowEmailEdit(false);
         } else {
             setErrorMessage(result.error || "エラーが発生しました");
             setShowErrorModal(true);
@@ -167,7 +160,6 @@ export function ProfileClient({ initialEmail, initialName, identities, userId, l
             setShowSuccessModal(true);
             setNewPassword("");
             setConfirmPassword("");
-            setShowPasswordEdit(false);
         } else {
             setErrorMessage(result.error || "エラーが発生しました");
             setShowErrorModal(true);
@@ -175,195 +167,223 @@ export function ProfileClient({ initialEmail, initialName, identities, userId, l
     };
 
     return (
-        <div className="space-y-8">
-            {/* Theme Settings */}
-            <div>
-                <div className="px-4 pb-2">
-                    <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">表示設定</h2>
-                </div>
-                <div className="bg-white dark:bg-gray-800 border-y border-gray-200 dark:border-gray-700">
+        <div className="divide-y divide-gray-100 dark:divide-gray-700">
+            {/* 表示設定シート */}
+            <Sheet>
+                <SheetTrigger asChild>
                     <button
-                        onClick={() => setTheme("light")}
-                        className="w-full flex items-center px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 active:bg-gray-100 dark:active:bg-gray-700 transition-colors"
+                        type="button"
+                        className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                     >
-                        <div className={`p-2 rounded-lg ${theme === "light" ? "bg-yellow-100 dark:bg-yellow-900/30" : "bg-gray-100 dark:bg-gray-700"}`}>
-                            <Sun className={`h-5 w-5 ${theme === "light" ? "text-yellow-600 dark:text-yellow-400" : "text-gray-600 dark:text-gray-400"}`} />
-                        </div>
-                        <div className="ml-3 flex-1 text-left">
-                            <h3 className="text-base font-medium text-gray-900 dark:text-white">ライトモード</h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">明るいテーマで表示</p>
-                        </div>
-                        {theme === "light" && (
-                            <Check className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                        )}
-                    </button>
-
-                    <div className="ml-16 border-b border-gray-200 dark:border-gray-700" />
-
-                    <button
-                        onClick={() => setTheme("dark")}
-                        className="w-full flex items-center px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 active:bg-gray-100 dark:active:bg-gray-700 transition-colors"
-                    >
-                        <div className={`p-2 rounded-lg ${theme === "dark" ? "bg-indigo-100 dark:bg-indigo-900/30" : "bg-gray-100 dark:bg-gray-700"}`}>
-                            <Moon className={`h-5 w-5 ${theme === "dark" ? "text-indigo-600 dark:text-indigo-400" : "text-gray-600 dark:text-gray-400"}`} />
-                        </div>
-                        <div className="ml-3 flex-1 text-left">
-                            <h3 className="text-base font-medium text-gray-900 dark:text-white">ダークモード</h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">暗いテーマで表示</p>
-                        </div>
-                        {theme === "dark" && (
-                            <Check className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                        )}
-                    </button>
-                </div>
-            </div>
-
-            {/* Account Settings */}
-            <div>
-                <div className="px-4 pb-2">
-                    <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">アカウント</h2>
-                </div>
-                <div className="bg-white dark:bg-gray-800 border-y border-gray-200 dark:border-gray-700">
-                    {/* LINE Linking */}
-                    <div className="w-full px-4 py-3">
-                        <div className="flex items-start">
-                            <div className={`p-2 rounded-lg ${isLineLinked ? "bg-green-100 dark:bg-green-900/30" : "bg-gray-100 dark:bg-gray-700"}`}>
-                                <MessageCircle className={`h-5 w-5 ${isLineLinked ? "text-green-600 dark:text-green-400" : "text-gray-600 dark:text-gray-400"}`} />
+                        <div className="flex items-center space-x-4">
+                            <div className="bg-indigo-100 dark:bg-indigo-900 p-2 rounded-md">
+                                <Settings className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
                             </div>
-                            <div className="ml-3 flex-1">
-                                <h3 className="text-base font-medium text-gray-900 dark:text-white">LINE連携</h3>
-                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                                    {isLineLinked ? "連携済み - LINEアカウントでログイン可能です" : "LINEアカウントと連携すると、LINEでログインできるようになります"}
-                                </p>
-                                {!isLineLinked ? (
-                                    <Button
-                                        onClick={handleLineLink}
-                                        className="mt-2 bg-[#00B900] hover:bg-[#00A000] text-white h-8 text-xs"
-                                        size="sm"
-                                    >
-                                        LINE連携する
-                                    </Button>
-                                ) : (
-                                    <div className="flex gap-2 mt-2">
-                                        <Button
-                                            onClick={handleLineLink}
-                                            variant="outline"
-                                            className="h-8 text-xs"
-                                            size="sm"
-                                        >
-                                            別のLINEで再連携
-                                        </Button>
-                                        {!isLinePlaceholderEmail && (
-                                            <Button
-                                                onClick={() => setShowUnlinkConfirm(true)}
-                                                variant="outline"
-                                                className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
-                                                size="sm"
-                                            >
-                                                連携解除
-                                            </Button>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
+                            <span className="font-medium text-gray-900 dark:text-white">表示設定</span>
                         </div>
-                    </div>
-
-                    <div className="ml-16 border-b border-gray-200 dark:border-gray-700" />
-
-                    {/* Conditional Rendering: Enable Email Login vs Standard Update */}
-                    {isLinePlaceholderEmail ? (
-                        <>
-                            {/* Enable Email Login for LINE Users */}
+                        <ChevronRight className="h-5 w-5 text-gray-400" />
+                    </button>
+                </SheetTrigger>
+                <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col bg-white dark:bg-gray-900 gap-0">
+                    <SheetHeader className="relative px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0 mb-0 gap-0">
+                        <SheetClose asChild>
                             <button
-                                onClick={() => setShowEnableLogin(!showEnableLogin)}
-                                className="w-full flex items-center px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 active:bg-gray-100 dark:active:bg-gray-700 transition-colors"
+                                type="button"
+                                className="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                             >
-                                <div className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700">
-                                    <Mail className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                                <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                            </button>
+                        </SheetClose>
+                        <SheetTitle className="text-base font-semibold text-gray-900 dark:text-white text-center">
+                            表示設定
+                        </SheetTitle>
+                    </SheetHeader>
+                    <div className="flex-1 overflow-y-auto">
+                        <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                            <button
+                                onClick={() => setTheme("light")}
+                                className="w-full flex items-center px-4 py-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                            >
+                                <div className={`p-2 rounded-lg ${theme === "light" ? "bg-yellow-100 dark:bg-yellow-900/30" : "bg-gray-100 dark:bg-gray-700"}`}>
+                                    <Sun className={`h-5 w-5 ${theme === "light" ? "text-yellow-600 dark:text-yellow-400" : "text-gray-600 dark:text-gray-400"}`} />
                                 </div>
-                                <div className="ml-3 flex-1 text-left min-w-0">
-                                    <h3 className="text-base font-medium text-gray-900 dark:text-white">メール・パスワードログイン</h3>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                                        メールアドレスとパスワードでのログインを有効にする
-                                    </p>
+                                <div className="ml-3 flex-1 text-left">
+                                    <h3 className="text-base font-medium text-gray-900 dark:text-white">ライトモード</h3>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">明るいテーマで表示</p>
                                 </div>
-                                <ChevronRight className="h-5 w-5 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+                                {theme === "light" && (
+                                    <Check className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                                )}
                             </button>
 
-                            {showEnableLogin && (
-                                <div className="px-4 py-3 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-700">
-                                    <div className="space-y-3">
-                                        <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md">
-                                            <p className="text-sm text-blue-700 dark:text-blue-300 flex items-start gap-2">
-                                                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                                                <span>
-                                                    現在LINEアカウントのみでログイン可能です。
-                                                    メールアドレスとパスワードを設定すると、それらを使ってもログインできるようになります。
-                                                </span>
-                                            </p>
-                                        </div>
+                            <button
+                                onClick={() => setTheme("dark")}
+                                className="w-full flex items-center px-4 py-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                            >
+                                <div className={`p-2 rounded-lg ${theme === "dark" ? "bg-indigo-100 dark:bg-indigo-900/30" : "bg-gray-100 dark:bg-gray-700"}`}>
+                                    <Moon className={`h-5 w-5 ${theme === "dark" ? "text-indigo-600 dark:text-indigo-400" : "text-gray-600 dark:text-gray-400"}`} />
+                                </div>
+                                <div className="ml-3 flex-1 text-left">
+                                    <h3 className="text-base font-medium text-gray-900 dark:text-white">ダークモード</h3>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">暗いテーマで表示</p>
+                                </div>
+                                {theme === "dark" && (
+                                    <Check className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </SheetContent>
+            </Sheet>
 
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">メールアドレス</label>
-                                            <Input
-                                                type="email"
-                                                value={loginEmail}
-                                                onChange={(e) => setLoginEmail(e.target.value)}
-                                                placeholder="example@example.com"
-                                                className="w-full"
-                                            />
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">パスワード</label>
-                                            <div className="relative">
-                                                <Input
-                                                    type={showLoginPassword ? "text" : "password"}
-                                                    value={loginPassword}
-                                                    onChange={(e) => setLoginPassword(e.target.value)}
-                                                    placeholder="新しいパスワード（6文字以上）"
-                                                    className="w-full pr-10"
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setShowLoginPassword(!showLoginPassword)}
-                                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            {/* アカウント設定シート */}
+            <Sheet>
+                <SheetTrigger asChild>
+                    <button
+                        type="button"
+                        className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    >
+                        <div className="flex items-center space-x-4">
+                            <div className="bg-blue-100 dark:bg-blue-900 p-2 rounded-md">
+                                <User className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                            </div>
+                            <span className="font-medium text-gray-900 dark:text-white">アカウント</span>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-gray-400" />
+                    </button>
+                </SheetTrigger>
+                <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col bg-white dark:bg-gray-900 gap-0">
+                    <SheetHeader className="relative px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0 mb-0 gap-0">
+                        <SheetClose asChild>
+                            <button
+                                type="button"
+                                className="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                            >
+                                <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                            </button>
+                        </SheetClose>
+                        <SheetTitle className="text-base font-semibold text-gray-900 dark:text-white text-center">
+                            アカウント
+                        </SheetTitle>
+                    </SheetHeader>
+                    <div className="flex-1 overflow-y-auto">
+                        {/* LINE連携 */}
+                        <div className="px-4 py-4 border-b border-gray-200 dark:border-gray-700">
+                            <div className="flex items-start">
+                                <div className={`p-2 rounded-lg ${isLineLinked ? "bg-green-100 dark:bg-green-900/30" : "bg-gray-100 dark:bg-gray-700"}`}>
+                                    <MessageCircle className={`h-5 w-5 ${isLineLinked ? "text-green-600 dark:text-green-400" : "text-gray-600 dark:text-gray-400"}`} />
+                                </div>
+                                <div className="ml-3 flex-1">
+                                    <h3 className="text-base font-medium text-gray-900 dark:text-white">LINE連携</h3>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                                        {isLineLinked ? "連携済み" : "未連携"}
+                                    </p>
+                                    {!isLineLinked ? (
+                                        <Button
+                                            onClick={handleLineLink}
+                                            className="mt-2 bg-[#00B900] hover:bg-[#00A000] text-white h-8 text-xs"
+                                            size="sm"
+                                        >
+                                            LINE連携する
+                                        </Button>
+                                    ) : (
+                                        <div className="flex gap-2 mt-2">
+                                            <Button
+                                                onClick={handleLineLink}
+                                                variant="outline"
+                                                className="h-8 text-xs"
+                                                size="sm"
+                                            >
+                                                別のLINEで再連携
+                                            </Button>
+                                            {!isLinePlaceholderEmail && (
+                                                <Button
+                                                    onClick={() => setShowUnlinkConfirm(true)}
+                                                    variant="outline"
+                                                    className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
+                                                    size="sm"
                                                 >
-                                                    {showLoginPassword ? (
-                                                        <EyeOff className="h-4 w-4" />
-                                                    ) : (
-                                                        <Eye className="h-4 w-4" />
-                                                    )}
-                                                </button>
-                                            </div>
+                                                    連携解除
+                                                </Button>
+                                            )}
                                         </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
 
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">パスワード（確認）</label>
-                                            <div className="relative">
+                        {/* メールアドレス・パスワード */}
+                        {isLinePlaceholderEmail ? (
+                            <div className="px-4 py-4 border-b border-gray-200 dark:border-gray-700">
+                                <div className="flex items-start">
+                                    <div className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700">
+                                        <Mail className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                                    </div>
+                                    <div className="ml-3 flex-1">
+                                        <h3 className="text-base font-medium text-gray-900 dark:text-white">メール・パスワードログイン</h3>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                                            メールアドレスとパスワードでのログインを有効にする
+                                        </p>
+
+                                        <div className="mt-4 space-y-3">
+                                            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md">
+                                                <p className="text-sm text-blue-700 dark:text-blue-300 flex items-start gap-2">
+                                                    <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                                                    <span>現在LINEアカウントのみでログイン可能です。</span>
+                                                </p>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <label className="text-sm font-medium text-gray-700 dark:text-gray-200">メールアドレス</label>
                                                 <Input
-                                                    type={showLoginConfirmPassword ? "text" : "password"}
-                                                    value={loginConfirmPassword}
-                                                    onChange={(e) => setLoginConfirmPassword(e.target.value)}
-                                                    placeholder="パスワード確認"
-                                                    className="w-full pr-10"
+                                                    type="email"
+                                                    value={loginEmail}
+                                                    onChange={(e) => setLoginEmail(e.target.value)}
+                                                    placeholder="example@example.com"
+                                                    className="w-full"
                                                 />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setShowLoginConfirmPassword(!showLoginConfirmPassword)}
-                                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                                                >
-                                                    {showLoginConfirmPassword ? (
-                                                        <EyeOff className="h-4 w-4" />
-                                                    ) : (
-                                                        <Eye className="h-4 w-4" />
-                                                    )}
-                                                </button>
                                             </div>
-                                        </div>
 
-                                        <div className="flex flex-col gap-3 pt-2">
+                                            <div className="space-y-2">
+                                                <label className="text-sm font-medium text-gray-700 dark:text-gray-200">パスワード</label>
+                                                <div className="relative">
+                                                    <Input
+                                                        type={showLoginPassword ? "text" : "password"}
+                                                        value={loginPassword}
+                                                        onChange={(e) => setLoginPassword(e.target.value)}
+                                                        placeholder="6文字以上"
+                                                        className="w-full pr-10"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowLoginPassword(!showLoginPassword)}
+                                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                                    >
+                                                        {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <label className="text-sm font-medium text-gray-700 dark:text-gray-200">パスワード（確認）</label>
+                                                <div className="relative">
+                                                    <Input
+                                                        type={showLoginConfirmPassword ? "text" : "password"}
+                                                        value={loginConfirmPassword}
+                                                        onChange={(e) => setLoginConfirmPassword(e.target.value)}
+                                                        placeholder="パスワード確認"
+                                                        className="w-full pr-10"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowLoginConfirmPassword(!showLoginConfirmPassword)}
+                                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                                    >
+                                                        {showLoginConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                    </button>
+                                                </div>
+                                            </div>
+
                                             <Button
                                                 onClick={handleEnableEmailLogin}
                                                 disabled={loading || !loginEmail || !loginPassword}
@@ -372,179 +392,119 @@ export function ProfileClient({ initialEmail, initialName, identities, userId, l
                                             >
                                                 設定する
                                             </Button>
-                                            <Button
-                                                onClick={() => {
-                                                    setShowEnableLogin(false);
-                                                    setLoginEmail("");
-                                                    setLoginPassword("");
-                                                    setLoginConfirmPassword("");
-                                                }}
-                                                variant="outline"
-                                                className="w-full"
-                                                size="sm"
-                                            >
-                                                キャンセル
-                                            </Button>
                                         </div>
                                     </div>
                                 </div>
-                            )}
-                        </>
-                    ) : (
-                        <>
-                            {/* Standard Email Address Update */}
-                            <button
-                                onClick={() => setShowEmailEdit(!showEmailEdit)}
-                                className="w-full flex items-center px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 active:bg-gray-100 dark:active:bg-gray-700 transition-colors"
-                            >
-                                <div className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700">
-                                    <Mail className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                                </div>
-                                <div className="ml-3 flex-1 text-left min-w-0">
-                                    <h3 className="text-base font-medium text-gray-900 dark:text-white">メールアドレス</h3>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 truncate">
-                                        {initialEmail || "未設定"}
-                                    </p>
-                                </div>
-                                <ChevronRight className="h-5 w-5 text-gray-400 dark:text-gray-500 flex-shrink-0" />
-                            </button>
+                            </div>
+                        ) : (
+                            <>
+                                {/* メールアドレス */}
+                                <div className="px-4 py-4 border-b border-gray-200 dark:border-gray-700">
+                                    <div className="flex items-start">
+                                        <div className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700">
+                                            <Mail className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                                        </div>
+                                        <div className="ml-3 flex-1">
+                                            <h3 className="text-base font-medium text-gray-900 dark:text-white">メールアドレス</h3>
+                                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 truncate">
+                                                {initialEmail || "未設定"}
+                                            </p>
 
-                            {showEmailEdit && (
-                                <div className="px-4 py-3 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-700">
-                                    <div className="space-y-3">
-                                        <Input
-                                            type="email"
-                                            value={email}
-                                            onChange={(e) => setEmail(e.target.value)}
-                                            placeholder="example@example.com"
-                                            className="w-full"
-                                        />
-                                        <div className="flex gap-2">
-                                            <Button
-                                                onClick={handleEmailUpdate}
-                                                disabled={loading || email === initialEmail}
-                                                className="flex-1"
-                                                size="sm"
-                                            >
-                                                更新
-                                            </Button>
-                                            <Button
-                                                onClick={() => {
-                                                    setShowEmailEdit(false);
-                                                    setEmail(initialEmail);
-                                                }}
-                                                variant="outline"
-                                                size="sm"
-                                            >
-                                                キャンセル
-                                            </Button>
+                                            <div className="mt-3 space-y-3">
+                                                <Input
+                                                    type="email"
+                                                    value={email}
+                                                    onChange={(e) => setEmail(e.target.value)}
+                                                    placeholder="example@example.com"
+                                                    className="w-full"
+                                                />
+                                                <Button
+                                                    onClick={handleEmailUpdate}
+                                                    disabled={loading || email === initialEmail}
+                                                    className="w-full"
+                                                    size="sm"
+                                                >
+                                                    更新
+                                                </Button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            )}
 
-                            <div className="ml-16 border-b border-gray-200 dark:border-gray-700" />
-
-                            {/* Standard Password Update */}
-                            <button
-                                onClick={() => setShowPasswordEdit(!showPasswordEdit)}
-                                className="w-full flex items-center px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 active:bg-gray-100 dark:active:bg-gray-700 transition-colors"
-                            >
-                                <div className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700">
-                                    <Lock className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                                </div>
-                                <div className="ml-3 flex-1 text-left">
-                                    <h3 className="text-base font-medium text-gray-900 dark:text-white">パスワード</h3>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">変更</p>
-                                </div>
-                                <ChevronRight className="h-5 w-5 text-gray-400 dark:text-gray-500 flex-shrink-0" />
-                            </button>
-
-                            {showPasswordEdit && (
-                                <div className="px-4 py-3 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-700">
-                                    <div className="space-y-3">
-                                        <div className="relative">
-                                            <Input
-                                                type={showNewPassword ? "text" : "password"}
-                                                value={newPassword}
-                                                onChange={(e) => setNewPassword(e.target.value)}
-                                                placeholder="新しいパスワード（6文字以上）"
-                                                className="w-full pr-10"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowNewPassword(!showNewPassword)}
-                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                                            >
-                                                {showNewPassword ? (
-                                                    <EyeOff className="h-4 w-4" />
-                                                ) : (
-                                                    <Eye className="h-4 w-4" />
-                                                )}
-                                            </button>
+                                {/* パスワード */}
+                                <div className="px-4 py-4 border-b border-gray-200 dark:border-gray-700">
+                                    <div className="flex items-start">
+                                        <div className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700">
+                                            <Lock className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                                         </div>
-                                        <div className="relative">
-                                            <Input
-                                                type={showConfirmPassword ? "text" : "password"}
-                                                value={confirmPassword}
-                                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                                placeholder="パスワード確認"
-                                                className="w-full pr-10"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                                            >
-                                                {showConfirmPassword ? (
-                                                    <EyeOff className="h-4 w-4" />
-                                                ) : (
-                                                    <Eye className="h-4 w-4" />
-                                                )}
-                                            </button>
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <Button
-                                                onClick={handlePasswordUpdate}
-                                                disabled={loading || !newPassword}
-                                                className="flex-1"
-                                                size="sm"
-                                            >
-                                                更新
-                                            </Button>
-                                            <Button
-                                                onClick={() => {
-                                                    setShowPasswordEdit(false);
-                                                    setNewPassword("");
-                                                    setConfirmPassword("");
-                                                }}
-                                                variant="outline"
-                                                size="sm"
-                                            >
-                                                キャンセル
-                                            </Button>
+                                        <div className="ml-3 flex-1">
+                                            <h3 className="text-base font-medium text-gray-900 dark:text-white">パスワード</h3>
+                                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">変更</p>
+
+                                            <div className="mt-3 space-y-3">
+                                                <div className="relative">
+                                                    <Input
+                                                        type={showNewPassword ? "text" : "password"}
+                                                        value={newPassword}
+                                                        onChange={(e) => setNewPassword(e.target.value)}
+                                                        placeholder="新しいパスワード（6文字以上）"
+                                                        className="w-full pr-10"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowNewPassword(!showNewPassword)}
+                                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                                    >
+                                                        {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                    </button>
+                                                </div>
+                                                <div className="relative">
+                                                    <Input
+                                                        type={showConfirmPassword ? "text" : "password"}
+                                                        value={confirmPassword}
+                                                        onChange={(e) => setConfirmPassword(e.target.value)}
+                                                        placeholder="パスワード確認"
+                                                        className="w-full pr-10"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                                    >
+                                                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                    </button>
+                                                </div>
+                                                <Button
+                                                    onClick={handlePasswordUpdate}
+                                                    disabled={loading || !newPassword}
+                                                    className="w-full"
+                                                    size="sm"
+                                                >
+                                                    更新
+                                                </Button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            )}
-                        </>
-                    )}
-                </div>
-            </div>
+                            </>
+                        )}
+                    </div>
+                </SheetContent>
+            </Sheet>
 
             {/* Success Modal */}
             <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
-                <DialogContent className="sm:max-w-md bg-white dark:bg-white">
+                <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900">
                     <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2 text-green-600 dark:text-green-600">
+                        <DialogTitle className="flex items-center gap-2 text-green-600 dark:text-green-400">
                             <Check className="h-5 w-5" />
                             完了
                         </DialogTitle>
-                        <DialogDescription className="pt-2 whitespace-pre-line text-gray-700 dark:text-gray-700">
+                        <DialogDescription className="pt-2 whitespace-pre-line text-gray-700 dark:text-gray-300">
                             {successMessage}
                         </DialogDescription>
                     </DialogHeader>
-                    <DialogFooter className="sm:justify-center">
+                    <DialogFooter className="sm:justify-center gap-2">
                         <Button
                             type="button"
                             className="w-full sm:w-auto"
@@ -558,17 +518,17 @@ export function ProfileClient({ initialEmail, initialName, identities, userId, l
 
             {/* Error Modal */}
             <Dialog open={showErrorModal} onOpenChange={setShowErrorModal}>
-                <DialogContent className="sm:max-w-md bg-white dark:bg-white">
+                <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900">
                     <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2 text-red-600 dark:text-red-600">
+                        <DialogTitle className="flex items-center gap-2 text-red-600 dark:text-red-400">
                             <AlertCircle className="h-5 w-5" />
                             エラー
                         </DialogTitle>
-                        <DialogDescription className="pt-2 whitespace-pre-line text-gray-700 dark:text-gray-700">
+                        <DialogDescription className="pt-2 whitespace-pre-line text-gray-700 dark:text-gray-300">
                             {errorMessage}
                         </DialogDescription>
                     </DialogHeader>
-                    <DialogFooter className="sm:justify-center">
+                    <DialogFooter className="sm:justify-center gap-2">
                         <Button
                             type="button"
                             className="w-full sm:w-auto"

@@ -61,7 +61,8 @@ export interface DashboardDataResult {
         staffCount: number;
         guestCount: number;
         partnerCount: number;
-        rolesCount: number;
+        castRolesCount: number;
+        staffRolesCount: number;
         pendingInvitationsCount: number;
         pendingJoinRequestsCount: number;
         pendingResumesCount: number;

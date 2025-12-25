@@ -20,12 +20,7 @@ import {
     DialogTitle,
     DialogFooter,
 } from "@/components/ui/dialog";
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "@/components/ui/popover";
-import { Trash2, Loader2, Clock, Link2, ChevronLeft, MoreHorizontal } from "lucide-react";
+import { Trash2, Loader2, Clock, Link2, ChevronLeft } from "lucide-react";
 import {
     type SnsAccount,
     type SnsRecurringSchedule,
@@ -58,7 +53,6 @@ export function ScheduleList({
 
     // Check connected accounts
     const isXConnected = accounts.some(a => a.platform === "x" && a.is_connected);
-    const isInstagramConnected = accounts.some(a => a.platform === "instagram" && a.is_connected);
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -66,11 +60,10 @@ export function ScheduleList({
 
     // Form state for recurring schedule
     const [name, setName] = useState("");
-    const [contentType, setContentType] = useState<"cast_list" | "template" | "ai_generated">("cast_list");
+    const [contentType, setContentType] = useState<"cast_list" | "template">("cast_list");
     const [templateId, setTemplateId] = useState<string | null>(null);
     const [imageStyle, setImageStyle] = useState<"none" | "photo_collage" | "text_design">("none");
-    const [selectedPlatform, setSelectedPlatform] = useState<"x" | "instagram" | null>(null);
-    const [instagramType, setInstagramType] = useState<"post" | "story">("post");
+    const [isXSelected, setIsXSelected] = useState(false);
     const [scheduleHour, setScheduleHour] = useState(18);
     const [isActive, setIsActive] = useState(true);
 
@@ -80,8 +73,7 @@ export function ScheduleList({
         setContentType("cast_list");
         setTemplateId(null);
         setImageStyle("none");
-        setSelectedPlatform(null);
-        setInstagramType("post");
+        setIsXSelected(false);
         setScheduleHour(18);
         setIsActive(true);
         setShowRecurringModal(true);
@@ -102,8 +94,8 @@ export function ScheduleList({
         }
     };
 
-    const handleConnect = (platform: "x" | "instagram") => {
-        window.location.href = `/api/sns/${platform}/auth?store_id=${storeId}`;
+    const handleConnect = () => {
+        window.location.href = `/api/auth/x`;
     };
 
     const openEditRecurringModal = (schedule: SnsRecurringSchedule) => {
@@ -112,15 +104,14 @@ export function ScheduleList({
         setContentType(schedule.content_type);
         setTemplateId(schedule.template_id);
         setImageStyle(schedule.image_style || "none");
-        setSelectedPlatform(schedule.platforms[0] as "x" | "instagram" || null);
-        setInstagramType(schedule.instagram_type || "post");
+        setIsXSelected(schedule.platforms.includes("x"));
         setScheduleHour(schedule.schedule_hour);
         setIsActive(schedule.is_active);
         setShowRecurringModal(true);
     };
 
     const handleSaveRecurring = async () => {
-        if (!name.trim() || !selectedPlatform) return;
+        if (!name.trim() || !isXSelected) return;
 
         setIsSubmitting(true);
         try {
@@ -128,8 +119,7 @@ export function ScheduleList({
             formData.append("name", name);
             formData.append("content_type", contentType);
             formData.append("image_style", imageStyle);
-            formData.append("platforms", JSON.stringify([selectedPlatform]));
-            formData.append("instagram_type", instagramType);
+            formData.append("platforms", JSON.stringify(["x"]));
             formData.append("schedule_hour", String(scheduleHour));
             if (templateId) {
                 formData.append("template_id", templateId);
@@ -203,21 +193,20 @@ export function ScheduleList({
                                 </span>
                             </div>
                             <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                                <Clock className="h-4 w-4" />
+                                <Clock className="h-5 w-5" />
                                 毎日 {String(schedule.schedule_hour).padStart(2, "0")}:00
                             </div>
                             <div className="mt-2 flex flex-wrap gap-1">
                                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
                                     {schedule.content_type === "cast_list" && "出勤キャスト"}
                                     {schedule.content_type === "template" && "テンプレート"}
-                                    {schedule.content_type === "ai_generated" && "AI生成"}
                                 </span>
                                 {schedule.platforms.map((p) => (
                                     <span
                                         key={p}
                                         className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
                                     >
-                                        {p === "x" ? "X" : "Instagram"}
+                                        X
                                     </span>
                                 ))}
                             </div>
@@ -228,47 +217,37 @@ export function ScheduleList({
 
             {/* Recurring Schedule Modal */}
             <Dialog open={showRecurringModal} onOpenChange={handleModalClose}>
-                <DialogContent className="max-w-lg rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900 max-h-[90vh] overflow-y-auto">
-                    <DialogHeader className="relative flex flex-row items-center justify-center space-y-0">
+                <DialogContent className="sm:max-w-lg rounded-2xl border border-gray-200 bg-white p-0 shadow-xl dark:border-gray-800 dark:bg-gray-900 max-h-[90vh] overflow-hidden flex flex-col">
+                    <DialogHeader className="flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
                         <button
                             type="button"
                             onClick={() => handleModalClose(false)}
-                            className="absolute left-0 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                            className="p-1 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                         >
                             <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                         </button>
-                        <DialogTitle className="text-base font-semibold text-gray-900 dark:text-gray-50">
+                        <DialogTitle className="flex-1 text-center text-base font-semibold text-gray-900 dark:text-white">
                             {editingRecurring ? "スケジュールを編集" : "スケジュールを作成"}
                         </DialogTitle>
-                        {editingRecurring && (
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <button
-                                        type="button"
-                                        className="absolute right-0 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                                    >
-                                        <MoreHorizontal className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                                    </button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-36 p-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700" align="end">
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setDeletingId(editingRecurring.id);
-                                            setShowDeleteConfirm(true);
-                                        }}
-                                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                        削除
-                                    </button>
-                                </PopoverContent>
-                            </Popover>
+                        {editingRecurring ? (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setDeletingId(editingRecurring.id);
+                                    setShowDeleteConfirm(true);
+                                }}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                aria-label="削除"
+                            >
+                                <Trash2 className="h-5 w-5" />
+                            </button>
+                        ) : (
+                            <div className="w-8" />
                         )}
                     </DialogHeader>
-                    <div className="space-y-4 py-2">
+                    <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
                         <div className="space-y-2">
-                            <Label>スケジュール名</Label>
+                            <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">スケジュール名</Label>
                             <Input
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
@@ -277,7 +256,7 @@ export function ScheduleList({
                         </div>
 
                         <div className="space-y-2">
-                            <Label>投稿内容</Label>
+                            <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">投稿内容</Label>
                             <Select value={contentType} onValueChange={(v: any) => setContentType(v)}>
                                 <SelectTrigger>
                                     <SelectValue />
@@ -285,14 +264,13 @@ export function ScheduleList({
                                 <SelectContent>
                                     <SelectItem value="cast_list">出勤キャスト一覧</SelectItem>
                                     <SelectItem value="template">テンプレート</SelectItem>
-                                    <SelectItem value="ai_generated">AI生成</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
 
                         {contentType === "template" && (
                             <div className="space-y-2">
-                                <Label>テンプレート</Label>
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">テンプレート</Label>
                                 <Select value={templateId || ""} onValueChange={setTemplateId}>
                                     <SelectTrigger>
                                         <SelectValue placeholder="テンプレートを選択" />
@@ -309,129 +287,60 @@ export function ScheduleList({
                         )}
 
                         <div className="space-y-3">
-                            <Label>投稿対象</Label>
-                            <div className="space-y-2">
-                                {/* X */}
-                                <div
-                                    className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
-                                        selectedPlatform === "x"
-                                            ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                                            : "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"
-                                    }`}
-                                    onClick={() => isXConnected && setSelectedPlatform("x")}
-                                >
-                                    <div className="flex items-center gap-3 flex-1">
-                                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                                            selectedPlatform === "x"
-                                                ? "border-blue-500"
-                                                : "border-gray-300 dark:border-gray-600"
+                            <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">投稿対象</Label>
+                            <div
+                                className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
+                                    isXSelected
+                                        ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                                        : "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"
+                                }`}
+                                onClick={() => isXConnected && setIsXSelected(!isXSelected)}
+                            >
+                                <div className="flex items-center gap-3 flex-1">
+                                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                                        isXSelected
+                                            ? "border-blue-500"
+                                            : "border-gray-300 dark:border-gray-600"
+                                    }`}>
+                                        {isXSelected && (
+                                            <div className="w-2 h-2 rounded-full bg-blue-500" />
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className={`font-medium text-sm ${
+                                            isXConnected
+                                                ? "text-gray-900 dark:text-white"
+                                                : "text-gray-400 dark:text-gray-500"
                                         }`}>
-                                            {selectedPlatform === "x" && (
-                                                <div className="w-2 h-2 rounded-full bg-blue-500" />
-                                            )}
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className={`font-medium text-sm ${
-                                                isXConnected
-                                                    ? "text-gray-900 dark:text-white"
-                                                    : "text-gray-400 dark:text-gray-500"
-                                            }`}>
-                                                X (Twitter)
-                                            </span>
-                                            {isXConnected ? (
-                                                <span className="text-xs text-green-600 dark:text-green-400">連携済み</span>
-                                            ) : (
-                                                <span className="text-xs text-gray-500 dark:text-gray-400">未連携</span>
-                                            )}
-                                        </div>
+                                            X (Twitter)
+                                        </span>
+                                        {isXConnected ? (
+                                            <span className="text-xs text-green-600 dark:text-green-400">連携済み</span>
+                                        ) : (
+                                            <span className="text-xs text-gray-500 dark:text-gray-400">未連携</span>
+                                        )}
                                     </div>
-                                    {!isXConnected && (
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleConnect("x");
-                                            }}
-                                            className="gap-1.5 text-xs"
-                                        >
-                                            <Link2 className="h-3.5 w-3.5" />
-                                            連携
-                                        </Button>
-                                    )}
                                 </div>
-
-                                {/* Instagram */}
-                                <div
-                                    className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
-                                        selectedPlatform === "instagram"
-                                            ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                                            : "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"
-                                    }`}
-                                    onClick={() => isInstagramConnected && setSelectedPlatform("instagram")}
-                                >
-                                    <div className="flex items-center gap-3 flex-1">
-                                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                                            selectedPlatform === "instagram"
-                                                ? "border-blue-500"
-                                                : "border-gray-300 dark:border-gray-600"
-                                        }`}>
-                                            {selectedPlatform === "instagram" && (
-                                                <div className="w-2 h-2 rounded-full bg-blue-500" />
-                                            )}
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className={`font-medium text-sm ${
-                                                isInstagramConnected
-                                                    ? "text-gray-900 dark:text-white"
-                                                    : "text-gray-400 dark:text-gray-500"
-                                            }`}>
-                                                Instagram
-                                            </span>
-                                            {isInstagramConnected ? (
-                                                <span className="text-xs text-green-600 dark:text-green-400">連携済み</span>
-                                            ) : (
-                                                <span className="text-xs text-gray-500 dark:text-gray-400">未連携</span>
-                                            )}
-                                        </div>
-                                    </div>
-                                    {!isInstagramConnected && (
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleConnect("instagram");
-                                            }}
-                                            className="gap-1.5 text-xs"
-                                        >
-                                            <Link2 className="h-3.5 w-3.5" />
-                                            連携
-                                        </Button>
-                                    )}
-                                </div>
-
-                                {/* Instagram type selector */}
-                                {selectedPlatform === "instagram" && (
-                                    <div className="ml-7 mt-2">
-                                        <Select value={instagramType} onValueChange={(v: any) => setInstagramType(v)}>
-                                            <SelectTrigger className="w-40">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="post">通常投稿</SelectItem>
-                                                <SelectItem value="story">ストーリー</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
+                                {!isXConnected && (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleConnect();
+                                        }}
+                                        className="gap-1.5 text-xs"
+                                    >
+                                        <Link2 className="h-3.5 w-3.5" />
+                                        連携
+                                    </Button>
                                 )}
                             </div>
                         </div>
 
                         <div className="space-y-2">
-                            <Label>投稿時間</Label>
+                            <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">投稿時間</Label>
                             <Select value={String(scheduleHour)} onValueChange={(v) => setScheduleHour(parseInt(v))}>
                                 <SelectTrigger>
                                     <SelectValue />
@@ -462,11 +371,11 @@ export function ScheduleList({
                             </div>
                         )}
                     </div>
-                    <DialogFooter className="flex-col gap-2">
+                    <div className="flex-shrink-0 px-6 pb-6 space-y-2">
                         <Button
                             onClick={handleSaveRecurring}
-                            disabled={isSubmitting || !name.trim() || !selectedPlatform}
-                            className="w-full rounded-lg"
+                            disabled={isSubmitting || !name.trim() || !isXSelected}
+                            className="w-full rounded-lg bg-blue-600 text-white hover:bg-blue-700"
                         >
                             {isSubmitting ? (
                                 <>
@@ -485,15 +394,15 @@ export function ScheduleList({
                         >
                             キャンセル
                         </Button>
-                    </DialogFooter>
+                    </div>
                 </DialogContent>
             </Dialog>
 
             {/* Delete Confirmation */}
             <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-                <DialogContent className="max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900">
+                <DialogContent className="sm:max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900">
                     <DialogHeader>
-                        <DialogTitle className="text-base font-semibold text-gray-900 dark:text-gray-50">
+                        <DialogTitle className="text-base font-semibold text-gray-900 dark:text-white">
                             スケジュールを削除
                         </DialogTitle>
                     </DialogHeader>

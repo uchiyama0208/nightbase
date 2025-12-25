@@ -3,6 +3,131 @@
 import { createServerClient } from "@/lib/supabaseServerClient";
 import { revalidatePath } from "next/cache";
 import { getBusinessDate } from "../queue/utils";
+import { sendPushNotification } from "@/lib/notifications/push";
+
+// Timecard Question types
+export interface TimecardQuestion {
+    id: string;
+    label: string;
+    field_type: string;
+    options: string[] | null;
+    is_required: boolean;
+    target_role: string;
+    timing: string;
+    sort_order: number;
+}
+
+// Helper to get or create a pickup destination
+async function getOrCreatePickupDestination(
+    supabase: any,
+    storeId: string,
+    destinationName: string
+): Promise<string | null> {
+    if (!destinationName || !destinationName.trim()) {
+        return null;
+    }
+
+    const name = destinationName.trim();
+
+    // Check if destination already exists
+    const { data: existing } = await supabase
+        .from("pickup_destinations")
+        .select("id")
+        .eq("store_id", storeId)
+        .eq("name", name)
+        .maybeSingle();
+
+    if (existing) {
+        return existing.id;
+    }
+
+    // Create new destination
+    const { data: newDest, error } = await supabase
+        .from("pickup_destinations")
+        .insert({
+            store_id: storeId,
+            name: name,
+        })
+        .select("id")
+        .single();
+
+    if (error) {
+        console.error("Error creating pickup destination:", error);
+        return null;
+    }
+
+    return newDest.id;
+}
+
+// Helper to get pickup destinations for a store
+async function getPickupDestinations(supabase: any, storeId: string) {
+    const { data } = await supabase
+        .from("pickup_destinations")
+        .select("id, name")
+        .eq("store_id", storeId)
+        .eq("is_active", true)
+        .order("name");
+
+    return data || [];
+}
+
+// Delete a pickup destination from user's history
+export async function deletePickupDestination(destinationName: string) {
+    const supabase = await createServerClient() as any;
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+        throw new Error("User not authenticated");
+    }
+
+    const { data: appUser } = await supabase
+        .from("users")
+        .select("current_profile_id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+    if (!appUser?.current_profile_id) {
+        throw new Error("No active profile found");
+    }
+
+    const { data: profile } = await supabase
+        .from("profiles")
+        .select("store_id")
+        .eq("id", appUser.current_profile_id)
+        .maybeSingle();
+
+    if (!profile?.store_id) {
+        throw new Error("Store not found");
+    }
+
+    // Find the pickup destination by name
+    const { data: destination } = await supabase
+        .from("pickup_destinations")
+        .select("id")
+        .eq("store_id", profile.store_id)
+        .eq("name", destinationName)
+        .maybeSingle();
+
+    if (!destination) {
+        throw new Error("Destination not found");
+    }
+
+    // Clear this destination from user's work_records
+    const { error } = await supabase
+        .from("work_records")
+        .update({ pickup_destination_id: null, pickup_required: false })
+        .eq("profile_id", appUser.current_profile_id)
+        .eq("pickup_destination_id", destination.id);
+
+    if (error) {
+        console.error("Error deleting pickup destination:", error);
+        throw new Error("Failed to delete pickup destination");
+    }
+
+    revalidatePath("/app/timecard");
+}
 
 // Helper to get JST date string (YYYY-MM-DD)
 function getJSTDateString(date: Date = new Date()): string {
@@ -29,7 +154,11 @@ function roundTime(date: Date, method: string, minutes: number): Date {
     }
 }
 
-export async function clockIn(pickupRequired?: boolean, pickupDestination?: string) {
+export async function clockIn(
+    pickupRequired?: boolean,
+    pickupDestination?: string,
+    questionAnswers?: Record<string, string>
+): Promise<string | null> {
     const supabase = await createServerClient() as any;
     const {
         data: { user },
@@ -49,24 +178,43 @@ export async function clockIn(pickupRequired?: boolean, pickupDestination?: stri
         throw new Error("No active profile found for current user");
     }
 
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
         .from("profiles")
-        .select("store_id, stores(time_rounding_enabled, time_rounding_method, time_rounding_minutes, day_switch_time)")
+        .select("store_id, display_name")
         .eq("id", appUser.current_profile_id)
         .maybeSingle();
 
+    if (profileError) {
+        console.error("Profile fetch error:", profileError);
+        throw new Error(`Failed to fetch profile: ${profileError.message}`);
+    }
+
+    if (!profile) {
+        throw new Error(`Profile not found for id: ${appUser.current_profile_id}`);
+    }
+
+    if (!profile.store_id) {
+        throw new Error(`Profile ${appUser.current_profile_id} has no store_id`);
+    }
+
+    // 店舗設定を取得
+    const { data: storeSettings } = await supabase
+        .from("store_settings")
+        .select("time_rounding_enabled, time_rounding_method, time_rounding_minutes, day_switch_time")
+        .eq("store_id", profile.store_id)
+        .maybeSingle();
+
     const now = new Date();
-    const daySwitchTime = (profile?.stores as any)?.day_switch_time || "05:00";
+    const daySwitchTime = storeSettings?.day_switch_time || "05:00";
     const workDate = getBusinessDate(daySwitchTime);
-    const store = profile?.stores as any;
 
     // Calculate scheduled start time
     let scheduledStartTime: string;
-    if (store?.time_rounding_enabled) {
+    if (storeSettings?.time_rounding_enabled) {
         const rounded = roundTime(
             now,
-            store.time_rounding_method || "round",
-            store.time_rounding_minutes || 15
+            storeSettings.time_rounding_method || "round",
+            storeSettings.time_rounding_minutes || 15
         );
         scheduledStartTime = rounded.toLocaleTimeString("ja-JP", {
             timeZone: "Asia/Tokyo",
@@ -83,28 +231,32 @@ export async function clockIn(pickupRequired?: boolean, pickupDestination?: stri
         });
     }
 
+    // Get or create pickup destination
+    let pickupDestinationId: string | null = null;
+    if (pickupRequired && pickupDestination) {
+        pickupDestinationId = await getOrCreatePickupDestination(supabase, profile.store_id, pickupDestination);
+    }
+
     // Check if there's already a work record for today
-    // scheduled = 確定済みシフト、pending = 提出済みシフト → これらは出勤に変換
-    // working = 勤務中、completed = 完了 → これらがあれば既に出勤済み
+    // working = 勤務中 → すでに出勤中なので何もしない
+    // pending/scheduled = シフト予定 → これを出勤に変換
+    // completed = 完了 → 新しいレコードを作成（1日複数回出勤可能）
     const { data: existingRecord } = await supabase
         .from("work_records")
         .select("id, status")
         .eq("profile_id", appUser.current_profile_id)
         .eq("work_date", workDate)
-        .neq("status", "cancelled")
+        .in("status", ["working", "pending", "scheduled"])
         .maybeSingle();
+
+    let workRecordId: string | null = null;
 
     if (existingRecord) {
         // すでに勤務中の場合は何もしない（成功として扱う）
         if (existingRecord.status === "working") {
             revalidatePath("/app/timecard");
             revalidatePath("/app/attendance");
-            return; // 既に勤務中なので何もせずに正常終了
-        }
-
-        // 完了済みの場合はエラー（再出勤は不可）
-        if (existingRecord.status === "completed") {
-            throw new Error("Already completed for today");
+            return existingRecord.id; // 既に勤務中なので既存のIDを返す
         }
 
         // pending/scheduled のシフトレコードを出勤に更新
@@ -118,7 +270,7 @@ export async function clockIn(pickupRequired?: boolean, pickupDestination?: stri
                 break_end: null,
                 status: "working",
                 pickup_required: pickupRequired ?? false,
-                pickup_destination: pickupDestination || null,
+                pickup_destination_id: pickupDestinationId,
                 updated_at: now.toISOString(),
             })
             .eq("id", existingRecord.id);
@@ -127,9 +279,10 @@ export async function clockIn(pickupRequired?: boolean, pickupDestination?: stri
             console.error("Error clocking in (update):", JSON.stringify(error, null, 2));
             throw new Error(`Failed to clock in: ${error.message || error.code}`);
         }
+        workRecordId = existingRecord.id;
     } else {
-        // Create new record
-        const { error } = await supabase.from("work_records").insert({
+        // Create new record (退勤済みでも新規作成で再出勤可能)
+        const { data: newRecord, error } = await supabase.from("work_records").insert({
             profile_id: appUser.current_profile_id,
             store_id: profile.store_id,
             work_date: workDate,
@@ -138,20 +291,59 @@ export async function clockIn(pickupRequired?: boolean, pickupDestination?: stri
             status: "working",
             source: "manual",
             pickup_required: pickupRequired ?? false,
-            pickup_destination: pickupDestination || null,
-        });
+            pickup_destination_id: pickupDestinationId,
+        }).select("id").single();
 
         if (error) {
             console.error("Error clocking in (insert):", JSON.stringify(error, null, 2));
             throw new Error(`Failed to clock in: ${error.message || error.code}`);
         }
+        workRecordId = newRecord?.id || null;
+    }
+
+    // Save question answers if provided
+    if (workRecordId && questionAnswers && Object.keys(questionAnswers).length > 0) {
+        for (const [questionId, value] of Object.entries(questionAnswers)) {
+            if (value === undefined || value === null || value === "") continue;
+            await supabase.from("timecard_question_answers").upsert(
+                {
+                    work_record_id: workRecordId,
+                    question_id: questionId,
+                    value: value,
+                    timing: "clock_in",
+                    updated_at: now.toISOString(),
+                },
+                { onConflict: "work_record_id,question_id,timing" }
+            );
+        }
     }
 
     revalidatePath("/app/timecard");
     revalidatePath("/app/attendance");
+
+    // プッシュ通知を送信（出勤者本人を除外）
+    try {
+        const displayName = profile?.display_name || "メンバー";
+        await sendPushNotification({
+            storeId: profile.store_id,
+            notificationType: "attendance",
+            title: "出勤通知",
+            body: `${displayName}さんが出勤しました`,
+            url: "/app/attendance",
+            excludeProfileIds: [appUser.current_profile_id],
+        });
+    } catch (error) {
+        // 通知エラーは無視（出勤処理自体は成功しているため）
+        console.error("Failed to send attendance notification:", error);
+    }
+
+    return workRecordId;
 }
 
-export async function clockOut(workRecordId: string) {
+export async function clockOut(
+    workRecordId: string,
+    questionAnswers?: Record<string, string>
+) {
     const supabase = await createServerClient() as any;
     const {
         data: { user },
@@ -173,7 +365,7 @@ export async function clockOut(workRecordId: string) {
 
     const { data: workRecord } = await supabase
         .from("work_records")
-        .select("profile_id, profiles(store_id, stores(time_rounding_enabled, time_rounding_method, time_rounding_minutes))")
+        .select("profile_id, store_id")
         .eq("id", workRecordId)
         .maybeSingle();
 
@@ -182,32 +374,28 @@ export async function clockOut(workRecordId: string) {
         throw new Error("Unauthorized to clock out this record");
     }
 
+    // 店舗設定を取得
+    const { data: storeSettings } = await supabase
+        .from("store_settings")
+        .select("time_rounding_enabled, time_rounding_method, time_rounding_minutes")
+        .eq("store_id", workRecord.store_id)
+        .maybeSingle();
+
     const now = new Date();
 
     let scheduledEndTime: string;
-    if (workRecord) {
-        const profile = workRecord.profiles as any;
-        const store = profile?.stores as any;
-        if (store?.time_rounding_enabled) {
-            const rounded = roundTime(
-                now,
-                store.time_rounding_method || "round",
-                store.time_rounding_minutes || 15
-            );
-            scheduledEndTime = rounded.toLocaleTimeString("ja-JP", {
-                timeZone: "Asia/Tokyo",
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: false,
-            });
-        } else {
-            scheduledEndTime = now.toLocaleTimeString("ja-JP", {
-                timeZone: "Asia/Tokyo",
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: false,
-            });
-        }
+    if (storeSettings?.time_rounding_enabled) {
+        const rounded = roundTime(
+            now,
+            storeSettings.time_rounding_method || "round",
+            storeSettings.time_rounding_minutes || 15
+        );
+        scheduledEndTime = rounded.toLocaleTimeString("ja-JP", {
+            timeZone: "Asia/Tokyo",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+        });
     } else {
         scheduledEndTime = now.toLocaleTimeString("ja-JP", {
             timeZone: "Asia/Tokyo",
@@ -232,6 +420,23 @@ export async function clockOut(workRecordId: string) {
         throw new Error("Failed to clock out");
     }
 
+    // Save question answers if provided
+    if (questionAnswers && Object.keys(questionAnswers).length > 0) {
+        for (const [questionId, value] of Object.entries(questionAnswers)) {
+            if (value === undefined || value === null || value === "") continue;
+            await supabase.from("timecard_question_answers").upsert(
+                {
+                    work_record_id: workRecordId,
+                    question_id: questionId,
+                    value: value,
+                    timing: "clock_out",
+                    updated_at: now.toISOString(),
+                },
+                { onConflict: "work_record_id,question_id,timing" }
+            );
+        }
+    }
+
     revalidatePath("/app/timecard");
     revalidatePath("/app/attendance");
 }
@@ -240,18 +445,40 @@ export async function startBreak(workRecordId: string) {
     const supabase = await createServerClient() as any;
     const now = new Date();
 
+    // Check if there's already an active break (no break_end)
+    const { data: activeBreak } = await supabase
+        .from("work_record_breaks")
+        .select("id")
+        .eq("work_record_id", workRecordId)
+        .is("break_end", null)
+        .maybeSingle();
+
+    if (activeBreak) {
+        throw new Error("Already on break");
+    }
+
+    // Insert new break record
     const { error } = await supabase
-        .from("work_records")
-        .update({
+        .from("work_record_breaks")
+        .insert({
+            work_record_id: workRecordId,
             break_start: now.toISOString(),
-            updated_at: now.toISOString(),
-        })
-        .eq("id", workRecordId);
+        });
 
     if (error) {
         console.error("Error starting break:", error);
         throw new Error("Failed to start break");
     }
+
+    // Also update work_records for backward compatibility
+    await supabase
+        .from("work_records")
+        .update({
+            break_start: now.toISOString(),
+            break_end: null,
+            updated_at: now.toISOString(),
+        })
+        .eq("id", workRecordId);
 
     revalidatePath("/app/timecard");
 }
@@ -260,7 +487,40 @@ export async function endBreak(workRecordId: string) {
     const supabase = await createServerClient() as any;
     const now = new Date();
 
+    // Find the active break (no break_end) and update it
+    const { data: activeBreak, error: findError } = await supabase
+        .from("work_record_breaks")
+        .select("id")
+        .eq("work_record_id", workRecordId)
+        .is("break_end", null)
+        .order("break_start", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+    if (findError) {
+        console.error("Error finding active break:", findError);
+        throw new Error("Failed to find active break");
+    }
+
+    if (!activeBreak) {
+        throw new Error("No active break to end");
+    }
+
     const { error } = await supabase
+        .from("work_record_breaks")
+        .update({
+            break_end: now.toISOString(),
+            updated_at: now.toISOString(),
+        })
+        .eq("id", activeBreak.id);
+
+    if (error) {
+        console.error("Error ending break:", error);
+        throw new Error("Failed to end break");
+    }
+
+    // Also update work_records for backward compatibility
+    await supabase
         .from("work_records")
         .update({
             break_end: now.toISOString(),
@@ -268,12 +528,35 @@ export async function endBreak(workRecordId: string) {
         })
         .eq("id", workRecordId);
 
+    revalidatePath("/app/timecard");
+}
+
+// Get current break status for a work record
+export async function getBreakStatus(workRecordId: string): Promise<{
+    isOnBreak: boolean;
+    currentBreakId: string | null;
+    breaks: { id: string; break_start: string; break_end: string | null }[];
+}> {
+    const supabase = await createServerClient() as any;
+
+    const { data: breaks, error } = await supabase
+        .from("work_record_breaks")
+        .select("id, break_start, break_end")
+        .eq("work_record_id", workRecordId)
+        .order("break_start", { ascending: true });
+
     if (error) {
-        console.error("Error ending break:", error);
-        throw new Error("Failed to end break");
+        console.error("Error fetching breaks:", error);
+        return { isOnBreak: false, currentBreakId: null, breaks: [] };
     }
 
-    revalidatePath("/app/timecard");
+    const activeBreak = breaks?.find((b: any) => b.break_end === null);
+
+    return {
+        isOnBreak: !!activeBreak,
+        currentBreakId: activeBreak?.id || null,
+        breaks: breaks || [],
+    };
 }
 
 export async function importTimecardsFromCsv(formData: FormData) {
@@ -435,50 +718,113 @@ export async function getTimecardData() {
     }
 
     // Fetch work records for the current profile
-    // タイムカードには実際に出退勤した記録（working/completed）のみ表示
+    // タイムカードには出勤済みの記録（working/completed）を表示
     // pending/scheduled はシフト希望であり、まだ出勤していないので除外
     const { data: workRecords, error } = await supabase
         .from("work_records")
-        .select("*")
+        .select("*, pickup_destinations(id, name)")
         .eq("profile_id", appUser.current_profile_id)
         .in("status", ["working", "completed"])
         .order("work_date", { ascending: false })
         .order("clock_in", { ascending: false });
 
     if (error) {
+        console.error("Work records fetch error:", error);
         throw new Error(`Failed to fetch work records: ${error.message}`);
     }
 
     const { data: profile } = await supabase
         .from("profiles")
-        .select("*, stores(show_break_columns, show_timecard, location_check_enabled, latitude, longitude, location_radius, day_switch_time)")
+        .select("*, stores(latitude, longitude)")
         .eq("id", appUser.current_profile_id)
         .maybeSingle();
 
-    const store = profile?.stores as any;
-    if (store && store.show_timecard === false) {
+    // 店舗設定を取得
+    const { data: storeSettings } = await supabase
+        .from("store_settings")
+        .select("show_break_columns, show_timecard, location_check_enabled, location_radius, day_switch_time, pickup_enabled_cast, pickup_enabled_staff")
+        .eq("store_id", profile?.store_id)
+        .maybeSingle();
+
+    if (storeSettings?.show_timecard === false) {
         return { redirect: "/login" };
     }
 
-    const showBreakColumns = store ? (store.show_break_columns ?? false) : false;
+    const showBreakColumns = storeSettings?.show_break_columns ?? false;
+
+    // Determine if pickup is enabled based on role
+    const userRole = profile?.role;
+    const pickupEnabled = userRole === "cast"
+        ? (storeSettings?.pickup_enabled_cast ?? false)
+        : (storeSettings?.pickup_enabled_staff ?? false);
 
     // Get today's latest work record
-    const daySwitchTime = (store as any)?.day_switch_time || "05:00";
+    const daySwitchTime = storeSettings?.day_switch_time || "05:00";
     const businessDate = getBusinessDate(daySwitchTime);
-    const latestTimeCard = workRecords?.find((record: any) => record.work_date === businessDate) || null;
+    const latestWorkRecord = workRecords?.find((record: any) => record.work_date === businessDate) || null;
 
-    // Fetch pickup history
+    // Fetch breaks for the latest work record
+    let latestBreaks: { id: string; break_start: string; break_end: string | null }[] = [];
+    let isOnBreak = false;
+    if (latestWorkRecord) {
+        try {
+            const { data: breaks, error: breaksError } = await supabase
+                .from("work_record_breaks")
+                .select("id, break_start, break_end")
+                .eq("work_record_id", latestWorkRecord.id)
+                .order("break_start", { ascending: true });
+            if (breaksError) {
+                console.error("Error fetching latest breaks:", breaksError);
+            } else {
+                latestBreaks = breaks || [];
+                isOnBreak = latestBreaks.some(b => b.break_end === null);
+            }
+        } catch (error) {
+            console.error("Exception fetching latest breaks:", error);
+        }
+    }
+
+    // Fetch pickup history for the current profile (only their own history)
     const { data: pickupRows } = await supabase
         .from("work_records")
-        .select("pickup_destination")
+        .select("pickup_destination_id, pickup_destinations(id, name)")
         .eq("profile_id", appUser.current_profile_id)
-        .not("pickup_destination", "is", null);
+        .not("pickup_destination_id", "is", null);
 
     const pickupHistory = Array.from(new Set(
         (pickupRows || [])
-            .map((row: any) => row.pickup_destination)
-            .filter((dest: string | null) => dest && dest.trim() !== "")
+            .map((row: any) => row.pickup_destinations?.name)
+            .filter((name: string | null) => name && name.trim() !== "")
     )) as string[];
+
+    // Fetch all breaks for the user's work records
+    const workRecordIds = workRecords?.map((r: any) => r.id) || [];
+    let allBreaks: { work_record_id: string; id: string; break_start: string; break_end: string | null }[] = [];
+    if (workRecordIds.length > 0) {
+        try {
+            const { data: breaksData, error: breaksError } = await supabase
+                .from("work_record_breaks")
+                .select("work_record_id, id, break_start, break_end")
+                .in("work_record_id", workRecordIds)
+                .order("break_start", { ascending: true });
+            if (breaksError) {
+                console.error("Error fetching breaks:", breaksError);
+            } else {
+                allBreaks = breaksData || [];
+            }
+        } catch (error) {
+            console.error("Exception fetching breaks:", error);
+        }
+    }
+
+    // Group breaks by work_record_id
+    const breaksByRecordId = new Map<string, typeof allBreaks>();
+    for (const b of allBreaks) {
+        if (!breaksByRecordId.has(b.work_record_id)) {
+            breaksByRecordId.set(b.work_record_id, []);
+        }
+        breaksByRecordId.get(b.work_record_id)!.push(b);
+    }
 
     // Convert to old timeCards format for compatibility
     const timeCards = workRecords?.map((r: any) => ({
@@ -489,41 +835,247 @@ export async function getTimecardData() {
         clock_out: r.clock_out,
         break_start: r.break_start,
         break_end: r.break_end,
+        breaks: breaksByRecordId.get(r.id)?.map(b => ({
+            id: b.id,
+            break_start: b.break_start,
+            break_end: b.break_end,
+        })) || [],
         scheduled_start_time: r.scheduled_start_time,
         scheduled_end_time: r.scheduled_end_time,
         pickup_required: r.pickup_required,
-        pickup_destination: r.pickup_destination,
+        pickup_destination: r.pickup_destinations?.name || null,
         forgot_clockout: r.forgot_clockout,
         created_at: r.created_at,
         updated_at: r.updated_at,
     })) || [];
 
+    const store = profile?.stores as any;
     return {
         data: {
             timeCards,
             profile,
             storeSettings: {
-                location_check_enabled: store?.location_check_enabled,
+                location_check_enabled: storeSettings?.location_check_enabled,
                 latitude: store?.latitude,
                 longitude: store?.longitude,
-                location_radius: store?.location_radius,
+                location_radius: storeSettings?.location_radius,
             },
             showBreakColumns,
-            latestTimeCard: latestTimeCard ? {
-                id: latestTimeCard.id,
-                user_id: latestTimeCard.profile_id,
-                work_date: latestTimeCard.work_date,
-                clock_in: latestTimeCard.clock_in,
-                clock_out: latestTimeCard.clock_out,
-                break_start: latestTimeCard.break_start,
-                break_end: latestTimeCard.break_end,
-                scheduled_start_time: latestTimeCard.scheduled_start_time,
-                scheduled_end_time: latestTimeCard.scheduled_end_time,
-                pickup_required: latestTimeCard.pickup_required,
-                pickup_destination: latestTimeCard.pickup_destination,
-                forgot_clockout: latestTimeCard.forgot_clockout,
+            pickupEnabled,
+            latestTimeCard: latestWorkRecord ? {
+                id: latestWorkRecord.id,
+                user_id: latestWorkRecord.profile_id,
+                work_date: latestWorkRecord.work_date,
+                clock_in: latestWorkRecord.clock_in,
+                clock_out: latestWorkRecord.clock_out,
+                break_start: latestWorkRecord.break_start,
+                break_end: latestWorkRecord.break_end,
+                scheduled_start_time: latestWorkRecord.scheduled_start_time,
+                scheduled_end_time: latestWorkRecord.scheduled_end_time,
+                pickup_required: latestWorkRecord.pickup_required,
+                pickup_destination: latestWorkRecord.pickup_destinations?.name || null,
+                forgot_clockout: latestWorkRecord.forgot_clockout,
+                breaks: latestBreaks,
+                isOnBreak,
             } : null,
             pickupHistory,
         }
     };
+}
+
+// Get active timecard questions for the current user
+export async function getActiveTimecardQuestions(
+    timing: "clock_in" | "clock_out"
+): Promise<TimecardQuestion[]> {
+    const supabase = await createServerClient() as any;
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        return [];
+    }
+
+    const { data: appUser } = await supabase
+        .from("users")
+        .select("current_profile_id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+    if (!appUser?.current_profile_id) {
+        return [];
+    }
+
+    const { data: profile } = await supabase
+        .from("profiles")
+        .select("store_id, role")
+        .eq("id", appUser.current_profile_id)
+        .maybeSingle();
+
+    if (!profile?.store_id) {
+        return [];
+    }
+
+    const role = profile.role || "staff";
+
+    // Fetch questions that match the role and timing
+    const { data: questions, error } = await supabase
+        .from("timecard_questions")
+        .select("id, label, field_type, options, is_required, target_role, timing, sort_order")
+        .eq("store_id", profile.store_id)
+        .eq("is_active", true)
+        .or(`target_role.eq.both,target_role.eq.${role}`)
+        .or(`timing.eq.both,timing.eq.${timing}`)
+        .order("sort_order", { ascending: true });
+
+    if (error) {
+        console.error("Error fetching timecard questions:", error);
+        return [];
+    }
+
+    return questions || [];
+}
+
+// Get timecard detail with question answers
+export interface TimecardDetail {
+    id: string;
+    work_date: string;
+    clock_in: string | null;
+    clock_out: string | null;
+    break_start: string | null;
+    break_end: string | null;
+    breaks: { id: string; break_start: string; break_end: string | null }[];
+    pickup_required: boolean;
+    pickup_destination: string | null;
+    status: string;
+    questions: {
+        id: string;
+        label: string;
+        timing: string;
+        value: string;
+    }[];
+}
+
+export async function getTimecardDetail(workRecordId: string): Promise<TimecardDetail | null> {
+    const supabase = await createServerClient() as any;
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        return null;
+    }
+
+    const { data: appUser } = await supabase
+        .from("users")
+        .select("current_profile_id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+    if (!appUser?.current_profile_id) {
+        return null;
+    }
+
+    // Fetch work record with pickup destination
+    const { data: workRecord, error } = await supabase
+        .from("work_records")
+        .select("*, pickup_destinations(name)")
+        .eq("id", workRecordId)
+        .eq("profile_id", appUser.current_profile_id)
+        .maybeSingle();
+
+    if (error || !workRecord) {
+        console.error("Error fetching work record:", error);
+        return null;
+    }
+
+    // Fetch breaks from work_record_breaks table
+    const { data: breaks } = await supabase
+        .from("work_record_breaks")
+        .select("id, break_start, break_end")
+        .eq("work_record_id", workRecordId)
+        .order("break_start", { ascending: true });
+
+    // Fetch question answers for this work record
+    const { data: answers } = await supabase
+        .from("timecard_question_answers")
+        .select("question_id, value, timing, timecard_questions(label)")
+        .eq("work_record_id", workRecordId);
+
+    const questions = (answers || []).map((a: any) => ({
+        id: a.question_id,
+        label: a.timecard_questions?.label || "",
+        timing: a.timing,
+        value: a.value,
+    }));
+
+    return {
+        id: workRecord.id,
+        work_date: workRecord.work_date,
+        clock_in: workRecord.clock_in,
+        clock_out: workRecord.clock_out,
+        break_start: workRecord.break_start,
+        break_end: workRecord.break_end,
+        breaks: breaks || [],
+        pickup_required: workRecord.pickup_required || false,
+        pickup_destination: workRecord.pickup_destinations?.name || null,
+        status: workRecord.status,
+        questions,
+    };
+}
+
+// Save timecard question answers
+export async function saveTimecardQuestionAnswers(
+    workRecordId: string,
+    answers: Record<string, string>,
+    timing: "clock_in" | "clock_out"
+): Promise<{ success: boolean; error?: string }> {
+    const supabase = await createServerClient() as any;
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { success: false, error: "Not authenticated" };
+    }
+
+    // Verify the work record belongs to the user
+    const { data: appUser } = await supabase
+        .from("users")
+        .select("current_profile_id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+    if (!appUser?.current_profile_id) {
+        return { success: false, error: "No profile found" };
+    }
+
+    const { data: workRecord } = await supabase
+        .from("work_records")
+        .select("profile_id")
+        .eq("id", workRecordId)
+        .maybeSingle();
+
+    if (!workRecord || workRecord.profile_id !== appUser.current_profile_id) {
+        return { success: false, error: "Unauthorized" };
+    }
+
+    // Save each answer
+    for (const [questionId, value] of Object.entries(answers)) {
+        if (value === undefined || value === null) continue;
+
+        const { error } = await supabase
+            .from("timecard_question_answers")
+            .upsert(
+                {
+                    work_record_id: workRecordId,
+                    question_id: questionId,
+                    value: value,
+                    timing: timing,
+                    updated_at: new Date().toISOString(),
+                },
+                { onConflict: "work_record_id,question_id,timing" }
+            );
+
+        if (error) {
+            console.error("Error saving timecard answer:", error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    return { success: true };
 }

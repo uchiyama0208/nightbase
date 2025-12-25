@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Check, Calendar, Users, Clock, Loader2, Send, Search } from "lucide-react";
 import Image from "next/image";
 import {
@@ -14,7 +15,6 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { createShiftRequest, getLineTargetProfiles, sendLineNotification, checkExistingRequestConflicts } from "./actions";
 import { LineWarningModal } from "./line-warning-modal";
-import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/use-toast";
 
 interface Profile {
@@ -64,7 +64,7 @@ export function ShiftRequestModal({
     existingDates = [],
     closedDays = [],
 }: ShiftRequestModalProps) {
-    const router = useRouter();
+    const queryClient = useQueryClient();
     const { toast } = useToast();
     const [step, setStep] = useState<Step>("role");
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -321,12 +321,12 @@ export function ShiftRequestModal({
                 await sendLineAndClose(createdRequestId);
             } else {
                 // 誰も連携していない場合
-                router.refresh();
+                await queryClient.invalidateQueries({ queryKey: ["shifts"] });
                 onClose();
             }
         } else {
             // 送信しない場合
-            router.refresh();
+            await queryClient.invalidateQueries({ queryKey: ["shifts"] });
             onClose();
         }
     };
@@ -346,7 +346,7 @@ export function ShiftRequestModal({
                     variant: "destructive",
                 });
             }
-            router.refresh();
+            await queryClient.invalidateQueries({ queryKey: ["shifts"] });
             onClose();
         } catch (error) {
             console.error("Error sending LINE:", error);
@@ -399,34 +399,32 @@ export function ShiftRequestModal({
     return (
         <>
             <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-                <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0">
-                    <DialogHeader className="border-b px-4 py-3 flex-shrink-0 mb-0">
-                        <div className="flex items-center justify-between">
-                            {step !== "role" ? (
-                                <button
-                                    type="button"
-                                    onClick={handleBack}
-                                    className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
-                                >
-                                    <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                                </button>
-                            ) : (
-                                <div className="w-7" />
-                            )}
-                            <DialogTitle className="text-lg font-semibold text-gray-900 dark:text-white">
-                                {step === "role" && "シフト募集を作成"}
-                                {step === "members" && "対象メンバーを選択"}
-                                {step === "dates" && "対象日付を選択"}
-                                {step === "warnings" && "確認事項"}
-                                {step === "times" && "出勤時間を設定"}
-                                {step === "deadline" && "提出期限を設定"}
-                                {step === "confirm" && "内容を確認"}
-                            </DialogTitle>
-                            <div className="w-7" />
-                        </div>
+                <DialogContent className="sm:max-w-lg p-0 overflow-hidden flex flex-col max-h-[90vh] rounded-2xl">
+                    <DialogHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900 flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
+                        {step !== "role" ? (
+                            <button
+                                type="button"
+                                onClick={handleBack}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
+                            >
+                                <ChevronLeft className="h-4 w-4" />
+                            </button>
+                        ) : (
+                            <div className="w-8 h-8" />
+                        )}
+                        <DialogTitle className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white truncate">
+                            {step === "role" && "シフト募集を作成"}
+                            {step === "members" && "対象メンバーを選択"}
+                            {step === "dates" && "対象日付を選択"}
+                            {step === "warnings" && "確認事項"}
+                            {step === "times" && "出勤時間を設定"}
+                            {step === "deadline" && "提出期限を設定"}
+                            {step === "confirm" && "内容を確認"}
+                        </DialogTitle>
+                        <div className="w-8 h-8" />
                     </DialogHeader>
 
-                    <div className="flex-1 overflow-y-auto px-4 py-4 min-h-0">
+                    <div className="flex-1 overflow-y-auto p-6">
                         {/* Step 1: Role Selection */}
                         {step === "role" && (
                             <div className="space-y-4">
@@ -499,7 +497,7 @@ export function ShiftRequestModal({
                                         >
                                             <ChevronLeft className="h-4 w-4" />
                                         </button>
-                                        <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                             {calendarYear}年{calendarMonth + 1}月
                                         </span>
                                         <button
@@ -545,7 +543,7 @@ export function ShiftRequestModal({
                                             } else if (dayOfWeek === 6) {
                                                 stateClass = "text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20";
                                             } else {
-                                                stateClass = "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800";
+                                                stateClass = "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700";
                                             }
 
                                             return (
@@ -649,7 +647,7 @@ export function ShiftRequestModal({
                                                 placeholder="名前で検索"
                                                 value={memberSearchQuery}
                                                 onChange={(e) => setMemberSearchQuery(e.target.value)}
-                                                className="pl-9 h-9"
+                                                className="pl-9 h-10"
                                             />
                                         </div>
                                         <div className="flex items-center gap-2 pb-2 border-b border-gray-100 dark:border-gray-800">
@@ -672,7 +670,7 @@ export function ShiftRequestModal({
                                         {searchedProfiles.map((profile) => (
                                                 <label
                                                     key={profile.id}
-                                                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                                                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
                                                 >
                                                     <Checkbox
                                                         checked={selectedProfileIds.includes(profile.id)}
@@ -698,7 +696,7 @@ export function ShiftRequestModal({
                                                         </div>
                                                     )}
                                                     <div className="flex-1">
-                                                        <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                                        <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                                             {profile.display_name || "名前なし"}
                                                         </p>
                                                         <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -825,14 +823,14 @@ export function ShiftRequestModal({
                                                     type="time"
                                                     value={config.startTime}
                                                     onChange={(e) => updateDateConfig(config.date, "startTime", e.target.value)}
-                                                    className="h-9 w-28"
+                                                    className="h-10 w-28"
                                                 />
                                                 <span className="text-gray-500">〜</span>
                                                 <Input
                                                     type="time"
                                                     value={config.endTime}
                                                     onChange={(e) => updateDateConfig(config.date, "endTime", e.target.value)}
-                                                    className="h-9 w-28"
+                                                    className="h-10 w-28"
                                                 />
                                             </div>
                                         </div>
@@ -851,7 +849,7 @@ export function ShiftRequestModal({
                                 {shiftStartDate && (
                                     <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 text-sm">
                                         <p className="text-blue-700 dark:text-blue-300">
-                                            シフト開始日: <span className="font-medium">{formatDisplayDate(shiftStartDate)}</span>
+                                            シフト開始日: <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{formatDisplayDate(shiftStartDate)}</span>
                                         </p>
                                     </div>
                                 )}
@@ -981,7 +979,7 @@ export function ShiftRequestModal({
             {/* LINE Send Confirmation Dialog */}
             {showLineSendConfirm && (
                 <Dialog open={showLineSendConfirm} onOpenChange={() => {}}>
-                    <DialogContent className="max-w-sm">
+                    <DialogContent className="sm:max-w-sm">
                         <DialogHeader>
                             <DialogTitle className="text-gray-900 dark:text-white">
                                 シフト募集を作成しました
@@ -1034,9 +1032,9 @@ export function ShiftRequestModal({
             {showLineWarning && lineTargetInfo && (
                 <LineWarningModal
                     isOpen={showLineWarning}
-                    onClose={() => {
+                    onClose={async () => {
                         setShowLineWarning(false);
-                        router.refresh();
+                        await queryClient.invalidateQueries({ queryKey: ["shifts"] });
                         onClose();
                     }}
                     onConfirm={handleLineWarningConfirm}
@@ -1048,7 +1046,7 @@ export function ShiftRequestModal({
 
             {/* Cancel Confirmation Modal */}
             <Dialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
-                <DialogContent className="max-w-sm">
+                <DialogContent className="sm:max-w-sm">
                     <DialogHeader>
                         <DialogTitle className="text-gray-900 dark:text-white">
                             作成をキャンセルしますか？

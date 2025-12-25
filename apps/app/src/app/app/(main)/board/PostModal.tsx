@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, Trash2, MoreHorizontal, Loader2, Upload, X, ImageIcon } from "lucide-react";
+import { ChevronLeft, Trash2, MoreHorizontal, Loader2, Upload, X, ImageIcon } from "lucide-react";
 import {
     Popover,
     PopoverContent,
@@ -209,47 +209,49 @@ export function PostModal({ isOpen, onClose, post, storeId }: PostModalProps) {
 
     return (
         <Dialog open={isOpen} onOpenChange={handleClose}>
-            <DialogContent className="max-w-2xl rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900 max-h-[90vh] overflow-hidden flex flex-col">
-                <DialogHeader className="relative flex flex-row items-center justify-center space-y-0 pb-2">
+            <DialogContent className="sm:max-w-md w-[95%] max-h-[90vh] overflow-y-auto rounded-2xl bg-white dark:bg-gray-900 p-0">
+                <DialogHeader className="flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
                     <button
                         type="button"
                         onClick={handleClose}
-                        className="absolute left-0 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
                     >
-                        <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                        <ChevronLeft className="h-5 w-5" />
                     </button>
-                    <DialogTitle className="text-base font-semibold text-gray-900 dark:text-gray-50">
+                    <DialogTitle className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white">
                         {post ? "投稿を編集" : "新規投稿"}
                     </DialogTitle>
-                    {post && (
-                        <Popover open={isMenuOpen} onOpenChange={setIsMenuOpen}>
-                            <PopoverTrigger asChild>
-                                <button
-                                    type="button"
-                                    className="absolute right-0 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                                >
-                                    <MoreHorizontal className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                                </button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-40 p-1" align="end">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setIsMenuOpen(false);
-                                        setShowDeleteConfirm(true);
-                                    }}
-                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                    削除
-                                </button>
-                            </PopoverContent>
-                        </Popover>
-                    )}
+                    <div className="w-8 h-8">
+                        {post && (
+                            <Popover open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+                                <PopoverTrigger asChild>
+                                    <button
+                                        type="button"
+                                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                    >
+                                        <MoreHorizontal className="h-5 w-5" />
+                                    </button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-40 p-1" align="end">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsMenuOpen(false);
+                                            setShowDeleteConfirm(true);
+                                        }}
+                                        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                    >
+                                        <Trash2 className="h-5 w-5" />
+                                        削除
+                                    </button>
+                                </PopoverContent>
+                            </Popover>
+                        )}
+                    </div>
                 </DialogHeader>
 
                 {showDeleteConfirm ? (
-                    <div className="space-y-4">
+                    <div className="space-y-4 px-6 py-4">
                         <p className="text-sm text-gray-600 dark:text-gray-400">
                             この投稿を削除しますか？この操作は取り消せません。
                         </p>
@@ -273,7 +275,7 @@ export function PostModal({ isOpen, onClose, post, storeId }: PostModalProps) {
                     </div>
                 ) : (
                     <>
-                        <div className="flex-1 overflow-y-auto space-y-4 min-h-0">
+                        <div className="space-y-4 px-6 py-4">
                             {/* Error message */}
                             {errorMessage && (
                                 <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-3">
@@ -313,7 +315,7 @@ export function PostModal({ isOpen, onClose, post, storeId }: PostModalProps) {
                                             onClick={handleRemoveImage}
                                             className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50 hover:bg-black/70 transition-colors"
                                         >
-                                            <X className="h-4 w-4 text-white" />
+                                            <X className="h-5 w-5 text-white" />
                                         </button>
                                     </div>
                                 ) : (
@@ -383,7 +385,7 @@ export function PostModal({ isOpen, onClose, post, storeId }: PostModalProps) {
                             </div>
                         </div>
 
-                        <DialogFooter className="gap-2 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                        <DialogFooter className="gap-2">
                             <Button
                                 variant="outline"
                                 onClick={() => handleSubmit("draft")}

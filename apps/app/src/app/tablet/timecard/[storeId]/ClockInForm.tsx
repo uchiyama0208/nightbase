@@ -31,7 +31,7 @@ export function ClockInForm({ storeId, profileId, profileName, pickupHistory, ta
             <button
                 type="submit"
                 disabled={!isValid}
-                className={`mt-4 w-full py-8 rounded-2xl text-white text-2xl font-bold shadow-lg transition-colors ${isValid
+                className={`mt-4 w-full py-8 rounded-2xl text-white text-2xl font-bold shadow-md transition-colors ${isValid
                     ? "bg-blue-500 hover:bg-blue-600 cursor-pointer"
                     : "bg-gray-400 cursor-not-allowed"
                     }`}

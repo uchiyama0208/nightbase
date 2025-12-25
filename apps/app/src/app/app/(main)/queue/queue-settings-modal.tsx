@@ -1,20 +1,45 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { QRCodeCanvas } from "qrcode.react";
+import { useRef, useCallback, useEffect, useState } from "react";
 import {
     Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
-    DialogFooter,
 } from "@/components/ui/dialog";
+import { DeleteConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Copy, Check, Download, Link as LinkIcon, ChevronLeft } from "lucide-react";
-import { updateQueueSettings } from "./actions";
-import type { QueueSettings } from "./types";
+import { ChevronLeft, ChevronRight, Plus, Trash2, X } from "lucide-react";
+import {
+    updateQueueSettings,
+    getQueueCustomFields,
+    createQueueCustomField,
+    updateQueueCustomField,
+    deleteQueueCustomField,
+    type QueueCustomField,
+} from "./actions";
+import type { QueueSettings, ContactSetting } from "./types";
+import { useGlobalLoading } from "@/components/global-loading";
+import { toast } from "@/components/ui/use-toast";
+
+type FieldType = "text" | "textarea" | "select" | "checkbox";
+
+const FIELD_TYPE_LABELS: Record<FieldType, string> = {
+    text: "1行テキスト",
+    textarea: "複数行テキスト",
+    select: "選択肢",
+    checkbox: "チェックボックス",
+};
 
 interface QueueSettingsModalProps {
     isOpen: boolean;
@@ -22,9 +47,14 @@ interface QueueSettingsModalProps {
     storeId: string;
     storeName: string;
     initialSettings: QueueSettings;
+    onSettingsChange?: (settings: QueueSettings) => void;
 }
 
-type TabType = "settings" | "share";
+const contactSettingOptions: { value: ContactSetting; label: string }[] = [
+    { value: "hidden", label: "非表示" },
+    { value: "optional", label: "任意" },
+    { value: "required", label: "必須" },
+];
 
 export function QueueSettingsModal({
     isOpen,
@@ -32,264 +62,563 @@ export function QueueSettingsModal({
     storeId,
     storeName,
     initialSettings,
+    onSettingsChange,
 }: QueueSettingsModalProps) {
-    const [activeTab, setActiveTab] = useState<TabType>("settings");
     const [isEnabled, setIsEnabled] = useState(initialSettings.queue_enabled);
     const [message, setMessage] = useState(initialSettings.queue_notification_message);
-    const [isSaving, setIsSaving] = useState(false);
-    const [copiedUrl, setCopiedUrl] = useState(false);
-    const qrRef = useRef<HTMLDivElement>(null);
+    const [emailSetting, setEmailSetting] = useState<ContactSetting>(initialSettings.queue_email_setting);
+    const [phoneSetting, setPhoneSetting] = useState<ContactSetting>(initialSettings.queue_phone_setting);
+    const [castSetting, setCastSetting] = useState<ContactSetting>(initialSettings.queue_cast_setting);
+    const [hasUserEdited, setHasUserEdited] = useState(false);
+    const autoSaveRef = useRef<(() => Promise<void>) | null>(null);
+    const { showLoading, hideLoading } = useGlobalLoading();
 
-    // Vercel-style tabs
-    const tabsRef = useRef<{ [key: string]: HTMLButtonElement | null }>({});
-    const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
+    // Custom fields state
+    const [customFields, setCustomFields] = useState<QueueCustomField[]>([]);
+    const [isLoadingFields, setIsLoadingFields] = useState(false);
+    const [editingField, setEditingField] = useState<QueueCustomField | null>(null);
+    const [isAddMode, setIsAddMode] = useState(false);
+
+    // Field form state
+    const [formLabel, setFormLabel] = useState("");
+    const [formType, setFormType] = useState<FieldType>("text");
+    const [formRequired, setFormRequired] = useState(false);
+    const [formOptions, setFormOptions] = useState<string[]>([]);
+    const [newOption, setNewOption] = useState("");
+    const [deleteFieldId, setDeleteFieldId] = useState<string | null>(null);
+
+    // Load custom fields
+    const loadCustomFields = useCallback(async () => {
+        setIsLoadingFields(true);
+        const result = await getQueueCustomFields(storeId);
+        if (result.success) {
+            setCustomFields(result.fields);
+        }
+        setIsLoadingFields(false);
+    }, [storeId]);
 
     useEffect(() => {
-        const activeButton = tabsRef.current[activeTab];
-        if (activeButton) {
-            setIndicatorStyle({
-                left: activeButton.offsetLeft,
-                width: activeButton.offsetWidth,
+        if (isOpen) {
+            loadCustomFields();
+            setHasUserEdited(false);
+        }
+    }, [isOpen, loadCustomFields]);
+
+    const resetFieldForm = () => {
+        setFormLabel("");
+        setFormType("text");
+        setFormRequired(false);
+        setFormOptions([]);
+        setNewOption("");
+        setEditingField(null);
+        setIsAddMode(false);
+    };
+
+    const startAddField = () => {
+        resetFieldForm();
+        setIsAddMode(true);
+    };
+
+    const startEditField = (field: QueueCustomField) => {
+        setEditingField(field);
+        setFormLabel(field.label);
+        setFormType(field.field_type);
+        setFormRequired(field.is_required);
+        setFormOptions(field.options || []);
+        setIsAddMode(false);
+    };
+
+    const handleAddOption = () => {
+        if (newOption.trim() && !formOptions.includes(newOption.trim())) {
+            setFormOptions([...formOptions, newOption.trim()]);
+            setNewOption("");
+        }
+    };
+
+    const handleRemoveOption = (index: number) => {
+        setFormOptions(formOptions.filter((_, i) => i !== index));
+    };
+
+    const handleSaveField = async () => {
+        if (!formLabel.trim()) {
+            toast({
+                title: "エラー",
+                description: "ラベルを入力してください",
+                variant: "destructive",
             });
+            return;
         }
-    }, [activeTab, isOpen]);
 
-    const queueUrl = typeof window !== "undefined"
-        ? `${window.location.origin}/queue/${storeId}`
-        : `/queue/${storeId}`;
+        if (formType === "select" && formOptions.length < 2) {
+            toast({
+                title: "エラー",
+                description: "選択肢は2つ以上必要です",
+                variant: "destructive",
+            });
+            return;
+        }
 
-    const handleSave = async () => {
-        setIsSaving(true);
-        const result = await updateQueueSettings(storeId, {
-            queue_enabled: isEnabled,
-            queue_notification_message: message,
-        });
-        setIsSaving(false);
+        showLoading("保存中...");
+        try {
+            let result;
+            if (editingField) {
+                result = await updateQueueCustomField({
+                    fieldId: editingField.id,
+                    label: formLabel.trim(),
+                    fieldType: formType,
+                    isRequired: formRequired,
+                    options: formType === "select" ? formOptions : null,
+                });
+            } else {
+                result = await createQueueCustomField({
+                    storeId,
+                    label: formLabel.trim(),
+                    fieldType: formType,
+                    isRequired: formRequired,
+                    options: formType === "select" ? formOptions : undefined,
+                });
+            }
 
-        if (result.success) {
-            onClose();
+            if (!result.success) {
+                console.error("Save field error:", result.error);
+                toast({
+                    title: "エラー",
+                    description: result.error || "保存に失敗しました",
+                    variant: "destructive",
+                });
+                return;
+            }
+
+            await loadCustomFields();
+            resetFieldForm();
+            toast({ title: "保存しました" });
+        } catch (e) {
+            console.error("Save field exception:", e);
+            toast({
+                title: "エラー",
+                description: "保存に失敗しました",
+                variant: "destructive",
+            });
+        } finally {
+            hideLoading();
         }
     };
 
-    const handleCopyUrl = async () => {
-        await navigator.clipboard.writeText(queueUrl);
-        setCopiedUrl(true);
-        setTimeout(() => setCopiedUrl(false), 2000);
+    const handleDeleteField = async () => {
+        if (!deleteFieldId) return;
+
+        showLoading("削除中...");
+        try {
+            await deleteQueueCustomField(deleteFieldId);
+            await loadCustomFields();
+            resetFieldForm();
+            setDeleteFieldId(null);
+            toast({ title: "削除しました" });
+        } catch {
+            toast({
+                title: "エラー",
+                description: "削除に失敗しました",
+                variant: "destructive",
+            });
+        } finally {
+            hideLoading();
+        }
     };
 
-    const handleDownloadQR = () => {
-        if (!qrRef.current) return;
+    const isEditingField = editingField !== null || isAddMode;
 
-        const canvas = qrRef.current.querySelector("canvas");
-        if (!canvas) return;
+    // Auto-save function
+    const autoSave = useCallback(async () => {
+        showLoading("保存中...");
+        try {
+            const newSettings: QueueSettings = {
+                queue_enabled: isEnabled,
+                queue_notification_message: message,
+                queue_email_setting: emailSetting,
+                queue_phone_setting: phoneSetting,
+                queue_cast_setting: castSetting,
+            };
+            const result = await updateQueueSettings(storeId, newSettings);
+            if (result.success) {
+                onSettingsChange?.(newSettings);
+            } else {
+                toast({ title: "保存に失敗しました", variant: "destructive" });
+            }
+        } catch {
+            toast({ title: "保存に失敗しました", variant: "destructive" });
+        } finally {
+            hideLoading();
+        }
+    }, [storeId, isEnabled, message, emailSetting, phoneSetting, castSetting, showLoading, hideLoading, onSettingsChange]);
 
-        const link = document.createElement("a");
-        link.download = `${storeName}_順番待ちQRコード.png`;
-        link.href = canvas.toDataURL("image/png");
-        link.click();
-    };
+    // Update autoSaveRef
+    useEffect(() => {
+        autoSaveRef.current = autoSave;
+    }, [autoSave]);
 
-    const handleShareToLine = () => {
-        const text = `${storeName} - 順番待ち登録`;
-        const lineUrl = `https://line.me/R/msg/text/?${encodeURIComponent(text + "\n" + queueUrl)}`;
-        window.open(lineUrl, "_blank");
-    };
+    // Debounced auto-save
+    useEffect(() => {
+        if (!hasUserEdited) return;
+
+        const timer = setTimeout(() => {
+            autoSaveRef.current?.();
+        }, 800);
+        return () => clearTimeout(timer);
+    }, [isEnabled, message, emailSetting, phoneSetting, castSetting, hasUserEdited]);
+
+    // Field editing screen
+    if (isEditingField) {
+        return (
+            <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+                <DialogContent className="sm:max-w-sm rounded-2xl border border-gray-200 bg-white p-0 shadow-xl dark:border-gray-800 dark:bg-gray-900 max-h-[90vh] overflow-hidden flex flex-col">
+                    <DialogHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900 flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
+                        <button
+                            type="button"
+                            onClick={resetFieldForm}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700"
+                            aria-label="戻る"
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                        </button>
+                        <DialogTitle className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white truncate">
+                            {editingField ? "質問を編集" : "質問を追加"}
+                        </DialogTitle>
+                        {editingField ? (
+                            <button
+                                type="button"
+                                onClick={() => setDeleteFieldId(editingField.id)}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-red-500 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
+                                aria-label="削除"
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </button>
+                        ) : (
+                            <div className="w-8 h-8" />
+                        )}
+                    </DialogHeader>
+
+                    <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+                        {/* Label */}
+                        <div className="space-y-1.5">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                                質問ラベル <span className="text-red-500">*</span>
+                            </label>
+                            <Input
+                                value={formLabel}
+                                onChange={(e) => setFormLabel(e.target.value)}
+                                placeholder="例: ご来店のきっかけ"
+                                className="rounded-lg"
+                            />
+                        </div>
+
+                        {/* Answer type */}
+                        <div className="space-y-1.5">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                                回答タイプ
+                            </label>
+                            <Select
+                                value={formType}
+                                onValueChange={(v) => setFormType(v as FieldType)}
+                            >
+                                <SelectTrigger className="rounded-lg">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {Object.entries(FIELD_TYPE_LABELS).map(([value, label]) => (
+                                        <SelectItem key={value} value={value}>
+                                            {label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Options (select type only) */}
+                        {formType === "select" && (
+                            <div className="space-y-2">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                                    選択肢
+                                </label>
+                                <div className="space-y-2">
+                                    {formOptions.map((option, index) => (
+                                        <div key={index} className="flex items-center gap-2">
+                                            <Input
+                                                value={option}
+                                                readOnly
+                                                className="rounded-lg flex-1"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRemoveOption(index)}
+                                                className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                                            >
+                                                <X className="h-4 w-4" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                    <div className="flex items-center gap-2">
+                                        <Input
+                                            value={newOption}
+                                            onChange={(e) => setNewOption(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter") {
+                                                    e.preventDefault();
+                                                    handleAddOption();
+                                                }
+                                            }}
+                                            placeholder="選択肢を入力"
+                                            className="rounded-lg flex-1"
+                                        />
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleAddOption}
+                                            className="rounded-lg"
+                                        >
+                                            追加
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Required toggle */}
+                        <div className="flex items-center justify-between py-2">
+                            <span className="text-sm text-gray-700 dark:text-gray-200">
+                                必須にする
+                            </span>
+                            <Switch
+                                checked={formRequired}
+                                onCheckedChange={setFormRequired}
+                            />
+                        </div>
+
+                        {/* Save button */}
+                        <div className="pt-4 pb-2">
+                            <Button
+                                onClick={handleSaveField}
+                                className="w-full rounded-lg"
+                            >
+                                保存
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+        );
+    }
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900 max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                    <div className="flex items-center justify-between">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="p-1 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
-                        >
-                            <ChevronLeft className="h-5 w-5" />
-                        </button>
-                        <DialogTitle className="text-base font-semibold text-gray-900 dark:text-gray-50">
-                            順番待ち設定
-                        </DialogTitle>
-                        <div className="w-7" />
-                    </div>
+            <DialogContent className="sm:max-w-sm rounded-2xl border border-gray-200 bg-white p-0 shadow-xl dark:border-gray-800 dark:bg-gray-900 max-h-[90vh] overflow-hidden flex flex-col">
+                <DialogHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900 flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700"
+                        aria-label="戻る"
+                    >
+                        <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <DialogTitle className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white truncate">
+                        順番待ち設定
+                    </DialogTitle>
+                    <div className="w-8 h-8" />
                 </DialogHeader>
 
-                {/* Vercel-style Tab Navigation */}
-                <div className="relative mt-4">
-                    <div className="flex w-full">
-                        <button
-                            ref={(el) => { tabsRef.current["settings"] = el; }}
-                            type="button"
-                            onClick={() => setActiveTab("settings")}
-                            className={`flex-1 py-2 text-sm font-medium transition-colors relative ${
-                                activeTab === "settings"
-                                    ? "text-gray-900 dark:text-white"
-                                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                            }`}
-                        >
-                            設定
-                        </button>
-                        <button
-                            ref={(el) => { tabsRef.current["share"] = el; }}
-                            type="button"
-                            onClick={() => setActiveTab("share")}
-                            className={`flex-1 py-2 text-sm font-medium transition-colors relative ${
-                                activeTab === "share"
-                                    ? "text-gray-900 dark:text-white"
-                                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                            }`}
-                        >
-                            共有
-                        </button>
-                    </div>
-                    <div
-                        className="absolute bottom-0 h-0.5 bg-gray-900 dark:bg-white transition-all duration-200"
-                        style={{ left: indicatorStyle.left, width: indicatorStyle.width }}
-                    />
-                    <div className="absolute bottom-0 left-0 right-0 h-px bg-gray-200 dark:bg-gray-700" />
-                </div>
-
-                {/* 設定タブ */}
-                {activeTab === "settings" && (
-                    <div className="space-y-6 py-4">
-                        {/* 有効/無効切り替え */}
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                    順番待ち機能を有効にする
-                                </p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                    有効にするとゲストが順番待ち登録できます
-                                </p>
-                            </div>
-                            <Switch
-                                checked={isEnabled}
-                                onCheckedChange={setIsEnabled}
-                            />
-                        </div>
-
-                        {/* 通知メッセージ */}
-                        <div className="space-y-2">
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-                                通知メッセージ
-                            </label>
-                            <Textarea
-                                value={message}
-                                onChange={(e) => setMessage(e.target.value)}
-                                placeholder="お待たせいたしました。まもなくご案内できます。"
-                                className="min-h-[100px] rounded-lg border-gray-200 bg-white
-                                           focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0
-                                           dark:border-gray-700 dark:bg-gray-800"
-                            />
+                <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+                    {/* Enable/disable toggle */}
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                順番待ち機能を有効にする
+                            </p>
                             <p className="text-xs text-gray-500 dark:text-gray-400">
-                                ゲストに通知を送る際に使用されます
+                                有効にするとゲストが順番待ち登録できます
                             </p>
                         </div>
-
-                        <DialogFooter className="flex justify-end gap-2 pt-2">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={onClose}
-                                className="rounded-lg"
-                            >
-                                キャンセル
-                            </Button>
-                            <Button
-                                type="button"
-                                onClick={handleSave}
-                                disabled={isSaving}
-                                className="rounded-lg"
-                            >
-                                {isSaving ? (
-                                    <>
-                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                        保存中...
-                                    </>
-                                ) : (
-                                    "保存"
-                                )}
-                            </Button>
-                        </DialogFooter>
+                        <Switch
+                            checked={isEnabled}
+                            onCheckedChange={(checked) => {
+                                setIsEnabled(checked);
+                                setHasUserEdited(true);
+                            }}
+                        />
                     </div>
-                )}
 
-                {/* 共有タブ */}
-                {activeTab === "share" && (
-                    <div className="space-y-4 py-4">
-                        {!isEnabled ? (
-                            <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl">
-                                <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                                    順番待ち機能を有効にすると共有できます
+                    {/* Contact settings - only show when enabled */}
+                    {isEnabled && (
+                        <>
+                            <div className="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                    連絡先の入力設定
                                 </p>
-                            </div>
-                        ) : (
-                            <>
-                                {/* QRコード */}
-                                <div className="flex justify-center">
-                                    <div
-                                        ref={qrRef}
-                                        className="p-4 bg-white rounded-xl border border-gray-200 dark:border-gray-700"
-                                    >
-                                        <QRCodeCanvas
-                                            value={queueUrl}
-                                            size={180}
-                                            level="H"
-                                            marginSize={1}
-                                        />
+
+                                {/* Email setting */}
+                                <div className="space-y-2">
+                                    <p className="text-sm text-gray-700 dark:text-gray-200">
+                                        メールアドレス
+                                    </p>
+                                    <div className="flex gap-2">
+                                        {contactSettingOptions.map((option) => (
+                                            <button
+                                                key={option.value}
+                                                type="button"
+                                                onClick={() => {
+                                                    setEmailSetting(option.value);
+                                                    setHasUserEdited(true);
+                                                }}
+                                                className={`flex-1 py-2 px-3 text-xs rounded-lg border transition-colors ${
+                                                    emailSetting === option.value
+                                                        ? "bg-blue-500 text-white border-blue-500"
+                                                        : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+                                                }`}
+                                            >
+                                                {option.label}
+                                            </button>
+                                        ))}
                                     </div>
                                 </div>
 
-                                <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                                    QRコードをスキャンまたはURLを共有してください
+                                {/* Phone setting */}
+                                <div className="space-y-2">
+                                    <p className="text-sm text-gray-700 dark:text-gray-200">
+                                        電話番号
+                                    </p>
+                                    <div className="flex gap-2">
+                                        {contactSettingOptions.map((option) => (
+                                            <button
+                                                key={option.value}
+                                                type="button"
+                                                onClick={() => {
+                                                    setPhoneSetting(option.value);
+                                                    setHasUserEdited(true);
+                                                }}
+                                                className={`flex-1 py-2 px-3 text-xs rounded-lg border transition-colors ${
+                                                    phoneSetting === option.value
+                                                        ? "bg-blue-500 text-white border-blue-500"
+                                                        : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+                                                }`}
+                                            >
+                                                {option.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Cast setting */}
+                                <div className="space-y-2">
+                                    <p className="text-sm text-gray-700 dark:text-gray-200">
+                                        指名キャスト
+                                    </p>
+                                    <div className="flex gap-2">
+                                        {contactSettingOptions.map((option) => (
+                                            <button
+                                                key={option.value}
+                                                type="button"
+                                                onClick={() => {
+                                                    setCastSetting(option.value);
+                                                    setHasUserEdited(true);
+                                                }}
+                                                className={`flex-1 py-2 px-3 text-xs rounded-lg border transition-colors ${
+                                                    castSetting === option.value
+                                                        ? "bg-blue-500 text-white border-blue-500"
+                                                        : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+                                                }`}
+                                            >
+                                                {option.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Notification email (only if email is enabled) */}
+                            {emailSetting !== "hidden" && (
+                                <div className="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                                        通知メール
+                                    </label>
+                                    <Textarea
+                                        value={message}
+                                        onChange={(e) => {
+                                            setMessage(e.target.value);
+                                            setHasUserEdited(true);
+                                        }}
+                                        placeholder="お待たせいたしました。まもなくご案内できます。"
+                                        className="min-h-[100px] rounded-lg border-gray-200 bg-white
+                                                   focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0
+                                                   dark:border-gray-700 dark:bg-gray-800"
+                                    />
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                        ゲストに通知を送る際に使用されます
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Custom questions section */}
+                            <div className="space-y-4 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                    カスタム質問
                                 </p>
 
-                                {/* アクションボタン */}
-                                <div className="flex flex-col gap-2">
-                                    <Button
-                                        variant="outline"
-                                        onClick={handleDownloadQR}
-                                        className="w-full rounded-lg"
-                                    >
-                                        <Download className="h-4 w-4 mr-2" />
-                                        QR保存
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        onClick={handleCopyUrl}
-                                        className="w-full rounded-lg"
-                                    >
-                                        {copiedUrl ? (
-                                            <>
-                                                <Check className="h-4 w-4 mr-2 text-green-500" />
-                                                コピー済み
-                                            </>
+                                {isLoadingFields ? (
+                                    <div className="flex items-center justify-center py-4">
+                                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500" />
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {customFields.length === 0 ? (
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-2">
+                                                カスタム質問はありません
+                                            </p>
                                         ) : (
-                                            <>
-                                                <LinkIcon className="h-4 w-4 mr-2" />
-                                                URLコピー
-                                            </>
+                                            customFields.map((field) => (
+                                                <button
+                                                    key={field.id}
+                                                    type="button"
+                                                    onClick={() => startEditField(field)}
+                                                    className="w-full flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
+                                                >
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="text-sm text-gray-900 dark:text-white truncate">
+                                                            {field.label}
+                                                            {field.is_required && (
+                                                                <span className="text-red-500 ml-1">*</span>
+                                                            )}
+                                                        </p>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                            {FIELD_TYPE_LABELS[field.field_type]}
+                                                        </p>
+                                                    </div>
+                                                    <ChevronRight className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                                                </button>
+                                            ))
                                         )}
-                                    </Button>
-                                    <Button
-                                        onClick={handleShareToLine}
-                                        className="w-full rounded-lg bg-[#06C755] hover:bg-[#05b34c] text-white"
-                                    >
-                                        <svg
-                                            className="h-5 w-5 mr-2"
-                                            viewBox="0 0 24 24"
-                                            fill="currentColor"
+
+                                        <button
+                                            type="button"
+                                            onClick={startAddField}
+                                            className="w-full flex items-center justify-center gap-1 p-3 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                                         >
-                                            <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.346 0 .627.285.627.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/>
-                                        </svg>
-                                        LINEで共有
-                                    </Button>
-                                </div>
-                            </>
-                        )}
-                    </div>
-                )}
+                                            <Plus className="h-4 w-4" />
+                                            <span className="text-sm">質問を追加</span>
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    )}
+                </div>
             </DialogContent>
+
+            <DeleteConfirmDialog
+                open={!!deleteFieldId}
+                onOpenChange={(open) => !open && setDeleteFieldId(null)}
+                itemName="この質問"
+                onConfirm={handleDeleteField}
+            />
         </Dialog>
     );
 }

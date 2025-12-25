@@ -1,43 +1,10 @@
-import { redirect, notFound } from "next/navigation";
-import { getAppData } from "../../../../../data-access";
-import { getManual, getManualTags } from "../../../actions";
-import { ManualEditor } from "../../../ManualEditor";
+import type { Metadata } from "next";
+import { EditManualWrapper } from "./edit-manual-wrapper";
 
-interface EditManualPageProps {
-    params: Promise<{ id: string }>;
-}
+export const metadata: Metadata = {
+    title: "マニュアルを編集",
+};
 
-export default async function EditManualPage({ params }: EditManualPageProps) {
-    const { id } = await params;
-    const { user, profile } = await getAppData();
-
-    if (!user) {
-        redirect("/login");
-    }
-
-    if (!profile || !profile.store_id) {
-        redirect("/app/me");
-    }
-
-    // Only staff can edit manuals
-    if (profile.role !== "staff" && profile.role !== "admin") {
-        redirect("/app/board");
-    }
-
-    const [manual, tags] = await Promise.all([
-        getManual(id),
-        getManualTags(profile.store_id),
-    ]);
-
-    if (!manual) {
-        notFound();
-    }
-
-    return (
-        <ManualEditor
-            manual={manual}
-            storeId={profile.store_id}
-            availableTags={tags}
-        />
-    );
+export default function EditManualPage() {
+    return <EditManualWrapper />;
 }

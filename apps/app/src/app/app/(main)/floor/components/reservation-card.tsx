@@ -16,7 +16,7 @@ interface ReservationCardProps {
             id: string;
             display_name: string;
         } | null;
-        status: "waiting" | "visited" | "cancelled";
+        status: string;
     };
     onUpdate: () => void;
     onSessionCreated?: (sessionId: string) => void;
@@ -50,11 +50,11 @@ export function ReservationCard({ reservation, onUpdate, onSessionCreated, onCli
 
     return (
         <Card
-            className="bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 p-3 flex flex-col cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors shadow-sm"
+            className="bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-800 p-3 flex flex-col cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors shadow-sm"
             onClick={onClick}
         >
             <CardHeader className="p-0 mb-2 space-y-0">
-                <CardTitle className="text-lg mb-1 text-slate-900 dark:text-slate-100">
+                <CardTitle className="text-lg mb-1 text-gray-900 dark:text-white">
                     {reservation.guest_name}
                 </CardTitle>
                 <div className="flex items-center justify-between gap-2">
@@ -71,7 +71,7 @@ export function ReservationCard({ reservation, onUpdate, onSessionCreated, onCli
             <CardContent className="p-0 space-y-1.5 flex-1">
                 {/* 指名キャスト */}
                 {reservation.nominated_cast && (
-                    <div className="flex items-center gap-1 text-[11px]">
+                    <div className="flex items-center gap-1 text-xs">
                         <User className="h-3 w-3 text-pink-600 dark:text-pink-400" />
                         <span className="text-pink-600 dark:text-pink-400">
                             {reservation.nominated_cast.display_name}
@@ -80,7 +80,7 @@ export function ReservationCard({ reservation, onUpdate, onSessionCreated, onCli
                     </div>
                 )}
                 {!reservation.nominated_cast && (
-                    <div className="text-[11px] text-muted-foreground">
+                    <div className="text-xs text-muted-foreground">
                         指名なし
                     </div>
                 )}
@@ -95,7 +95,7 @@ export function ReservationCard({ reservation, onUpdate, onSessionCreated, onCli
                         disabled={isLoading}
                     >
                         {isLoading ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
+                            <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
                             <>
                                 <Check className="h-3 w-3 mr-1" />

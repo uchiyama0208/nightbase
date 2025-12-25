@@ -41,7 +41,6 @@ async function processAutoClockOut() {
     const stores = (data ?? []).map((s: any) => ({ ...s, id: s.store_id })) as any[];
 
     if (stores.length === 0) {
-        console.log("No stores with auto clock-out enabled");
         return [];
     }
 
@@ -129,7 +128,6 @@ async function processAutoClockOut() {
         }
     }
 
-    console.log(`Auto clock-out processed ${results.length} time cards`);
     return results;
 }
 

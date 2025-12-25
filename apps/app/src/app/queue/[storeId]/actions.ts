@@ -1,10 +1,13 @@
 "use server";
 
-import { createServerClient } from "@/lib/supabaseServerClient";
+import { createServiceRoleClient } from "@/lib/supabaseServerClient";
+
+export type ContactSetting = "hidden" | "optional" | "required";
 
 // 店舗情報取得（公開用）
+// 未認証ユーザーからのアクセスのため、Service Role Clientを使用してRLSをバイパス
 export async function getStoreForQueue(storeId: string) {
-    const supabase = await createServerClient() as any;
+    const supabase = createServiceRoleClient() as any;
 
     // 店舗基本情報を取得
     const { data: store, error } = await supabase
@@ -20,7 +23,7 @@ export async function getStoreForQueue(storeId: string) {
     // 店舗設定を取得
     const { data: storeSettings } = await supabase
         .from("store_settings")
-        .select("queue_enabled")
+        .select("queue_enabled, queue_email_setting, queue_phone_setting, queue_cast_setting")
         .eq("store_id", storeId)
         .maybeSingle();
 
@@ -33,13 +36,35 @@ export async function getStoreForQueue(storeId: string) {
         store: {
             ...store,
             queue_enabled: storeSettings.queue_enabled,
+            queue_email_setting: (storeSettings.queue_email_setting || "required") as ContactSetting,
+            queue_phone_setting: (storeSettings.queue_phone_setting || "hidden") as ContactSetting,
+            queue_cast_setting: (storeSettings.queue_cast_setting || "hidden") as ContactSetting,
         }
     };
 }
 
+// キャスト一覧取得（公開用）- 在籍中のみ
+export async function getCastsForQueue(storeId: string) {
+    const supabase = createServiceRoleClient() as any;
+
+    const { data: casts, error } = await supabase
+        .from("profiles")
+        .select("id, display_name")
+        .eq("store_id", storeId)
+        .eq("role", "cast")
+        .eq("status", "在籍中")
+        .order("display_name", { ascending: true });
+
+    if (error) {
+        return { success: false, casts: [] };
+    }
+
+    return { success: true, casts: casts || [] };
+}
+
 // 待ち組数を取得
 export async function getWaitingCount(storeId: string) {
-    const supabase = await createServerClient() as any;
+    const supabase = createServiceRoleClient() as any;
 
     const { count, error } = await supabase
         .from("queue_entries")
@@ -56,43 +81,64 @@ export async function getWaitingCount(storeId: string) {
 
 // 順番待ち登録
 export async function submitQueueEntry(formData: FormData) {
-    const supabase = await createServerClient() as any;
+    const supabase = createServiceRoleClient() as any;
 
     const storeId = formData.get("store_id") as string;
     const guestName = formData.get("guest_name") as string;
-    const contactType = formData.get("contact_type") as string;
-    const contactValue = formData.get("contact_value") as string;
+    const email = formData.get("email") as string | null;
+    const phone = formData.get("phone") as string | null;
     const partySizeStr = formData.get("party_size") as string;
     const partySize = parseInt(partySizeStr, 10) || 1;
+    const nominatedCastId = formData.get("nominated_cast_id") as string | null;
 
-    // バリデーション
-    if (!storeId || !guestName || !contactType || !contactValue) {
-        return { success: false, error: "必須項目を入力してください" };
-    }
-
-    if (contactType !== "email" && contactType !== "phone") {
-        return { success: false, error: "連絡先の種類が不正です" };
-    }
-
-    // メールアドレスの簡易バリデーション
-    if (contactType === "email" && !contactValue.includes("@")) {
-        return { success: false, error: "有効なメールアドレスを入力してください" };
-    }
-
-    // 電話番号の簡易バリデーション（数字とハイフンのみ）
-    if (contactType === "phone" && !/^[\d\-]+$/.test(contactValue)) {
-        return { success: false, error: "有効な電話番号を入力してください" };
-    }
-
-    // 店舗が順番待ちを受け付けているか確認
+    // 店舗設定を取得してバリデーション
     const { data: storeSettings } = await supabase
         .from("store_settings")
-        .select("store_id, queue_enabled, day_switch_time")
+        .select("store_id, queue_enabled, day_switch_time, queue_email_setting, queue_phone_setting, queue_cast_setting")
         .eq("store_id", storeId)
         .maybeSingle();
 
     if (!storeSettings || !storeSettings.queue_enabled) {
         return { success: false, error: "この店舗は順番待ち登録を受け付けていません" };
+    }
+
+    const emailSetting = storeSettings.queue_email_setting || "required";
+    const phoneSetting = storeSettings.queue_phone_setting || "hidden";
+    const castSetting = storeSettings.queue_cast_setting || "hidden";
+
+    // 基本バリデーション
+    if (!storeId || !guestName) {
+        return { success: false, error: "必須項目を入力してください" };
+    }
+
+    // メールアドレスのバリデーション
+    if (emailSetting === "required" && !email) {
+        return { success: false, error: "メールアドレスを入力してください" };
+    }
+    if (email && !email.includes("@")) {
+        return { success: false, error: "有効なメールアドレスを入力してください" };
+    }
+
+    // 電話番号のバリデーション
+    if (phoneSetting === "required" && !phone) {
+        return { success: false, error: "電話番号を入力してください" };
+    }
+    if (phone && !/^[\d\-]+$/.test(phone)) {
+        return { success: false, error: "有効な電話番号を入力してください" };
+    }
+
+    // 連絡先が少なくとも1つは必要（両方hiddenでない場合）
+    if (emailSetting !== "hidden" || phoneSetting !== "hidden") {
+        if (!email && !phone) {
+            return { success: false, error: "連絡先を入力してください" };
+        }
+    }
+
+    // 指名キャストのバリデーション
+    // "none"は「指名なし」を明示的に選択したことを意味するので有効
+    // 未選択（空文字やnull）の場合のみエラー
+    if (castSetting === "required" && !nominatedCastId) {
+        return { success: false, error: "指名キャストを選択してください" };
     }
 
     // 店舗の切り替え時間を考慮して営業日を計算
@@ -132,18 +178,30 @@ export async function submitQueueEntry(formData: FormData) {
 
     const queueNumber = (lastEntry?.queue_number || 0) + 1;
 
+    // 後方互換性のためcontact_typeとcontact_valueを設定
+    const contactType = email ? "email" : "phone";
+    const contactValue = email || phone || "";
+
     // 順番待ちエントリを作成
+    const insertData: any = {
+        store_id: storeId,
+        guest_name: guestName,
+        contact_type: contactType,
+        contact_value: contactValue,
+        email: email || null,
+        phone: phone || null,
+        party_size: partySize,
+        queue_number: queueNumber,
+        status: "waiting",
+    };
+
+    if (nominatedCastId && nominatedCastId !== "" && nominatedCastId !== "none") {
+        insertData.nominated_cast_id = nominatedCastId;
+    }
+
     const { data: entry, error: insertError } = await supabase
         .from("queue_entries")
-        .insert({
-            store_id: storeId,
-            guest_name: guestName,
-            contact_type: contactType,
-            contact_value: contactValue,
-            party_size: partySize,
-            queue_number: queueNumber,
-            status: "waiting",
-        })
+        .insert(insertData)
         .select()
         .single();
 
@@ -152,5 +210,62 @@ export async function submitQueueEntry(formData: FormData) {
         return { success: false, error: "登録に失敗しました。しばらく経ってからもう一度お試しください。" };
     }
 
+    // Save custom answers if provided
+    const customAnswers = formData.get("custom_answers") as string;
+    if (customAnswers) {
+        try {
+            const answers = JSON.parse(customAnswers) as { fieldId: string; value: string }[];
+            const answerInserts = answers
+                .filter((a) => a.value && a.value.trim() !== "")
+                .map((a) => ({
+                    queue_entry_id: entry.id,
+                    field_id: a.fieldId,
+                    answer_value: a.value,
+                }));
+
+            if (answerInserts.length > 0) {
+                const { error: answersError } = await supabase
+                    .from("queue_custom_answers")
+                    .insert(answerInserts);
+
+                if (answersError) {
+                    console.error("Queue custom answers insert error:", answersError);
+                    // Continue anyway - the queue entry itself succeeded
+                }
+            }
+        } catch (e) {
+            console.error("Error parsing custom answers:", e);
+        }
+    }
+
     return { success: true, queueNumber: entry.queue_number };
+}
+
+// Custom field interface for guest-facing form
+export interface QueueCustomField {
+    id: string;
+    store_id: string;
+    field_type: "text" | "textarea" | "select" | "checkbox";
+    label: string;
+    options: string[] | null;
+    is_required: boolean;
+    sort_order: number;
+}
+
+// Get custom fields for a store (public - for guest form)
+export async function getQueueCustomFieldsForForm(storeId: string) {
+    const supabase = createServiceRoleClient() as any;
+
+    const { data, error } = await supabase
+        .from("queue_custom_fields")
+        .select("id, store_id, field_type, label, options, is_required, sort_order")
+        .eq("store_id", storeId)
+        .order("sort_order", { ascending: true });
+
+    if (error) {
+        console.error("Error fetching queue custom fields for form:", error);
+        return { success: false, fields: [] };
+    }
+
+    return { success: true, fields: data as QueueCustomField[] };
 }

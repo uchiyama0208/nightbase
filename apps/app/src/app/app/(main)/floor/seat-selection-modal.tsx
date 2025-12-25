@@ -20,7 +20,6 @@ interface SeatSelectionModalProps {
     onSeatSelect: (rowIndex: number, colIndex: number) => void;
     onSkip?: () => void;
     table: Table;
-    assignments: any[];
     selectedProfile: {
         id: string;
         display_name: string;
@@ -31,11 +30,9 @@ interface SeatSelectionModalProps {
 
 function ScalableGridWrapper({
     grid,
-    assignments,
     onCellClick
 }: {
     grid: any[][],
-    assignments: any[],
     onCellClick: (r: number, c: number) => void
 }) {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -88,8 +85,7 @@ function ScalableGridWrapper({
             >
                 <TableGrid
                     grid={grid}
-                    assignments={assignments}
-                    onCellClick={onCellClick}
+                    onCellClick={(r, c) => onCellClick(r, c)}
                 />
             </div>
         </div>
@@ -102,7 +98,6 @@ export function SeatSelectionModal({
     onSeatSelect,
     onSkip,
     table,
-    assignments,
     selectedProfile,
     mode,
 }: SeatSelectionModalProps) {
@@ -120,26 +115,26 @@ export function SeatSelectionModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-3 sm:p-4 md:p-5">
-                <DialogHeader className="mb-3 sm:mb-4 flex flex-row items-center justify-between gap-2 relative flex-shrink-0">
+            <DialogContent className="sm:max-w-2xl w-[95%] p-0 overflow-hidden flex flex-col max-h-[90vh] rounded-2xl bg-white dark:bg-gray-900">
+                <DialogHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900 flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
                     <button
                         type="button"
                         onClick={onClose}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-0"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
                         aria-label="戻る"
                     >
                         <ChevronLeft className="h-4 w-4" />
                     </button>
-                    <DialogTitle className="flex-1 text-center text-xl font-bold">
+                    <DialogTitle className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white truncate">
                         {title}
                     </DialogTitle>
                     <DialogDescription className="sr-only">
                         席を選択してください
                     </DialogDescription>
-                    <div className="h-8 w-8" />
+                    <div className="w-8 h-8" />
                 </DialogHeader>
 
-                <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+                <div className="flex-1 overflow-y-auto p-6 flex flex-col min-h-0">
                     {/* Selected Profile Info */}
                     <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800 flex-shrink-0 mb-4">
                         <div className="flex items-center gap-3">
@@ -161,29 +156,29 @@ export function SeatSelectionModal({
                     </div>
 
                     {/* Grid Container with Scroll */}
-                    <div className="flex-1 min-h-0 overflow-y-auto mb-4">
+                    <div className="flex-1 min-h-0 overflow-y-auto">
                         <div className="w-full flex justify-center p-2">
                             <ScalableGridWrapper
                                 grid={table.layout_data?.grid || []}
-                                assignments={assignments}
                                 onCellClick={handleCellClick}
                             />
                         </div>
                     </div>
 
-                    {/* Skip Button - Always visible at bottom */}
-                    {onSkip && (
-                        <div className="flex-shrink-0 pt-2 border-t">
-                            <Button
-                                variant="outline"
-                                className="w-full"
-                                onClick={handleSkip}
-                            >
-                                スキップ
-                            </Button>
-                        </div>
-                    )}
                 </div>
+
+                {/* Skip Button - Always visible at bottom */}
+                {onSkip && (
+                    <div className="flex-shrink-0 px-6 pb-6 pt-2 border-t border-gray-200 dark:border-gray-700">
+                        <Button
+                            variant="outline"
+                            className="w-full"
+                            onClick={handleSkip}
+                        >
+                            スキップ
+                        </Button>
+                    </div>
+                )}
             </DialogContent>
         </Dialog>
     );

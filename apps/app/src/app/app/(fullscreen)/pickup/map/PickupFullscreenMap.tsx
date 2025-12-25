@@ -208,7 +208,7 @@ function MarkerPin({
     return (
         <div className="relative flex flex-col items-center cursor-pointer active:scale-95 transition-transform touch-manipulation">
             <div
-                className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap px-2 py-1 rounded-lg text-xs font-medium shadow-lg"
+                className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap px-2 py-1 rounded-lg text-xs font-medium shadow-md"
                 style={{ backgroundColor: color, color: "white" }}
             >
                 {name}
@@ -247,7 +247,7 @@ function MarkerPin({
 function StoreMarkerPin({ name }: { name: string }) {
     return (
         <div className="relative flex flex-col items-center">
-            <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap px-2 py-1 rounded-lg text-xs font-medium shadow-lg bg-amber-500 text-white">
+            <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap px-2 py-1 rounded-lg text-xs font-medium shadow-md bg-amber-500 text-white">
                 {name}
                 <div
                     className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-0 h-0"
@@ -323,7 +323,7 @@ function PassengerListItem({
                 type="button"
                 onClick={onSelect}
                 disabled={isProcessing}
-                className="flex-1 min-w-0 text-left hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1 -m-1 transition-colors"
+                className="flex-1 min-w-0 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg p-1 -m-1 transition-colors"
             >
                 <p className={`text-sm font-medium truncate ${isCurrentAttendee ? "text-blue-700 dark:text-blue-300" : "text-gray-900 dark:text-white"}`}>
                     {passenger.cast_name}
@@ -341,7 +341,7 @@ function PassengerListItem({
                     disabled={isProcessing || index === 0}
                     className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
-                    <ChevronUp className="h-4 w-4 text-gray-600 dark:text-gray-300" />
+                    <ChevronUp className="h-5 w-5 text-gray-600 dark:text-gray-300" />
                 </button>
                 <button
                     type="button"
@@ -349,7 +349,7 @@ function PassengerListItem({
                     disabled={isProcessing || index === totalCount - 1}
                     className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
-                    <ChevronDown className="h-4 w-4 text-gray-600 dark:text-gray-300" />
+                    <ChevronDown className="h-5 w-5 text-gray-600 dark:text-gray-300" />
                 </button>
             </div>
 
@@ -360,7 +360,7 @@ function PassengerListItem({
                 disabled={isProcessing}
                 className="p-1.5 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors disabled:opacity-50 flex-shrink-0"
             >
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="h-5 w-5" />
             </button>
         </div>
     );
@@ -651,7 +651,7 @@ function RouteListCard({
                                                         type="button"
                                                         disabled={isProcessing}
                                                         onClick={(e) => e.stopPropagation()}
-                                                        className="relative w-full flex items-center py-1.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800 rounded transition-colors disabled:opacity-50"
+                                                        className="relative w-full flex items-center py-1.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded transition-colors disabled:opacity-50"
                                                     >
                                                         <span className="absolute left-[-60px] w-10 text-right text-xs font-medium text-green-600 dark:text-green-400">
                                                             {arrivalInfo?.arrivalTime || ""}
@@ -941,7 +941,7 @@ function MarkerActionSheet({
                         {/* ルート選択 */}
                         <div className="space-y-3">
                             <div className="flex items-center justify-between">
-                                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                     {isAssigned ? "別のルートに移動" : "ルートに追加"}
                                 </p>
                                 <Button
@@ -995,7 +995,7 @@ function MarkerActionSheet({
 
             {/* 削除選択モーダル */}
             <Dialog open={deleteTarget !== null && deleteConfirmType === null} onOpenChange={(open) => !open && handleCloseDeleteModal()}>
-                <DialogContent className="max-w-sm rounded-2xl">
+                <DialogContent className="sm:max-w-sm rounded-2xl">
                     <DialogHeader>
                         <DialogTitle className="text-gray-900 dark:text-white">
                             {deleteTarget?.name}を削除
@@ -1008,27 +1008,27 @@ function MarkerActionSheet({
                         <button
                             type="button"
                             onClick={() => setDeleteConfirmType("route")}
-                            className="w-full flex items-center gap-3 px-4 py-4 rounded-2xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
+                            className="w-full flex items-center gap-3 px-4 py-4 rounded-2xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
                         >
                             <X className="h-5 w-5 text-orange-500" />
                             <div className="flex-1">
-                                <p className="font-medium">ルートから削除</p>
+                                <p className="text-sm font-medium text-gray-700 dark:text-gray-200">ルートから削除</p>
                                 <p className="text-xs text-gray-500 dark:text-gray-400">未決定に戻します</p>
                             </div>
                         </button>
                         <button
                             type="button"
                             onClick={() => setDeleteConfirmType("destination")}
-                            className="w-full flex items-center gap-3 px-4 py-4 rounded-2xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
+                            className="w-full flex items-center gap-3 px-4 py-4 rounded-2xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
                         >
                             <Trash2 className="h-5 w-5 text-red-500" />
                             <div className="flex-1">
-                                <p className="font-medium">送迎先を削除</p>
+                                <p className="text-sm font-medium text-gray-700 dark:text-gray-200">送迎先を削除</p>
                                 <p className="text-xs text-gray-500 dark:text-gray-400">送迎一覧から完全に消えます</p>
                             </div>
                         </button>
                     </div>
-                    <DialogFooter>
+                    <DialogFooter className="gap-2">
                         <Button
                             variant="outline"
                             onClick={handleCloseDeleteModal}
@@ -1042,7 +1042,7 @@ function MarkerActionSheet({
 
             {/* 削除確認モーダル */}
             <Dialog open={deleteConfirmType !== null} onOpenChange={(open) => !open && setDeleteConfirmType(null)}>
-                <DialogContent className="max-w-sm rounded-2xl">
+                <DialogContent className="sm:max-w-sm rounded-2xl">
                     <DialogHeader>
                         <DialogTitle className="text-gray-900 dark:text-white">
                             {deleteConfirmType === "route" ? "ルートから削除" : "送迎先を削除"}
@@ -1398,7 +1398,7 @@ export function PickupFullscreenMap({
                     <button
                         type="button"
                         onClick={handleBack}
-                        className="flex items-center justify-center w-10 h-10 rounded-full bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700 touch-manipulation active:scale-95 transition-transform"
+                        className="flex items-center justify-center w-10 h-10 rounded-full bg-white dark:bg-gray-800 shadow-md border border-gray-200 dark:border-gray-700 touch-manipulation active:scale-95 transition-transform"
                     >
                         <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                     </button>
@@ -1407,7 +1407,7 @@ export function PickupFullscreenMap({
                         <button
                             type="button"
                             onClick={() => setIsAIModalOpen(true)}
-                            className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg touch-manipulation active:scale-95 transition-transform"
+                            className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md touch-manipulation active:scale-95 transition-transform"
                         >
                             <Sparkles className="h-5 w-5" />
                         </button>
@@ -1418,7 +1418,7 @@ export function PickupFullscreenMap({
                 <button
                     type="button"
                     onClick={() => setIsRouteListOpen(true)}
-                    className="flex flex-col gap-1.5 bg-white/90 dark:bg-gray-800/90 backdrop-blur rounded-xl p-2 shadow-lg border border-gray-200 dark:border-gray-700 touch-manipulation active:scale-95 transition-transform text-left"
+                    className="flex flex-col gap-1.5 bg-white/90 dark:bg-gray-800/90 backdrop-blur rounded-xl p-2 shadow-md border border-gray-200 dark:border-gray-700 touch-manipulation active:scale-95 transition-transform text-left"
                 >
                     <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full" style={{ backgroundColor: unassignedColor }} />
@@ -1554,7 +1554,7 @@ export function PickupFullscreenMap({
                                                         <button
                                                             type="button"
                                                             disabled={isProcessing}
-                                                            className="w-full bg-gray-50 dark:bg-gray-800 rounded-lg px-2 py-1.5 text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                                                            className="w-full bg-gray-50 dark:bg-gray-800 rounded-lg px-2 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
                                                         >
                                                             <div className="flex items-center gap-1.5 min-w-0">
                                                                 <span className="text-sm text-gray-900 dark:text-white shrink-0">
@@ -1581,7 +1581,7 @@ export function PickupFullscreenMap({
                                                                     type="button"
                                                                     onClick={() => handleAddToRoute(route.id, attendee.profile_id)}
                                                                     disabled={isProcessing}
-                                                                    className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+                                                                    className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded transition-colors"
                                                                 >
                                                                     <ArrowRight className="h-3 w-3 text-gray-400" />
                                                                     {route.driver_name || `ルート${idx + 1}`}

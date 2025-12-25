@@ -41,23 +41,15 @@ export async function createServerClient(): Promise<SupabaseClient<Database>> {
   ) as SupabaseClient<Database>;
 }
 
-// Service Role Client のシングルトンインスタンス
-let serviceRoleClientInstance: SupabaseClient<Database> | null = null;
-
 /**
  * Service Role Client を作成（RLSをバイパス）
  * 注意: このクライアントはRLSを無視するため、慎重に使用すること
  */
 export function createServiceRoleClient(): SupabaseClient<Database> {
-  // キャッシュされたインスタンスを返す
-  if (serviceRoleClientInstance) {
-    return serviceRoleClientInstance;
-  }
-
   const { supabaseUrl } = getSupabaseConfig();
   const serviceRoleKey = ensureEnv("SUPABASE_SERVICE_ROLE_KEY", process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-  serviceRoleClientInstance = createSupabaseClient<Database>(supabaseUrl, serviceRoleKey, {
+  return createSupabaseClient<Database>(supabaseUrl, serviceRoleKey, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
@@ -66,6 +58,4 @@ export function createServiceRoleClient(): SupabaseClient<Database> {
       fetch,
     },
   });
-
-  return serviceRoleClientInstance;
 }

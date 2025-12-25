@@ -38,7 +38,8 @@ export async function GET(
             break_start,
             break_end,
             pickup_required,
-            pickup_destination,
+            pickup_destination_id,
+            pickup_destinations(id, name),
             profiles!work_records_profile_id_fkey(
                 id,
                 display_name,
@@ -73,7 +74,7 @@ export async function GET(
         status: timeCard.clock_out ? "completed" : "working",
         start_time: timeCard.clock_in,
         end_time: timeCard.clock_out,
-        pickup_destination: timeCard.pickup_destination,
+        pickup_destination: (timeCard as any).pickup_destinations?.name || null,
     };
 
     return NextResponse.json({

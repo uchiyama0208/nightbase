@@ -211,7 +211,7 @@ export function ShiftsClient({
                 <button
                     type="button"
                     onClick={() => handleDateClick(todayBusinessDate, todayData?.requestDateId)}
-                    className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-sm shadow-sm"
+                    className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm shadow-sm"
                     style={{ backgroundColor: "white" }}
                 >
                     <span className="text-gray-500 dark:text-gray-400">本日</span>
@@ -229,7 +229,8 @@ export function ShiftsClient({
                     <div className="flex items-center gap-2">
                         <Link
                             href="/app/settings/shift"
-                            className="h-10 w-10 rounded-full bg-white text-gray-600 border border-gray-300 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-400 dark:border-gray-600 dark:hover:bg-gray-800 shadow-sm transition-all hover:scale-105 active:scale-95 flex items-center justify-center"
+                            className="h-10 w-10 rounded-full bg-white text-gray-600 border border-gray-300 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-400 dark:border-gray-600 dark:hover:bg-gray-700 shadow-sm transition-all hover:scale-105 active:scale-95 flex items-center justify-center"
+                            aria-label="設定"
                         >
                             <Settings className="h-5 w-5" />
                         </Link>
@@ -237,6 +238,7 @@ export function ShiftsClient({
                             size="icon"
                             className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
                             onClick={() => setIsRequestModalOpen(true)}
+                            aria-label="追加"
                         >
                             <Plus className="h-5 w-5" />
                         </Button>
@@ -275,10 +277,10 @@ export function ShiftsClient({
                             >
                                 <div className="flex items-center gap-3">
                                     <div className="flex items-center justify-center h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/40">
-                                        <Calendar className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                        <Calendar className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                                     </div>
                                     <div>
-                                        <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                        <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                             {request.title || "シフト募集"}
                                         </p>
                                         <p className="text-xs text-gray-500 dark:text-gray-400">

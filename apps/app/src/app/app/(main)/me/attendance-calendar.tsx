@@ -119,7 +119,7 @@ export function AttendanceCalendar({ timeCards, scheduledShifts = [] }: Attendan
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
                 <button
                     onClick={goToPreviousMonth}
-                    className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    className="p-1.5 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                     <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                 </button>
@@ -136,7 +136,7 @@ export function AttendanceCalendar({ timeCards, scheduledShifts = [] }: Attendan
                 </div>
                 <button
                     onClick={goToNextMonth}
-                    className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    className="p-1.5 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                     <ChevronRight className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                 </button>
@@ -163,11 +163,16 @@ export function AttendanceCalendar({ timeCards, scheduledShifts = [] }: Attendan
             {/* Calendar Grid */}
             <div className="grid grid-cols-7">
                 {calendarDays.map((day, index) => {
+                    const isRightEdge = index % 7 === 6;
+                    const borderClass = isRightEdge
+                        ? "border-b border-gray-100 dark:border-gray-800"
+                        : "border-b border-r border-gray-100 dark:border-gray-800";
+
                     if (day === null) {
                         return (
                             <div
                                 key={`empty-${index}`}
-                                className="h-10 border-b border-r border-gray-100 dark:border-gray-800 last:border-r-0"
+                                className={`h-[52px] ${borderClass}`}
                             />
                         );
                     }
@@ -193,12 +198,12 @@ export function AttendanceCalendar({ timeCards, scheduledShifts = [] }: Attendan
                             key={dateKey}
                             type="button"
                             onClick={() => setSelectedDate(dateKey)}
-                            className={`min-h-[52px] p-0.5 border-b border-r border-gray-100 dark:border-gray-800 last:border-r-0 text-center transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50 flex flex-col items-center justify-center ${
+                            className={`h-[52px] p-1 ${borderClass} transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50 flex flex-col items-start justify-start ${
                                 isToday(day) ? "bg-blue-50 dark:bg-blue-900/20" : ""
                             }`}
                         >
                             <div
-                                className={`text-xs font-medium ${
+                                className={`text-xs font-medium leading-none ${
                                     isToday(day)
                                         ? "text-blue-600 dark:text-blue-400"
                                         : isSunday
@@ -213,7 +218,7 @@ export function AttendanceCalendar({ timeCards, scheduledShifts = [] }: Attendan
                             {/* Time display - color coded */}
                             {displayTime && (
                                 <div
-                                    className={`text-[10px] font-medium mt-0.5 ${
+                                    className={`text-[10px] font-medium mt-1 ${
                                         hasAttendance
                                             ? "text-green-600 dark:text-green-400"
                                             : "text-blue-600 dark:text-blue-400"
@@ -230,18 +235,18 @@ export function AttendanceCalendar({ timeCards, scheduledShifts = [] }: Attendan
             {/* Legend */}
             <div className="px-4 py-2 border-t border-gray-100 dark:border-gray-800 flex items-center justify-center gap-4 text-xs">
                 <div className="flex items-center gap-1.5">
-                    <span className="text-blue-600 dark:text-blue-400 font-medium">00:00</span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
                     <span className="text-gray-500 dark:text-gray-400">出勤予定</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                    <span className="text-green-600 dark:text-green-400 font-medium">00:00</span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-green-500" />
                     <span className="text-gray-500 dark:text-gray-400">出勤済み</span>
                 </div>
             </div>
 
             {/* Day Detail Modal */}
             <Dialog open={selectedDate !== null} onOpenChange={(open) => !open && setSelectedDate(null)}>
-                <DialogContent className="sm:max-w-[400px] bg-white dark:bg-gray-900 rounded-2xl">
+                <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900 rounded-2xl">
                     <DialogHeader>
                         <DialogTitle className="text-gray-900 dark:text-white">
                             {selectedDate && formatSelectedDate(selectedDate)}
@@ -270,7 +275,7 @@ export function AttendanceCalendar({ timeCards, scheduledShifts = [] }: Attendan
                                             className="p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 space-y-2"
                                         >
                                             <div className="flex items-center gap-2">
-                                                <Calendar className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                                <Calendar className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                                                 <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
                                                     出勤予定
                                                 </span>
@@ -296,7 +301,7 @@ export function AttendanceCalendar({ timeCards, scheduledShifts = [] }: Attendan
                                             className="p-3 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 space-y-2"
                                         >
                                             <div className="flex items-center gap-2">
-                                                <Clock className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                                <Clock className="h-5 w-5 text-green-600 dark:text-green-400" />
                                                 <span className="text-sm font-medium text-green-700 dark:text-green-300">
                                                     出勤済み
                                                 </span>

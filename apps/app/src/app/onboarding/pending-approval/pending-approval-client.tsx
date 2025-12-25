@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import { checkApprovalStatus, withdrawJoinRequest } from "../actions";
 import { Clock, XCircle, RefreshCw, LogOut, AlertTriangle } from "lucide-react";
 import { createClient } from "@/lib/supabaseClient";
+import { toast } from "@/components/ui/use-toast";
 
 interface PendingApprovalClientProps {
     status: "pending" | "rejected";
@@ -65,7 +66,7 @@ export function PendingApprovalClient({ status: initialStatus, storeName }: Pend
         if (result.success) {
             router.push("/onboarding/choice");
         } else {
-            alert(`エラー: ${result.error}`);
+            toast({ title: `エラー: ${result.error}`, variant: "destructive" });
         }
         setIsWithdrawing(false);
         setShowWithdrawDialog(false);
@@ -99,7 +100,7 @@ export function PendingApprovalClient({ status: initialStatus, storeName }: Pend
                     <CardContent className="space-y-6">
                         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 space-y-2">
                             <p className="text-sm text-blue-900 dark:text-blue-100">
-                                <span className="font-medium">申請先:</span> {storeName}
+                                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">申請先:</span> {storeName}
                             </p>
                             <p className="text-sm text-blue-800 dark:text-blue-200">
                                 管理者が申請を確認次第、店舗データにアクセスできるようになります。
@@ -143,7 +144,7 @@ export function PendingApprovalClient({ status: initialStatus, storeName }: Pend
 
                 {/* 取り下げ確認ダイアログ */}
                 <Dialog open={showWithdrawDialog} onOpenChange={setShowWithdrawDialog}>
-                    <DialogContent className="sm:max-w-[400px] bg-white dark:bg-gray-900">
+                    <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900">
                         <DialogHeader>
                             <DialogTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
                                 <AlertTriangle className="h-5 w-5 text-red-500" />
@@ -192,7 +193,7 @@ export function PendingApprovalClient({ status: initialStatus, storeName }: Pend
             <CardContent className="space-y-6">
                 <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 space-y-2">
                     <p className="text-sm text-red-900 dark:text-red-100">
-                        <span className="font-medium">申請先:</span> {storeName}
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-200">申請先:</span> {storeName}
                     </p>
                     <p className="text-sm text-red-800 dark:text-red-200">
                         別の店舗を選択するか、店舗の管理者に直接お問い合わせください。

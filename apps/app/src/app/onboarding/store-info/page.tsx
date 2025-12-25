@@ -38,7 +38,7 @@ export default async function StoreInfoPage() {
                 <div className="flex items-center space-x-4">
                     <Link
                         href="/onboarding/profile?mode=create"
-                        className="p-2 hover:bg-white/50 dark:hover:bg-gray-800/50 rounded-lg transition-colors"
+                        className="p-2 hover:bg-white/50 dark:hover:bg-gray-700/50 rounded-lg transition-colors"
                     >
                         <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                     </Link>

@@ -56,13 +56,14 @@ export interface OrderUpdateData {
     amount?: number;
     status?: string;
     castId?: string | null;
+    guestId?: string | null;
     startTime?: string | null;
     endTime?: string | null;
 }
 
 // セッション更新時のデータ
 export interface SessionUpdateData {
-    tableId?: string;
+    tableId?: string | null;
     guestCount?: number;
     startTime?: string;
     endTime?: string | null;
@@ -85,14 +86,14 @@ export interface ProfileData {
     display_name: string | null;
     role: string;
     avatar_url?: string | null;
-    is_temporary?: boolean;
 }
 
 // セッションゲスト型
 export interface SessionGuestData {
     id: string;
     table_session_id: string;
-    guest_id: string;
+    guest_id: string | null;
+    guest_name?: string | null;
     profiles?: ProfileData | null;
 }
 

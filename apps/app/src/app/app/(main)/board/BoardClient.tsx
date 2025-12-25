@@ -1,13 +1,22 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, User, Tag, Heart } from "lucide-react";
+import { Plus, User, Heart, Search, Tag, MessageSquare, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { formatJSTDateTime } from "@/lib/utils";
 import { type StorePost, type StoreManual, type ManualTag } from "./actions";
 import { PostDetailModal } from "./PostDetailModal";
 import { ManualDetailModal } from "./ManualDetailModal";
+import { VercelTabs } from "@/components/ui/vercel-tabs";
+
+type MainTabKey = "posts" | "manuals";
+
+const MAIN_TABS: { key: MainTabKey; label: string; icon: React.ReactNode }[] = [
+    { key: "posts", label: "掲示板", icon: <MessageSquare className="h-4 w-4" /> },
+    { key: "manuals", label: "マニュアル", icon: <BookOpen className="h-4 w-4" /> },
+];
 
 // BlockNoteのコンテンツからテキストを抽出する関数
 function extractTextFromContent(content: any[]): string {
@@ -17,7 +26,6 @@ function extractTextFromContent(content: any[]): string {
         return blocks.map(block => {
             let text = "";
 
-            // content配列からテキストを抽出
             if (block.content && Array.isArray(block.content)) {
                 text += block.content.map((item: any) => {
                     if (item.type === "text") {
@@ -27,7 +35,6 @@ function extractTextFromContent(content: any[]): string {
                 }).join("");
             }
 
-            // children（ネストされたブロック）からも抽出
             if (block.children && Array.isArray(block.children)) {
                 text += " " + extractText(block.children);
             }
@@ -42,52 +49,60 @@ function extractTextFromContent(content: any[]): string {
 interface BoardClientProps {
     posts: StorePost[];
     manuals: StoreManual[];
-    tags: ManualTag[];
+    manualTags: ManualTag[];
     storeId: string;
     isStaff: boolean;
     userRole: string;
     postLikeCounts: Record<string, number>;
-    manualLikeCounts: Record<string, number>;
     postReadStatus: Record<string, boolean>;
+    manualLikeCounts: Record<string, number>;
     manualReadStatus: Record<string, boolean>;
     canEdit?: boolean;
 }
 
-export function BoardClient({ posts, manuals, tags, storeId, isStaff, userRole, postLikeCounts, manualLikeCounts, postReadStatus, manualReadStatus, canEdit = false }: BoardClientProps) {
+export function BoardClient({
+    posts,
+    manuals,
+    manualTags,
+    storeId,
+    isStaff,
+    userRole,
+    postLikeCounts,
+    postReadStatus,
+    manualLikeCounts,
+    manualReadStatus,
+    canEdit = false,
+}: BoardClientProps) {
     const router = useRouter();
+    const [mainTab, setMainTab] = useState<MainTabKey>("posts");
+    const [searchQuery, setSearchQuery] = useState("");
+    const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
+
+    // Modals
     const [viewingPost, setViewingPost] = useState<StorePost | null>(null);
     const [viewingManual, setViewingManual] = useState<StoreManual | null>(null);
-    const [activeMainTab, setActiveMainTab] = useState<"board" | "manual">("board");
-    const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
-    // Track read status locally for immediate UI update
+
+    // Local read status
     const [localPostReadStatus, setLocalPostReadStatus] = useState<Record<string, boolean>>(postReadStatus);
     const [localManualReadStatus, setLocalManualReadStatus] = useState<Record<string, boolean>>(manualReadStatus);
 
-    // Vercel-style tabs for main tab
-    const mainTabsRef = useRef<{ [key: string]: HTMLButtonElement | null }>({});
-    const [mainIndicatorStyle, setMainIndicatorStyle] = useState({ left: 0, width: 0 });
+    // 未読数を計算
+    const unreadPostsCount = posts.filter(p => p.status === "published" && !localPostReadStatus[p.id]).length;
+    const unreadManualsCount = manuals.filter(m => m.status === "published" && !localManualReadStatus[m.id]).length;
 
-    useEffect(() => {
-        const activeButton = mainTabsRef.current[activeMainTab];
-        if (activeButton) {
-            setMainIndicatorStyle({
-                left: activeButton.offsetLeft,
-                width: activeButton.offsetWidth,
-            });
-        }
-    }, [activeMainTab]);
+    // フィルター処理（スタッフは下書きも含めてすべて表示）
+    let filteredPosts = isStaff ? posts : posts.filter(p => p.status === "published");
+    let filteredManuals = isStaff ? manuals : manuals.filter(m => m.status === "published");
 
-    // 掲示板フィルター（スタッフは全て表示、キャストは公開のみ）
-    const filteredPosts = isStaff
-        ? posts
-        : posts.filter(p => p.status === "published");
+    // 検索フィルター
+    if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        filteredPosts = filteredPosts.filter(p => p.title.toLowerCase().includes(query));
+        filteredManuals = filteredManuals.filter(m => m.title.toLowerCase().includes(query));
+    }
 
-    // マニュアルフィルター（タグでも絞り込み可能）
-    let filteredManuals = isStaff
-        ? manuals
-        : manuals.filter(m => m.status === "published");
-
-    if (selectedTagId) {
+    // タグフィルター（マニュアルのみ）
+    if (selectedTagId && mainTab === "manuals") {
         filteredManuals = filteredManuals.filter(m =>
             m.tags?.some(t => t.id === selectedTagId)
         );
@@ -95,29 +110,50 @@ export function BoardClient({ posts, manuals, tags, storeId, isStaff, userRole, 
 
     const handlePostClick = (post: StorePost) => {
         setViewingPost(post);
-        // Mark as read locally for immediate UI update
         setLocalPostReadStatus(prev => ({ ...prev, [post.id]: true }));
     };
 
     const handleManualClick = (manual: StoreManual) => {
         setViewingManual(manual);
-        // Mark as read locally for immediate UI update
         setLocalManualReadStatus(prev => ({ ...prev, [manual.id]: true }));
     };
 
     const handleAddClick = () => {
-        if (activeMainTab === "board") {
+        if (mainTab === "posts") {
             router.push("/app/board/new");
         } else {
             router.push("/app/board/manual/new");
         }
     };
 
+    const tabs = MAIN_TABS.map((tab) => {
+        const unreadCount = tab.key === "posts" ? unreadPostsCount : unreadManualsCount;
+        return {
+            key: tab.key,
+            label: tab.label,
+            badge: unreadCount > 0 ? (
+                <span className="ml-1 inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                    {unreadCount}
+                </span>
+            ) : undefined,
+        };
+    });
+
     return (
         <div className="space-y-2">
-            {/* Plus button */}
-            {isStaff && canEdit && (
-                <div className="flex justify-end">
+            {/* Search and Plus button */}
+            <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                        type="text"
+                        placeholder="タイトルで検索"
+                        value={searchQuery}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
+                        className="pl-9 h-10 rounded-full border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
+                    />
+                </div>
+                {isStaff && canEdit && (
                     <Button
                         size="icon"
                         className="h-10 w-10 shrink-0 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
@@ -125,52 +161,23 @@ export function BoardClient({ posts, manuals, tags, storeId, isStaff, userRole, 
                     >
                         <Plus className="h-5 w-5" />
                     </Button>
-                </div>
-            )}
-
-            {/* Main Vercel-style Tab Navigation (掲示板/マニュアル) */}
-            <div className="relative">
-                <div className="flex w-full">
-                    <button
-                        ref={(el) => { mainTabsRef.current["board"] = el; }}
-                        type="button"
-                        onClick={() => {
-                            setActiveMainTab("board");
-                            setSelectedTagId(null);
-                        }}
-                        className={`flex-1 py-2 text-sm font-medium transition-colors relative ${
-                            activeMainTab === "board"
-                                ? "text-gray-900 dark:text-white"
-                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                        }`}
-                    >
-                        掲示板
-                    </button>
-                    <button
-                        ref={(el) => { mainTabsRef.current["manual"] = el; }}
-                        type="button"
-                        onClick={() => {
-                            setActiveMainTab("manual");
-                            setSelectedTagId(null);
-                        }}
-                        className={`flex-1 py-2 text-sm font-medium transition-colors relative ${
-                            activeMainTab === "manual"
-                                ? "text-gray-900 dark:text-white"
-                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                        }`}
-                    >
-                        マニュアル
-                    </button>
-                </div>
-                <div
-                    className="absolute bottom-0 h-0.5 bg-gray-900 dark:bg-white transition-all duration-200"
-                    style={{ left: mainIndicatorStyle.left, width: mainIndicatorStyle.width }}
-                />
-                <div className="absolute bottom-0 left-0 right-0 h-px bg-gray-200 dark:bg-gray-700" />
+                )}
             </div>
 
-            {/* Tag filter (マニュアルのみ) */}
-            {activeMainTab === "manual" && tags.length > 0 && (
+            {/* Tabs (掲示板 / マニュアル) */}
+            <VercelTabs
+                tabs={tabs}
+                value={mainTab}
+                onChange={(val) => {
+                    setMainTab(val as MainTabKey);
+                    setSearchQuery("");
+                    setSelectedTagId(null);
+                }}
+                className=""
+            />
+
+            {/* Tag filter (manuals only) */}
+            {mainTab === "manuals" && manualTags.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                     <button
                         type="button"
@@ -183,7 +190,7 @@ export function BoardClient({ posts, manuals, tags, storeId, isStaff, userRole, 
                     >
                         すべて
                     </button>
-                    {tags.map((tag) => (
+                    {manualTags.map((tag) => (
                         <button
                             key={tag.id}
                             type="button"
@@ -203,8 +210,8 @@ export function BoardClient({ posts, manuals, tags, storeId, isStaff, userRole, 
 
             {/* Content cards */}
             <div className="space-y-3">
-                {activeMainTab === "board" ? (
-                    // 掲示板一覧
+                {mainTab === "posts" ? (
+                    // 掲示板コンテンツ
                     filteredPosts.length === 0 ? (
                         <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-8 text-center">
                             <p className="text-gray-500 dark:text-gray-400">
@@ -226,12 +233,7 @@ export function BoardClient({ posts, manuals, tags, storeId, isStaff, userRole, 
                                     }`}
                                 >
                                     <div className="flex items-center gap-2 mb-1">
-                                        {isStaff && post.status === "published" && (
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
-                                                公開中
-                                            </span>
-                                        )}
-                                        {isStaff && post.status === "draft" && (
+                                        {post.status === "draft" && (
                                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
                                                 下書き
                                             </span>
@@ -301,7 +303,7 @@ export function BoardClient({ posts, manuals, tags, storeId, isStaff, userRole, 
                         })
                     )
                 ) : (
-                    // マニュアル一覧
+                    // マニュアルコンテンツ
                     filteredManuals.length === 0 ? (
                         <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-8 text-center">
                             <p className="text-gray-500 dark:text-gray-400">
@@ -323,12 +325,7 @@ export function BoardClient({ posts, manuals, tags, storeId, isStaff, userRole, 
                                     }`}
                                 >
                                     <div className="flex items-center gap-2 mb-1">
-                                        {isStaff && manual.status === "published" && (
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
-                                                公開中
-                                            </span>
-                                        )}
-                                        {isStaff && manual.status === "draft" && (
+                                        {manual.status === "draft" && (
                                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
                                                 下書き
                                             </span>

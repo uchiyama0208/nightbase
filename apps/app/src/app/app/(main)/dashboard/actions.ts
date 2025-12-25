@@ -2,6 +2,7 @@
 
 import { getAuthContextForPage } from "@/lib/auth-helpers";
 import { createServiceRoleClient } from "@/lib/supabaseServiceClient";
+import { getAppData } from "@/app/app/data-access";
 import { getJSTDateString } from "@/lib/utils";
 import type { Store } from "@/types/common";
 import type {
@@ -70,14 +71,24 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
     }
 
     const store = currentProfile.stores as Store | null;
-    if (store?.show_dashboard === false) {
+
+    // 店舗設定を取得
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const serviceSupabaseForSettings = createServiceRoleClient() as any;
+    const { data: storeSettings } = await serviceSupabaseForSettings
+        .from("store_settings")
+        .select("show_dashboard, day_switch_time")
+        .eq("store_id", storeId)
+        .maybeSingle();
+
+    if (storeSettings?.show_dashboard === false) {
         return { redirect: "/app/timecard" };
     }
 
     const storeName = store?.name ?? null;
     const today = getJSTDateString();
     // 営業日（送迎管理用）- day_switch_timeを考慮
-    const daySwitchTime = store?.day_switch_time || "05:00";
+    const daySwitchTime = storeSettings?.day_switch_time || "05:00";
     const businessDate = getBusinessDate(daySwitchTime);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -141,7 +152,8 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
         pickupRequestsResult,
         todayRoutesResult,
         // ユーザータブ
-        rolesCountResult,
+        castRolesCountResult,
+        staffRolesCountResult,
         // フロアタブ
         tablesCountResult,
         activeSessionsResult,
@@ -177,18 +189,18 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
         // ユーザータブ - 招待中カウント
         pendingInvitationsResult,
     ] = await Promise.all([
-        // シフトタブのクエリ
+        // シフトタブのクエリ（営業日ベースで出勤中を判定）
         serviceSupabase
             .from("work_records")
             .select("profile_id, user_id")
-            .eq("work_date", today)
+            .eq("work_date", businessDate)
             .is("clock_out", null)
             .in("user_id", storeProfileIds.length > 0 ? storeProfileIds : ["none"]),
         serviceSupabase
             .from("work_records")
             .select("clock_in")
             .eq("profile_id", profileId)
-            .eq("work_date", today)
+            .eq("work_date", businessDate)
             .is("clock_out", null)
             .maybeSingle(),
         serviceSupabase
@@ -224,20 +236,27 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
             .gt("deadline", new Date().toISOString()),
         serviceSupabase
             .from("work_records")
-            .select("profile_id, user_id, clock_in, pickup_destination")
+            .select("profile_id, user_id, clock_in, pickup_destination_id, pickup_destinations(id, name)")
             .in("work_date", [businessDate, nextDate])
-            .not("pickup_destination", "is", null)
+            .not("pickup_destination_id", "is", null)
             .in("user_id", storeProfileIds.length > 0 ? storeProfileIds : ["none"]),
         serviceSupabase
             .from("pickup_routes")
             .select("id")
             .eq("store_id", storeId)
             .eq("date", businessDate),
-        // ユーザータブのクエリ
+        // ユーザータブのクエリ - キャスト権限数
         serviceSupabase
             .from("store_roles")
             .select("id", { count: "exact", head: true })
-            .eq("store_id", storeId),
+            .eq("store_id", storeId)
+            .eq("for_role", "cast"),
+        // ユーザータブのクエリ - スタッフ権限数
+        serviceSupabase
+            .from("store_roles")
+            .select("id", { count: "exact", head: true })
+            .eq("store_id", storeId)
+            .eq("for_role", "staff"),
         // フロアタブのクエリ
         serviceSupabase
             .from("tables")
@@ -459,8 +478,8 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
     const unsubmittedShiftRequestCount = openRequestIds.filter((id: string) => !submittedRequestIds.has(id)).length;
 
     // 送迎リクエストを営業日でフィルタリング
-    const filteredPickupRequests = (pickupRequestsResult.data || []).filter((tc: { user_id: string; clock_in: string; pickup_destination: string | null }) => {
-        if (!tc.clock_in || !tc.pickup_destination) return false;
+    const filteredPickupRequests = (pickupRequestsResult.data || []).filter((tc: { user_id: string; clock_in: string; pickup_destination_id: string | null; pickup_destinations: { name: string } | null }) => {
+        if (!tc.clock_in || !tc.pickup_destination_id) return false;
         const clockInDate = new Date(tc.clock_in);
         const clockInJST = new Date(clockInDate.toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
         const clockInHour = clockInJST.getHours();
@@ -640,7 +659,8 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
             staffCount,
             guestCount,
             partnerCount,
-            rolesCount: rolesCountResult.count || 0,
+            castRolesCount: castRolesCountResult.count || 0,
+            staffRolesCount: staffRolesCountResult.count || 0,
             pendingInvitationsCount,
             pendingJoinRequestsCount,
             pendingResumesCount: pendingResumesCountResult.count || 0,
@@ -672,5 +692,116 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
             disabledFeaturesCount,
             aiCredits: aiCreditsResult.data?.ai_credits ?? 0,
         }
+    };
+}
+
+/**
+ * ダッシュボードページ用のデータを取得（クライアントコンポーネント用）
+ */
+export async function getDashboardPageData() {
+    const result = await getDashboardData();
+
+    if (result.redirect) {
+        return { redirect: result.redirect };
+    }
+
+    const data = result.data!;
+    const profile = data.currentProfile;
+
+    // 権限情報と機能設定を取得
+    const { permissions, storeFeatures } = await getAppData();
+
+    return {
+        timecardInfo: {
+            isWorking: !!data.currentUserTimeCard?.clock_in,
+            clockInTime: data.currentUserTimeCard?.clock_in || null,
+            lastWorkDate: data.lastClockIn?.work_date || null,
+        },
+        attendanceInfo: {
+            castCount: data.activeCastCount,
+            staffCount: data.activeStaffCount,
+        },
+        shiftInfo: {
+            scheduledCastCount: data.scheduledCastCount,
+            scheduledStaffCount: data.scheduledStaffCount,
+        },
+        myShiftInfo: {
+            nextShiftDate: data.nextShiftDate,
+            unsubmittedCount: data.unsubmittedShiftRequestCount,
+        },
+        pickupInfo: {
+            requestCount: data.pickupRequestCount,
+            unassignedCount: data.unassignedPickupCount,
+        },
+        userInfo: {
+            castCount: data.castCount,
+            staffCount: data.staffCount,
+            guestCount: data.guestCount,
+            partnerCount: data.partnerCount,
+        },
+        rolesInfo: {
+            castCount: data.castRolesCount,
+            staffCount: data.staffRolesCount,
+        },
+        invitationsInfo: {
+            pendingCount: data.pendingInvitationsCount,
+            joinRequestsCount: data.pendingJoinRequestsCount,
+        },
+        resumesInfo: {
+            pendingCount: data.pendingResumesCount,
+        },
+        floorInfo: {
+            activeTableCount: data.activeTableCount,
+            activeGuestCount: data.activeGuestCount,
+        },
+        seatsInfo: {
+            count: data.tablesCount,
+        },
+        slipsInfo: {
+            unpaidCount: data.unpaidSlipsCount,
+        },
+        menusInfo: {
+            count: data.menusCount,
+        },
+        bottlesInfo: {
+            activeCount: data.activeBottleKeepsCount,
+        },
+        queueInfo: {
+            waitingCount: data.waitingQueueCount,
+        },
+        reservationInfo: {
+            todayCount: data.todayReservationsCount,
+        },
+        shoppingInfo: {
+            lowStockCount: data.lowStockCount,
+        },
+        salesInfo: {
+            todaySales: data.todaySales,
+        },
+        payrollInfo: {
+            todayPayroll: data.todayPayroll,
+        },
+        rankingInfo: {
+            top3: data.rankingTop3,
+        },
+        boardInfo: {
+            postsCount: data.postsCount,
+            unreadPostsCount: data.unreadPostsCount,
+        },
+        manualsInfo: {
+            manualsCount: data.manualsCount,
+            unreadManualsCount: data.unreadManualsCount,
+        },
+        snsInfo: {
+            todayCount: data.todaySnsPostsCount,
+            scheduledCount: data.scheduledSnsPostsCount,
+        },
+        aiCreateInfo: {
+            credits: data.aiCredits,
+        },
+        userRole: profile.role,
+        userRoleId: profile.id,
+        permissions,
+        storeFeatures,
     };
 }

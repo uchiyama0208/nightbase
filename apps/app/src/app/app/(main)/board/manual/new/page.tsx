@@ -1,31 +1,10 @@
-import { redirect } from "next/navigation";
-import { getAppData } from "../../../../data-access";
-import { getManualTags } from "../../actions";
-import { ManualEditor } from "../../ManualEditor";
+import type { Metadata } from "next";
+import { NewManualWrapper } from "./new-manual-wrapper";
 
-export default async function NewManualPage() {
-    const { user, profile } = await getAppData();
+export const metadata: Metadata = {
+    title: "新規マニュアル",
+};
 
-    if (!user) {
-        redirect("/login");
-    }
-
-    if (!profile || !profile.store_id) {
-        redirect("/app/me");
-    }
-
-    // Only staff can create manuals
-    if (profile.role !== "staff" && profile.role !== "admin") {
-        redirect("/app/board");
-    }
-
-    const tags = await getManualTags(profile.store_id);
-
-    return (
-        <ManualEditor
-            manual={null}
-            storeId={profile.store_id}
-            availableTags={tags}
-        />
-    );
+export default function NewManualPage() {
+    return <NewManualWrapper />;
 }

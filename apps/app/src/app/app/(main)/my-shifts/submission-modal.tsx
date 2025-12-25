@@ -212,21 +212,22 @@ export function SubmissionModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0">
-                <DialogHeader className="flex flex-row items-center border-b px-4 py-3 flex-shrink-0 mb-0">
+            <DialogContent className="sm:max-w-md w-[95%] p-0 overflow-hidden flex flex-col max-h-[90vh] rounded-2xl bg-white dark:bg-gray-900">
+                <DialogHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900 flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
                     <button
                         type="button"
                         onClick={onClose}
-                        className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 mr-2"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
                     >
-                        <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                        <ChevronLeft className="h-4 w-4" />
                     </button>
-                    <DialogTitle className="text-lg font-semibold text-gray-900 dark:text-white">
+                    <DialogTitle className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white truncate">
                         シフト希望を提出
                     </DialogTitle>
+                    <div className="w-8 h-8" />
                 </DialogHeader>
 
-                <div className="flex-1 overflow-y-auto p-4 min-h-0">
+                <div className="flex-1 overflow-y-auto p-6 space-y-4">
                     {isLoading ? (
                         <div className="flex items-center justify-center py-8">
                             <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
@@ -342,7 +343,7 @@ function DatePreferenceItem({
             >
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                        <Calendar className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                         <span className="font-medium text-gray-900 dark:text-white">
                             {formattedDate}
                         </span>
@@ -373,7 +374,7 @@ function DatePreferenceItem({
             {/* Date */}
             <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                    <Calendar className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                     <span className="font-medium text-gray-900 dark:text-white">
                         {formattedDate}
                     </span>
@@ -404,7 +405,7 @@ function DatePreferenceItem({
                             : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
                     }`}
                 >
-                    <X className="h-4 w-4" />
+                    <X className="h-5 w-5" />
                     出勤不可
                 </button>
             </div>
@@ -420,7 +421,7 @@ function DatePreferenceItem({
                             type="time"
                             value={preference.startTime}
                             onChange={(e) => onUpdate("startTime", e.target.value)}
-                            className="h-9"
+                            className="h-10"
                         />
                     </div>
                     <span className="text-gray-400 mt-5">〜</span>
@@ -432,7 +433,7 @@ function DatePreferenceItem({
                             type="time"
                             value={preference.endTime}
                             onChange={(e) => onUpdate("endTime", e.target.value)}
-                            className="h-9"
+                            className="h-10"
                         />
                     </div>
                 </div>

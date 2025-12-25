@@ -223,10 +223,10 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
                                 download={`store-icon-${store.id}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 transition-colors"
+                                className="p-2 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors"
                                 title="ダウンロード"
                             >
-                                <Download className="h-4 w-4" />
+                                <Download className="h-5 w-5" />
                             </a>
                             <button
                                 type="button"
@@ -234,14 +234,14 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
                                 className="p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 transition-colors"
                                 title="削除"
                             >
-                                <Trash2 className="h-4 w-4" />
+                                <Trash2 className="h-5 w-5" />
                             </button>
                         </div>
                     )}
                 </div>
 
                 <div className="space-y-2">
-                    <Label htmlFor="name" className="text-gray-900 dark:text-gray-200">店舗名</Label>
+                    <Label htmlFor="name" className="text-sm font-medium text-gray-700 dark:text-gray-200">店舗名</Label>
                     <Input
                         id="name"
                         name="name"
@@ -261,7 +261,7 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
                             className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 focus:ring-blue-500 dark:focus:ring-blue-400"
                             style={{ accentColor: '#2563eb' }}
                         />
-                        <Label htmlFor="allow_join_requests" className="cursor-pointer text-gray-900 dark:text-gray-200">
+                        <Label htmlFor="allow_join_requests" className="text-sm font-medium text-gray-700 dark:text-gray-200 cursor-pointer">
                             参加申請を許可する
                         </Label>
                     </div>
@@ -275,7 +275,7 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
 
                     <div className="grid gap-4 md:grid-cols-2">
                         <div className="space-y-2">
-                            <Label htmlFor="postal_code" className="text-gray-900 dark:text-gray-200">郵便番号</Label>
+                            <Label htmlFor="postal_code" className="text-sm font-medium text-gray-700 dark:text-gray-200">郵便番号</Label>
                             <div className="flex gap-2">
                                 <Input
                                     id="postal_code"
@@ -297,7 +297,7 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
                             </div>
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="prefecture" className="text-gray-900 dark:text-gray-200">都道府県</Label>
+                            <Label htmlFor="prefecture" className="text-sm font-medium text-gray-700 dark:text-gray-200">都道府県</Label>
                             <Select
                                 name="prefecture"
                                 value={prefecture}
@@ -324,7 +324,7 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="city" className="text-gray-900 dark:text-gray-200">市区町村</Label>
+                        <Label htmlFor="city" className="text-sm font-medium text-gray-700 dark:text-gray-200">市区町村</Label>
                         <Input
                             id="city"
                             name="city"
@@ -336,7 +336,7 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="address_line1" className="text-gray-900 dark:text-gray-200">丁目・番地</Label>
+                        <Label htmlFor="address_line1" className="text-sm font-medium text-gray-700 dark:text-gray-200">丁目・番地</Label>
                         <Input
                             id="address_line1"
                             name="address_line1"
@@ -348,7 +348,7 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="address_line2" className="text-gray-900 dark:text-gray-200">建物名・部屋番号</Label>
+                        <Label htmlFor="address_line2" className="text-sm font-medium text-gray-700 dark:text-gray-200">建物名・部屋番号</Label>
                         <Input
                             id="address_line2"
                             name="address_line2"
@@ -362,7 +362,7 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                        <Label htmlFor="industry" className="text-gray-900 dark:text-gray-200">業種</Label>
+                        <Label htmlFor="industry" className="text-sm font-medium text-gray-700 dark:text-gray-200">業種</Label>
                         <Select name="industry" defaultValue={store.industry || undefined}>
                             <SelectTrigger id="industry" className="bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white">
                                 <SelectValue placeholder="業種を選択" />
@@ -380,7 +380,7 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="space-y-2">
-                        <Label htmlFor="business_start_time" className="text-gray-900 dark:text-gray-200">営業開始時間</Label>
+                        <Label htmlFor="business_start_time" className="text-sm font-medium text-gray-700 dark:text-gray-200">営業開始時間</Label>
                         <Input
                             type="time"
                             id="business_start_time"
@@ -392,7 +392,7 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="business_end_time" className="text-gray-900 dark:text-gray-200">営業終了時間</Label>
+                        <Label htmlFor="business_end_time" className="text-sm font-medium text-gray-700 dark:text-gray-200">営業終了時間</Label>
                         <Input
                             type="time"
                             id="business_end_time"
@@ -404,7 +404,7 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="day_switch_time" className="text-gray-900 dark:text-gray-200">日にち切り替え時間</Label>
+                        <Label htmlFor="day_switch_time" className="text-sm font-medium text-gray-700 dark:text-gray-200">日にち切り替え時間</Label>
                         <Select
                             name="day_switch_time"
                             defaultValue={daySwitchDefault}
@@ -430,7 +430,7 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
                 </div>
 
                 <div className="space-y-3">
-                    <Label className="text-gray-900 dark:text-gray-200">定休日</Label>
+                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">定休日</Label>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         {DAYS_OF_WEEK.map((day) => (
                             <div key={day.value} className="flex items-center space-x-2">
@@ -443,7 +443,7 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
                                     className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 focus:ring-blue-500 dark:focus:ring-blue-400"
                                     style={{ accentColor: '#2563eb' }}
                                 />
-                                <Label htmlFor={`closed_${day.value}`} className="text-sm font-normal cursor-pointer text-gray-700 dark:text-gray-300">
+                                <Label htmlFor={`closed_${day.value}`} className="text-sm font-medium text-gray-700 dark:text-gray-200 cursor-pointer">
                                     {day.label}
                                 </Label>
                             </div>
@@ -467,7 +467,7 @@ export function StoreSettingsForm({ store }: StoreSettingsFormProps) {
 
             {/* アイコン削除確認ダイアログ */}
             <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-                <DialogContent className="max-w-sm">
+                <DialogContent className="sm:max-w-sm">
                     <DialogHeader>
                         <DialogTitle className="text-gray-900 dark:text-white">アイコンを削除</DialogTitle>
                         <DialogDescription className="text-gray-600 dark:text-gray-400">

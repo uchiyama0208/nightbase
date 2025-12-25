@@ -18,7 +18,8 @@ export function AdminHeader({ onMenuClick, userEmail }: AdminHeaderProps) {
                     variant="ghost"
                     size="icon"
                     onClick={onMenuClick}
-                    className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 lg:hidden shrink-0"
+                    className="text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 lg:hidden shrink-0"
+                    aria-label="メニュー"
                 >
                     <Menu className="h-5 w-5" />
                 </Button>

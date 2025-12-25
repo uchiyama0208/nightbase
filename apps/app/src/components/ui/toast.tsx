@@ -31,7 +31,7 @@ const Toast = React.forwardRef<
     <ToastPrimitives.Root
       ref={ref}
       className={cn(
-        "relative flex w-full items-start gap-3 rounded-2xl border px-4 py-3 text-slate-100 shadow-lg backdrop-blur transition-all data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[120%] data-[state=closed]:animate-toastOut data-[state=open]:animate-toastIn",
+        "relative flex w-full items-start gap-3 rounded-2xl border px-4 py-3 text-gray-100 shadow-lg backdrop-blur transition-all data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[120%] data-[state=closed]:animate-toastOut data-[state=open]:animate-toastIn",
         className
       )}
       {...props}
@@ -52,7 +52,7 @@ const ToastDescription = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Description>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitives.Description>
 >(({ className, ...props }, ref) => (
-  <ToastPrimitives.Description ref={ref} className={cn("text-xs text-slate-400", className)} {...props} />
+  <ToastPrimitives.Description ref={ref} className={cn("text-xs text-gray-400", className)} {...props} />
 ));
 ToastDescription.displayName = ToastPrimitives.Description.displayName;
 
@@ -63,7 +63,7 @@ const ToastClose = React.forwardRef<
   <ToastPrimitives.Close
     ref={ref}
     className={cn(
-      "absolute right-2 top-2 rounded-full p-1 text-slate-400 transition hover:text-slate-200",
+      "absolute right-2 top-2 rounded-full p-1 text-gray-400 transition hover:text-gray-200",
       className
     )}
     {...props}
@@ -82,7 +82,7 @@ const Toaster = () => {
           className={cn(
             variant === "destructive"
               ? "border-red-500/40 bg-red-950/90 text-red-50"
-              : "border-white/10 bg-slate-950/95"
+              : "border-white/10 bg-gray-950/95"
           )}
         >
           <div className="flex flex-col gap-1">

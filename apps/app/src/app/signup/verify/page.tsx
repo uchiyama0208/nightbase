@@ -95,7 +95,7 @@ function SignupVerifyContent() {
                     </Button>
                 )}
 
-                <Button asChild className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+                <Button asChild className="w-full">
                     <Link href="/login">
                         ログインページへ戻る
                     </Link>

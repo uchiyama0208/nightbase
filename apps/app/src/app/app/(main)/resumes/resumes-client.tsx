@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import {
     Table,
     TableBody,
@@ -10,7 +11,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Plus, FileText, Eye, EyeOff, Filter, X } from "lucide-react";
+import { Plus, FileText, Eye, EyeOff, Filter, X, ChevronLeft, Settings2, RefreshCw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
     Dialog,
@@ -22,6 +23,7 @@ import { formatJSTDate } from "@/lib/utils";
 import { ResumeSubmissionDetailModal } from "./resume-submission-detail-modal";
 import { ResumeTemplateModal } from "./resume-template-modal";
 import { createBrowserClient } from "@supabase/ssr";
+import { VercelTabs } from "@/components/ui/vercel-tabs";
 
 interface ResumeSubmission {
     id: string;
@@ -46,6 +48,7 @@ interface ResumeSubmission {
     desired_cast_name_kana: string | null;
     submitted_at: string | null;
     created_at: string;
+    id_verification_images: string[] | null;
     resume_templates: {
         id: string;
         name: string;
@@ -78,7 +81,7 @@ interface ResumesClientProps {
     canEdit?: boolean;
 }
 
-type TabType = "cast" | "staff" | "templates";
+type TabType = "cast" | "staff";
 
 export function ResumesClient({
     submissions: initialSubmissions,
@@ -86,20 +89,21 @@ export function ResumesClient({
     storeId,
     canEdit = false,
 }: ResumesClientProps) {
+    const router = useRouter();
     const [submissions, setSubmissions] = useState<ResumeSubmission[]>(initialSubmissions);
     const [activeTab, setActiveTab] = useState<TabType>("cast");
+    const [isRefreshing, setIsRefreshing] = useState(false);
     const [selectedSubmission, setSelectedSubmission] = useState<ResumeSubmission | null>(null);
     const [selectedTemplate, setSelectedTemplate] = useState<ResumeTemplate | null>(null);
     const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+    const [isTemplateListOpen, setIsTemplateListOpen] = useState(false);
+    const [isFormatListOpen, setIsFormatListOpen] = useState(false);
+    const [templateModalDefaultTab, setTemplateModalDefaultTab] = useState<"share" | "edit">("share");
 
     // Filter states
     const [nameQuery, setNameQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "hired">("all");
     const [isFilterOpen, setIsFilterOpen] = useState(false);
-
-    // Vercel-style tabs
-    const tabsRef = useRef<{ [key: string]: HTMLButtonElement | null }>({});
-    const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
 
     // Supabase Realtime subscription
     useEffect(() => {
@@ -182,21 +186,10 @@ export function ResumesClient({
         setSubmissions(initialSubmissions);
     }, [initialSubmissions]);
 
-    const tabs: { key: TabType; label: string }[] = [
+    const tabs = [
         { key: "cast", label: "キャスト" },
         { key: "staff", label: "スタッフ" },
-        { key: "templates", label: "フォーマット" },
     ];
-
-    useEffect(() => {
-        const activeButton = tabsRef.current[activeTab];
-        if (activeButton) {
-            setIndicatorStyle({
-                left: activeButton.offsetLeft,
-                width: activeButton.offsetWidth,
-            });
-        }
-    }, [activeTab]);
 
     const getFullName = (submission: ResumeSubmission) => {
         if (submission.last_name && submission.first_name) {
@@ -269,8 +262,9 @@ export function ResumesClient({
         return template.resume_submissions?.[0]?.count || 0;
     };
 
-    const handleOpenTemplateModal = (template?: ResumeTemplate) => {
+    const handleOpenTemplateModal = (template?: ResumeTemplate, defaultTab: "share" | "edit" = "share") => {
         setSelectedTemplate(template || null);
+        setTemplateModalDefaultTab(defaultTab);
         setIsTemplateModalOpen(true);
     };
 
@@ -289,14 +283,14 @@ export function ResumesClient({
 
     const renderSubmissionsTable = (filteredSubmissions: ResumeSubmission[], targetRole: "cast" | "staff") => (
         <div className="overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-            <Table>
+            <Table className="table-fixed w-full">
                 <TableHeader>
                     <TableRow className="bg-gray-50 dark:bg-gray-800/50">
-                        <TableHead className="w-1/5 text-center text-xs text-gray-500 dark:text-gray-400">応募日</TableHead>
-                        <TableHead className="w-1/5 text-center text-xs text-gray-500 dark:text-gray-400">応募者名</TableHead>
-                        <TableHead className="w-1/5 text-center text-xs text-gray-500 dark:text-gray-400">希望名</TableHead>
-                        <TableHead className="hidden sm:table-cell w-1/5 text-center text-xs text-gray-500 dark:text-gray-400">電話番号</TableHead>
-                        <TableHead className="w-1/5 text-center text-xs text-gray-500 dark:text-gray-400">状態</TableHead>
+                        <TableHead className="w-1/4 sm:w-1/5 text-center text-xs text-gray-500 dark:text-gray-400">応募日</TableHead>
+                        <TableHead className="w-1/4 sm:w-1/5 text-center text-xs text-gray-500 dark:text-gray-400">応募者名</TableHead>
+                        <TableHead className="w-1/4 sm:w-1/5 text-center text-xs text-gray-500 dark:text-gray-400">希望名</TableHead>
+                        <TableHead className="hidden sm:table-cell sm:w-1/5 text-center text-xs text-gray-500 dark:text-gray-400">電話番号</TableHead>
+                        <TableHead className="w-1/4 sm:w-1/5 text-center text-xs text-gray-500 dark:text-gray-400">状態</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -312,22 +306,22 @@ export function ResumesClient({
                         filteredSubmissions.map((submission) => (
                             <TableRow
                                 key={submission.id}
-                                className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer"
+                                className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
                                 onClick={() => setSelectedSubmission(submission)}
                             >
-                                <TableCell className="w-1/5 text-center text-sm text-gray-500 dark:text-gray-400">
+                                <TableCell className="text-center text-sm text-gray-500 dark:text-gray-400">
                                     {submission.submitted_at ? formatJSTDate(submission.submitted_at) : "-"}
                                 </TableCell>
-                                <TableCell className="w-1/5 text-center text-sm font-medium text-gray-900 dark:text-white">
+                                <TableCell className="text-center text-sm font-medium text-gray-900 dark:text-white">
                                     {getFullName(submission)}
                                 </TableCell>
-                                <TableCell className="w-1/5 text-center text-sm text-gray-900 dark:text-white">
+                                <TableCell className="text-center text-sm text-gray-900 dark:text-white">
                                     {submission.desired_cast_name || "-"}
                                 </TableCell>
-                                <TableCell className="hidden sm:table-cell w-1/5 text-center text-sm text-gray-900 dark:text-white">
+                                <TableCell className="hidden sm:table-cell text-center text-sm text-gray-900 dark:text-white">
                                     {submission.phone_number || "-"}
                                 </TableCell>
-                                <TableCell className="w-1/5 text-center">
+                                <TableCell className="text-center">
                                     <span className={`inline-block text-xs px-2 py-0.5 rounded-full ${
                                         submission.profile_id
                                             ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
@@ -346,76 +340,54 @@ export function ResumesClient({
         </div>
     );
 
-    const renderTemplatesGrid = () => (
-        <div className="space-y-4">
-            {/* Templates Grid */}
-            {templates.length === 0 ? (
-                <div className="text-center py-12 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700">
-                    <FileText className="h-12 w-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
-                    <p className="text-sm">フォーマットがありません</p>
-                    <p className="text-xs mt-1">プラスボタンから作成してください</p>
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {templates.map((template) => (
-                        <div
-                            key={template.id}
-                            className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 hover:border-gray-300 dark:hover:border-gray-600 transition-colors cursor-pointer"
-                            onClick={() => handleOpenTemplateModal(template)}
-                        >
-                            <div className="flex items-center gap-2">
-                                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                                    template.target_role === "cast"
-                                        ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
-                                        : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                                }`}>
-                                    {template.target_role === "cast" ? "キャスト" : "スタッフ"}
-                                </span>
-                                <h3 className="flex-1 text-sm font-medium text-gray-900 dark:text-white">
-                                    {template.name}
-                                </h3>
-                                {template.is_active ? (
-                                    <Eye className="h-4 w-4 text-green-500" />
-                                ) : (
-                                    <EyeOff className="h-4 w-4 text-gray-400" />
-                                )}
-                            </div>
-
-                            <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                                回答 {getSubmissionCount(template)}件
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
-        </div>
-    );
-
     return (
         <>
             {/* Header */}
             <div className="flex items-center gap-2 mb-4">
-                {/* Filter button - only show for cast/staff tabs */}
-                {activeTab !== "templates" && (
-                    <button
-                        type="button"
-                        className={`flex items-center gap-1 px-1 py-1 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 ${
-                            hasFilters ? "text-blue-600" : "text-gray-500 dark:text-gray-400"
-                        }`}
-                        onClick={() => setIsFilterOpen(true)}
-                    >
-                        <Filter className="h-5 w-5 shrink-0" />
-                        <span className="text-sm text-gray-600 dark:text-gray-300 truncate">
-                            フィルター: {hasFilters ? activeFilters.join("・") : "なし"}
-                        </span>
-                    </button>
-                )}
+                {/* Filter button */}
+                <button
+                    type="button"
+                    className={`flex items-center gap-1 px-1 py-1 rounded-lg transition-colors hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                        hasFilters ? "text-blue-600" : "text-gray-500 dark:text-gray-400"
+                    }`}
+                    onClick={() => setIsFilterOpen(true)}
+                >
+                    <Filter className="h-5 w-5 shrink-0" />
+                    <span className="text-sm text-gray-600 dark:text-gray-300 truncate">
+                        フィルター: {hasFilters ? activeFilters.join("・") : "なし"}
+                    </span>
+                </button>
                 <div className="flex-1" />
-                {/* Add button */}
+                {/* Refresh button */}
+                <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={async () => {
+                        setIsRefreshing(true);
+                        router.refresh();
+                        setTimeout(() => setIsRefreshing(false), 500);
+                    }}
+                    disabled={isRefreshing}
+                    className="h-10 w-10 rounded-full"
+                >
+                    <RefreshCw className={`h-5 w-5 ${isRefreshing ? "animate-spin" : ""}`} />
+                </Button>
+                {/* Format button */}
+                {canEdit && (
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setIsFormatListOpen(true)}
+                        className="h-10 w-10 rounded-full"
+                    >
+                        <Settings2 className="h-5 w-5" />
+                    </Button>
+                )}
+                {/* Share button */}
                 {canEdit && (
                     <Button
                         size="icon"
-                        onClick={() => handleOpenTemplateModal()}
+                        onClick={() => setIsTemplateListOpen(true)}
                         className="h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 border-none shadow-md transition-all hover:scale-105 active:scale-95"
                     >
                         <Plus className="h-5 w-5" />
@@ -424,35 +396,16 @@ export function ResumesClient({
             </div>
 
             {/* Vercel-style Tab Navigation */}
-            <div className="relative">
-                <div className="flex">
-                    {tabs.map((tab) => (
-                        <button
-                            key={tab.key}
-                            ref={(el) => { tabsRef.current[tab.key] = el; }}
-                            type="button"
-                            onClick={() => setActiveTab(tab.key)}
-                            className={`flex-1 py-2 text-sm font-medium transition-colors relative ${
-                                activeTab === tab.key
-                                    ? "text-gray-900 dark:text-white"
-                                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                            }`}
-                        >
-                            {tab.label}
-                        </button>
-                    ))}
-                </div>
-                <div
-                    className="absolute bottom-0 h-0.5 bg-gray-900 dark:bg-white transition-all duration-200"
-                    style={{ left: indicatorStyle.left, width: indicatorStyle.width }}
-                />
-                <div className="absolute bottom-0 left-0 right-0 h-px bg-gray-200 dark:bg-gray-700" />
-            </div>
+            <VercelTabs
+                tabs={tabs}
+                value={activeTab}
+                onChange={(val) => setActiveTab(val as TabType)}
+                className="mb-4"
+            />
 
             {/* Content */}
             {activeTab === "cast" && renderSubmissionsTable(castSubmissions, "cast")}
             {activeTab === "staff" && renderSubmissionsTable(staffSubmissions, "staff")}
-            {activeTab === "templates" && renderTemplatesGrid()}
 
             {/* Submission Detail Modal */}
             {selectedSubmission && (
@@ -470,15 +423,24 @@ export function ResumesClient({
                 template={selectedTemplate}
                 storeId={storeId}
                 onCreated={handleTemplateCreated}
+                defaultTab={templateModalDefaultTab}
             />
 
             {/* Filter Modal */}
             <Dialog open={isFilterOpen} onOpenChange={setIsFilterOpen}>
-                <DialogContent className="max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900">
-                    <DialogHeader>
-                        <DialogTitle className="text-base font-semibold text-gray-900 dark:text-white">
+                <DialogContent className="sm:max-w-sm max-h-[90vh] overflow-hidden !rounded-2xl border border-gray-200 bg-white !p-0 shadow-xl dark:border-gray-800 dark:bg-gray-900">
+                    <DialogHeader className="flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
+                        <button
+                            type="button"
+                            onClick={() => setIsFilterOpen(false)}
+                            className="p-1 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                        >
+                            <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                        </button>
+                        <DialogTitle className="flex-1 text-center text-base font-semibold text-gray-900 dark:text-white">
                             フィルター
                         </DialogTitle>
+                        <div className="w-7" />
                     </DialogHeader>
                     <div className="flex flex-col gap-4 mt-4">
                         <div className="space-y-2">
@@ -490,15 +452,15 @@ export function ResumesClient({
                                     placeholder="名前を入力..."
                                     value={nameQuery}
                                     onChange={(e) => setNameQuery(e.target.value)}
-                                    className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 pr-9 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 pr-9 text-base text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
                                 {nameQuery && (
                                     <button
                                         type="button"
                                         onClick={() => setNameQuery("")}
-                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-50 dark:hover:text-gray-200 dark:hover:bg-gray-700 transition-colors"
                                     >
-                                        <X className="h-4 w-4" />
+                                        <X className="h-5 w-5" />
                                     </button>
                                 )}
                             </div>
@@ -549,6 +511,205 @@ export function ResumesClient({
                         >
                             適用
                         </Button>
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsFilterOpen(false)}
+                            className="w-full rounded-lg"
+                        >
+                            戻る
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Template List Modal */}
+            <Dialog open={isTemplateListOpen} onOpenChange={setIsTemplateListOpen}>
+                <DialogContent className="sm:max-w-md max-h-[90vh] overflow-hidden !rounded-2xl border border-gray-200 bg-white !p-0 shadow-xl dark:border-gray-800 dark:bg-gray-900">
+                    <DialogHeader className="flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
+                        <button
+                            type="button"
+                            onClick={() => setIsTemplateListOpen(false)}
+                            className="p-1 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                        >
+                            <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                        </button>
+                        <DialogTitle className="flex-1 text-center text-base font-semibold text-gray-900 dark:text-white">
+                            履歴書選択
+                        </DialogTitle>
+                        <div className="w-8 h-8" />
+                    </DialogHeader>
+                    {/* Filter Tags */}
+                    <div className="flex gap-2 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab("cast")}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                                activeTab === "cast"
+                                    ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
+                                    : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                            }`}
+                        >
+                            キャスト
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab("staff")}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                                activeTab === "staff"
+                                    ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
+                                    : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                            }`}
+                        >
+                            スタッフ
+                        </button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4">
+                        {templates.length === 0 ? (
+                            <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                                <FileText className="h-12 w-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
+                                <p className="text-sm">フォーマットがありません</p>
+                                <p className="text-xs mt-1">設定ボタンから作成してください</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                {templates
+                                    .filter(t => t.target_role === activeTab)
+                                    .map((template) => (
+                                        <div
+                                            key={template.id}
+                                            className={`bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-3 transition-colors cursor-pointer ${
+                                                template.target_role === "cast"
+                                                    ? "hover:border-purple-300 dark:hover:border-purple-600"
+                                                    : "hover:border-blue-300 dark:hover:border-blue-600"
+                                            }`}
+                                            onClick={() => {
+                                                setIsTemplateListOpen(false);
+                                                handleOpenTemplateModal(template);
+                                            }}
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                <h4 className="flex-1 text-sm font-medium text-gray-900 dark:text-white">
+                                                    {template.name}
+                                                </h4>
+                                                {template.is_active ? (
+                                                    <Eye className="h-4 w-4 text-green-500" />
+                                                ) : (
+                                                    <EyeOff className="h-4 w-4 text-gray-400" />
+                                                )}
+                                            </div>
+                                            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                                回答 {getSubmissionCount(template)}件
+                                            </div>
+                                        </div>
+                                    ))}
+                                {templates.filter(t => t.target_role === activeTab).length === 0 && (
+                                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                                        <p className="text-sm">該当するフォーマットがありません</p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Format List Modal (for editing) */}
+            <Dialog open={isFormatListOpen} onOpenChange={setIsFormatListOpen}>
+                <DialogContent className="sm:max-w-md max-h-[90vh] overflow-hidden !rounded-2xl border border-gray-200 bg-white !p-0 shadow-xl dark:border-gray-800 dark:bg-gray-900">
+                    <DialogHeader className="flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
+                        <button
+                            type="button"
+                            onClick={() => setIsFormatListOpen(false)}
+                            className="p-1 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                        >
+                            <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                        </button>
+                        <DialogTitle className="flex-1 text-center text-base font-semibold text-gray-900 dark:text-white">
+                            フォーマット一覧
+                        </DialogTitle>
+                        <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => {
+                                setIsFormatListOpen(false);
+                                handleOpenTemplateModal(undefined, "edit");
+                            }}
+                            className="h-8 w-8"
+                        >
+                            <Plus className="h-5 w-5" />
+                        </Button>
+                    </DialogHeader>
+                    {/* Filter Tags */}
+                    <div className="flex gap-2 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab("cast")}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                                activeTab === "cast"
+                                    ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
+                                    : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                            }`}
+                        >
+                            キャスト
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab("staff")}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                                activeTab === "staff"
+                                    ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
+                                    : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                            }`}
+                        >
+                            スタッフ
+                        </button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4">
+                        {templates.length === 0 ? (
+                            <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                                <FileText className="h-12 w-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
+                                <p className="text-sm">フォーマットがありません</p>
+                                <p className="text-xs mt-1">右上のボタンから作成してください</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                {templates
+                                    .filter(t => t.target_role === activeTab)
+                                    .map((template) => (
+                                        <div
+                                            key={template.id}
+                                            className={`bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-3 transition-colors cursor-pointer ${
+                                                template.target_role === "cast"
+                                                    ? "hover:border-purple-300 dark:hover:border-purple-600"
+                                                    : "hover:border-blue-300 dark:hover:border-blue-600"
+                                            }`}
+                                            onClick={() => {
+                                                setIsFormatListOpen(false);
+                                                handleOpenTemplateModal(template, "edit");
+                                            }}
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                <h4 className="flex-1 text-sm font-medium text-gray-900 dark:text-white">
+                                                    {template.name}
+                                                </h4>
+                                                {template.is_active ? (
+                                                    <Eye className="h-4 w-4 text-green-500" />
+                                                ) : (
+                                                    <EyeOff className="h-4 w-4 text-gray-400" />
+                                                )}
+                                            </div>
+                                            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                                回答 {getSubmissionCount(template)}件
+                                            </div>
+                                        </div>
+                                    ))}
+                                {templates.filter(t => t.target_role === activeTab).length === 0 && (
+                                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                                        <p className="text-sm">該当するフォーマットがありません</p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </DialogContent>
             </Dialog>

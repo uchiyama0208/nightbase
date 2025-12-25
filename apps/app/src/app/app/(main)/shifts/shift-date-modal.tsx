@@ -264,13 +264,13 @@ export function ShiftDateModal({
     return (
         <>
             <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-                <DialogContent className="max-w-md max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0">
-                    <DialogHeader className="border-b px-4 py-3 flex-shrink-0 mb-0">
-                        <div className="flex items-center justify-between">
+                <DialogContent className="sm:max-w-md max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0">
+                    <DialogHeader className="flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
+                        <div className="flex items-center justify-between w-full">
                             <button
                                 type="button"
                                 onClick={() => onNavigate?.("prev")}
-                                className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                className="p-1.5 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                             >
                                 <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                             </button>
@@ -280,7 +280,7 @@ export function ShiftDateModal({
                             <button
                                 type="button"
                                 onClick={() => onNavigate?.("next")}
-                                className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                className="p-1.5 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                             >
                                 <ChevronRight className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                             </button>
@@ -466,7 +466,7 @@ export function ShiftDateModal({
                                 {isSendingReminder ? (
                                     <Loader2 className="h-4 w-4 animate-spin" />
                                 ) : (
-                                    <Send className="h-4 w-4" />
+                                    <Send className="h-5 w-5" />
                                 )}
                                 まとめてLINE再通知
                             </Button>
@@ -478,7 +478,7 @@ export function ShiftDateModal({
                                 className="w-full gap-2"
                                 onClick={() => setIsAddModalOpen(true)}
                             >
-                                <UserPlus className="h-4 w-4" />
+                                <UserPlus className="h-5 w-5" />
                                 出勤予定を追加
                             </Button>
                         )}
@@ -633,7 +633,7 @@ function SubmissionItem({
                             disabled={isProcessing}
                             className="h-7 w-7 rounded-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center disabled:opacity-50"
                         >
-                            {isProcessing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                            {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                         </button>
                         <button
                             type="button"
@@ -641,7 +641,7 @@ function SubmissionItem({
                             disabled={isProcessing}
                             className="h-7 w-7 rounded-full bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 flex items-center justify-center disabled:opacity-50"
                         >
-                            {isProcessing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+                            {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-5 w-5" />}
                         </button>
                     </div>
                 </div>
@@ -698,7 +698,7 @@ function SubmissionItem({
                         className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-[#06C755] hover:text-[#05b34d] disabled:opacity-50"
                     >
                         {isSending ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
+                            <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
                             <Send className="h-3 w-3" />
                         )}
@@ -752,7 +752,7 @@ function SubmissionItem({
                     disabled={isProcessing}
                     className="h-7 w-7 rounded-full bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 flex items-center justify-center disabled:opacity-50"
                 >
-                    {isProcessing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+                    {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-5 w-5" />}
                 </button>
             </div>
         );
@@ -797,7 +797,7 @@ function SubmissionItem({
                     disabled={isProcessing}
                     className="h-7 w-7 rounded-full bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 flex items-center justify-center disabled:opacity-50"
                 >
-                    {isProcessing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+                    {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-5 w-5" />}
                 </button>
             )}
         </div>
@@ -879,7 +879,7 @@ function AddUserModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="max-w-sm">
+            <DialogContent className="sm:max-w-sm">
                 <DialogHeader>
                     <DialogTitle className="text-gray-900 dark:text-white">
                         出勤予定を追加
@@ -898,7 +898,7 @@ function AddUserModal({
                             placeholder="名前で検索..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="h-9"
+                            className="h-10"
                         />
                         {notSubmittedUsers.length === 0 ? (
                             <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -918,7 +918,7 @@ function AddUserModal({
                                         className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
                                             selectedProfileId === user.profile_id
                                                 ? "bg-blue-100 dark:bg-blue-900/30"
-                                                : "hover:bg-gray-100 dark:hover:bg-gray-800"
+                                                : "hover:bg-gray-50 dark:hover:bg-gray-700"
                                         }`}
                                     >
                                         {user.profiles?.avatar_url ? (
@@ -934,7 +934,7 @@ function AddUserModal({
                                                 {user.profiles?.display_name?.charAt(0) || "?"}
                                             </div>
                                         )}
-                                        <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                             {user.profiles?.display_name || "名前なし"}
                                         </span>
                                         {selectedProfileId === user.profile_id && (

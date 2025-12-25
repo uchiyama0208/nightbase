@@ -107,8 +107,8 @@ export function CmsList({ type, typeLabel, description, basePath }: CmsListProps
                     </p>
                 </div>
                 <Link href={`${basePath}/new`} className="shrink-0">
-                    <Button className="rounded-lg bg-blue-600 text-white hover:bg-blue-700 w-full sm:w-auto">
-                        <Plus className="h-4 w-4 mr-2" />
+                    <Button className="w-full sm:w-auto">
+                        <Plus className="h-5 w-5 mr-2" />
                         新規作成
                     </Button>
                 </Link>
@@ -173,7 +173,7 @@ export function CmsList({ type, typeLabel, description, basePath }: CmsListProps
                             filteredEntries.map((entry) => (
                                 <TableRow
                                     key={entry.id}
-                                    className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                                    className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                                 >
                                     <TableCell>
                                         <div className="flex items-center gap-3">
@@ -222,7 +222,7 @@ export function CmsList({ type, typeLabel, description, basePath }: CmsListProps
                                         <div className="flex items-center justify-center gap-1">
                                             <Link href={`${basePath}/${entry.id}`}>
                                                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                                    <Edit className="h-4 w-4" />
+                                                    <Edit className="h-5 w-5" />
                                                 </Button>
                                             </Link>
                                             <Button
@@ -231,7 +231,7 @@ export function CmsList({ type, typeLabel, description, basePath }: CmsListProps
                                                 className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
                                                 onClick={() => setDeleteTarget(entry)}
                                             >
-                                                <Trash2 className="h-4 w-4" />
+                                                <Trash2 className="h-5 w-5" />
                                             </Button>
                                         </div>
                                     </TableCell>
@@ -245,9 +245,9 @@ export function CmsList({ type, typeLabel, description, basePath }: CmsListProps
 
             {/* Delete confirmation dialog */}
             <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-                <DialogContent className="max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900">
+                <DialogContent className="sm:max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900">
                     <DialogHeader>
-                        <DialogTitle className="text-base font-semibold text-gray-900 dark:text-gray-50">
+                        <DialogTitle className="text-base font-semibold text-gray-900 dark:text-white">
                             {typeLabel}を削除
                         </DialogTitle>
                     </DialogHeader>

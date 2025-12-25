@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
-import { Calendar, Clock, AlertCircle, ChevronLeft, ChevronRight, ClipboardList } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Clock, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
@@ -35,6 +35,7 @@ interface StoreDefaults {
     default_cast_end_time: string | null;
     default_staff_start_time: string | null;
     default_staff_end_time: string | null;
+    day_switch_time: string | null;
 }
 
 interface ApprovedShift {
@@ -56,6 +57,37 @@ interface MyShiftsClientProps {
     submittedRequestIds: string[];
 }
 
+// 営業日を計算する関数
+function getBusinessDate(daySwitchTime: string | null): string {
+    const now = new Date();
+    const jstNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
+
+    // 営業日切り替え時間をパース (HH:mm:ss or HH:mm format)
+    let switchHour = 6; // デフォルト: 06:00
+    let switchMinute = 0;
+
+    if (daySwitchTime) {
+        const parts = daySwitchTime.split(":");
+        switchHour = parseInt(parts[0], 10) || 6;
+        switchMinute = parseInt(parts[1], 10) || 0;
+    }
+
+    // 現在時刻が切り替え時間より前なら前日が営業日
+    const currentHour = jstNow.getHours();
+    const currentMinute = jstNow.getMinutes();
+
+    if (currentHour < switchHour || (currentHour === switchHour && currentMinute < switchMinute)) {
+        jstNow.setDate(jstNow.getDate() - 1);
+    }
+
+    // YYYY-MM-DD形式で返す
+    const year = jstNow.getFullYear();
+    const month = String(jstNow.getMonth() + 1).padStart(2, "0");
+    const day = String(jstNow.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+}
+
 export function MyShiftsClient({
     shiftRequests,
     profileId,
@@ -65,25 +97,14 @@ export function MyShiftsClient({
     submittedRequestIds,
 }: MyShiftsClientProps) {
     const [selectedRequest, setSelectedRequest] = useState<ShiftRequest | null>(null);
-    const [viewMode, setViewMode] = useState<"shifts" | "calendar">("calendar");
+
+    // 営業日を計算して初期月を設定
+    const businessDate = useMemo(() => getBusinessDate(storeDefaults?.day_switch_time || null), [storeDefaults?.day_switch_time]);
+
     const [currentMonth, setCurrentMonth] = useState(() => {
-        const now = new Date();
-        return new Date(now.getFullYear(), now.getMonth(), 1);
+        const [year, month] = businessDate.split("-").map(Number);
+        return new Date(year, month - 1, 1);
     });
-
-    // Vercel-style tabs
-    const viewTabsRef = useRef<{ [key: string]: HTMLButtonElement | null }>({});
-    const [viewIndicatorStyle, setViewIndicatorStyle] = useState({ left: 0, width: 0 });
-
-    useEffect(() => {
-        const activeButton = viewTabsRef.current[viewMode];
-        if (activeButton) {
-            setViewIndicatorStyle({
-                left: activeButton.offsetLeft,
-                width: activeButton.offsetWidth,
-            });
-        }
-    }, [viewMode]);
 
     // 募集中のみフィルタ（締切が現在時刻より後）
     const openRequests = useMemo(() => {
@@ -118,8 +139,8 @@ export function MyShiftsClient({
     };
 
     const goToToday = () => {
-        const now = new Date();
-        setCurrentMonth(new Date(now.getFullYear(), now.getMonth(), 1));
+        const [year, month] = businessDate.split("-").map(Number);
+        setCurrentMonth(new Date(year, month - 1, 1));
     };
 
     return (
@@ -138,62 +159,16 @@ export function MyShiftsClient({
                 </div>
             )}
 
-            {/* Vercel-style View Toggle */}
-            <div className="relative">
-                <div className="flex">
-                    <button
-                        ref={(el) => { viewTabsRef.current["calendar"] = el; }}
-                        type="button"
-                        onClick={() => setViewMode("calendar")}
-                        className={`flex-1 py-2 text-sm font-medium transition-colors relative flex items-center justify-center gap-1.5 ${
-                            viewMode === "calendar"
-                                ? "text-gray-900 dark:text-white"
-                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                        }`}
-                    >
-                        <Calendar className="h-4 w-4" />
-                        カレンダー
-                    </button>
-                    <button
-                        ref={(el) => { viewTabsRef.current["shifts"] = el; }}
-                        type="button"
-                        onClick={() => setViewMode("shifts")}
-                        className={`flex-1 py-2 text-sm font-medium transition-colors relative flex items-center justify-center gap-1.5 ${
-                            viewMode === "shifts"
-                                ? "text-gray-900 dark:text-white"
-                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                        }`}
-                    >
-                        <ClipboardList className="h-4 w-4" />
-                        シフト
-                    </button>
-                </div>
-                <div
-                    className="absolute bottom-0 h-0.5 bg-gray-900 dark:bg-white transition-all duration-200"
-                    style={{ left: viewIndicatorStyle.left, width: viewIndicatorStyle.width }}
-                />
-                <div className="absolute bottom-0 left-0 right-0 h-px bg-gray-200 dark:bg-gray-700" />
-            </div>
-
-            {/* Content */}
-            {viewMode === "shifts" ? (
-                <ShiftsList
-                    currentMonth={currentMonth}
-                    approvedShiftMap={approvedShiftMap}
-                    onPreviousMonth={goToPreviousMonth}
-                    onNextMonth={goToNextMonth}
-                    onGoToToday={goToToday}
-                    profileRole={profileRole}
-                />
-            ) : (
-                <ShiftCalendar
-                    currentMonth={currentMonth}
-                    approvedShiftMap={approvedShiftMap}
-                    onPreviousMonth={goToPreviousMonth}
-                    onNextMonth={goToNextMonth}
-                    onGoToToday={goToToday}
-                />
-            )}
+            {/* シフトリスト */}
+            <ShiftsList
+                currentMonth={currentMonth}
+                approvedShiftMap={approvedShiftMap}
+                onPreviousMonth={goToPreviousMonth}
+                onNextMonth={goToNextMonth}
+                onGoToToday={goToToday}
+                profileRole={profileRole}
+                businessDate={businessDate}
+            />
 
             {selectedRequest && (
                 <SubmissionModal
@@ -278,7 +253,7 @@ function ShiftRequestCard({
 
             {/* Deadline */}
             <div className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400">
-                <Clock className="h-4 w-4" />
+                <Clock className="h-5 w-5" />
                 <span>
                     期限: {formatDeadline(request.deadline)}
                 </span>
@@ -287,7 +262,6 @@ function ShiftRequestCard({
     );
 }
 
-type FilterType = "all" | "today";
 type ReservationType = "douhan" | "shimei" | "none" | null;
 
 function ShiftsList({
@@ -297,6 +271,7 @@ function ShiftsList({
     onNextMonth,
     onGoToToday,
     profileRole,
+    businessDate,
 }: {
     currentMonth: Date;
     approvedShiftMap: Map<string, ApprovedShift>;
@@ -304,9 +279,9 @@ function ShiftsList({
     onNextMonth: () => void;
     onGoToToday: () => void;
     profileRole: string;
+    businessDate: string;
 }) {
     const router = useRouter();
-    const [filter, setFilter] = useState<FilterType>("all");
     const [editingShiftId, setEditingShiftId] = useState<string | null>(null);
     const [editingType, setEditingType] = useState<"douhan" | "shimei" | null>(null);
     const [guestNameInputs, setGuestNameInputs] = useState<{ [key: string]: string }>({});
@@ -317,14 +292,6 @@ function ShiftsList({
     const daysInMonth = new Date(year, month + 1, 0).getDate();
 
     const isCast = profileRole === "cast";
-
-    // 今日の日付を取得
-    const todayStr = new Date().toLocaleDateString("ja-JP", {
-        timeZone: "Asia/Tokyo",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-    }).replace(/\//g, "-");
 
     // 月の全日付を生成
     const monthDates = useMemo(() => {
@@ -340,20 +307,6 @@ function ShiftsList({
         }
         return dates;
     }, [year, month, daysInMonth]);
-
-    // フィルター適用
-    const filteredDates = useMemo(() => {
-        if (filter === "today") {
-            return monthDates.filter((d) => d.date === todayStr);
-        }
-        return monthDates;
-    }, [monthDates, filter, todayStr]);
-
-    // 今日タグをクリックしたとき
-    const handleTodayFilter = () => {
-        onGoToToday();
-        setFilter("today");
-    };
 
     // 同伴・指名タイプを変更
     const handleReservationTypeChange = async (
@@ -406,7 +359,7 @@ function ShiftsList({
                 <button
                     type="button"
                     onClick={onPreviousMonth}
-                    className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    className="p-1.5 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                     <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                 </button>
@@ -425,47 +378,21 @@ function ShiftsList({
                 <button
                     type="button"
                     onClick={onNextMonth}
-                    className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    className="p-1.5 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                     <ChevronRight className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                 </button>
             </div>
 
-            {/* Filter Tags */}
-            <div className="flex gap-2">
-                <button
-                    type="button"
-                    onClick={() => setFilter("all")}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
-                        filter === "all"
-                            ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
-                            : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-                    }`}
-                >
-                    すべて
-                </button>
-                <button
-                    type="button"
-                    onClick={handleTodayFilter}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
-                        filter === "today"
-                            ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
-                            : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-                    }`}
-                >
-                    今日
-                </button>
-            </div>
-
             {/* Date Cards */}
             <div className="space-y-2">
-                {filteredDates.length === 0 ? (
+                {monthDates.length === 0 ? (
                     <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                         シフトがありません
                     </div>
-                ) : filteredDates.map(({ date, day, dayOfWeek }) => {
+                ) : monthDates.map(({ date, day, dayOfWeek }) => {
                     const shift = approvedShiftMap.get(date);
-                    const isToday = date === todayStr;
+                    const isBusinessDay = date === businessDate;
                     const isSunday = dayOfWeek === 0;
                     const isSaturday = dayOfWeek === 6;
                     const weekDays = ["日", "月", "火", "水", "木", "金", "土"];
@@ -476,7 +403,7 @@ function ShiftsList({
                         <div
                             key={date}
                             className={`bg-white dark:bg-gray-900 rounded-xl border p-3 ${
-                                isToday
+                                isBusinessDay
                                     ? "border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20"
                                     : "border-gray-200 dark:border-gray-700"
                             }`}
@@ -485,7 +412,7 @@ function ShiftsList({
                                 <div className="flex items-center gap-2">
                                     <span
                                         className={`text-base font-semibold ${
-                                            isToday
+                                            isBusinessDay
                                                 ? "text-blue-600 dark:text-blue-400"
                                                 : isSunday
                                                 ? "text-red-500"
@@ -496,7 +423,7 @@ function ShiftsList({
                                     >
                                         {month + 1}/{day}（{weekDays[dayOfWeek]}）
                                     </span>
-                                    {isToday && (
+                                    {isBusinessDay && (
                                         <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400">
                                             今日
                                         </span>
@@ -624,187 +551,6 @@ function ShiftsList({
     );
 }
 
-function ShiftCalendar({
-    currentMonth,
-    approvedShiftMap,
-    onPreviousMonth,
-    onNextMonth,
-    onGoToToday,
-}: {
-    currentMonth: Date;
-    approvedShiftMap: Map<string, ApprovedShift>;
-    onPreviousMonth: () => void;
-    onNextMonth: () => void;
-    onGoToToday: () => void;
-}) {
-    const year = currentMonth.getFullYear();
-    const month = currentMonth.getMonth();
-
-    // Get first day of month and number of days
-    const firstDayOfMonth = new Date(year, month, 1);
-    const lastDayOfMonth = new Date(year, month + 1, 0);
-    const daysInMonth = lastDayOfMonth.getDate();
-    const startingDayOfWeek = firstDayOfMonth.getDay();
-
-    // Generate calendar days
-    const calendarDays = useMemo(() => {
-        const days: (number | null)[] = [];
-        for (let i = 0; i < startingDayOfWeek; i++) {
-            days.push(null);
-        }
-        for (let day = 1; day <= daysInMonth; day++) {
-            days.push(day);
-        }
-        return days;
-    }, [daysInMonth, startingDayOfWeek]);
-
-    const formatDateKey = (day: number) => {
-        const m = String(month + 1).padStart(2, "0");
-        const d = String(day).padStart(2, "0");
-        return `${year}-${m}-${d}`;
-    };
-
-    const weekDays = ["日", "月", "火", "水", "木", "金", "土"];
-    const today = new Date();
-    const isToday = (day: number) => {
-        return (
-            today.getFullYear() === year &&
-            today.getMonth() === month &&
-            today.getDate() === day
-        );
-    };
-
-    return (
-        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-            {/* Calendar Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-                <button
-                    type="button"
-                    onClick={onPreviousMonth}
-                    className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                >
-                    <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                </button>
-                <div className="flex items-center gap-3">
-                    <h2 className="text-base font-semibold text-gray-900 dark:text-white">
-                        {year}年{month + 1}月
-                    </h2>
-                    <button
-                        type="button"
-                        onClick={onGoToToday}
-                        className="text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                    >
-                        今月
-                    </button>
-                </div>
-                <button
-                    type="button"
-                    onClick={onNextMonth}
-                    className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                >
-                    <ChevronRight className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                </button>
-            </div>
-
-            {/* Weekday Headers */}
-            <div className="grid grid-cols-7 border-b border-gray-200 dark:border-gray-700">
-                {weekDays.map((day, idx) => (
-                    <div
-                        key={day}
-                        className={`py-2 text-center text-xs font-medium ${
-                            idx === 0
-                                ? "text-red-500"
-                                : idx === 6
-                                ? "text-blue-500"
-                                : "text-gray-500 dark:text-gray-400"
-                        }`}
-                    >
-                        {day}
-                    </div>
-                ))}
-            </div>
-
-            {/* Calendar Grid */}
-            <div className="grid grid-cols-7">
-                {calendarDays.map((day, index) => {
-                    if (day === null) {
-                        return (
-                            <div
-                                key={`empty-${index}`}
-                                className="min-h-[56px] border-b border-r border-gray-100 dark:border-gray-800 last:border-r-0"
-                            />
-                        );
-                    }
-
-                    const dateKey = formatDateKey(day);
-                    const shift = approvedShiftMap.get(dateKey);
-                    const dayOfWeek = (startingDayOfWeek + day - 1) % 7;
-                    const isSunday = dayOfWeek === 0;
-                    const isSaturday = dayOfWeek === 6;
-
-                    return (
-                        <div
-                            key={dateKey}
-                            className={`min-h-[56px] p-1 border-b border-r border-gray-100 dark:border-gray-800 last:border-r-0 ${
-                                isToday(day) ? "bg-blue-50 dark:bg-blue-900/20" : ""
-                            }`}
-                        >
-                            {/* Day Number */}
-                            <div
-                                className={`text-xs font-medium mb-1 ${
-                                    isToday(day)
-                                        ? "text-blue-600 dark:text-blue-400"
-                                        : isSunday
-                                        ? "text-red-500"
-                                        : isSaturday
-                                        ? "text-blue-500"
-                                        : "text-gray-700 dark:text-gray-300"
-                                }`}
-                            >
-                                {day}
-                            </div>
-
-                            {/* Shift Display */}
-                            {shift && shift.status === "approved" && (
-                                <div className="flex items-center gap-0.5 text-[10px] leading-tight px-1 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
-                                    <Clock className="h-2.5 w-2.5" />
-                                    <span className="truncate">{formatTimeRange(shift.startTime, shift.endTime)}</span>
-                                </div>
-                            )}
-                            {shift && shift.status === "pending" && (
-                                <div className="flex justify-center">
-                                    <span className="w-2 h-2 rounded-full bg-blue-500 dark:bg-blue-400" />
-                                </div>
-                            )}
-                            {shift && shift.status === "rejected" && (
-                                <div className="flex justify-center">
-                                    <span className="w-2 h-2 rounded-full bg-red-500 dark:bg-red-400" />
-                                </div>
-                            )}
-                        </div>
-                    );
-                })}
-            </div>
-
-            {/* Legend */}
-            <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-                <div className="flex items-center gap-1.5">
-                    <span className="w-3 h-3 rounded bg-green-100 dark:bg-green-900/30" />
-                    <span>確定</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-blue-500 dark:bg-blue-400" />
-                    <span>提出済み</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-red-500 dark:bg-red-400" />
-                    <span>否認</span>
-                </div>
-            </div>
-        </div>
-    );
-}
-
 function getDateRange(dates: ShiftRequestDate[]): string {
     if (dates.length === 0) return "日付なし";
     if (dates.length === 1) return formatDate(dates[0].target_date);
@@ -830,23 +576,4 @@ function formatDeadline(deadline: string): string {
         hour: "2-digit",
         minute: "2-digit",
     });
-}
-
-function formatTimeRange(startTime: string | null, endTime: string | null): string {
-    if (!startTime && !endTime) return "時間未定";
-
-    const formatTime = (time: string | null) => {
-        if (!time) return "";
-        // HH:mm:ss or HH:mm format
-        const parts = time.split(":");
-        return `${parts[0]}:${parts[1]}`;
-    };
-
-    if (startTime && endTime) {
-        return `${formatTime(startTime)}-${formatTime(endTime)}`;
-    }
-    if (startTime) {
-        return `${formatTime(startTime)}〜`;
-    }
-    return `〜${formatTime(endTime)}`;
 }

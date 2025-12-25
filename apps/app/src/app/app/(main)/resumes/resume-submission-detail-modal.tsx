@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
     Dialog,
@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { User, Phone, MapPin, Calendar, Building, UserPlus, Trash2, ChevronLeft } from "lucide-react";
+import { User, Phone, MapPin, Calendar, Building, Trash2, ChevronLeft, IdCard } from "lucide-react";
 import { formatJSTDate } from "@/lib/utils";
 import {
     getSubmissionDetails,
@@ -26,9 +26,13 @@ import {
     deleteSubmissionComment,
     toggleSubmissionCommentLike,
     getCurrentProfileInfo,
+    getIdVerificationImageUrls,
 } from "./actions";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "@/components/ui/use-toast";
 import { CommentList } from "@/components/comment-list";
+import { useGlobalLoading } from "@/components/global-loading";
 
 interface ResumeSubmission {
     id: string;
@@ -53,6 +57,7 @@ interface ResumeSubmission {
     desired_cast_name_kana: string | null;
     submitted_at: string | null;
     created_at: string;
+    id_verification_images: string[] | null;
     resume_templates: {
         id: string;
         name: string;
@@ -90,6 +95,7 @@ export function ResumeSubmissionDetailModal({
     submission,
 }: ResumeSubmissionDetailModalProps) {
     const router = useRouter();
+    const { showLoading, hideLoading } = useGlobalLoading();
     const [isLoading, setIsLoading] = useState(true);
     const [isHiring, setIsHiring] = useState(false);
     const [isRejecting, setIsRejecting] = useState(false);
@@ -105,11 +111,14 @@ export function ResumeSubmissionDetailModal({
     const [comments, setComments] = useState<any[]>([]);
     const [currentProfileId, setCurrentProfileId] = useState<string | null>(null);
     const [isAdmin, setIsAdmin] = useState(false);
+    const [idVerificationUrls, setIdVerificationUrls] = useState<string[]>([]);
+    const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
 
     // 採用時の名前編集用
     const [editDisplayName, setEditDisplayName] = useState("");
     const [editDisplayNameKana, setEditDisplayNameKana] = useState("");
     const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
+    const [createProfile, setCreateProfile] = useState(true);
 
     useEffect(() => {
         if (isOpen && submission) {
@@ -134,6 +143,14 @@ export function ResumeSubmissionDetailModal({
             setComments(commentsData || []);
             setCurrentProfileId(profileInfo.profileId);
             setIsAdmin(profileInfo.role === "admin");
+
+            // Load ID verification images if present
+            if (submission.id_verification_images && submission.id_verification_images.length > 0) {
+                const urls = await getIdVerificationImageUrls(submission.id_verification_images);
+                setIdVerificationUrls(urls);
+            } else {
+                setIdVerificationUrls([]);
+            }
         } catch (error) {
             console.error("Failed to load details:", error);
         } finally {
@@ -146,53 +163,69 @@ export function ResumeSubmissionDetailModal({
         setComments(commentsData || []);
     };
 
-    const handleAddComment = async (content: string) => {
+    const handleAddComment = useCallback(async (content: string) => {
+        showLoading("保存中...");
         try {
             await addSubmissionComment(submission.id, content);
             await refreshComments();
             return { success: true };
         } catch (error) {
             console.error("Failed to add comment:", error);
+            toast({ title: "コメントの追加に失敗しました", variant: "destructive" });
             return { success: false, error: "コメントの追加に失敗しました" };
+        } finally {
+            hideLoading();
         }
-    };
+    }, [submission.id, showLoading, hideLoading]);
 
-    const handleEditComment = async (commentId: string, content: string) => {
+    const handleEditComment = useCallback(async (commentId: string, content: string) => {
+        showLoading("保存中...");
         try {
             await updateSubmissionComment(commentId, content);
             await refreshComments();
             return { success: true };
         } catch (error) {
             console.error("Failed to edit comment:", error);
+            toast({ title: "コメントの更新に失敗しました", variant: "destructive" });
             return { success: false, error: "コメントの更新に失敗しました" };
+        } finally {
+            hideLoading();
         }
-    };
+    }, [showLoading, hideLoading]);
 
-    const handleDeleteComment = async (commentId: string) => {
+    const handleDeleteComment = useCallback(async (commentId: string) => {
+        showLoading("保存中...");
         try {
             await deleteSubmissionComment(commentId);
             await refreshComments();
             return { success: true };
         } catch (error) {
             console.error("Failed to delete comment:", error);
+            toast({ title: "コメントの削除に失敗しました", variant: "destructive" });
             return { success: false, error: "コメントの削除に失敗しました" };
+        } finally {
+            hideLoading();
         }
-    };
+    }, [showLoading, hideLoading]);
 
-    const handleToggleLike = async (commentId: string) => {
+    const handleToggleLike = useCallback(async (commentId: string) => {
+        showLoading("保存中...");
         try {
             await toggleSubmissionCommentLike(commentId);
             await refreshComments();
             return { success: true };
         } catch (error) {
             console.error("Failed to toggle like:", error);
+            toast({ title: "いいねの切り替えに失敗しました", variant: "destructive" });
             return { success: false, error: "いいねの切り替えに失敗しました" };
+        } finally {
+            hideLoading();
         }
-    };
+    }, [showLoading, hideLoading]);
 
     const handleHire = async () => {
-        // 採用前に重複チェック
-        if (editDisplayNameKana?.trim()) {
+        // プロフィール作成時のみ重複チェック
+        if (createProfile && editDisplayNameKana?.trim()) {
             try {
                 const result = await checkDisplayNameDuplicate(editDisplayNameKana.trim());
                 if (result.isDuplicate) {
@@ -209,14 +242,15 @@ export function ResumeSubmissionDetailModal({
             await hireApplicant(
                 submission.id,
                 hireType,
-                editDisplayName || undefined,
-                editDisplayNameKana || undefined
+                createProfile ? editDisplayName || undefined : undefined,
+                createProfile ? editDisplayNameKana || undefined : undefined,
+                createProfile
             );
             router.refresh();
             onClose();
         } catch (error) {
             console.error("Failed to hire:", error);
-            alert("採用処理に失敗しました");
+            toast({ title: "採用処理に失敗しました", variant: "destructive" });
         } finally {
             setIsHiring(false);
             setShowHireConfirm(false);
@@ -231,7 +265,7 @@ export function ResumeSubmissionDetailModal({
             onClose();
         } catch (error) {
             console.error("Failed to reject:", error);
-            alert("不採用処理に失敗しました");
+            toast({ title: "不採用処理に失敗しました", variant: "destructive" });
         } finally {
             setIsRejecting(false);
             setShowRejectConfirm(false);
@@ -246,7 +280,7 @@ export function ResumeSubmissionDetailModal({
             onClose();
         } catch (error) {
             console.error("Failed to delete:", error);
-            alert("削除に失敗しました");
+            toast({ title: "削除に失敗しました", variant: "destructive" });
         } finally {
             setIsDeleting(false);
             setShowDeleteConfirm(false);
@@ -261,7 +295,7 @@ export function ResumeSubmissionDetailModal({
             onClose();
         } catch (error) {
             console.error("Failed to revert:", error);
-            alert("採否前に戻す処理に失敗しました");
+            toast({ title: "採否前に戻す処理に失敗しました", variant: "destructive" });
         } finally {
             setIsReverting(false);
             setShowRevertConfirm(false);
@@ -307,30 +341,30 @@ export function ResumeSubmissionDetailModal({
     return (
         <>
             <Dialog open={isOpen} onOpenChange={onClose}>
-                <DialogContent className="max-w-lg rounded-2xl border border-gray-200 bg-white p-0 dark:border-gray-800 dark:bg-gray-900 max-h-[90vh] overflow-hidden flex flex-col">
-                    <DialogHeader className="px-4 py-3 flex flex-row items-center justify-between">
+                <DialogContent className="p-0 overflow-hidden flex flex-col max-h-[90vh] rounded-2xl sm:max-w-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+                    <DialogHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900 flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
                         <button
                             type="button"
                             onClick={onClose}
-                            className="inline-flex h-6 w-6 items-center justify-center rounded-full text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-800"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
                             aria-label="戻る"
                         >
-                            <ChevronLeft className="h-5 w-5" />
+                            <ChevronLeft className="h-4 w-4" />
                         </button>
-                        <DialogTitle className="text-base font-semibold text-gray-900 dark:text-white">
+                        <DialogTitle className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white truncate">
                             履歴書詳細
                         </DialogTitle>
                         <button
                             type="button"
                             onClick={() => setShowDeleteConfirm(true)}
-                            className="inline-flex h-6 w-6 items-center justify-center rounded-full text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                             aria-label="削除"
                         >
                             <Trash2 className="h-4 w-4" />
                         </button>
                     </DialogHeader>
 
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                    <div className="flex-1 overflow-y-auto p-6 space-y-4">
                         {isLoading ? (
                             <div className="text-center py-8 text-gray-500">読み込み中...</div>
                         ) : (
@@ -428,7 +462,7 @@ export function ResumeSubmissionDetailModal({
                                 {/* Past Employments */}
                                 {pastEmployments.length > 0 && (
                                     <div className="space-y-3">
-                                        <Label className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-1">
+                                        <Label className="text-sm font-medium text-gray-700 dark:text-gray-200 flex items-center gap-1">
                                             <Building className="h-4 w-4" />
                                             過去在籍店 ({pastEmployments.length}件)
                                         </Label>
@@ -438,7 +472,7 @@ export function ResumeSubmissionDetailModal({
                                                     key={emp.id}
                                                     className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700"
                                                 >
-                                                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                                    <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                                         {emp.store_name}
                                                         {emp.position && (
                                                             <span className="text-gray-500 font-normal ml-2">
@@ -464,10 +498,36 @@ export function ResumeSubmissionDetailModal({
                                     </div>
                                 )}
 
+                                {/* ID Verification Images */}
+                                {idVerificationUrls.length > 0 && (
+                                    <div className="space-y-3">
+                                        <Label className="text-sm font-medium text-gray-700 dark:text-gray-200 flex items-center gap-1">
+                                            <IdCard className="h-4 w-4" />
+                                            身分証明証 ({idVerificationUrls.length}件)
+                                        </Label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {idVerificationUrls.map((url, index) => (
+                                                <button
+                                                    key={index}
+                                                    type="button"
+                                                    onClick={() => setSelectedImageUrl(url)}
+                                                    className="relative overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors"
+                                                >
+                                                    <img
+                                                        src={url}
+                                                        alt={`身分証明証 ${index + 1}`}
+                                                        className="w-full h-24 object-cover"
+                                                    />
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* Custom Answers */}
                                 {customAnswers.length > 0 && (
                                     <div className="space-y-3">
-                                        <Label className="text-sm font-medium text-gray-900 dark:text-white">
+                                        <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                             その他の回答
                                         </Label>
                                         <div className="space-y-3">
@@ -497,7 +557,7 @@ export function ResumeSubmissionDetailModal({
 
                                 {/* Comments */}
                                 <div className="pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
-                                    <Label className="text-sm font-medium text-gray-900 dark:text-white">
+                                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                         コメント
                                     </Label>
                                     <CommentList
@@ -523,6 +583,7 @@ export function ResumeSubmissionDetailModal({
                                                         setEditDisplayName(submission.desired_cast_name || "");
                                                         setEditDisplayNameKana(submission.desired_cast_name_kana || "");
                                                         setDuplicateWarning(null);
+                                                        setCreateProfile(true);
                                                         setShowHireConfirm(true);
                                                     }}
                                                     className="flex-1 rounded-lg"
@@ -535,6 +596,7 @@ export function ResumeSubmissionDetailModal({
                                                         setEditDisplayName(submission.desired_cast_name || "");
                                                         setEditDisplayNameKana(submission.desired_cast_name_kana || "");
                                                         setDuplicateWarning(null);
+                                                        setCreateProfile(true);
                                                         setShowHireConfirm(true);
                                                     }}
                                                     className="flex-1 rounded-lg"
@@ -580,7 +642,7 @@ export function ResumeSubmissionDetailModal({
 
             {/* Hire Confirmation Dialog */}
             <Dialog open={showHireConfirm} onOpenChange={setShowHireConfirm}>
-                <DialogContent className="max-w-sm rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+                <DialogContent className="sm:max-w-sm rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
                     <DialogHeader>
                         <DialogTitle className="text-lg font-semibold text-gray-900 dark:text-white">
                             採用確認
@@ -591,44 +653,58 @@ export function ResumeSubmissionDetailModal({
                             {getFullName()}さんを{hireType === "trial" ? "体入" : "本入"}として採用しますか？
                         </p>
 
-                        <div className="space-y-3">
-                            <div className="space-y-1.5">
-                                <Label className="text-sm text-gray-700 dark:text-gray-200">
-                                    キャスト名（源氏名）
+                        {/* プロフィール自動作成 */}
+                        <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800">
+                            <div>
+                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                    プロフィールを自動作成
                                 </Label>
-                                <Input
-                                    value={editDisplayName}
-                                    onChange={(e) => setEditDisplayName(e.target.value)}
-                                    placeholder="あいり"
-                                    className="rounded-lg"
-                                />
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    採用と同時にプロフィールを作成します
+                                </p>
                             </div>
-                            <div className="space-y-1.5">
-                                <Label className="text-sm text-gray-700 dark:text-gray-200">
-                                    キャスト名（かな）
-                                </Label>
-                                <Input
-                                    value={editDisplayNameKana}
-                                    onChange={(e) => {
-                                        setEditDisplayNameKana(e.target.value);
-                                        setDuplicateWarning(null);
-                                    }}
-                                    placeholder="あいり"
-                                    className="rounded-lg"
-                                />
-                                {duplicateWarning && (
-                                    <p className="text-xs text-orange-600 dark:text-orange-400">
-                                        {duplicateWarning}
-                                    </p>
-                                )}
-                            </div>
+                            <Switch
+                                checked={createProfile}
+                                onCheckedChange={setCreateProfile}
+                            />
                         </div>
 
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                            プロフィールが自動作成されます。
-                        </p>
+                        {createProfile && (
+                            <div className="space-y-3">
+                                <div className="space-y-1.5">
+                                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                        キャスト名（源氏名）
+                                    </Label>
+                                    <Input
+                                        value={editDisplayName}
+                                        onChange={(e) => setEditDisplayName(e.target.value)}
+                                        placeholder="あいり"
+                                        className="rounded-lg"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                        キャスト名（かな）
+                                    </Label>
+                                    <Input
+                                        value={editDisplayNameKana}
+                                        onChange={(e) => {
+                                            setEditDisplayNameKana(e.target.value);
+                                            setDuplicateWarning(null);
+                                        }}
+                                        placeholder="あいり"
+                                        className="rounded-lg"
+                                    />
+                                    {duplicateWarning && (
+                                        <p className="text-xs text-orange-600 dark:text-orange-400">
+                                            {duplicateWarning}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                     </div>
-                    <DialogFooter className="mt-4 gap-2">
+                    <DialogFooter className="gap-2 pt-4">
                         <Button
                             variant="outline"
                             onClick={() => setShowHireConfirm(false)}
@@ -649,7 +725,7 @@ export function ResumeSubmissionDetailModal({
 
             {/* Reject Confirmation Dialog */}
             <Dialog open={showRejectConfirm} onOpenChange={setShowRejectConfirm}>
-                <DialogContent className="max-w-sm rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+                <DialogContent className="sm:max-w-sm rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
                     <DialogHeader>
                         <DialogTitle className="text-lg font-semibold text-gray-900 dark:text-white">
                             不採用確認
@@ -658,7 +734,7 @@ export function ResumeSubmissionDetailModal({
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                         {getFullName()}さんを不採用にしますか？
                     </p>
-                    <DialogFooter className="mt-4 gap-2">
+                    <DialogFooter className="gap-2">
                         <Button
                             variant="outline"
                             onClick={() => setShowRejectConfirm(false)}
@@ -680,7 +756,7 @@ export function ResumeSubmissionDetailModal({
 
             {/* Delete Confirmation Dialog */}
             <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-                <DialogContent className="max-w-sm rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+                <DialogContent className="sm:max-w-sm rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
                     <DialogHeader>
                         <DialogTitle className="text-lg font-semibold text-gray-900 dark:text-white">
                             削除確認
@@ -691,7 +767,7 @@ export function ResumeSubmissionDetailModal({
                         <br />
                         この操作は取り消せません。
                     </p>
-                    <DialogFooter className="mt-4 gap-2">
+                    <DialogFooter className="gap-2">
                         <Button
                             variant="outline"
                             onClick={() => setShowDeleteConfirm(false)}
@@ -713,7 +789,7 @@ export function ResumeSubmissionDetailModal({
 
             {/* Revert Status Confirmation Dialog */}
             <Dialog open={showRevertConfirm} onOpenChange={setShowRevertConfirm}>
-                <DialogContent className="max-w-sm rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+                <DialogContent className="sm:max-w-sm rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
                     <DialogHeader>
                         <DialogTitle className="text-lg font-semibold text-gray-900 dark:text-white">
                             採否前に戻す
@@ -727,7 +803,7 @@ export function ResumeSubmissionDetailModal({
                             <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
                                 採用時に作成されたプロフィールを削除しますか？
                             </p>
-                            <DialogFooter className="mt-4 flex-col gap-2">
+                            <DialogFooter className="flex-col gap-2">
                                 <Button
                                     variant="destructive"
                                     onClick={() => handleRevert(true)}
@@ -758,7 +834,7 @@ export function ResumeSubmissionDetailModal({
                             <p className="text-sm text-gray-600 dark:text-gray-400">
                                 {getFullName()}さんを採否前の状態に戻しますか？
                             </p>
-                            <DialogFooter className="mt-4 gap-2">
+                            <DialogFooter className="gap-2">
                                 <Button
                                     variant="outline"
                                     onClick={() => setShowRevertConfirm(false)}
@@ -775,6 +851,31 @@ export function ResumeSubmissionDetailModal({
                                 </Button>
                             </DialogFooter>
                         </>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Image Preview Dialog */}
+            <Dialog open={!!selectedImageUrl} onOpenChange={() => setSelectedImageUrl(null)}>
+                <DialogContent className="p-0 max-w-3xl max-h-[90vh] overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+                    <DialogHeader className="sr-only">
+                        <DialogTitle>身分証明証画像</DialogTitle>
+                    </DialogHeader>
+                    {selectedImageUrl && (
+                        <div className="relative">
+                            <img
+                                src={selectedImageUrl}
+                                alt="身分証明証"
+                                className="w-full h-auto max-h-[85vh] object-contain"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setSelectedImageUrl(null)}
+                                className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition-colors"
+                            >
+                                <ChevronLeft className="h-4 w-4 rotate-180" />
+                            </button>
+                        </div>
                     )}
                 </DialogContent>
             </Dialog>

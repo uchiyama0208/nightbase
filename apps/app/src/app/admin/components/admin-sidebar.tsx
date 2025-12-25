@@ -22,6 +22,9 @@ import {
     Newspaper,
     BookOpen,
     FileCheck,
+    CreditCard,
+    Ticket,
+    Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -90,7 +93,6 @@ export const COLUMN_LABELS: Record<string, string> = {
     invite_status: "招待状態",
     invite_expires_at: "招待有効期限",
     invite_password_hash: "招待パスワード",
-    is_temporary: "仮登録",
     theme: "テーマ",
     guest_addressee: "宛名",
     guest_receipt_type: "領収書種別",
@@ -452,7 +454,7 @@ const navSections: NavSection[] = [
     },
     {
         title: "シフト",
-        icon: <Calendar className="h-4 w-4" />,
+        icon: <Calendar className="h-5 w-5" />,
         items: [
             { label: "シフト希望", href: "/admin/tables/shift_requests", table: "shift_requests" },
             { label: "シフト希望日", href: "/admin/tables/shift_request_dates", table: "shift_request_dates" },
@@ -462,7 +464,7 @@ const navSections: NavSection[] = [
     },
     {
         title: "勤怠",
-        icon: <Clock className="h-4 w-4" />,
+        icon: <Clock className="h-5 w-5" />,
         items: [
             { label: "勤怠記録", href: "/admin/tables/work_records", table: "work_records" },
             { label: "出勤管理", href: "/admin/tables/attendance", table: "attendance" },
@@ -578,7 +580,7 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
                         "flex items-center gap-3 px-4 py-2 mx-2 rounded-lg text-sm font-medium transition-colors",
                         pathname === "/admin"
                             ? "bg-blue-50 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
-                            : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                            : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                     )}
                 >
                     <LayoutDashboard className="h-4 w-4" />
@@ -598,7 +600,7 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
                                 "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                                 pathname.startsWith("/admin/cms/blog")
                                     ? "bg-blue-50 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
-                                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                             )}
                         >
                             <Newspaper className="h-4 w-4" />
@@ -611,7 +613,7 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
                                 "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                                 pathname.startsWith("/admin/cms/case-studies")
                                     ? "bg-blue-50 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
-                                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                             )}
                         >
                             <FileCheck className="h-4 w-4" />
@@ -624,11 +626,59 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
                                 "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                                 pathname.startsWith("/admin/cms/manuals")
                                     ? "bg-blue-50 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
-                                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                             )}
                         >
                             <BookOpen className="h-4 w-4" />
                             マニュアル
+                        </Link>
+                    </div>
+                </div>
+
+                {/* Subscription Management Section */}
+                <div className="mt-4 px-4">
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                        サブスクリプション
+                    </p>
+                    <div className="space-y-1">
+                        <Link
+                            href="/admin/subscription"
+                            onClick={onLinkClick}
+                            className={cn(
+                                "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                                pathname === "/admin/subscription"
+                                    ? "bg-blue-50 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
+                                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                            )}
+                        >
+                            <CreditCard className="h-4 w-4" />
+                            概要
+                        </Link>
+                        <Link
+                            href="/admin/subscription/plans"
+                            onClick={onLinkClick}
+                            className={cn(
+                                "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                                pathname === "/admin/subscription/plans"
+                                    ? "bg-blue-50 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
+                                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                            )}
+                        >
+                            <Settings className="h-4 w-4" />
+                            プラン管理
+                        </Link>
+                        <Link
+                            href="/admin/subscription/coupons"
+                            onClick={onLinkClick}
+                            className={cn(
+                                "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                                pathname === "/admin/subscription/coupons"
+                                    ? "bg-blue-50 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
+                                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                            )}
+                        >
+                            <Ticket className="h-4 w-4" />
+                            クーポン管理
                         </Link>
                     </div>
                 </div>
@@ -669,7 +719,7 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
                                                 "block px-4 py-1.5 text-xs font-mono rounded-md transition-colors",
                                                 pathname === item.href
                                                     ? "bg-blue-50 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
-                                                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                                                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
                                             )}
                                         >
                                             {item.label}

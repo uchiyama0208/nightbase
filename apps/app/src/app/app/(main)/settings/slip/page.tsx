@@ -1,42 +1,10 @@
-import { redirect } from "next/navigation";
-import { SlipSettingsForm } from "./slip-settings-form";
-import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
-import { getAppDataWithPermissionCheck, getAccessDeniedRedirectUrl } from "@/app/app/data-access";
+import type { Metadata } from "next";
+import { SlipSettingsWrapper } from "./slip-settings-wrapper";
 
-export default async function SlipSettingsPage() {
-    const { user, profile, hasAccess } = await getAppDataWithPermissionCheck("settings", "edit");
+export const metadata: Metadata = {
+    title: "伝票設定",
+};
 
-    if (!user) {
-        redirect("/login");
-    }
-
-    if (!profile) {
-        redirect("/app/me");
-    }
-
-    if (!hasAccess) {
-        redirect(getAccessDeniedRedirectUrl("settings"));
-    }
-
-    const store = profile.stores as any;
-
-    return (
-        <div className="max-w-2xl mx-auto space-y-4">
-            <div className="flex items-center space-x-4">
-                <Link
-                    href="/app/settings"
-                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-                >
-                    <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                </Link>
-                <h1 className="text-xl font-bold text-gray-900 dark:text-white">伝票設定</h1>
-            </div>
-
-            <SlipSettingsForm store={store} />
-        </div>
-    );
+export default function SlipSettingsPage() {
+    return <SlipSettingsWrapper />;
 }
-
-export const dynamic = 'force-dynamic';
-

@@ -91,6 +91,95 @@ const config: Config = {
                     from: { gridTemplateRows: '1fr', opacity: '1' },
                     to: { gridTemplateRows: '0fr', opacity: '0' },
                 },
+                // Modal animations
+                'modal-in': {
+                    from: { opacity: '0', transform: 'scale(0.95) translateY(10px)' },
+                    to: { opacity: '1', transform: 'scale(1) translateY(0)' },
+                },
+                'modal-out': {
+                    from: { opacity: '1', transform: 'scale(1) translateY(0)' },
+                    to: { opacity: '0', transform: 'scale(0.95) translateY(10px)' },
+                },
+                // Overlay animations
+                'overlay-in': {
+                    from: { opacity: '0' },
+                    to: { opacity: '1' },
+                },
+                'overlay-out': {
+                    from: { opacity: '1' },
+                    to: { opacity: '0' },
+                },
+                // Sheet animations
+                'sheet-in-right': {
+                    from: { transform: 'translateX(100%)' },
+                    to: { transform: 'translateX(0)' },
+                },
+                'sheet-out-right': {
+                    from: { transform: 'translateX(0)' },
+                    to: { transform: 'translateX(100%)' },
+                },
+                'sheet-in-left': {
+                    from: { transform: 'translateX(-100%)' },
+                    to: { transform: 'translateX(0)' },
+                },
+                'sheet-out-left': {
+                    from: { transform: 'translateX(0)' },
+                    to: { transform: 'translateX(-100%)' },
+                },
+                'sheet-in-bottom': {
+                    from: { transform: 'translateY(100%)' },
+                    to: { transform: 'translateY(0)' },
+                },
+                'sheet-out-bottom': {
+                    from: { transform: 'translateY(0)' },
+                    to: { transform: 'translateY(100%)' },
+                },
+                'sheet-in-top': {
+                    from: { transform: 'translateY(-100%)' },
+                    to: { transform: 'translateY(0)' },
+                },
+                'sheet-out-top': {
+                    from: { transform: 'translateY(0)' },
+                    to: { transform: 'translateY(-100%)' },
+                },
+                // Button press
+                'button-press': {
+                    '0%': { transform: 'scale(1)' },
+                    '50%': { transform: 'scale(0.97)' },
+                    '100%': { transform: 'scale(1)' },
+                },
+                // Subtle pulse
+                'subtle-pulse': {
+                    '0%, 100%': { opacity: '1' },
+                    '50%': { opacity: '0.7' },
+                },
+                // Shake for errors
+                'shake': {
+                    '0%, 100%': { transform: 'translateX(0)' },
+                    '10%, 30%, 50%, 70%, 90%': { transform: 'translateX(-4px)' },
+                    '20%, 40%, 60%, 80%': { transform: 'translateX(4px)' },
+                },
+                // Spin in
+                'spin-in': {
+                    from: { opacity: '0', transform: 'rotate(-180deg) scale(0.5)' },
+                    to: { opacity: '1', transform: 'rotate(0) scale(1)' },
+                },
+                // Fade in up (for list items)
+                'fade-in-up': {
+                    from: { opacity: '0', transform: 'translateY(10px)' },
+                    to: { opacity: '1', transform: 'translateY(0)' },
+                },
+                // Scale in
+                'scale-in': {
+                    from: { opacity: '0', transform: 'scale(0.9)' },
+                    to: { opacity: '1', transform: 'scale(1)' },
+                },
+                // Pop
+                'pop': {
+                    '0%': { transform: 'scale(1)' },
+                    '50%': { transform: 'scale(1.05)' },
+                    '100%': { transform: 'scale(1)' },
+                },
             },
             animation: {
                 'accordion-down': 'accordion-down 0.2s ease-out forwards',
@@ -100,6 +189,28 @@ const config: Config = {
                 'collapse-up': 'collapse-up 0.15s ease-out forwards',
                 'slideDown': 'slideDown 0.3s ease-out',
                 'slideUp': 'slideUp 0.3s ease-out',
+                // Modal
+                'modal-in': 'modal-in 0.2s ease-out forwards',
+                'modal-out': 'modal-out 0.15s ease-in forwards',
+                'overlay-in': 'overlay-in 0.2s ease-out forwards',
+                'overlay-out': 'overlay-out 0.15s ease-in forwards',
+                // Sheet
+                'sheet-in-right': 'sheet-in-right 0.3s ease-out forwards',
+                'sheet-out-right': 'sheet-out-right 0.2s ease-in forwards',
+                'sheet-in-left': 'sheet-in-left 0.3s ease-out forwards',
+                'sheet-out-left': 'sheet-out-left 0.2s ease-in forwards',
+                'sheet-in-bottom': 'sheet-in-bottom 0.3s ease-out forwards',
+                'sheet-out-bottom': 'sheet-out-bottom 0.2s ease-in forwards',
+                'sheet-in-top': 'sheet-in-top 0.3s ease-out forwards',
+                'sheet-out-top': 'sheet-out-top 0.2s ease-in forwards',
+                // Interactions
+                'button-press': 'button-press 0.15s ease-out',
+                'subtle-pulse': 'subtle-pulse 2s ease-in-out infinite',
+                'shake': 'shake 0.5s ease-in-out',
+                'spin-in': 'spin-in 0.3s ease-out forwards',
+                'fade-in-up': 'fade-in-up 0.3s ease-out forwards',
+                'scale-in': 'scale-in 0.2s ease-out forwards',
+                'pop': 'pop 0.2s ease-out',
             },
         },
     },

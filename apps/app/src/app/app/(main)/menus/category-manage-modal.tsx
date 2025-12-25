@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { MenuCategory, createMenuCategory, updateMenuCategory, deleteMenuCategory, reorderMenuCategories } from "./actions";
-import { Trash2, Edit2, Plus, ArrowUp, ArrowDown, X, Check } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { Trash2, Edit2, Plus, ArrowUp, ArrowDown, X, ChevronLeft } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
+import { useGlobalLoading } from "@/components/global-loading";
 
 interface CategoryManageModalProps {
     open: boolean;
@@ -22,7 +23,10 @@ export function CategoryManageModal({ open, onOpenChange, categories }: Category
     const [newCategoryName, setNewCategoryName] = useState("");
     const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-    const router = useRouter();
+    const queryClient = useQueryClient();
+    const { toast } = useToast();
+    const { showLoading, hideLoading } = useGlobalLoading();
+    const initialEditNameRef = useRef<string>("");
 
     const handleCreate = async () => {
         if (!newCategoryName.trim()) return;
@@ -30,30 +34,51 @@ export function CategoryManageModal({ open, onOpenChange, categories }: Category
         try {
             await createMenuCategory(newCategoryName);
             setNewCategoryName("");
-            router.refresh();
+            await queryClient.invalidateQueries({ queryKey: ["menus"] });
         } catch (error) {
             console.error(error);
-            alert("カテゴリの作成に失敗しました");
+            toast({
+                title: "エラー",
+                description: "カテゴリの作成に失敗しました",
+                variant: "destructive",
+            });
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    const handleUpdate = async (id: string) => {
-        if (!editName.trim()) return;
-        setIsSubmitting(true);
+    // 自動保存関数
+    const autoSave = useCallback(async (id: string, name: string) => {
+        if (!name.trim()) return;
+        showLoading("保存中...");
         try {
-            await updateMenuCategory(id, editName);
-            setEditingId(null);
-            setEditName("");
-            router.refresh();
+            await updateMenuCategory(id, name);
+            await queryClient.invalidateQueries({ queryKey: ["menus"] });
         } catch (error) {
             console.error(error);
-            alert("カテゴリの更新に失敗しました");
+            toast({
+                title: "エラー",
+                description: "カテゴリの更新に失敗しました",
+                variant: "destructive",
+            });
         } finally {
-            setIsSubmitting(false);
+            hideLoading();
         }
-    };
+    }, [queryClient, toast, showLoading, hideLoading]);
+
+    // デバウンス自動保存
+    useEffect(() => {
+        if (!editingId || !editName.trim()) return;
+        // 初期値と同じ場合は保存しない
+        if (editName === initialEditNameRef.current) return;
+
+        const timer = setTimeout(() => {
+            autoSave(editingId, editName);
+            initialEditNameRef.current = editName;
+        }, 800);
+
+        return () => clearTimeout(timer);
+    }, [editingId, editName, autoSave]);
 
     const handleDeleteClick = useCallback((id: string) => {
         setDeleteTargetId(id);
@@ -65,7 +90,7 @@ export function CategoryManageModal({ open, onOpenChange, categories }: Category
         setIsSubmitting(true);
         try {
             await deleteMenuCategory(deleteTargetId);
-            router.refresh();
+            await queryClient.invalidateQueries({ queryKey: ["menus"] });
         } catch (error) {
             console.error(error);
         } finally {
@@ -73,7 +98,7 @@ export function CategoryManageModal({ open, onOpenChange, categories }: Category
             setIsDeleteDialogOpen(false);
             setDeleteTargetId(null);
         }
-    }, [deleteTargetId, router]);
+    }, [deleteTargetId, queryClient]);
 
     const handleMove = async (index: number, direction: "up" | "down") => {
         if (direction === "up" && index === 0) return;
@@ -97,10 +122,14 @@ export function CategoryManageModal({ open, onOpenChange, categories }: Category
         setIsSubmitting(true);
         try {
             await reorderMenuCategories(updates);
-            router.refresh();
+            await queryClient.invalidateQueries({ queryKey: ["menus"] });
         } catch (error) {
             console.error(error);
-            alert("並び替えに失敗しました");
+            toast({
+                title: "エラー",
+                description: "並び替えに失敗しました",
+                variant: "destructive",
+            });
         } finally {
             setIsSubmitting(false);
         }
@@ -109,6 +138,7 @@ export function CategoryManageModal({ open, onOpenChange, categories }: Category
     const startEdit = (category: MenuCategory) => {
         setEditingId(category.id);
         setEditName(category.name);
+        initialEditNameRef.current = category.name;
     };
 
     const cancelEdit = () => {
@@ -118,12 +148,23 @@ export function CategoryManageModal({ open, onOpenChange, categories }: Category
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[500px] bg-white dark:bg-gray-800 text-gray-900 dark:text-white max-h-[80vh] overflow-hidden flex flex-col">
-                <DialogHeader>
-                    <DialogTitle>カテゴリー管理</DialogTitle>
+            <DialogContent className="sm:max-w-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white max-h-[80vh] overflow-hidden flex flex-col p-0 rounded-2xl">
+                <DialogHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900 flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
+                    <button
+                        type="button"
+                        onClick={() => onOpenChange(false)}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        aria-label="戻る"
+                    >
+                        <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <DialogTitle className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white truncate">
+                        カテゴリー管理
+                    </DialogTitle>
+                    <div className="w-8 h-8" />
                 </DialogHeader>
 
-                <div className="flex-1 overflow-y-auto py-4 space-y-4">
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
                     {/* Create New */}
                     <div className="flex gap-2 items-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                         <Input
@@ -140,7 +181,7 @@ export function CategoryManageModal({ open, onOpenChange, categories }: Category
                             onClick={handleCreate}
                             disabled={isSubmitting || !newCategoryName.trim()}
                         >
-                            <Plus className="h-4 w-4 mr-1" />
+                            <Plus className="h-5 w-5 mr-1" />
                             追加
                         </Button>
                     </div>
@@ -182,11 +223,8 @@ export function CategoryManageModal({ open, onOpenChange, categories }: Category
                                                 className="h-8"
                                                 autoFocus
                                             />
-                                            <Button size="icon" variant="ghost" className="h-8 w-8 text-green-600" onClick={() => handleUpdate(category.id)}>
-                                                <Check className="h-4 w-4" />
-                                            </Button>
                                             <Button size="icon" variant="ghost" className="h-8 w-8 text-gray-500" onClick={cancelEdit}>
-                                                <X className="h-4 w-4" />
+                                                <X className="h-5 w-5" />
                                             </Button>
                                         </div>
                                     ) : (
@@ -204,7 +242,7 @@ export function CategoryManageModal({ open, onOpenChange, categories }: Category
                                             onClick={() => startEdit(category)}
                                             disabled={isSubmitting}
                                         >
-                                            <Edit2 className="h-4 w-4" />
+                                            <Edit2 className="h-5 w-5" />
                                         </Button>
                                         <Button
                                             size="icon"
@@ -227,23 +265,18 @@ export function CategoryManageModal({ open, onOpenChange, categories }: Category
                     </div>
                 </div>
 
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full">
-                        閉じる
-                    </Button>
-                </DialogFooter>
             </DialogContent>
 
             {/* 削除確認ダイアログ */}
             <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-                <DialogContent className="max-w-md rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+                <DialogContent className="sm:max-w-md rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
                     <DialogHeader>
                         <DialogTitle className="text-gray-900 dark:text-white">カテゴリの削除</DialogTitle>
                         <DialogDescription className="text-gray-600 dark:text-gray-400">
                             このカテゴリを削除しますか？紐づいているメニューはカテゴリなしになります。
                         </DialogDescription>
                     </DialogHeader>
-                    <DialogFooter className="mt-4 flex justify-end gap-2">
+                    <DialogFooter className="flex justify-end gap-2">
                         <Button
                             variant="outline"
                             onClick={() => setIsDeleteDialogOpen(false)}

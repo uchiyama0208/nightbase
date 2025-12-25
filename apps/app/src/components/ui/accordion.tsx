@@ -101,15 +101,20 @@ const AccordionContent = React.forwardRef<
     React.HTMLAttributes<HTMLDivElement>
 >(({ className, children, ...props }, ref) => {
     const { isOpen } = React.useContext(AccordionItemContext);
-    if (!isOpen) return null;
 
     return (
         <div
             ref={ref}
-            className={cn("overflow-hidden text-sm", className)}
+            className={cn(
+                "grid transition-all duration-300 ease-in-out text-sm",
+                isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
+                className
+            )}
             {...props}
         >
-            <div className="pb-4 pt-0">{children}</div>
+            <div className="overflow-hidden">
+                <div className="pb-4 pt-0">{children}</div>
+            </div>
         </div>
     );
 });

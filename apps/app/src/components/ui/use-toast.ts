@@ -14,6 +14,7 @@ export interface Toast {
   description?: React.ReactNode;
   action?: ToastActionElement;
   variant?: "default" | "destructive";
+  duration?: number;
 }
 
 const toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
@@ -137,13 +138,13 @@ function useToast() {
 
   return {
     ...state,
-    toast: ({ ...props }: Omit<Toast, "id">) => {
+    toast: ({ duration, ...props }: Omit<Toast, "id">) => {
       const id = Math.random().toString(36).slice(2, 9);
       const update = (props: Toast) => dispatch({ type: "UPDATE_TOAST", toast: props });
       const dismiss = () => dispatch({ type: "DISMISS_TOAST", toastId: id });
 
       dispatch({ type: "ADD_TOAST", toast: { id, ...props } });
-      setTimeout(dismiss, toastTimeout);
+      setTimeout(dismiss, duration ?? toastTimeout);
 
       return {
         id,
@@ -155,4 +156,20 @@ function useToast() {
   };
 }
 
-export { useToast };
+// スタンドアロンのtoast関数（コンポーネント外でも使用可能）
+function toast({ duration, ...props }: Omit<Toast, "id">) {
+  const id = Math.random().toString(36).slice(2, 9);
+  const update = (props: Toast) => dispatch({ type: "UPDATE_TOAST", toast: props });
+  const dismiss = () => dispatch({ type: "DISMISS_TOAST", toastId: id });
+
+  dispatch({ type: "ADD_TOAST", toast: { id, ...props } });
+  setTimeout(dismiss, duration ?? toastTimeout);
+
+  return {
+    id,
+    dismiss,
+    update
+  };
+}
+
+export { useToast, toast };

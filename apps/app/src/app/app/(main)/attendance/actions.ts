@@ -6,6 +6,69 @@ import { revalidatePath } from "next/cache";
 import type { AttendanceRecord, AttendanceDataResult, AttendanceRoleFilter, AttendancePayload } from "./types";
 
 // ============================================
+// タイムカード質問関連の型
+// ============================================
+
+export interface TimecardQuestion {
+    id: string;
+    label: string;
+    field_type: string;
+    options: string[] | null;
+    is_required: boolean;
+    target_role: string;
+    timing: string;
+    sort_order: number;
+}
+
+export interface TimecardQuestionAnswer {
+    question_id: string;
+    value: string;
+    timing: string;
+}
+
+// Helper to get or create a pickup destination
+async function getOrCreatePickupDestination(
+    supabase: any,
+    storeId: string,
+    destinationName: string
+): Promise<string | null> {
+    if (!destinationName || !destinationName.trim()) {
+        return null;
+    }
+
+    const name = destinationName.trim();
+
+    // Check if destination already exists
+    const { data: existing } = await supabase
+        .from("pickup_destinations")
+        .select("id")
+        .eq("store_id", storeId)
+        .eq("name", name)
+        .maybeSingle();
+
+    if (existing) {
+        return existing.id;
+    }
+
+    // Create new destination
+    const { data: newDest, error } = await supabase
+        .from("pickup_destinations")
+        .insert({
+            store_id: storeId,
+            name: name,
+        })
+        .select("id")
+        .single();
+
+    if (error) {
+        console.error("Error creating pickup destination:", error);
+        return null;
+    }
+
+    return newDest.id;
+}
+
+// ============================================
 // ユーティリティ関数
 // ============================================
 
@@ -54,7 +117,7 @@ function formatTimeStr(isoStr: string | null): string | null {
 /**
  * 勤怠レコードを作成
  */
-export async function createAttendance(formData: FormData): Promise<{ success: boolean }> {
+export async function createAttendance(formData: FormData): Promise<{ success: boolean; workRecordId?: string }> {
     const { supabase, storeId, profileId: currentProfileId } = await getAuthContext();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const serviceSupabase = createServiceRoleClient() as any;
@@ -83,12 +146,17 @@ export async function createAttendance(formData: FormData): Promise<{ success: b
     const endTime = formData.get("endTime") as string;
     const pickupDestination = formData.get("pickup_destination") as string;
 
+    // Get or create pickup destination
+    const pickupDestinationId = pickupDestination
+        ? await getOrCreatePickupDestination(supabase, storeId, pickupDestination)
+        : null;
+
     // ペイロードを作成
     const payload: AttendancePayload = {
         profile_id: targetProfileId,
         store_id: storeId,
         work_date: date,
-        pickup_destination: pickupDestination || null,
+        pickup_destination_id: pickupDestinationId,
         pickup_required: !!pickupDestination,
         clock_in: null,
         clock_out: null,
@@ -131,7 +199,7 @@ export async function createAttendance(formData: FormData): Promise<{ success: b
     }
 
     // Service Role Clientを使用してRLSをバイパス（管理者が他のメンバーの勤怠を作成するため）
-    const { error } = await serviceSupabase.from("work_records").insert(payload);
+    const { data, error } = await serviceSupabase.from("work_records").insert(payload).select("id").single();
 
     if (error) {
         console.error("Error creating work record:", error);
@@ -139,7 +207,7 @@ export async function createAttendance(formData: FormData): Promise<{ success: b
     }
 
     revalidatePath("/app/attendance");
-    return { success: true };
+    return { success: true, workRecordId: data?.id };
 }
 
 /**
@@ -173,11 +241,16 @@ export async function updateAttendance(formData: FormData): Promise<{ success: b
         }
     }
 
+    // Get or create pickup destination
+    const pickupDestinationId = pickupDestination
+        ? await getOrCreatePickupDestination(supabase, storeId, pickupDestination)
+        : null;
+
     // ペイロードを作成
     const payload: Partial<AttendancePayload> = {
         profile_id: profileId || currentProfileId,
         work_date: date,
-        pickup_destination: pickupDestination || null,
+        pickup_destination_id: pickupDestinationId,
         pickup_required: !!pickupDestination,
         clock_in: startTime ? timeToISO(startTime, date) : null,
         clock_out: endTime ? timeToISO(endTime, date) : null,
@@ -264,19 +337,28 @@ export async function deleteAttendance(id: string): Promise<{ success: boolean }
 // CSVインポート
 // ============================================
 
+export interface AttendanceImportResult {
+    success: boolean;
+    imported: number;
+    skipped: number;
+    duplicates: number;
+    errors: { row: number; field: string; message: string }[];
+}
+
 /**
  * CSVから勤怠データをインポート
  */
-export async function importAttendanceFromCsv(formData: FormData): Promise<void> {
+export async function importAttendanceFromCsv(formData: FormData): Promise<AttendanceImportResult> {
     const file = formData.get("file") as File | null;
     if (!file) {
-        throw new Error("CSVファイルが指定されていません");
+        return { success: false, imported: 0, skipped: 0, duplicates: 0, errors: [{ row: 0, field: "", message: "CSVファイルが指定されていません" }] };
     }
 
     const roleFilter = (formData.get("attendanceRole") as string | null) ?? null;
+    const mappingsJson = formData.get("mappings") as string | null;
     const { supabase, storeId } = await getAuthContext();
 
-    // 店舗のプロフィールを取得（名前 → ID のマップを作成）
+    // 店舗のプロフィールを取得(名前 -> ID のマップを作成)
     const { data: storeProfiles } = await supabase
         .from("profiles")
         .select("id, display_name, role")
@@ -300,25 +382,48 @@ export async function importAttendanceFromCsv(formData: FormData): Promise<void>
 
     // CSVをパース
     const text = await file.text();
-    const lines = text.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0);
+    // Remove BOM if present
+    const cleanText = text.replace(/^\uFEFF/, "");
+    const lines = cleanText.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0);
     if (lines.length < 2) {
-        throw new Error("CSVに有効なデータ行がありません");
+        return { success: false, imported: 0, skipped: 0, duplicates: 0, errors: [{ row: 0, field: "", message: "CSVに有効なデータ行がありません" }] };
     }
 
     const header = lines[0].split(",").map((h) => h.trim());
-    const colIndex = {
-        display_name: header.indexOf("display_name"),
-        date: header.indexOf("date"),
-        status: header.indexOf("status"),
-        start_time: header.indexOf("start_time"),
-        end_time: header.indexOf("end_time"),
-    };
+
+    // Use mappings if provided, otherwise fall back to direct column names
+    let colIndex: Record<string, number>;
+    if (mappingsJson) {
+        const mappings = JSON.parse(mappingsJson) as Record<string, string>;
+        colIndex = {
+            display_name: mappings.display_name ? header.indexOf(mappings.display_name) : -1,
+            date: mappings.date ? header.indexOf(mappings.date) : -1,
+            status: mappings.status ? header.indexOf(mappings.status) : -1,
+            start_time: mappings.start_time ? header.indexOf(mappings.start_time) : -1,
+            end_time: mappings.end_time ? header.indexOf(mappings.end_time) : -1,
+        };
+    } else {
+        colIndex = {
+            display_name: header.indexOf("display_name"),
+            date: header.indexOf("date"),
+            status: header.indexOf("status"),
+            start_time: header.indexOf("start_time"),
+            end_time: header.indexOf("end_time"),
+        };
+    }
 
     if (colIndex.display_name === -1 || colIndex.date === -1 || colIndex.status === -1) {
-        throw new Error("CSVヘッダーに display_name, date, status カラムが必要です");
+        const missing: string[] = [];
+        if (colIndex.display_name === -1) missing.push("ユーザー名");
+        if (colIndex.date === -1) missing.push("日付");
+        if (colIndex.status === -1) missing.push("ステータス");
+        return { success: false, imported: 0, skipped: 0, duplicates: 0, errors: [{ row: 0, field: "", message: `必須項目がマッピングされていません: ${missing.join(", ")}` }] };
     }
 
     const toInsert: AttendancePayload[] = [];
+    const errors: { row: number; field: string; message: string }[] = [];
+    let skipped = 0;
+    let notFound = 0;
 
     for (let i = 1; i < lines.length; i++) {
         const columns = lines[i].split(",");
@@ -326,11 +431,29 @@ export async function importAttendanceFromCsv(formData: FormData): Promise<void>
         const date = (columns[colIndex.date] || "").trim();
         const status = (columns[colIndex.status] || "").trim();
 
-        if (!nameRaw || !date || !status) continue;
+        if (!nameRaw) {
+            skipped++;
+            errors.push({ row: i + 1, field: "display_name", message: "ユーザー名が空です" });
+            continue;
+        }
+        if (!date) {
+            skipped++;
+            errors.push({ row: i + 1, field: "date", message: "日付が空です" });
+            continue;
+        }
+        if (!status) {
+            skipped++;
+            errors.push({ row: i + 1, field: "status", message: "ステータスが空です" });
+            continue;
+        }
 
         const key = nameRaw.toLowerCase();
         const profileId = nameToProfileId.get(key);
-        if (!profileId) continue;
+        if (!profileId) {
+            notFound++;
+            errors.push({ row: i + 1, field: "display_name", message: `ユーザー "${nameRaw}" が見つかりません` });
+            continue;
+        }
 
         const startTime = colIndex.start_time !== -1 ? columns[colIndex.start_time] : undefined;
         const endTime = colIndex.end_time !== -1 ? columns[colIndex.end_time] : undefined;
@@ -339,7 +462,7 @@ export async function importAttendanceFromCsv(formData: FormData): Promise<void>
             profile_id: profileId,
             store_id: storeId,
             work_date: date,
-            pickup_destination: null,
+            pickup_destination_id: null,
             clock_in: null,
             clock_out: null,
             source: "timecard",
@@ -367,17 +490,18 @@ export async function importAttendanceFromCsv(formData: FormData): Promise<void>
 
     if (toInsert.length === 0) {
         revalidatePath("/app/attendance");
-        return;
+        return { success: true, imported: 0, skipped, duplicates: notFound, errors };
     }
 
     const { error } = await supabase.from("work_records").insert(toInsert);
 
     if (error) {
         console.error("Error importing work records from CSV:", error);
-        throw new Error("CSVのインポート中にエラーが発生しました");
+        return { success: false, imported: 0, skipped, duplicates: notFound, errors: [{ row: 0, field: "", message: "CSVのインポート中にエラーが発生しました" }] };
     }
 
     revalidatePath("/app/attendance");
+    return { success: true, imported: toInsert.length, skipped, duplicates: notFound, errors };
 }
 
 // ============================================
@@ -476,7 +600,7 @@ export async function getAttendanceData(
     if (profileIds.length > 0) {
         const { data: workRecordRows, error: workRecordsError } = await (serviceSupabase as any)
             .from("work_records")
-            .select("id, profile_id, work_date, clock_in, clock_out, scheduled_start_time, scheduled_end_time, forgot_clockout, pickup_destination, status")
+            .select("id, profile_id, work_date, clock_in, clock_out, scheduled_start_time, scheduled_end_time, forgot_clockout, pickup_destination_id, status, pickup_destinations(id, name)")
             .in("profile_id", profileIds)
             .gte("work_date", fromStr)
             .order("work_date", { ascending: false });
@@ -504,11 +628,11 @@ export async function getAttendanceData(
                     date: wr.work_date,
                     name: prof ? prof.display_name : "不明",
                     status,
-                    start_time: formatTimeStr(wr.scheduled_start_time || wr.clock_in),
-                    end_time: formatTimeStr(wr.scheduled_end_time || wr.clock_out),
+                    start_time: formatTimeStr(wr.clock_in) || wr.scheduled_start_time?.slice(0, 5) || null,
+                    end_time: formatTimeStr(wr.clock_out) || wr.scheduled_end_time?.slice(0, 5) || null,
                     clock_in: formatTimeStr(wr.clock_in),
                     clock_out: formatTimeStr(wr.clock_out),
-                    pickup_destination: wr.pickup_destination,
+                    pickup_destination: wr.pickup_destinations?.name || null,
                 };
             });
 
@@ -529,4 +653,436 @@ export async function getAttendanceData(
             roleFilter,
         }
     };
+}
+
+/**
+ * 勤怠ページ用の初期データを取得（クライアントサイドフェッチ用）
+ */
+export async function getAttendancePageData() {
+    const result = await getAuthContextForPage({ requireStaff: true });
+
+    if ("redirect" in result) {
+        return { redirect: result.redirect };
+    }
+
+    const { context } = result;
+    const { supabase, storeId, role } = context;
+
+    // 店舗設定を確認
+    const { data: settings } = await supabase
+        .from("store_settings")
+        .select("show_attendance, day_switch_time, pickup_enabled_cast, pickup_enabled_staff, show_break_columns")
+        .eq("store_id", storeId)
+        .single();
+
+    if (settings && settings.show_attendance === false) {
+        return { redirect: "/app/timecard" };
+    }
+
+    const daySwitchTime = settings?.day_switch_time || "05:00";
+    const pickupEnabledCast = settings?.pickup_enabled_cast ?? false;
+    const pickupEnabledStaff = settings?.pickup_enabled_staff ?? false;
+    const showBreakColumns = settings?.show_break_columns ?? false;
+
+    // 店舗のプロフィールを取得（在籍中・体入のみ）
+    const { data: storeProfiles, error: profilesError } = await supabase
+        .from("profiles")
+        .select("id, display_name, display_name_kana, real_name, role, status")
+        .eq("store_id", storeId)
+        .in("status", ["在籍中", "体入"])
+        .order("display_name");
+
+    if (profilesError) {
+        console.error("Error fetching store profiles:", profilesError);
+    }
+
+    const allProfiles = storeProfiles || [];
+    const profileMap: Record<string, any> = {};
+    const profileIds: string[] = [];
+
+    for (const p of allProfiles) {
+        profileMap[p.id] = p;
+        profileIds.push(p.id);
+    }
+
+    // 勤務記録を取得
+    const serviceSupabase = createServiceRoleClient();
+
+    let allRecords: AttendanceRecord[] = [];
+
+    // 承認済みシフト予定を取得（work_recordsに未登録のもの）
+    // まず今日以降のシフト提出で承認済みのものを取得
+    const today = new Date().toISOString().split("T")[0];
+
+    const { data: approvedShifts } = await (serviceSupabase as any)
+        .from("shift_submissions")
+        .select(`
+            id,
+            profile_id,
+            status,
+            approved_start_time,
+            approved_end_time,
+            preferred_start_time,
+            preferred_end_time,
+            shift_request_dates!inner(
+                target_date,
+                default_start_time,
+                default_end_time,
+                shift_requests!inner(
+                    store_id
+                )
+            )
+        `)
+        .eq("status", "approved")
+        .eq("shift_request_dates.shift_requests.store_id", storeId)
+        .gte("shift_request_dates.target_date", today);
+
+    // 既存のwork_recordsを取得して、どの日付・プロフィールが既に登録済みか確認するためのセット
+    const existingWorkRecordKeys = new Set<string>();
+
+    if (profileIds.length > 0) {
+        const { data: workRecordRows, error: workRecordsError } = await (serviceSupabase as any)
+            .from("work_records")
+            .select("id, profile_id, work_date, clock_in, clock_out, scheduled_start_time, scheduled_end_time, forgot_clockout, pickup_destination_id, status, pickup_destinations(id, name)")
+            .in("profile_id", profileIds)
+            .neq("status", "cancelled")
+            .order("work_date", { ascending: false })
+            .order("clock_in", { ascending: false });
+
+        if (workRecordsError) {
+            console.error("Error fetching work records for attendance:", workRecordsError);
+        } else {
+            const workRecords = (workRecordRows || []) as any[];
+
+            // Fetch break counts for all work records (if showBreakColumns is enabled)
+            let breakCountMap = new Map<string, number>();
+            if (showBreakColumns && workRecords.length > 0) {
+                try {
+                    const workRecordIds = workRecords.map((wr: any) => wr.id);
+                    const { data: breaksData, error: breaksError } = await (serviceSupabase as any)
+                        .from("work_record_breaks")
+                        .select("work_record_id")
+                        .in("work_record_id", workRecordIds);
+
+                    if (breaksError) {
+                        console.error("Error fetching breaks:", breaksError);
+                    } else if (breaksData) {
+                        for (const b of breaksData) {
+                            const count = breakCountMap.get(b.work_record_id) || 0;
+                            breakCountMap.set(b.work_record_id, count + 1);
+                        }
+                    }
+                } catch (error) {
+                    console.error("Exception fetching breaks:", error);
+                }
+            }
+
+            // 現在のJST日時を取得して営業日を計算
+            const now = new Date();
+            const jstNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
+            const currentHour = jstNow.getHours();
+            const currentMinute = jstNow.getMinutes();
+
+            const [switchHour, switchMinute] = daySwitchTime.split(":").map(Number);
+
+            let todayBusinessDate = new Date(jstNow);
+            if (currentHour < switchHour || (currentHour === switchHour && currentMinute < switchMinute)) {
+                todayBusinessDate.setDate(todayBusinessDate.getDate() - 1);
+            }
+            const todayBusinessDateStr = todayBusinessDate.toLocaleDateString("ja-JP", {
+                timeZone: "Asia/Tokyo",
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+            }).replace(/\//g, "-");
+
+            allRecords = workRecords.map((wr) => {
+                // 既存のwork_recordsのキーを記録
+                existingWorkRecordKeys.add(`${wr.profile_id}_${wr.work_date}`);
+
+                let status: AttendanceRecord["status"] = "scheduled";
+                if (wr.clock_in && !wr.clock_out) {
+                    if (wr.work_date < todayBusinessDateStr) {
+                        status = "forgot_clockout";
+                    } else {
+                        status = "working";
+                    }
+                } else if (wr.clock_in && wr.clock_out) {
+                    status = "finished";
+                }
+
+                const prof = profileMap[wr.profile_id];
+
+                return {
+                    id: wr.id,
+                    profile_id: wr.profile_id,
+                    date: wr.work_date,
+                    name: prof ? prof.display_name : "不明",
+                    status,
+                    start_time: formatTimeStr(wr.clock_in) || wr.scheduled_start_time?.slice(0, 5) || null,
+                    end_time: formatTimeStr(wr.clock_out) || wr.scheduled_end_time?.slice(0, 5) || null,
+                    clock_in: formatTimeStr(wr.clock_in),
+                    clock_out: formatTimeStr(wr.clock_out),
+                    pickup_destination: wr.pickup_destinations?.name || null,
+                    break_count: breakCountMap.get(wr.id) || 0,
+                };
+            });
+        }
+    }
+
+    // 承認済みシフト予定をAttendanceRecordに変換（work_recordsに未登録のもののみ）
+    if (approvedShifts && approvedShifts.length > 0) {
+        for (const shift of approvedShifts) {
+            const targetDate = shift.shift_request_dates?.target_date;
+            const profileId = shift.profile_id;
+
+            if (!targetDate || !profileId) continue;
+
+            // 既にwork_recordsに登録済みの場合はスキップ
+            const key = `${profileId}_${targetDate}`;
+            if (existingWorkRecordKeys.has(key)) continue;
+
+            // プロフィールが対象リストにない場合はスキップ
+            const prof = profileMap[profileId];
+            if (!prof) continue;
+
+            // 開始・終了時刻を決定（承認時刻 > 希望時刻 > デフォルト時刻）
+            const startTime = shift.approved_start_time
+                || shift.preferred_start_time
+                || shift.shift_request_dates?.default_start_time;
+            const endTime = shift.approved_end_time
+                || shift.preferred_end_time
+                || shift.shift_request_dates?.default_end_time;
+
+            allRecords.push({
+                id: `shift_${shift.id}`, // シフト予定を示すプレフィックス
+                profile_id: profileId,
+                date: targetDate,
+                name: prof.display_name || "不明",
+                status: "scheduled",
+                start_time: startTime?.slice(0, 5) || null,
+                end_time: endTime?.slice(0, 5) || null,
+                clock_in: null,
+                clock_out: null,
+                pickup_destination: null,
+            });
+        }
+
+        // 日付で降順ソート
+        allRecords.sort((a, b) => {
+            if (a.date !== b.date) return b.date.localeCompare(a.date);
+            const aTime = a.start_time || "";
+            const bTime = b.start_time || "";
+            return aTime.localeCompare(bTime);
+        });
+    }
+
+    // 編集権限チェック
+    const canEdit = role === "admin" || role === "staff";
+
+    // ページ権限を取得（pagePermissions）
+    const { data: profileData } = await supabase
+        .from("profiles")
+        .select("role_id")
+        .eq("id", context.profileId)
+        .maybeSingle();
+
+    let permissions: Record<string, string> | null = null;
+    if (profileData?.role_id) {
+        const { data: storeRole } = await supabase
+            .from("store_roles")
+            .select("permissions")
+            .eq("id", profileData.role_id)
+            .maybeSingle();
+        permissions = storeRole?.permissions || null;
+    }
+
+    const checkPermission = (pageKey: string) => {
+        if (role === "admin") return true;
+        if (!permissions) return role === "staff";
+        const level = permissions[pageKey];
+        return level === "view" || level === "edit";
+    };
+
+    const pagePermissions = {
+        bottles: checkPermission("bottles"),
+        resumes: checkPermission("resumes"),
+        salarySystems: checkPermission("salary-systems"),
+        attendance: checkPermission("attendance"),
+        personalInfo: checkPermission("users-personal-info"),
+    };
+
+    return {
+        data: {
+            allRecords,
+            allProfiles,
+            canEdit,
+            pagePermissions,
+            pickupEnabledCast,
+            pickupEnabledStaff,
+            showBreakColumns,
+        }
+    };
+}
+
+// ============================================
+// タイムカード質問関連
+// ============================================
+
+/**
+ * 勤怠ページ用のタイムカード質問を取得
+ */
+export async function getTimecardQuestionsForAttendance(
+    role: string,
+    timing: "clock_in" | "clock_out" | "both"
+): Promise<TimecardQuestion[]> {
+    const { supabase, storeId } = await getAuthContext();
+
+    const { data, error } = await supabase
+        .from("timecard_questions")
+        .select("id, label, field_type, options, is_required, target_role, timing, sort_order")
+        .eq("store_id", storeId)
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+
+    if (error) {
+        console.error("Error fetching timecard questions:", error);
+        return [];
+    }
+
+    // Filter by role and timing
+    const filtered = (data || []).filter((q: any) => {
+        // Role check
+        if (q.target_role !== "both" && q.target_role !== role) {
+            return false;
+        }
+        // Timing check
+        if (timing === "both") {
+            return true;
+        }
+        if (q.timing !== "both" && q.timing !== timing) {
+            return false;
+        }
+        return true;
+    });
+
+    return filtered as TimecardQuestion[];
+}
+
+/**
+ * 勤怠レコードに紐づく質問回答を取得
+ */
+export async function getTimecardQuestionAnswers(
+    workRecordId: string
+): Promise<TimecardQuestionAnswer[]> {
+    // Use service role client to bypass RLS (staff need to read other users' answers)
+    const serviceSupabase = createServiceRoleClient() as any;
+
+    const { data, error } = await serviceSupabase
+        .from("timecard_question_answers")
+        .select("question_id, value, timing")
+        .eq("work_record_id", workRecordId);
+
+    if (error) {
+        console.error("Error fetching timecard question answers:", error);
+        return [];
+    }
+
+    return (data || []) as TimecardQuestionAnswer[];
+}
+
+/**
+ * 勤怠レコードの質問回答を保存
+ */
+export async function saveTimecardQuestionAnswers(
+    workRecordId: string,
+    answers: Record<string, string>,
+    timing: "clock_in" | "clock_out"
+): Promise<void> {
+    // Use service role client to bypass RLS (staff need to save answers for any user)
+    const serviceSupabase = createServiceRoleClient() as any;
+
+    for (const [questionId, value] of Object.entries(answers)) {
+        if (!value || !value.trim()) continue;
+
+        await serviceSupabase.from("timecard_question_answers").upsert(
+            {
+                work_record_id: workRecordId,
+                question_id: questionId,
+                value: value.trim(),
+                timing,
+                updated_at: new Date().toISOString(),
+            },
+            { onConflict: "work_record_id,question_id,timing" }
+        );
+    }
+}
+
+// ============================================
+// 休憩関連
+// ============================================
+
+export interface BreakRecord {
+    id: string;
+    break_start: string;
+    break_end: string | null;
+}
+
+/**
+ * 勤怠レコードに紐づく休憩を取得
+ */
+export async function getBreaksForWorkRecord(workRecordId: string): Promise<BreakRecord[]> {
+    const serviceSupabase = createServiceRoleClient() as any;
+
+    const { data, error } = await serviceSupabase
+        .from("work_record_breaks")
+        .select("id, break_start, break_end")
+        .eq("work_record_id", workRecordId)
+        .order("break_start", { ascending: true });
+
+    if (error) {
+        console.error("Error fetching breaks:", error);
+        return [];
+    }
+
+    return (data || []) as BreakRecord[];
+}
+
+/**
+ * 勤怠レコードの休憩を保存（既存の休憩を全て削除して新規作成）
+ */
+export async function saveBreaksForWorkRecord(
+    workRecordId: string,
+    workDate: string,
+    breaks: { breakStart: string; breakEnd: string }[]
+): Promise<void> {
+    const serviceSupabase = createServiceRoleClient() as any;
+
+    // 既存の休憩を削除
+    await serviceSupabase
+        .from("work_record_breaks")
+        .delete()
+        .eq("work_record_id", workRecordId);
+
+    // 新しい休憩を挿入
+    if (breaks.length > 0) {
+        const breakRecords = breaks
+            .filter(b => b.breakStart) // breakStartが必須
+            .map(b => ({
+                work_record_id: workRecordId,
+                break_start: timeToISO(b.breakStart, workDate),
+                break_end: b.breakEnd ? timeToISO(b.breakEnd, workDate) : null,
+            }));
+
+        if (breakRecords.length > 0) {
+            const { error } = await serviceSupabase
+                .from("work_record_breaks")
+                .insert(breakRecords);
+
+            if (error) {
+                console.error("Error saving breaks:", error);
+                throw new Error("休憩の保存に失敗しました");
+            }
+        }
+    }
 }

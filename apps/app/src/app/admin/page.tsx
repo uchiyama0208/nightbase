@@ -288,7 +288,7 @@ export default function AdminDashboardPage() {
                         サイトアナリティクス
                     </p>
                 </div>
-                <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl">
+                <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-3xl">
                     {PERIODS.map((p) => (
                         <button
                             key={p.value}
@@ -485,7 +485,7 @@ export default function AdminDashboardPage() {
                     <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5">
                         <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-2">
-                                <Search className="h-4 w-4 text-gray-500" />
+                                <Search className="h-5 w-5 text-gray-500" />
                                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
                                     検索クエリ パフォーマンス
                                 </h3>
@@ -533,7 +533,7 @@ export default function AdminDashboardPage() {
                                 searchConsoleData.queries.slice(0, 10).map((query, i) => (
                                     <div
                                         key={i}
-                                        className="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
+                                        className="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
                                     >
                                         <div className="flex items-center gap-2 min-w-0 flex-1">
                                             <span className="text-xs font-medium text-gray-400 w-5">{i + 1}</span>
@@ -593,13 +593,13 @@ export default function AdminDashboardPage() {
                         </h3>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
+                        <div className="bg-gray-50 dark:bg-gray-800 rounded-3xl p-3">
                             <p className="text-lg font-bold text-gray-900 dark:text-white">
                                 {pagesPerSession}
                             </p>
                             <p className="text-xs text-gray-500">PV/セッション</p>
                         </div>
-                        <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
+                        <div className="bg-gray-50 dark:bg-gray-800 rounded-3xl p-3">
                             <p className="text-lg font-bold text-gray-900 dark:text-white">
                                 {formatDuration(data?.overview.avgSessionDuration || 0)}
                             </p>
@@ -612,19 +612,19 @@ export default function AdminDashboardPage() {
                 {searchConsoleData && (
                     <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5">
                         <div className="flex items-center gap-2 mb-3">
-                            <Search className="h-4 w-4 text-gray-500" />
+                            <Search className="h-5 w-5 text-gray-500" />
                             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
                                 検索サマリー
                             </h3>
                         </div>
                         <div className="grid grid-cols-2 gap-3">
-                            <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
+                            <div className="bg-gray-50 dark:bg-gray-800 rounded-3xl p-3">
                                 <p className="text-lg font-bold text-gray-900 dark:text-white">
                                     {searchConsoleData.queries.length}
                                 </p>
                                 <p className="text-xs text-gray-500">検索キーワード</p>
                             </div>
-                            <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
+                            <div className="bg-gray-50 dark:bg-gray-800 rounded-3xl p-3">
                                 <p className="text-lg font-bold text-gray-900 dark:text-white">
                                     {searchConsoleData.pages.length}
                                 </p>
@@ -657,7 +657,7 @@ export default function AdminDashboardPage() {
                             </thead>
                             <tbody>
                                 {searchConsoleData.pages.slice(0, 8).map((page, i) => (
-                                    <tr key={i} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                    <tr key={i} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50">
                                         <td className="py-2 px-2 text-gray-900 dark:text-gray-100 truncate max-w-[200px]">
                                             {page.page || "/"}
                                         </td>
@@ -784,7 +784,7 @@ export default function AdminDashboardPage() {
                                                 </span>
                                             </div>
                                             <div className="text-right ml-3">
-                                                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                                     {formatTokens(model.totalTokens)}
                                                 </span>
                                                 <div className="text-xs text-gray-500">

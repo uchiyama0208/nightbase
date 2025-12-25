@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { Camera, Upload, Sparkles, Loader2, X, Trash2, Plus, Check } from "lucide-react";
+import { Camera, Upload, Sparkles, Loader2, X, Trash2, Plus, Check, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -197,15 +197,24 @@ export function MenuAIModal({ isOpen, onClose, categories, onSuccess }: MenuAIMo
 
     return (
         <Dialog open={isOpen} onOpenChange={handleClose}>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col rounded-2xl border border-gray-200 bg-white p-0 shadow-xl dark:border-gray-800 dark:bg-gray-900">
-                <DialogHeader className="p-6 pb-0">
-                    <DialogTitle className="flex items-center gap-2 text-base font-semibold text-gray-900 dark:text-gray-50">
+            <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col rounded-2xl border border-gray-200 bg-white p-0 shadow-xl dark:border-gray-800 dark:bg-gray-900">
+                <DialogHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900 flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
+                    <button
+                        type="button"
+                        onClick={step === "upload" ? handleClose : step === "preview" ? () => setStep("upload") : () => setStep("preview")}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        aria-label="戻る"
+                    >
+                        <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <DialogTitle className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white truncate flex items-center justify-center gap-2">
                         <Sparkles className="h-5 w-5 text-purple-500" />
                         写真からメニューを読み取り
                     </DialogTitle>
+                    <div className="w-8 h-8" />
                 </DialogHeader>
 
-                <div className="flex-1 overflow-y-auto p-6 pt-4">
+                <div className="flex-1 overflow-y-auto p-6">
                     {error && (
                         <div className="mb-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-3">
                             <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
@@ -225,7 +234,7 @@ export function MenuAIModal({ isOpen, onClose, categories, onSuccess }: MenuAIMo
                                     カテゴリ
                                 </Label>
                                 <Select value={selectedCategoryId || "none"} onValueChange={setSelectedCategoryId}>
-                                    <SelectTrigger className="w-full h-10 rounded-lg">
+                                    <SelectTrigger className="w-full h-10">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -296,7 +305,7 @@ export function MenuAIModal({ isOpen, onClose, categories, onSuccess }: MenuAIMo
                                     }}
                                     className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors"
                                 >
-                                    <X className="h-4 w-4" />
+                                    <X className="h-5 w-5" />
                                 </button>
                             </div>
                             <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
@@ -314,19 +323,18 @@ export function MenuAIModal({ isOpen, onClose, categories, onSuccess }: MenuAIMo
                                     value={newCategoryName}
                                     onChange={(e) => setNewCategoryName(e.target.value)}
                                     placeholder="新しいカテゴリを追加"
-                                    className="flex-1 h-9 rounded-lg"
+                                    className="flex-1 h-10 rounded-lg"
                                     onKeyDown={(e) => e.key === "Enter" && handleAddCategory()}
                                 />
                                 <Button
                                     size="sm"
                                     onClick={handleAddCategory}
                                     disabled={!newCategoryName.trim() || isAddingCategory}
-                                    className="rounded-lg"
                                 >
                                     {isAddingCategory ? (
                                         <Loader2 className="h-4 w-4 animate-spin" />
                                     ) : (
-                                        <Plus className="h-4 w-4" />
+                                        <Plus className="h-5 w-5" />
                                     )}
                                 </Button>
                             </div>
@@ -418,21 +426,11 @@ export function MenuAIModal({ isOpen, onClose, categories, onSuccess }: MenuAIMo
                 </div>
 
                 <DialogFooter className="p-6 pt-0 gap-2">
-                    {step === "upload" && (
-                        <Button variant="outline" onClick={handleClose} className="rounded-lg">
-                            キャンセル
-                        </Button>
-                    )}
-
                     {step === "preview" && (
-                        <>
-                            <Button variant="outline" onClick={() => setStep("upload")} className="rounded-lg">
-                                戻る
-                            </Button>
-                            <Button
+                        <Button
                                 onClick={handleExtract}
                                 disabled={isProcessing}
-                                className="rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white border-none hover:from-purple-600 hover:to-pink-600"
+                                className="bg-gradient-to-r from-purple-500 to-pink-500 text-white border-none hover:from-purple-600 hover:to-pink-600"
                             >
                                 {isProcessing ? (
                                     <>
@@ -446,18 +444,13 @@ export function MenuAIModal({ isOpen, onClose, categories, onSuccess }: MenuAIMo
                                     </>
                                 )}
                             </Button>
-                        </>
                     )}
 
                     {step === "confirm" && (
-                        <>
-                            <Button variant="outline" onClick={() => setStep("preview")} className="rounded-lg">
-                                戻る
-                            </Button>
-                            <Button
+                        <Button
                                 onClick={handleSubmit}
                                 disabled={isProcessing || selectedCount === 0}
-                                className="rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                                className="bg-blue-600 text-white hover:bg-blue-700"
                             >
                                 {isProcessing ? (
                                     <>
@@ -468,7 +461,6 @@ export function MenuAIModal({ isOpen, onClose, categories, onSuccess }: MenuAIMo
                                     `${selectedCount}件を追加`
                                 )}
                             </Button>
-                        </>
                     )}
                 </DialogFooter>
             </DialogContent>

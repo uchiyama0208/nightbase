@@ -5,26 +5,50 @@
  */
 export function getBusinessDate(daySwitchTime: string = "05:00"): string {
     const now = new Date();
-    const jstDate = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
-    const currentHour = jstDate.getHours();
-    const currentMinute = jstDate.getMinutes();
 
     // day_switch_time をパース（例: "05:00" → 5時）
     const parts = daySwitchTime.split(":");
     const switchHour = parseInt(parts[0], 10) || 5;
     const switchMinute = parseInt(parts[1], 10) || 0;
 
-    // 現在時刻が切り替え時間より前の場合は前日の営業日
-    if (currentHour < switchHour || (currentHour === switchHour && currentMinute < switchMinute)) {
-        jstDate.setDate(jstDate.getDate() - 1);
-    }
-
-    return jstDate.toLocaleDateString("ja-JP", {
+    // JSTの現在時刻を取得
+    const jstFormatter = new Intl.DateTimeFormat("en-CA", {
         timeZone: "Asia/Tokyo",
         year: "numeric",
         month: "2-digit",
         day: "2-digit",
-    }).replace(/\//g, "-");
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+    });
+
+    const jstParts = jstFormatter.formatToParts(now);
+    const currentYear = parseInt(jstParts.find(p => p.type === "year")?.value || "2024", 10);
+    const currentMonth = parseInt(jstParts.find(p => p.type === "month")?.value || "1", 10);
+    const currentDay = parseInt(jstParts.find(p => p.type === "day")?.value || "1", 10);
+    const currentHour = parseInt(jstParts.find(p => p.type === "hour")?.value || "0", 10);
+    const currentMinute = parseInt(jstParts.find(p => p.type === "minute")?.value || "0", 10);
+
+    // 営業日を計算 (JST日付を直接計算)
+    let businessYear = currentYear;
+    let businessMonth = currentMonth;
+    let businessDay = currentDay;
+
+    // 現在時刻が切り替え時間より前の場合は前日の営業日
+    if (currentHour < switchHour || (currentHour === switchHour && currentMinute < switchMinute)) {
+        // 前日を計算
+        const tempDate = new Date(Date.UTC(currentYear, currentMonth - 1, currentDay));
+        tempDate.setUTCDate(tempDate.getUTCDate() - 1);
+        businessYear = tempDate.getUTCFullYear();
+        businessMonth = tempDate.getUTCMonth() + 1;
+        businessDay = tempDate.getUTCDate();
+    }
+
+    // YYYY-MM-DD形式で返す
+    const yearStr = String(businessYear);
+    const monthStr = String(businessMonth).padStart(2, "0");
+    const dayStr = String(businessDay).padStart(2, "0");
+    return `${yearStr}-${monthStr}-${dayStr}`;
 }
 
 /**
@@ -49,10 +73,12 @@ export function getBusinessDayStart(daySwitchTime: string = "05:00"): string {
  * @returns 日付文字列（YYYY-MM-DD形式）
  */
 export function getDateFromTimestamp(timestamp: string): string {
-    return new Date(timestamp).toLocaleDateString("ja-JP", {
+    const date = new Date(timestamp);
+    // en-CA localeはYYYY-MM-DD形式を返す
+    return new Intl.DateTimeFormat("en-CA", {
         timeZone: "Asia/Tokyo",
         year: "numeric",
         month: "2-digit",
         day: "2-digit",
-    }).replace(/\//g, "-");
+    }).format(date);
 }

@@ -1,7 +1,49 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { createServerClient } from "@/lib/supabaseServerClient";
+import { revalidatePath, unstable_noStore as noStore } from "next/cache";
+import { createServerClient, createServiceRoleClient } from "@/lib/supabaseServerClient";
+import { getAppData, hasPagePermission } from "../../data-access";
+import { getMenus } from "../menus/actions";
+
+/**
+ * ボトルページ用のデータを取得
+ */
+export async function getBottlesPageData() {
+    const { profile, permissions } = await getAppData();
+
+    if (!profile?.store_id) {
+        throw new Error("No store found");
+    }
+
+    const supabase = await createServerClient() as any;
+
+    // Fetch menus for bottle selection
+    const menus = await getMenus();
+
+    // Fetch all profiles in this store (for guest selection) - 在籍中・体入のみ
+    const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, display_name, role, status")
+        .eq("store_id", profile.store_id)
+        .in("status", ["在籍中", "体入"])
+        .order("display_name");
+
+    // 各ページの権限をチェック
+    const pagePermissions = {
+        bottles: hasPagePermission("bottles", "view", profile, permissions ?? null),
+        resumes: hasPagePermission("resumes", "view", profile, permissions ?? null),
+        salarySystems: hasPagePermission("salary-systems", "view", profile, permissions ?? null),
+        attendance: hasPagePermission("attendance", "view", profile, permissions ?? null),
+        personalInfo: hasPagePermission("users-personal-info", "view", profile, permissions ?? null),
+    };
+
+    return {
+        storeId: profile.store_id,
+        menus: menus || [],
+        profiles: profiles || [],
+        pagePermissions,
+    };
+}
 
 export async function getBottleKeeps(filters?: {
     remainingAmount?: string;
@@ -112,7 +154,8 @@ export async function createBottleKeep(formData: FormData) {
         throw new Error("No store found");
     }
 
-    const menuId = formData.get("menu_id") as string;
+    const menuIdRaw = formData.get("menu_id") as string;
+    const menuId = menuIdRaw && menuIdRaw.trim() !== "" ? menuIdRaw : null;
     const remainingAmount = parseInt(formData.get("remaining_amount") as string) || 100;
     const openedAt = formData.get("opened_at") as string;
     const expirationDateRaw = formData.get("expiration_date") as string;
@@ -168,7 +211,8 @@ export async function updateBottleKeep(id: string, formData: FormData) {
         throw new Error("Unauthorized");
     }
 
-    const menuId = formData.get("menu_id") as string;
+    const menuIdRaw = formData.get("menu_id") as string;
+    const menuId = menuIdRaw && menuIdRaw.trim() !== "" ? menuIdRaw : null;
     const remainingAmount = parseInt(formData.get("remaining_amount") as string);
     const expirationDateRaw = formData.get("expiration_date") as string;
     const expirationDate = expirationDateRaw && expirationDateRaw.trim() !== "" ? expirationDateRaw : null;
@@ -241,72 +285,91 @@ export async function deleteBottleKeep(id: string) {
 
 // Comment-related actions (using generalized comments table)
 export async function getBottleKeepComments(bottleKeepId: string) {
-    const supabase = await createServerClient() as any;
+    noStore(); // Disable caching for fresh data
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
+    try {
+        // Get current user for like status
+        const authSupabase = await createServerClient() as any;
+        const { data: { user } } = await authSupabase.auth.getUser();
 
-    const { data: appUser } = await supabase
-        .from("users")
-        .select("current_profile_id")
-        .eq("id", user.id)
-        .maybeSingle();
+        let currentProfileId: string | null = null;
+        if (user) {
+            const { data: appUser } = await authSupabase
+                .from("users")
+                .select("current_profile_id")
+                .eq("id", user.id)
+                .maybeSingle();
+            currentProfileId = appUser?.current_profile_id || null;
+        }
 
-    const currentProfileId = appUser?.current_profile_id;
+        // Use direct fetch with explicit FK relationship to avoid PostgREST ambiguity
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    const { data: comments, error } = await supabase
-        .from("comments")
-        .select(`
-            *,
-            author:author_profile_id (
-                id,
-                display_name,
-                avatar_url
-            )
-        `)
-        .eq("target_bottle_keep_id", bottleKeepId)
-        .order("created_at", { ascending: true });
+        const fetchUrl = `${supabaseUrl}/rest/v1/comments?target_bottle_keep_id=eq.${bottleKeepId}&select=*,author:profiles!comments_author_profile_id_fkey(id,display_name,avatar_url)&order=created_at.asc`;
 
-    if (error) {
-        console.error("Error fetching comments:", error);
-        return [];
-    }
-
-    if (!comments || comments.length === 0) {
-        return [];
-    }
-
-    // Get all comment IDs
-    const commentIds = comments.map((c: any) => c.id);
-
-    // Fetch all likes for these comments in one query
-    const { data: allLikes } = await supabase
-        .from("comment_likes")
-        .select("comment_id, profile_id")
-        .in("comment_id", commentIds);
-
-    // Create a map of comment_id -> like count and user's like status
-    const likesMap = new Map<string, { count: number; userHasLiked: boolean }>();
-
-    commentIds.forEach((id: any) => {
-        const commentLikes = allLikes?.filter((like: any) => like.comment_id === id) || [];
-        likesMap.set(id, {
-            count: commentLikes.length,
-            userHasLiked: commentLikes.some((like: any) => like.profile_id === currentProfileId),
+        const response = await fetch(fetchUrl, {
+            headers: {
+                'apikey': serviceRoleKey!,
+                'Authorization': `Bearer ${serviceRoleKey}`,
+            },
+            cache: 'no-store',
         });
-    });
 
-    // Add like data to comments
-    const commentsWithLikes = comments.map((comment: any) => {
-        const likeData = likesMap.get(comment.id) || { count: 0, userHasLiked: false };
-        return {
-            ...comment,
-            like_count: likeData.count,
-            user_has_liked: likeData.userHasLiked,
-        };
-    });
+        const responseText = await response.text();
 
-    return commentsWithLikes;
+        let comments: any[];
+        try {
+            comments = JSON.parse(responseText);
+        } catch (parseError) {
+            console.error("[getBottleKeepComments] JSON parse error:", parseError);
+            return [];
+        }
+
+        if (!response.ok) {
+            console.error("[getBottleKeepComments] Error response:", comments);
+            return [];
+        }
+
+        if (!comments || comments.length === 0) {
+            return [];
+        }
+
+        // Get all comment IDs
+        const commentIds = comments.map((c: any) => c.id);
+
+        // Fetch all likes for these comments in one query
+        const { data: allLikes } = await authSupabase
+            .from("comment_likes")
+            .select("comment_id, profile_id")
+            .in("comment_id", commentIds);
+
+        // Create a map of comment_id -> like count and user's like status
+        const likesMap = new Map<string, { count: number; userHasLiked: boolean }>();
+
+        commentIds.forEach((id: any) => {
+            const commentLikes = allLikes?.filter((like: any) => like.comment_id === id) || [];
+            likesMap.set(id, {
+                count: commentLikes.length,
+                userHasLiked: commentLikes.some((like: any) => like.profile_id === currentProfileId),
+            });
+        });
+
+        // Add like data to comments
+        const commentsWithLikes = comments.map((comment: any) => {
+            const likeData = likesMap.get(comment.id) || { count: 0, userHasLiked: false };
+            return {
+                ...comment,
+                like_count: likeData.count,
+                user_has_liked: likeData.userHasLiked,
+            };
+        });
+
+        return commentsWithLikes;
+    } catch (error) {
+        console.error("[getBottleKeepComments] Error:", error);
+        return [];
+    }
 }
 
 export async function addBottleKeepComment(bottleKeepId: string, content: string) {

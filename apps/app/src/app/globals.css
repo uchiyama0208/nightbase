@@ -205,7 +205,7 @@ section {
   }
 
   .hover-lift {
-    @apply transition-transform duration-500 hover:-translate-y-1.5 hover:shadow-[0_35px_120px_-50px_rgba(15_23_42_0.45)];
+    @apply transition-transform duration-300 hover:-translate-y-1.5 hover:shadow-[0_35px_120px_-50px_rgba(15_23_42_0.45)];
   }
 }
 
@@ -339,5 +339,217 @@ section {
 
   .animate-fade-up {
     animation: fade-up 0.9s ease forwards;
+  }
+
+  /* Interactive button styles */
+  .btn-interactive {
+    @apply transition-all duration-200 ease-out;
+  }
+
+  .btn-interactive:hover {
+    @apply -translate-y-0.5;
+  }
+
+  .btn-interactive:active {
+    @apply translate-y-0 scale-[0.98];
+  }
+
+  /* Card hover effects */
+  .card-interactive {
+    @apply transition-all duration-300 ease-out;
+  }
+
+  .card-interactive:hover {
+    @apply -translate-y-1 shadow-lg;
+  }
+
+  /* List item stagger animation */
+  .list-item-appear {
+    animation: fade-in-up 0.3s ease-out forwards;
+    animation-delay: calc(var(--index, 0) * 50ms);
+    opacity: 0;
+  }
+
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Skeleton shimmer */
+  .skeleton-shimmer {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.4) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+
+  .dark .skeleton-shimmer {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.1) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+
+  /* Focus ring animation */
+  .focus-ring-animated {
+    @apply transition-shadow duration-200;
+  }
+
+  .focus-ring-animated:focus {
+    @apply ring-2 ring-blue-500 ring-offset-2;
+  }
+
+  /* Checkbox animation */
+  .checkbox-animated {
+    @apply transition-all duration-200;
+  }
+
+  .checkbox-animated:checked {
+    animation: check-pop 0.2s ease-out;
+  }
+
+  @keyframes check-pop {
+    0% {
+      transform: scale(0.8);
+    }
+    50% {
+      transform: scale(1.1);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+
+  /* Switch transition */
+  .switch-thumb {
+    @apply transition-transform duration-200 ease-out;
+  }
+
+  /* Dropdown animation */
+  .dropdown-content {
+    @apply origin-top-right;
+  }
+
+  .dropdown-content[data-state="open"] {
+    animation: dropdown-in 0.15s ease-out;
+  }
+
+  .dropdown-content[data-state="closed"] {
+    animation: dropdown-out 0.1s ease-in;
+  }
+
+  @keyframes dropdown-in {
+    from {
+      opacity: 0;
+      transform: scale(0.95) translateY(-4px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  @keyframes dropdown-out {
+    from {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: scale(0.95) translateY(-4px);
+    }
+  }
+
+  /* Tooltip animation */
+  .tooltip-content {
+    animation: tooltip-in 0.15s ease-out;
+  }
+
+  @keyframes tooltip-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  /* Tab indicator slide */
+  .tab-indicator {
+    @apply transition-transform duration-300 ease-out;
+  }
+
+  /* Badge pulse for notifications */
+  .badge-pulse {
+    animation: badge-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes badge-pulse {
+    0%, 100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.05);
+      opacity: 0.8;
+    }
+  }
+
+  /* Icon spin for loading */
+  .icon-spin {
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* Bounce for attention */
+  .bounce-attention {
+    animation: bounce-attention 0.5s ease-out;
+  }
+
+  @keyframes bounce-attention {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    25% {
+      transform: translateY(-8px);
+    }
+    50% {
+      transform: translateY(0);
+    }
+    75% {
+      transform: translateY(-4px);
+    }
   }
 }

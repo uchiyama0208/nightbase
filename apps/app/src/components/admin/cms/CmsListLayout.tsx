@@ -42,8 +42,8 @@ export function CmsListLayout({
     <div className="space-y-6">
       <div className="space-y-2">
         <p className="text-xs font-semibold uppercase tracking-[0.35em] text-primary">CMS</p>
-        <h1 className="text-3xl font-semibold text-slate-900">{title}</h1>
-        <p className="text-sm text-slate-500">{description}</p>
+        <h1 className="text-3xl font-semibold text-gray-900">{title}</h1>
+        <p className="text-sm text-gray-500">{description}</p>
       </div>
 
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -52,12 +52,12 @@ export function CmsListLayout({
             value={searchValue}
             onChange={(event) => onSearchChange(event.target.value)}
             placeholder={searchPlaceholder}
-            className="w-full border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"
+            className="w-full border border-gray-300 bg-white text-gray-900 placeholder:text-gray-400"
           />
         </div>
         <div className="flex w-full flex-col gap-3 md:w-auto md:flex-row md:items-center md:justify-end">
           <Tabs value={statusValue} onValueChange={onStatusChange} className="w-full md:w-auto">
-            <TabsList className="w-full justify-start rounded-full bg-slate-100 md:w-auto">
+            <TabsList className="w-full justify-start rounded-full bg-gray-100 md:w-auto">
               {statusTabs.map((tab) => (
                 <TabsTrigger key={tab.value} value={tab.value} className="px-4 text-xs uppercase tracking-[0.2em]">
                   {tab.label}
@@ -80,7 +80,7 @@ export function CmsListLayout({
         </div>
       ) : null}
 
-      <div className="mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div className="mt-2 overflow-hidden rounded-2xl border border-gray-200 bg-white">
         {children}
       </div>
     </div>

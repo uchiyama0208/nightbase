@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
-import Link from "next/link";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/use-toast";
+import { Loader2 } from "lucide-react";
 import {
     Calendar,
     Car,
@@ -39,16 +39,50 @@ import {
     ShoppingCart,
     Sparkles,
     Zap,
+    BookOpen,
+    Store,
 } from "lucide-react";
 import { formatJSTDate } from "@/lib/utils";
 import { useDashboardTab } from "@/contexts/dashboard-tab-context";
-import type { PageKey } from "../roles/constants";
+import type { PageKey } from "../settings/roles/constants";
+import type { StoreFeatures } from "@/app/app/data-access";
 
-type TabKey = "shift" | "user" | "floor" | "salary" | "community";
+type TabKey = "shift" | "user" | "floor" | "store" | "community";
 
 type PermissionLevel = "none" | "view" | "edit";
 type PagePermissions = {
     [key in PageKey]?: PermissionLevel;
+};
+
+// Map from pageKey to storeFeatures key
+const PAGE_TO_FEATURE_MAP: Record<string, keyof StoreFeatures> = {
+    "timecard": "show_timecard",
+    "my-shifts": "show_my_shifts",
+    "attendance": "show_attendance",
+    "shifts": "show_shifts",
+    "pickup": "show_pickup",
+    "users": "show_users",
+    "invitations": "show_invitations",
+    "resumes": "show_resumes",
+    "roles": "show_roles",
+    "floor": "show_floor",
+    "slips": "show_slips",
+    "menus": "show_menus",
+    "bottles": "show_bottles",
+    "reservations": "show_reservations",
+    "queue": "show_queue",
+    "orders": "show_orders",
+    "sales": "show_sales",
+    "payroll": "show_payroll",
+    "pricing-systems": "show_pricing_systems",
+    "salary-systems": "show_salary_systems",
+    "seats": "show_seats",
+    "shopping": "show_shopping",
+    "board": "show_board",
+    "ranking": "show_ranking",
+    "sns": "show_sns",
+    "ai-create": "show_ai_create",
+    "services": "show_services",
 };
 
 interface MenuCard {
@@ -93,10 +127,6 @@ interface UserInfo {
     partnerCount: number;
 }
 
-interface RolesInfo {
-    count: number;
-}
-
 interface InvitationsInfo {
     pendingCount: number;
     joinRequestsCount: number;
@@ -137,8 +167,11 @@ interface RankingInfo {
 
 interface BoardInfo {
     postsCount: number;
-    manualsCount: number;
     unreadPostsCount: number;
+}
+
+interface ManualsInfo {
+    manualsCount: number;
     unreadManualsCount: number;
 }
 
@@ -174,7 +207,6 @@ interface TabMenuCardsProps {
     myShiftInfo?: MyShiftInfo;
     pickupInfo?: PickupInfo;
     userInfo?: UserInfo;
-    rolesInfo?: RolesInfo;
     invitationsInfo?: InvitationsInfo;
     floorInfo?: FloorInfo;
     seatsInfo?: SeatsInfo;
@@ -185,6 +217,7 @@ interface TabMenuCardsProps {
     payrollInfo?: PayrollInfo;
     rankingInfo?: RankingInfo;
     boardInfo?: BoardInfo;
+    manualsInfo?: ManualsInfo;
     snsInfo?: SnsInfo;
     resumesInfo?: ResumesInfo;
     queueInfo?: QueueInfo;
@@ -195,11 +228,26 @@ interface TabMenuCardsProps {
     userRole: string;
     userRoleId: string | null;
     permissions: PagePermissions | null;
+    // Store feature visibility
+    storeFeatures?: StoreFeatures | null;
     // Access denied notification
     accessDeniedMessage?: string | null;
 }
 
 // ========== HELPER FUNCTIONS ==========
+function isFeatureVisible(
+    pageKey: PageKey | undefined,
+    storeFeatures: StoreFeatures | null | undefined
+): boolean {
+    // No pageKey or no features means show by default
+    if (!pageKey || !storeFeatures) return true;
+
+    const featureKey = PAGE_TO_FEATURE_MAP[pageKey];
+    if (!featureKey) return true;
+
+    return storeFeatures[featureKey] ?? true;
+}
+
 function hasPagePermission(
     pageKey: PageKey | undefined,
     userRole: string,
@@ -236,6 +284,10 @@ function getWorkingDuration(clockInTime: string): string {
     return `${minutes}分`;
 }
 
+// ========== CONTENT STYLES ==========
+// 全カードのコンテンツ高さを統一（ランキング等の3行コンテンツに合わせる）
+const contentBaseClass = "mt-auto pt-2 border-t border-gray-100 dark:border-gray-700 min-h-[56px]";
+
 // ========== SHIFT TAB CONTENTS ==========
 function TimecardContent({ info }: { info?: TimecardInfo }) {
     const isWorking = info?.isWorking ?? false;
@@ -243,7 +295,7 @@ function TimecardContent({ info }: { info?: TimecardInfo }) {
     const lastWorkDate = info?.lastWorkDate;
 
     return (
-        <div className="space-y-2 mt-auto pt-2 border-t border-gray-100 dark:border-gray-700">
+        <div className={`space-y-1 ${contentBaseClass}`}>
             <div className="flex items-center gap-2">
                 {isWorking ? (
                     <>
@@ -274,7 +326,7 @@ function MyShiftContent({ info }: { info?: MyShiftInfo }) {
     const hasUnsubmitted = (info?.unsubmittedCount ?? 0) > 0;
 
     return (
-        <div className="space-y-2 mt-auto pt-2 border-t border-gray-100 dark:border-gray-700">
+        <div className={`space-y-1 ${contentBaseClass}`}>
             <div className="text-xs text-gray-500 dark:text-gray-400">
                 {info?.nextShiftDate ? (
                     <span>次の出勤: <span className="font-medium text-gray-700 dark:text-gray-300">{formatJSTDate(info.nextShiftDate)}</span></span>
@@ -296,7 +348,7 @@ function MyShiftContent({ info }: { info?: MyShiftInfo }) {
 
 function AttendanceContent({ info }: { info?: AttendanceInfo }) {
     return (
-        <div className="flex gap-2 mt-auto pt-2 border-t border-gray-100 dark:border-gray-700">
+        <div className={`flex gap-2 ${contentBaseClass}`}>
             <div className="flex-1 text-center">
                 <div className="text-lg font-bold text-pink-500 dark:text-pink-400">{info?.castCount ?? 0}</div>
                 <div className="text-[10px] text-gray-500 dark:text-gray-400">キャスト</div>
@@ -311,7 +363,7 @@ function AttendanceContent({ info }: { info?: AttendanceInfo }) {
 
 function ShiftContent({ info }: { info?: ShiftInfo }) {
     return (
-        <div className="flex gap-2 mt-auto pt-2 border-t border-gray-100 dark:border-gray-700">
+        <div className={`flex gap-2 ${contentBaseClass}`}>
             <div className="flex-1 text-center">
                 <div className="text-lg font-bold text-pink-500 dark:text-pink-400">{info?.scheduledCastCount ?? 0}</div>
                 <div className="text-[10px] text-gray-500 dark:text-gray-400">キャスト</div>
@@ -328,7 +380,7 @@ function PickupContent({ info }: { info?: PickupInfo }) {
     const hasUnassigned = (info?.unassignedCount ?? 0) > 0;
 
     return (
-        <div className="flex gap-2 mt-auto pt-2 border-t border-gray-100 dark:border-gray-700">
+        <div className={`flex gap-2 ${contentBaseClass}`}>
             <div className="flex-1 text-center">
                 <div className="text-lg font-bold text-gray-700 dark:text-gray-300">{info?.requestCount ?? 0}</div>
                 <div className="text-[10px] text-gray-500 dark:text-gray-400">送迎希望</div>
@@ -346,7 +398,7 @@ function PickupContent({ info }: { info?: PickupInfo }) {
 // ========== USER TAB CONTENTS ==========
 function UserContent({ info }: { info?: UserInfo }) {
     return (
-        <div className="flex gap-2 mt-auto pt-2 border-t border-gray-100 dark:border-gray-700">
+        <div className={`flex gap-2 ${contentBaseClass}`}>
             <div className="flex-1 text-center">
                 <div className="text-lg font-bold text-pink-500 dark:text-pink-400">{info?.castCount ?? 0}</div>
                 <div className="text-[10px] text-gray-500 dark:text-gray-400">キャスト</div>
@@ -359,23 +411,12 @@ function UserContent({ info }: { info?: UserInfo }) {
     );
 }
 
-function RolesContent({ info }: { info?: RolesInfo }) {
-    return (
-        <div className="mt-auto pt-2 border-t border-gray-100 dark:border-gray-700">
-            <div className="text-center">
-                <div className="text-2xl font-bold text-gray-700 dark:text-gray-300">{info?.count ?? 0}</div>
-                <div className="text-[10px] text-gray-500 dark:text-gray-400">権限数</div>
-            </div>
-        </div>
-    );
-}
-
 function InvitationsContent({ info }: { info?: InvitationsInfo }) {
     const hasPending = (info?.pendingCount ?? 0) > 0;
     const hasRequests = (info?.joinRequestsCount ?? 0) > 0;
 
     return (
-        <div className="flex gap-2 mt-auto pt-2 border-t border-gray-100 dark:border-gray-700">
+        <div className={`flex gap-2 ${contentBaseClass}`}>
             <div className="flex-1 text-center">
                 <div className={`text-lg font-bold ${hasPending ? "text-blue-500 dark:text-blue-400" : "text-gray-400 dark:text-gray-500"}`}>
                     {info?.pendingCount ?? 0}
@@ -396,7 +437,7 @@ function ResumesContent({ info }: { info?: ResumesInfo }) {
     const hasPending = (info?.pendingCount ?? 0) > 0;
 
     return (
-        <div className="mt-auto pt-2 border-t border-gray-100 dark:border-gray-700">
+        <div className={contentBaseClass}>
             <div className="flex items-center justify-center gap-2">
                 {hasPending && <AlertCircle className="h-4 w-4 text-yellow-500" />}
                 <div className={`text-2xl font-bold ${hasPending ? "text-yellow-500 dark:text-yellow-400" : "text-gray-400 dark:text-gray-500"}`}>
@@ -413,7 +454,7 @@ function QueueContent({ info }: { info?: QueueInfo }) {
     const hasWaiting = (info?.waitingCount ?? 0) > 0;
 
     return (
-        <div className="mt-auto pt-2 border-t border-gray-100 dark:border-gray-700">
+        <div className={contentBaseClass}>
             <div className="text-center">
                 <div className={`text-2xl font-bold ${hasWaiting ? "text-orange-500 dark:text-orange-400" : "text-gray-400 dark:text-gray-500"}`}>
                     {info?.waitingCount ?? 0}
@@ -428,7 +469,7 @@ function ReservationContent({ info }: { info?: ReservationInfo }) {
     const hasReservations = (info?.todayCount ?? 0) > 0;
 
     return (
-        <div className="mt-auto pt-2 border-t border-gray-100 dark:border-gray-700">
+        <div className={contentBaseClass}>
             <div className="text-center">
                 <div className={`text-2xl font-bold ${hasReservations ? "text-blue-500 dark:text-blue-400" : "text-gray-400 dark:text-gray-500"}`}>
                     {info?.todayCount ?? 0}
@@ -441,7 +482,7 @@ function ReservationContent({ info }: { info?: ReservationInfo }) {
 
 function FloorContent({ info }: { info?: FloorInfo }) {
     return (
-        <div className="flex gap-2 mt-auto pt-2 border-t border-gray-100 dark:border-gray-700">
+        <div className={`flex gap-2 ${contentBaseClass}`}>
             <div className="flex-1 text-center">
                 <div className="text-lg font-bold text-blue-500 dark:text-blue-400">{info?.activeTableCount ?? 0}</div>
                 <div className="text-[10px] text-gray-500 dark:text-gray-400">稼働卓</div>
@@ -456,7 +497,7 @@ function FloorContent({ info }: { info?: FloorInfo }) {
 
 function SeatsContent({ info }: { info?: SeatsInfo }) {
     return (
-        <div className="mt-auto pt-2 border-t border-gray-100 dark:border-gray-700">
+        <div className={contentBaseClass}>
             <div className="text-center">
                 <div className="text-2xl font-bold text-gray-700 dark:text-gray-300">{info?.count ?? 0}</div>
                 <div className="text-[10px] text-gray-500 dark:text-gray-400">席数</div>
@@ -469,7 +510,7 @@ function SlipsContent({ info }: { info?: SlipsInfo }) {
     const hasUnpaid = (info?.unpaidCount ?? 0) > 0;
 
     return (
-        <div className="mt-auto pt-2 border-t border-gray-100 dark:border-gray-700">
+        <div className={contentBaseClass}>
             <div className="text-center">
                 <div className={`text-2xl font-bold ${hasUnpaid ? "text-orange-500 dark:text-orange-400" : "text-gray-400 dark:text-gray-500"}`}>
                     {info?.unpaidCount ?? 0}
@@ -482,7 +523,7 @@ function SlipsContent({ info }: { info?: SlipsInfo }) {
 
 function MenusContent({ info }: { info?: MenusInfo }) {
     return (
-        <div className="mt-auto pt-2 border-t border-gray-100 dark:border-gray-700">
+        <div className={contentBaseClass}>
             <div className="text-center">
                 <div className="text-2xl font-bold text-gray-700 dark:text-gray-300">{info?.count ?? 0}</div>
                 <div className="text-[10px] text-gray-500 dark:text-gray-400">メニュー数</div>
@@ -493,7 +534,7 @@ function MenusContent({ info }: { info?: MenusInfo }) {
 
 function BottlesContent({ info }: { info?: BottlesInfo }) {
     return (
-        <div className="mt-auto pt-2 border-t border-gray-100 dark:border-gray-700">
+        <div className={contentBaseClass}>
             <div className="text-center">
                 <div className="text-2xl font-bold text-gray-700 dark:text-gray-300">{info?.activeCount ?? 0}</div>
                 <div className="text-[10px] text-gray-500 dark:text-gray-400">キープ中</div>
@@ -506,7 +547,7 @@ function ShoppingContent({ info }: { info?: ShoppingInfo }) {
     const hasLowStock = (info?.lowStockCount ?? 0) > 0;
 
     return (
-        <div className="mt-auto pt-2 border-t border-gray-100 dark:border-gray-700">
+        <div className={contentBaseClass}>
             <div className="flex items-center justify-center gap-2">
                 {hasLowStock && <AlertCircle className="h-4 w-4 text-orange-500" />}
                 <div className={`text-2xl font-bold ${hasLowStock ? "text-orange-500 dark:text-orange-400" : "text-gray-400 dark:text-gray-500"}`}>
@@ -524,7 +565,7 @@ function SalesContent({ info }: { info?: SalesInfo }) {
     const formattedSales = `¥${sales.toLocaleString()}`;
 
     return (
-        <div className="mt-auto pt-2 border-t border-gray-100 dark:border-gray-700">
+        <div className={contentBaseClass}>
             <div className="text-center">
                 <div className={`text-xl font-bold ${sales > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-gray-400 dark:text-gray-500"}`}>
                     {formattedSales}
@@ -540,7 +581,7 @@ function PayrollContent({ info }: { info?: PayrollInfo }) {
     const formattedPayroll = `¥${payroll.toLocaleString()}`;
 
     return (
-        <div className="mt-auto pt-2 border-t border-gray-100 dark:border-gray-700">
+        <div className={contentBaseClass}>
             <div className="text-center">
                 <div className={`text-xl font-bold ${payroll > 0 ? "text-orange-600 dark:text-orange-400" : "text-gray-400 dark:text-gray-500"}`}>
                     {formattedPayroll}
@@ -552,11 +593,11 @@ function PayrollContent({ info }: { info?: PayrollInfo }) {
 }
 
 function PricingContent() {
-    return null;
+    return <div className={contentBaseClass} />;
 }
 
 function SalaryContent() {
-    return null;
+    return <div className={contentBaseClass} />;
 }
 
 function RankingContent({ info }: { info?: RankingInfo }) {
@@ -568,7 +609,7 @@ function RankingContent({ info }: { info?: RankingInfo }) {
     ];
 
     return (
-        <div className="mt-auto pt-2 border-t border-gray-100 dark:border-gray-700">
+        <div className={contentBaseClass}>
             {top3.length === 0 ? (
                 <div className="text-center text-xs text-gray-400 dark:text-gray-500 py-1">
                     データなし
@@ -591,12 +632,12 @@ function RankingContent({ info }: { info?: RankingInfo }) {
 }
 
 // ========== COMMUNITY TAB CONTENTS ==========
-function BoardContent({ info }: { info?: BoardInfo }) {
+function BoardContent({ info, manualsInfo }: { info?: BoardInfo; manualsInfo?: ManualsInfo }) {
     const hasUnreadPosts = (info?.unreadPostsCount ?? 0) > 0;
-    const hasUnreadManuals = (info?.unreadManualsCount ?? 0) > 0;
+    const hasUnreadManuals = (manualsInfo?.unreadManualsCount ?? 0) > 0;
 
     return (
-        <div className="flex gap-2 mt-auto pt-2 border-t border-gray-100 dark:border-gray-700">
+        <div className={`flex gap-2 ${contentBaseClass}`}>
             <div className="flex-1 text-center">
                 <div className="flex items-center justify-center gap-1">
                     <span className={`text-lg font-bold ${hasUnreadPosts ? "text-blue-500 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}>
@@ -604,20 +645,16 @@ function BoardContent({ info }: { info?: BoardInfo }) {
                     </span>
                     <span className="text-xs text-gray-400 dark:text-gray-500">/ {info?.postsCount ?? 0}</span>
                 </div>
-                <div className="text-[10px] text-gray-500 dark:text-gray-400">
-                    {hasUnreadPosts ? "未読" : "掲示板"}
-                </div>
+                <div className="text-[10px] text-gray-500 dark:text-gray-400">掲示板</div>
             </div>
             <div className="flex-1 text-center">
                 <div className="flex items-center justify-center gap-1">
                     <span className={`text-lg font-bold ${hasUnreadManuals ? "text-blue-500 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}>
-                        {info?.unreadManualsCount ?? 0}
+                        {manualsInfo?.unreadManualsCount ?? 0}
                     </span>
-                    <span className="text-xs text-gray-400 dark:text-gray-500">/ {info?.manualsCount ?? 0}</span>
+                    <span className="text-xs text-gray-400 dark:text-gray-500">/ {manualsInfo?.manualsCount ?? 0}</span>
                 </div>
-                <div className="text-[10px] text-gray-500 dark:text-gray-400">
-                    {hasUnreadManuals ? "未読" : "マニュアル"}
-                </div>
+                <div className="text-[10px] text-gray-500 dark:text-gray-400">マニュアル</div>
             </div>
         </div>
     );
@@ -625,7 +662,7 @@ function BoardContent({ info }: { info?: BoardInfo }) {
 
 function SnsContent({ info }: { info?: SnsInfo }) {
     return (
-        <div className="flex gap-2 mt-auto pt-2 border-t border-gray-100 dark:border-gray-700">
+        <div className={`flex gap-2 ${contentBaseClass}`}>
             <div className="flex-1 text-center">
                 <div className="text-lg font-bold text-green-500 dark:text-green-400">{info?.todayCount ?? 0}</div>
                 <div className="text-[10px] text-gray-500 dark:text-gray-400">今日の投稿</div>
@@ -642,7 +679,7 @@ function AICreateContent({ info }: { info?: AICreateInfo }) {
     const credits = info?.credits ?? 0;
 
     return (
-        <div className="mt-auto pt-2 border-t border-gray-100 dark:border-gray-700">
+        <div className={contentBaseClass}>
             <div className="flex items-center justify-center gap-2">
                 <Zap className="h-4 w-4 text-yellow-500" />
                 <div className="text-2xl font-bold text-violet-500 dark:text-violet-400">
@@ -650,6 +687,17 @@ function AICreateContent({ info }: { info?: AICreateInfo }) {
                 </div>
             </div>
             <div className="text-[10px] text-gray-500 dark:text-gray-400 text-center">クレジット</div>
+        </div>
+    );
+}
+
+function ServicesContent() {
+    return (
+        <div className={contentBaseClass}>
+            <div className="text-center">
+                <div className="text-2xl font-bold text-blue-500 dark:text-blue-400">5</div>
+                <div className="text-[10px] text-gray-500 dark:text-gray-400">サービス</div>
+            </div>
         </div>
     );
 }
@@ -665,7 +713,7 @@ const tabs: TabDefinition[] = [
     { key: "shift", label: "シフト", icon: <Calendar className="h-5 w-5" /> },
     { key: "user", label: "ユーザー", icon: <Users className="h-5 w-5" /> },
     { key: "floor", label: "フロア", icon: <Layout className="h-5 w-5" /> },
-    { key: "salary", label: "料金給与", icon: <Coins className="h-5 w-5" /> },
+    { key: "store", label: "店舗", icon: <Store className="h-5 w-5" /> },
     { key: "community", label: "コミュニティ", icon: <MessageCircle className="h-5 w-5" /> },
 ];
 
@@ -695,7 +743,7 @@ const getTabMenus = (props: TabMenuCardsProps): Record<TabKey, MenuCard[]> => ({
         },
         {
             href: "/app/shifts",
-            label: "シフト",
+            label: "シフト管理",
             icon: <CalendarDays className="h-5 w-5" />,
             content: <ShiftContent info={props.shiftInfo} />,
             pageKey: "shifts",
@@ -717,25 +765,18 @@ const getTabMenus = (props: TabMenuCardsProps): Record<TabKey, MenuCard[]> => ({
             pageKey: "users",
         },
         {
-            href: "/app/resumes",
-            label: "履歴書",
-            icon: <FileText className="h-5 w-5" />,
-            content: <ResumesContent info={props.resumesInfo} />,
-            pageKey: "resumes",
-        },
-        {
-            href: "/app/roles",
-            label: "権限",
-            icon: <Shield className="h-5 w-5" />,
-            content: <RolesContent info={props.rolesInfo} />,
-            pageKey: "roles",
-        },
-        {
             href: "/app/invitations",
             label: "招待",
             icon: <Mail className="h-5 w-5" />,
             content: <InvitationsContent info={props.invitationsInfo} />,
             pageKey: "invitations",
+        },
+        {
+            href: "/app/resumes",
+            label: "履歴書",
+            icon: <FileText className="h-5 w-5" />,
+            content: <ResumesContent info={props.resumesInfo} />,
+            pageKey: "resumes",
         },
     ],
     floor: [
@@ -745,27 +786,6 @@ const getTabMenus = (props: TabMenuCardsProps): Record<TabKey, MenuCard[]> => ({
             icon: <LayoutGrid className="h-5 w-5" />,
             content: <FloorContent info={props.floorInfo} />,
             pageKey: "floor",
-        },
-        {
-            href: "/app/queue",
-            label: "順番待ち",
-            icon: <ClipboardList className="h-5 w-5" />,
-            content: <QueueContent info={props.queueInfo} />,
-            pageKey: "queue",
-        },
-        {
-            href: "/app/reservations",
-            label: "予約",
-            icon: <CalendarRange className="h-5 w-5" />,
-            content: <ReservationContent info={props.reservationInfo} />,
-            pageKey: "reservations",
-        },
-        {
-            href: "/app/seats",
-            label: "席エディター",
-            icon: <Armchair className="h-5 w-5" />,
-            content: <SeatsContent info={props.seatsInfo} />,
-            pageKey: "seats",
         },
         {
             href: "/app/slips",
@@ -789,14 +809,21 @@ const getTabMenus = (props: TabMenuCardsProps): Record<TabKey, MenuCard[]> => ({
             pageKey: "bottles",
         },
         {
-            href: "/app/shopping",
-            label: "買い出し",
-            icon: <ShoppingCart className="h-5 w-5" />,
-            content: <ShoppingContent info={props.shoppingInfo} />,
-            pageKey: "shopping",
+            href: "/app/reservations",
+            label: "予約",
+            icon: <CalendarRange className="h-5 w-5" />,
+            content: <ReservationContent info={props.reservationInfo} />,
+            pageKey: "reservations",
+        },
+        {
+            href: "/app/queue",
+            label: "順番待ち",
+            icon: <ClipboardList className="h-5 w-5" />,
+            content: <QueueContent info={props.queueInfo} />,
+            pageKey: "queue",
         },
     ],
-    salary: [
+    store: [
         {
             href: "/app/sales",
             label: "売上",
@@ -812,13 +839,6 @@ const getTabMenus = (props: TabMenuCardsProps): Record<TabKey, MenuCard[]> => ({
             pageKey: "payroll",
         },
         {
-            href: "/app/ranking",
-            label: "ランキング",
-            icon: <Trophy className="h-5 w-5" />,
-            content: <RankingContent info={props.rankingInfo} />,
-            pageKey: "ranking",
-        },
-        {
             href: "/app/pricing-systems",
             label: "料金システム",
             icon: <Coins className="h-5 w-5" />,
@@ -832,18 +852,39 @@ const getTabMenus = (props: TabMenuCardsProps): Record<TabKey, MenuCard[]> => ({
             content: <SalaryContent />,
             pageKey: "salary-systems",
         },
+        {
+            href: "/app/seats",
+            label: "席エディター",
+            icon: <Armchair className="h-5 w-5" />,
+            content: <SeatsContent info={props.seatsInfo} />,
+            pageKey: "seats",
+        },
+        {
+            href: "/app/shopping",
+            label: "買い出し",
+            icon: <ShoppingCart className="h-5 w-5" />,
+            content: <ShoppingContent info={props.shoppingInfo} />,
+            pageKey: "shopping",
+        },
     ],
     community: [
         {
             href: "/app/board",
             label: "掲示板",
             icon: <MessageCircle className="h-5 w-5" />,
-            content: <BoardContent info={props.boardInfo} />,
+            content: <BoardContent info={props.boardInfo} manualsInfo={props.manualsInfo} />,
             pageKey: "board",
         },
         {
+            href: "/app/ranking",
+            label: "ランキング",
+            icon: <Trophy className="h-5 w-5" />,
+            content: <RankingContent info={props.rankingInfo} />,
+            pageKey: "ranking",
+        },
+        {
             href: "/app/sns",
-            label: "SNS",
+            label: "SNS投稿",
             icon: <Share2 className="h-5 w-5" />,
             content: <SnsContent info={props.snsInfo} />,
             pageKey: "sns",
@@ -855,6 +896,13 @@ const getTabMenus = (props: TabMenuCardsProps): Record<TabKey, MenuCard[]> => ({
             content: <AICreateContent info={props.aiCreateInfo} />,
             pageKey: "ai-create",
         },
+        {
+            href: "/app/services",
+            label: "関連サービス",
+            icon: <Store className="h-5 w-5" />,
+            content: <ServicesContent />,
+            pageKey: "services",
+        },
     ],
 });
 
@@ -864,6 +912,37 @@ export function TabMenuCards(props: TabMenuCardsProps) {
     const dashboardTab = useDashboardTab();
     const activeTab = dashboardTab?.activeTab ?? "shift";
     const setActiveTab = dashboardTab?.setActiveTab ?? (() => {});
+    const [isPending, startTransition] = useTransition();
+    const [navigatingTo, setNavigatingTo] = useState<string | null>(null);
+
+    const handleCardClick = (href: string) => {
+        setNavigatingTo(href);
+        startTransition(() => {
+            router.push(href);
+        });
+    };
+
+    // URLパラメータからタブを読み取る
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const tabParam = params.get("tab") as TabKey | null;
+        if (tabParam && ["shift", "user", "floor", "store", "community"].includes(tabParam)) {
+            setActiveTab(tabParam);
+            // URLからパラメータを削除
+            router.replace("/app/dashboard", { scroll: false });
+        }
+    }, [setActiveTab, router]);
+
+    // 全タブのメニューをプリフェッチ（高速遷移のため）
+    useEffect(() => {
+        const tabMenus = getTabMenus(props);
+        const allHrefs = Object.values(tabMenus).flat().map(menu => menu.href);
+        // 重複を除去してプリフェッチ
+        const uniqueHrefs = [...new Set(allHrefs)];
+        uniqueHrefs.forEach(href => {
+            router.prefetch(href);
+        });
+    }, [router, props]);
 
     // Show access denied toast if message is present
     useEffect(() => {
@@ -872,13 +951,15 @@ export function TabMenuCards(props: TabMenuCardsProps) {
             // Clean up the URL by removing the query parameter
             router.replace("/app/dashboard", { scroll: false });
         }
-    }, [props.accessDeniedMessage, router, toast]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [props.accessDeniedMessage]);
 
     const tabMenus = getTabMenus(props);
     const allMenus = tabMenus[activeTab] || tabMenus.shift;
 
-    // Filter menus based on permissions
+    // Filter menus based on feature visibility and permissions
     const menus = allMenus.filter(menu =>
+        isFeatureVisible(menu.pageKey, props.storeFeatures) &&
         hasPagePermission(menu.pageKey, props.userRole, props.userRoleId, props.permissions)
     );
 
@@ -898,24 +979,34 @@ export function TabMenuCards(props: TabMenuCardsProps) {
                     </p>
                 </div>
             ) : (
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                    {menus.map((menu) => (
-                        <Link
-                            key={menu.href}
-                            href={menu.href}
-                            className="flex flex-col p-4 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200 shadow-sm hover:shadow-md focus:outline-none focus-visible:outline-none min-h-[120px]"
-                        >
-                            <div className="flex items-center gap-2">
-                                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex-shrink-0">
-                                    {menu.icon}
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 auto-rows-fr">
+                    {menus.map((menu) => {
+                        const isNavigating = isPending && navigatingTo === menu.href;
+                        return (
+                            <button
+                                type="button"
+                                key={menu.href}
+                                onClick={() => handleCardClick(menu.href)}
+                                disabled={isPending}
+                                className="flex flex-col p-4 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200 shadow-sm hover:shadow-md focus:outline-none focus-visible:outline-none disabled:opacity-70 disabled:cursor-wait text-left relative"
+                            >
+                                {isNavigating && (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-gray-800/80 rounded-2xl z-10">
+                                        <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+                                    </div>
+                                )}
+                                <div className="flex items-center gap-2">
+                                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex-shrink-0">
+                                        {menu.icon}
+                                    </div>
+                                    <span className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                                        {menu.label}
+                                    </span>
                                 </div>
-                                <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                                    {menu.label}
-                                </span>
-                            </div>
-                            {menu.content}
-                        </Link>
-                    ))}
+                                {menu.content}
+                            </button>
+                        );
+                    })}
                 </div>
             )}
 

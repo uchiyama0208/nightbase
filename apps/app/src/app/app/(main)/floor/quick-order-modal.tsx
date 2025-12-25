@@ -158,7 +158,7 @@ export function QuickOrderModal({ session, table, open, onOpenChange, onOrderCom
         // Filter by target
         if (selectedTarget === 'table') {
             // Show all visible menus
-        } else if (selectedTarget.startsWith('guest:')) {
+        } else if (selectedTarget.startsWith('guest:') || selectedTarget.startsWith('session_guest:')) {
             // Show guest menus
             filtered = filtered.filter(m => m.is_for_guest);
         } else if (selectedTarget.startsWith('cast:')) {
@@ -239,14 +239,17 @@ export function QuickOrderModal({ session, table, open, onOpenChange, onOrderCom
         try {
             let guestId: string | null = null;
             let castId: string | null = null;
+            let sessionGuestId: string | null = null;
 
             if (selectedTarget.startsWith('guest:')) {
                 guestId = selectedTarget.replace('guest:', '');
+            } else if (selectedTarget.startsWith('session_guest:')) {
+                sessionGuestId = selectedTarget.replace('session_guest:', '');
             } else if (selectedTarget.startsWith('cast:')) {
                 castId = selectedTarget.replace('cast:', '');
             }
 
-            await createOrder(session.id, items, guestId, castId);
+            await createOrder(session.id, items, guestId, castId, sessionGuestId);
             toast({ title: "注文を送信しました" });
             onOrderComplete();
             onOpenChange(false);
@@ -315,30 +318,36 @@ export function QuickOrderModal({ session, table, open, onOpenChange, onOrderCom
         // Add table option
         optionsMap.set("table", { value: "table", label: "テーブル全体" });
 
-        if ((session as any)?.cast_assignments) {
-            (session as any).cast_assignments.forEach((assignment: any) => {
-                // If this is a guest assignment (guest_id exists and guest_profile is populated)
-                if (assignment.guest_id && assignment.guest_profile) {
-                    const guestKey = `guest:${assignment.guest_id}`;
-                    if (!optionsMap.has(guestKey)) {
-                        optionsMap.set(guestKey, {
-                            value: guestKey,
-                            label: assignment.guest_profile?.display_name || "ゲスト"
-                        });
-                    }
+        // V2 structure: session_guests
+        const sessionGuests = (session as any)?.session_guests || [];
+        sessionGuests.forEach((sg: any) => {
+            // Get guest info from profiles or guest_name
+            const guestName = sg.profiles?.display_name || sg.guest_name;
+            if (guestName) {
+                // Use guest_id if available, otherwise use session_guest id
+                const guestKey = sg.guest_id ? `guest:${sg.guest_id}` : `session_guest:${sg.id}`;
+                if (!optionsMap.has(guestKey)) {
+                    optionsMap.set(guestKey, {
+                        value: guestKey,
+                        label: guestName
+                    });
                 }
-                // If this is a cast assignment (cast_id !== guest_id)
-                if (assignment.cast_id !== assignment.guest_id) {
-                    const castKey = `cast:${assignment.cast_id}`;
-                    if (!optionsMap.has(castKey)) {
-                        optionsMap.set(castKey, {
-                            value: castKey,
-                            label: assignment.profiles?.display_name || "キャスト"
-                        });
-                    }
+            }
+        });
+
+        // Get unique casts from orders
+        const orders = (session as any)?.orders || [];
+        orders.forEach((order: any) => {
+            if (order.cast_id && order.profiles) {
+                const castKey = `cast:${order.cast_id}`;
+                if (!optionsMap.has(castKey)) {
+                    optionsMap.set(castKey, {
+                        value: castKey,
+                        label: order.profiles?.display_name || "キャスト"
+                    });
                 }
-            });
-        }
+            }
+        });
 
         return Array.from(optionsMap.values());
     }, [session]);
@@ -361,26 +370,28 @@ export function QuickOrderModal({ session, table, open, onOpenChange, onOrderCom
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className={`max-w-lg flex flex-col p-0 gap-0 ${needsFullHeight ? 'h-[85vh]' : ''}`}>
+                <DialogContent className={`sm:max-w-lg w-[95%] p-0 overflow-hidden flex flex-col max-h-[90vh] rounded-2xl bg-white dark:bg-gray-900 ${needsFullHeight ? 'h-[85vh]' : ''}`}>
                     {/* View: Order (Main) */}
                     {view === 'order' && (
                         <>
                             {/* Header */}
-                            <div className="px-3 py-2 border-b space-y-2">
-                                <div className="flex items-center gap-2">
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-7 w-7 -ml-1"
-                                        onClick={() => onOpenChange(false)}
-                                    >
-                                        <ChevronLeft className="h-5 w-5" />
-                                    </Button>
-                                    <DialogTitle className="text-base font-bold">{table?.name || "卓なし"} - クイック注文</DialogTitle>
-                                </div>
+                            <DialogHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900 flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
+                                <button
+                                    type="button"
+                                    onClick={() => onOpenChange(false)}
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                    aria-label="戻る"
+                                >
+                                    <ChevronLeft className="h-4 w-4" />
+                                </button>
+                                <DialogTitle className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white truncate">{table?.name || "卓なし"} - クイック注文</DialogTitle>
+                                <div className="w-8 h-8" />
+                            </DialogHeader>
 
+                            {/* Target Selector */}
+                            <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
                                 <Select value={selectedTarget} onValueChange={setSelectedTarget}>
-                                    <SelectTrigger className="w-full h-9">
+                                    <SelectTrigger className="w-full h-10">
                                         <SelectValue placeholder="頼んだ人を選択" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -396,25 +407,25 @@ export function QuickOrderModal({ session, table, open, onOpenChange, onOrderCom
                             {/* Main Content */}
                             <div className="flex-1 flex overflow-hidden">
                                 {/* Category Sidebar */}
-                                <div className="w-24 border-r bg-slate-50 dark:bg-slate-900 flex flex-col">
+                                <div className="w-24 border-r bg-gray-50 dark:bg-gray-900 flex flex-col">
                                     <div className="flex-1 overflow-y-auto">
                                         {categories.map(category => (
                                             <button
                                                 key={category.id}
                                                 onClick={() => setSelectedCategoryId(category.id)}
-                                                className={`w-full px-2 py-3 text-xs text-left border-b border-slate-200 dark:border-slate-700 transition-colors ${selectedCategoryId === category.id
+                                                className={`w-full px-2 py-3 text-xs text-left border-b border-gray-200 dark:border-gray-700 transition-colors ${selectedCategoryId === category.id
                                                     ? "bg-blue-500 text-white font-medium"
-                                                    : "hover:bg-slate-100 dark:hover:bg-slate-800"
+                                                    : "hover:bg-gray-50 dark:hover:bg-gray-700"
                                                     }`}
                                             >
                                                 {category.name}
                                             </button>
                                         ))}
                                     </div>
-                                    <div className="p-1 border-t border-slate-200 dark:border-slate-700">
+                                    <div className="p-1 border-t border-gray-200 dark:border-gray-700">
                                         <button
                                             type="button"
-                                            className="w-full px-1 py-2 text-[10px] text-muted-foreground hover:text-foreground hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors"
+                                            className="w-full px-1 py-2 text-[10px] text-muted-foreground hover:text-foreground hover:bg-gray-50 dark:hover:bg-gray-700 rounded transition-colors"
                                             onClick={() => setView('menu-type-select')}
                                         >
                                             メニュー作成
@@ -432,7 +443,7 @@ export function QuickOrderModal({ session, table, open, onOpenChange, onOrderCom
                                             return (
                                                 <div
                                                     key={menu.id}
-                                                    className={`flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 ${isOutOfStock ? 'opacity-50' : ''}`}
+                                                    className={`flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 ${isOutOfStock ? 'opacity-50' : ''}`}
                                                 >
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center gap-2">
@@ -487,7 +498,7 @@ export function QuickOrderModal({ session, table, open, onOpenChange, onOrderCom
                                                                 className="h-8 w-8"
                                                                 onClick={() => addToCart(menu.id)}
                                                             >
-                                                                <Plus className="h-4 w-4" />
+                                                                <Plus className="h-5 w-5" />
                                                             </Button>
                                                         )}
                                                     </div>
@@ -505,7 +516,7 @@ export function QuickOrderModal({ session, table, open, onOpenChange, onOrderCom
                             </div>
 
                             {/* Footer */}
-                            <div className="px-3 py-2 border-t bg-slate-50 dark:bg-slate-900 space-y-2">
+                            <div className="px-3 py-2 border-t bg-gray-50 dark:bg-gray-900 space-y-2">
                                 {totalItems > 0 && (
                                     <div className="flex items-center justify-between text-sm">
                                         <div className="flex items-center gap-2">
@@ -539,17 +550,18 @@ export function QuickOrderModal({ session, table, open, onOpenChange, onOrderCom
                     {/* View: Menu Type Selection */}
                     {view === 'menu-type-select' && (
                         <>
-                            <div className="px-3 py-2 border-b flex items-center gap-2">
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7 -ml-1"
+                            <DialogHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900 flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
+                                <button
+                                    type="button"
                                     onClick={() => setView('order')}
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                    aria-label="戻る"
                                 >
-                                    <ChevronLeft className="h-5 w-5" />
-                                </Button>
-                                <DialogTitle className="text-base font-bold">メニュー作成方法を選択</DialogTitle>
-                            </div>
+                                    <ChevronLeft className="h-4 w-4" />
+                                </button>
+                                <DialogTitle className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white truncate">メニュー作成方法を選択</DialogTitle>
+                                <div className="w-8 h-8" />
+                            </DialogHeader>
                             <div className="flex-1 flex flex-col items-center justify-center p-6 gap-3">
                                 <Button
                                     className="w-full max-w-sm h-12"
@@ -571,20 +583,21 @@ export function QuickOrderModal({ session, table, open, onOpenChange, onOrderCom
                     {/* View: Create Temporary Menu */}
                     {view === 'create-temp-menu' && (
                         <>
-                            <div className="px-3 py-2 border-b flex items-center gap-2">
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7 -ml-1"
+                            <DialogHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900 flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
+                                <button
+                                    type="button"
                                     onClick={() => setView('menu-type-select')}
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                    aria-label="戻る"
                                 >
-                                    <ChevronLeft className="h-5 w-5" />
-                                </Button>
-                                <DialogTitle className="text-base font-bold">一時メニュー作成</DialogTitle>
-                            </div>
+                                    <ChevronLeft className="h-4 w-4" />
+                                </button>
+                                <DialogTitle className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white truncate">一時メニュー作成</DialogTitle>
+                                <div className="w-8 h-8" />
+                            </DialogHeader>
                             <div className="p-4 space-y-4">
                                 <div className="space-y-2">
-                                    <Label htmlFor="menu-name">メニュー名</Label>
+                                    <Label htmlFor="menu-name" className="text-sm font-medium text-gray-700 dark:text-gray-200">メニュー名</Label>
                                     <Input
                                         id="menu-name"
                                         value={newMenuName}
@@ -593,7 +606,7 @@ export function QuickOrderModal({ session, table, open, onOpenChange, onOrderCom
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="menu-price">金額 (円)</Label>
+                                    <Label htmlFor="menu-price" className="text-sm font-medium text-gray-700 dark:text-gray-200">金額 (円)</Label>
                                     <Input
                                         id="menu-price"
                                         type="number"
@@ -613,21 +626,22 @@ export function QuickOrderModal({ session, table, open, onOpenChange, onOrderCom
                     {/* View: History */}
                     {view === 'history' && (
                         <>
-                            <div className="px-3 py-2 border-b space-y-2">
-                                <div className="flex items-center gap-2">
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-7 w-7 -ml-1"
-                                        onClick={() => setView('order')}
-                                    >
-                                        <ChevronLeft className="h-5 w-5" />
-                                    </Button>
-                                    <DialogTitle className="text-base font-bold">注文履歴</DialogTitle>
-                                </div>
+                            <DialogHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900 flex !flex-row items-center gap-2 h-14 min-h-[3.5rem] flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setView('order')}
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                    aria-label="戻る"
+                                >
+                                    <ChevronLeft className="h-4 w-4" />
+                                </button>
+                                <DialogTitle className="flex-1 text-center text-lg font-semibold text-gray-900 dark:text-white truncate">注文履歴</DialogTitle>
+                                <div className="w-8 h-8" />
+                            </DialogHeader>
 
+                            <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
                                 <Select value={historyFilter} onValueChange={setHistoryFilter}>
-                                    <SelectTrigger className="w-full h-9">
+                                    <SelectTrigger className="w-full h-10">
                                         <SelectValue placeholder="表示対象を選択" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -648,13 +662,13 @@ export function QuickOrderModal({ session, table, open, onOpenChange, onOrderCom
                                         </div>
                                     ) : (
                                         filteredHistory.map((order) => (
-                                            <div key={order.id} className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-4 last:border-0">
+                                            <div key={order.id} className="flex justify-between items-center border-b border-gray-100 dark:border-gray-800 pb-4 last:border-0">
                                                 <div className="flex-1">
                                                     <div className="font-medium text-base">
                                                         {order.item_name || order.menu?.name || "不明な商品"}
                                                     </div>
                                                     <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
-                                                        <span className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
+                                                        <span className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">
                                                             <Clock className="h-3 w-3" />
                                                             {formatTime(order.created_at)}
                                                         </span>
@@ -670,7 +684,7 @@ export function QuickOrderModal({ session, table, open, onOpenChange, onOrderCom
                                                                 {order.guest.display_name}
                                                             </span>
                                                         ) : (
-                                                            <span className="flex items-center gap-1 text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
+                                                            <span className="flex items-center gap-1 text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">
                                                                 <Users className="h-3 w-3" />
                                                                 テーブル全体
                                                             </span>
@@ -701,7 +715,7 @@ export function QuickOrderModal({ session, table, open, onOpenChange, onOrderCom
                             </ScrollArea>
 
                             {/* Footer for History View */}
-                            <div className="px-3 py-2 border-t bg-slate-50 dark:bg-slate-900 space-y-2">
+                            <div className="px-3 py-2 border-t bg-gray-50 dark:bg-gray-900 space-y-2">
                                 {totalItems > 0 && (
                                     <div className="flex items-center justify-between text-sm">
                                         <div className="flex items-center gap-2">

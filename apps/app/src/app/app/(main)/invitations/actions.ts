@@ -3,7 +3,8 @@
 import { createServerClient } from "@/lib/supabaseServerClient";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
-import { getRoles } from "../roles/actions";
+import { getRoles } from "../settings/roles/actions";
+import { canAddMember } from "@/lib/subscription";
 
 export interface Invitation {
     id: string;
@@ -224,6 +225,12 @@ export async function createInvitation(data: {
 
     if (!currentProfile?.store_id) throw new Error("No store found");
 
+    // Check member limit
+    const canAdd = await canAddMember(currentProfile.store_id);
+    if (!canAdd) {
+        throw new Error("Member limit reached. Please upgrade your plan.");
+    }
+
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + data.expiresInDays);
 
@@ -357,16 +364,20 @@ export async function getUninvitedProfiles(storeId?: string) {
         storeId = currentProfile.store_id;
     }
 
-    // Get all profiles for the store
+    // Get profiles that can be invited:
+    // - Not yet accepted by the actual person (invite_status != 'accepted')
+    // - Not currently being invited (invite_expires_at IS NULL)
+    //   Note: When an invitation is canceled, invite_expires_at is set to NULL
+    //   So this query returns profiles that are either:
+    //   1. Never invited (invite_expires_at is NULL from the start)
+    //   2. Invitation was canceled (invite_expires_at set to NULL)
+    // Note: We don't filter by user_id because it may be set to the creator's ID
     const { data: profiles } = await supabase
         .from("profiles")
-        .select("id, display_name, display_name_kana, role, avatar_url")
+        .select("id, display_name, display_name_kana, role, avatar_url, invite_status")
         .eq("store_id", storeId)
-        .is("user_id", null); // Only profiles not yet linked to a user? 
-    // Wait, the requirement is "invite profiles". Usually this means profiles that exist but don't have a user account yet?
-    // Or just any profile? The prompt says "profilesデータのユーザーを招待できるようにして".
-    // "profiles data's user" -> invite a user TO a profile.
-    // So we should filter profiles that `user_id` is NULL.
+        .neq("invite_status", "accepted")
+        .is("invite_expires_at", null);
 
     return profiles || [];
 }
@@ -421,11 +432,11 @@ export async function getInvitationsData() {
             .order("created_at", { ascending: false })
             .then(res => res.data || []),
         supabase
-            .from("stores")
-            .select("id, allow_join_requests, allow_join_by_code, allow_join_by_url")
-            .eq("id", storeId)
+            .from("store_settings")
+            .select("store_id, allow_join_requests, allow_join_by_code, allow_join_by_url")
+            .eq("store_id", storeId)
             .single()
-            .then(res => res.data)
+            .then((res: any) => res.data ? { ...res.data, id: res.data.store_id } : null)
     ]);
 
     const joinRequestsCount = joinRequests.filter(jr => jr.status === "pending").length;
@@ -580,13 +591,13 @@ export async function updateJoinRequestSettings(settings: {
     }
 
     const { error } = await supabase
-        .from("stores")
+        .from("store_settings")
         .update({
             allow_join_requests: settings.allowJoinRequests,
             allow_join_by_code: settings.allowJoinByCode,
             allow_join_by_url: settings.allowJoinByUrl,
         })
-        .eq("id", currentProfile.store_id);
+        .eq("store_id", currentProfile.store_id);
 
     if (error) {
         console.error("Error updating join request settings:", error);

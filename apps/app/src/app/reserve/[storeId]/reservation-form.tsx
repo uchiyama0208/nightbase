@@ -11,7 +11,11 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Loader2, Check } from "lucide-react";
-import { submitReservation } from "./actions";
+import { submitReservation, type CustomField } from "./actions";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+
+type ContactSetting = "hidden" | "optional" | "required";
 
 interface Store {
     id: string;
@@ -20,6 +24,9 @@ interface Store {
     business_start_time: string | null;
     business_end_time: string | null;
     closed_days: string[] | null;
+    reservation_email_setting: ContactSetting;
+    reservation_phone_setting: ContactSetting;
+    reservation_cast_selection_enabled: boolean;
 }
 
 // 曜日名から曜日番号へのマッピング（Date.getDay()と同じ順序）
@@ -52,6 +59,7 @@ interface Cast {
 interface ReservationFormProps {
     store: Store;
     casts: Cast[];
+    customFields: CustomField[];
 }
 
 // 時間選択肢を生成（店舗の営業時間に基づく、30分刻み）
@@ -105,11 +113,13 @@ function generateTimeOptions(startTime: string | null, endTime: string | null) {
     return options;
 }
 
-export function ReservationForm({ store, casts }: ReservationFormProps) {
+export function ReservationForm({ store, casts, customFields }: ReservationFormProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [contactType, setContactType] = useState<"email" | "phone">("email");
+    const [email, setEmail] = useState("");
+    const [phone, setPhone] = useState("");
+    const [customAnswers, setCustomAnswers] = useState<Record<string, string>>({});
 
     const timeOptions = generateTimeOptions(store.business_start_time, store.business_end_time);
     // デフォルト予約時間: 営業開始時間または20:00
@@ -133,9 +143,45 @@ export function ReservationForm({ store, casts }: ReservationFormProps) {
         setIsSubmitting(true);
         setError(null);
 
+        // バリデーション
+        const emailRequired = store.reservation_email_setting === "required";
+        const phoneRequired = store.reservation_phone_setting === "required";
+
+        if (emailRequired && !email.trim()) {
+            setError("メールアドレスを入力してください");
+            setIsSubmitting(false);
+            return;
+        }
+
+        if (phoneRequired && !phone.trim()) {
+            setError("電話番号を入力してください");
+            setIsSubmitting(false);
+            return;
+        }
+
+        // カスタム質問の必須チェック
+        for (const field of customFields) {
+            if (field.is_required) {
+                const value = customAnswers[field.id];
+                if (!value || value.trim() === "") {
+                    setError(`「${field.label}」を入力してください`);
+                    setIsSubmitting(false);
+                    return;
+                }
+            }
+        }
+
         const formData = new FormData(e.currentTarget);
         formData.set("store_id", store.id);
-        formData.set("contact_type", contactType);
+        formData.set("email", email);
+        formData.set("phone", phone);
+
+        // カスタム回答をJSONで追加
+        if (Object.keys(customAnswers).length > 0) {
+            const answers = Object.entries(customAnswers)
+                .map(([fieldId, value]) => ({ fieldId, value }));
+            formData.set("custom_answers", JSON.stringify(answers));
+        }
 
         const result = await submitReservation(formData);
 
@@ -282,7 +328,7 @@ export function ReservationForm({ store, casts }: ReservationFormProps) {
                 </div>
 
                 {/* 指名キャスト（任意） */}
-                {casts.length > 0 && (
+                {store.reservation_cast_selection_enabled && casts.length > 0 && (
                     <div className="space-y-1.5">
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
                             指名キャスト（任意）
@@ -303,46 +349,147 @@ export function ReservationForm({ store, casts }: ReservationFormProps) {
                     </div>
                 )}
 
-                {/* 連絡先種類 */}
-                <div className="space-y-1.5">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-                        連絡方法 <span className="text-red-500">*</span>
-                    </label>
-                    <div className="flex gap-2">
-                        <Button
-                            type="button"
-                            variant={contactType === "email" ? "default" : "outline"}
-                            className="flex-1 h-12 rounded-xl"
-                            onClick={() => setContactType("email")}
-                        >
-                            メール
-                        </Button>
-                        <Button
-                            type="button"
-                            variant={contactType === "phone" ? "default" : "outline"}
-                            className="flex-1 h-12 rounded-xl"
-                            onClick={() => setContactType("phone")}
-                        >
-                            電話番号(SMS)
-                        </Button>
+                {/* メールアドレス */}
+                {store.reservation_email_setting !== "hidden" && (
+                    <div className="space-y-1.5">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                            メールアドレス
+                            {store.reservation_email_setting === "required" && (
+                                <span className="text-red-500"> *</span>
+                            )}
+                            {store.reservation_email_setting === "optional" && (
+                                <span className="text-gray-400 text-xs ml-1">(任意)</span>
+                            )}
+                        </label>
+                        <Input
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="example@mail.com"
+                            required={store.reservation_email_setting === "required"}
+                            className="h-12 rounded-xl border-gray-200 bg-white text-base
+                                       focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0
+                                       dark:border-gray-700 dark:bg-gray-800"
+                        />
                     </div>
-                </div>
+                )}
 
-                {/* 連絡先入力 */}
-                <div className="space-y-1.5">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-                        {contactType === "phone" ? "SMS用電話番号" : "メールアドレス"} <span className="text-red-500">*</span>
-                    </label>
-                    <Input
-                        name="contact_value"
-                        type={contactType === "email" ? "email" : "tel"}
-                        placeholder={contactType === "phone" ? "090-1234-5678" : "example@mail.com"}
-                        required
-                        className="h-12 rounded-xl border-gray-200 bg-white text-base
-                                   focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0
-                                   dark:border-gray-700 dark:bg-gray-800"
-                    />
-                </div>
+                {/* 電話番号 */}
+                {store.reservation_phone_setting !== "hidden" && (
+                    <div className="space-y-1.5">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                            電話番号
+                            {store.reservation_phone_setting === "required" && (
+                                <span className="text-red-500"> *</span>
+                            )}
+                            {store.reservation_phone_setting === "optional" && (
+                                <span className="text-gray-400 text-xs ml-1">(任意)</span>
+                            )}
+                        </label>
+                        <Input
+                            type="tel"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                            placeholder="090-1234-5678"
+                            required={store.reservation_phone_setting === "required"}
+                            className="h-12 rounded-xl border-gray-200 bg-white text-base
+                                       focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0
+                                       dark:border-gray-700 dark:bg-gray-800"
+                        />
+                    </div>
+                )}
+
+                {/* カスタム質問 */}
+                {customFields.map((field) => (
+                    <div key={field.id} className="space-y-1.5">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                            {field.label}
+                            {field.is_required && <span className="text-red-500"> *</span>}
+                            {!field.is_required && (
+                                <span className="text-gray-400 text-xs ml-1">(任意)</span>
+                            )}
+                        </label>
+
+                        {/* テキスト入力 */}
+                        {field.field_type === "text" && (
+                            <Input
+                                value={customAnswers[field.id] || ""}
+                                onChange={(e) =>
+                                    setCustomAnswers((prev) => ({
+                                        ...prev,
+                                        [field.id]: e.target.value,
+                                    }))
+                                }
+                                className="h-12 rounded-xl border-gray-200 bg-white text-base
+                                           focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0
+                                           dark:border-gray-700 dark:bg-gray-800"
+                            />
+                        )}
+
+                        {/* テキストエリア */}
+                        {field.field_type === "textarea" && (
+                            <Textarea
+                                value={customAnswers[field.id] || ""}
+                                onChange={(e) =>
+                                    setCustomAnswers((prev) => ({
+                                        ...prev,
+                                        [field.id]: e.target.value,
+                                    }))
+                                }
+                                rows={3}
+                                className="rounded-xl border-gray-200 bg-white text-base
+                                           focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0
+                                           dark:border-gray-700 dark:bg-gray-800"
+                            />
+                        )}
+
+                        {/* 選択肢 */}
+                        {field.field_type === "select" && field.options && (
+                            <Select
+                                value={customAnswers[field.id] || ""}
+                                onValueChange={(v) =>
+                                    setCustomAnswers((prev) => ({
+                                        ...prev,
+                                        [field.id]: v,
+                                    }))
+                                }
+                            >
+                                <SelectTrigger className="h-12 rounded-xl border-gray-200 bg-white text-base dark:border-gray-700 dark:bg-gray-800">
+                                    <SelectValue placeholder="選択してください" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {field.options.map((option) => (
+                                        <SelectItem key={option} value={option}>
+                                            {option}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
+
+                        {/* チェックボックス */}
+                        {field.field_type === "checkbox" && (
+                            <div className="flex items-center gap-2 py-2">
+                                <Checkbox
+                                    id={`custom-${field.id}`}
+                                    checked={customAnswers[field.id] === "true"}
+                                    onCheckedChange={(checked) =>
+                                        setCustomAnswers((prev) => ({
+                                            ...prev,
+                                            [field.id]: checked ? "true" : "",
+                                        }))
+                                    }
+                                />
+                                <label
+                                    htmlFor={`custom-${field.id}`}
+                                    className="text-sm text-gray-700 dark:text-gray-200 cursor-pointer"
+                                >
+                                    はい
+                                </label>
+                            </div>
+                        )}
+                    </div>
+                ))}
 
                 {/* エラー表示 */}
                 {error && (
@@ -359,7 +506,7 @@ export function ReservationForm({ store, casts }: ReservationFormProps) {
                 >
                     {isSubmitting ? (
                         <>
-                            <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                             予約中...
                         </>
                     ) : (
